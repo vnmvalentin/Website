@@ -10,6 +10,7 @@
 //             ?skip=1  ohne Kamerafahrt, direkt am Platz (z. B. bei erneutem Auslösen)
 //             ?democlip=<Clip-ID>  zusätzlich ein Clip in den Beispiel-Credits
 //             ?figuren=roboter  Metall-Roboter mit Profilbild-Kopf statt der Comic-Figuren
+//             ?theme=christmas  Thema erzwingen (sonst gilt das Thema aus dem Steuerpult)
 import React, { useEffect, useRef, useState } from 'react';
 import { hasWebGL, fontsReady } from './sceneKit';
 import { useTwitchChat } from './twitchChat';
@@ -76,6 +77,7 @@ export default function StreamEnding() {
   const demoClip = params.get('democlip') || '';
   const figures = params.get('figuren') === 'roboter' ? 'robots' : 'people';
   const channel = (params.get('channel') || 'vnmvalentin').toLowerCase();
+  const themeParam = params.get('theme') || '';
 
   // Wer im Chat schreibt, nimmt im Saal Platz
   useTwitchChat(channel, {
@@ -102,9 +104,21 @@ export default function StreamEnding() {
         fatal('Code der Kino-Szene nicht geladen');
         return;
       }
+      // Thema vom Steuerpult (Weihnachten …); ?theme= geht vor. Ohne Antwort bleibt es beim normalen Kino.
+      let theme = themeParam;
+      if (!theme) {
+        try {
+          const ctl = new AbortController();
+          const timer = setTimeout(() => ctl.abort(), 2500);
+          const res = await fetch('/api/stream-scenes/live', { cache: 'no-store', signal: ctl.signal });
+          clearTimeout(timer);
+          if (res.ok) theme = (await res.json()).settings?.theme || '';
+        } catch { /* offline oder zu langsam: normales Kino */ }
+      }
       if (disposed || !canvasRef.current) return;
       try {
         sceneRef.current = createCinemaScene(canvasRef.current, {
+          theme,
           overlay: overlayRef.current,
           skipNames: [channel, ...BOTS],
           skipIntro: skip,
@@ -135,7 +149,7 @@ export default function StreamEnding() {
       sceneRef.current?.dispose();
       sceneRef.current = null;
     };
-  }, [demo, skip, demoClip, channel, figures]);
+  }, [demo, skip, demoClip, channel, figures, themeParam]);
 
   useStreamerbotCredits((payload) => {
     if (sceneRef.current) sceneRef.current.setCredits(payload);

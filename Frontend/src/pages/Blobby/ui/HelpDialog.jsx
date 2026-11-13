@@ -41,6 +41,14 @@ export default function HelpDialog({ open, onClose }) {
               <li className="flex flex-wrap items-center gap-1.5"><Key>Leertaste</Key> gesammeltes Powerup einsetzen</li>
               <li className="bv-dim">Am Handy: die Tasten unter dem Spielfeld</li>
             </ul>
+            <h3 className="bv-label mt-5 mb-3">Spielfeld „Ego 3D“</h3>
+            <ul className="space-y-2.5 text-[14px]">
+              <li className="flex flex-wrap items-center gap-1.5"><Key>Maus</Key> umsehen — der Ball fliegt dorthin, wo du hinschaust</li>
+              <li className="flex flex-wrap items-center gap-1.5"><Key>Linksklick</Key> schlagen · <Key>Rechtsklick</Key> hoch zuspielen</li>
+              <li className="flex flex-wrap items-center gap-1.5"><Key>W</Key><Key>A</Key><Key>S</Key><Key>D</Key> laufen · <Key>Leertaste</Key> springen · <Key>Shift</Key> Hechtsprung</li>
+              <li className="flex flex-wrap items-center gap-1.5"><Key>E</Key> Powerup einsetzen · <Key>F</Key> Vollbild</li>
+              <li className="bv-dim">Braucht Maus und Tastatur. Solange du auf Mitspieler wartest, kannst du gegen den Bot üben.</li>
+            </ul>
           </section>
           <section>
             <h3 className="bv-label mb-3">Regeln</h3>

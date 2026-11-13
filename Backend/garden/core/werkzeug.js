@@ -84,11 +84,21 @@ const WERKZEUGE = {
     watering_can: { art: "verbrauch", feld: "wateringCans", menge: 1, preis: 5000, bestand: 10 },
     chest: { art: "einmalig", feld: "hasChest", preis: 750000, bestand: 1 },
     vitrine: { art: "einmalig", feld: "hasVitrine", preis: 5000000, bestand: 1 },
+    // Angeln (06.11., core/angeln.js): ohne Angel kein Wurf. Die Profi-Angel macht den
+    // Fangbalken im Drill größer (Anzeige im AngelFenster) und setzt die Angel voraus.
+    // 07.11.: 50.000 / 50 Mio waren nach einer halben Stunde bzw. am ersten Tag erreicht.
+    angel: { art: "einmalig", feld: "hasAngel", preis: 750000, bestand: null },
+    profiangel: { art: "einmalig", feld: "hasProfiAngel", preis: 250000000, bestand: null, braucht: "hasAngel" },
+    // Köder: werden beim Auswerfen verbraucht, kein Rotations-Vorrat.
+    koeder_wurm: { art: "verbrauch", feld: "koederWurm", menge: 10, preis: 500, bestand: null },
+    koeder_teig: { art: "verbrauch", feld: "koederTeig", menge: 10, preis: 30000, bestand: null }, // preis = Anfangspreis, wächst mit (KOEDER_PREIS)
+    koeder_leucht: { art: "verbrauch", feld: "koederLeucht", menge: 5, preis: 300000, bestand: null }, // preis = Anfangspreis, wächst mit (KOEDER_PREIS)
 };
 
 const STANDARD = {
     pickaxeUses: 0, pickaxesBought: 0, hasShovel: false, hasChest: false, hasVitrine: false,
     backpackUpgraded: false, backpackLevel: 0, plantPots: 0, wateringCans: 0,
+    hasAngel: false, hasProfiAngel: false, koederWurm: 0, koederTeig: 0, koederLeucht: 0,
 };
 
 /** Werkzeugkasten eines Spielstands — immer vollständig, nie undefined. */
@@ -121,8 +131,51 @@ function preisFuer(state, toolId) {
         const nachlass = Math.min(0.6, wirkung(state, "lagerist"));
         return Math.max(1, Math.floor(rucksackPreis(w.backpackLevel) * (1 - nachlass)));
     }
+    if (toolId === "watering_can") {
+        // 07.11.: fest 5.000 Gold war ab der Wochenmitte fast gratis — ein Guss nimmt bis zu
+        // 90 Minuten von einer Pflanze, die dann Millionen wert ist. Jetzt: das Dreifache des
+        // Katalogwerts der übersprungenen Zeit einer Durchschnittspflanze deines Ackers
+        // (echter Verdienst liegt 10–30× darüber, ein Guss lohnt sich also weiter).
+        // Am Anfang bleibt es bei 5.000.
+        // Gezählt wird nur Zeit, die ein Guss wirklich überspringen kann (höchstens eine Ernte).
+        const { stundenErtrag } = require("./angeln"); // lazy: angeln lädt werkzeug
+        const { stufeVon, giesskanneMinuten } = require("./skills");
+        const { SEED_CATALOGUE } = require("./catalogue");
+        const katalog = new Map(SEED_CATALOGUE.map((k) => [k.id, k]));
+        const stunden = giesskanneMinuten(stufeVon(state || {}, "giesskanne")) / 60;
+        const pflanzen = Object.values(state?.plotPlants || {});
+        const zyklusH = (pf) => {
+            const k = katalog.get(pf?.seedId);
+            if (!k) return 0;
+            return pf.singleUse === false ? (Number(k.fruitCycleSec) || 0) / 3600 : ((Number(k.growMinSec) || 0) + (Number(k.growMaxSec) || 0)) / 2 / 3600;
+        };
+        const jeGuss = pflanzen.length
+            ? pflanzen.reduce((sum, pf) => sum + stundenErtrag(pf) * Math.min(stunden, zyklusH(pf)), 0) / pflanzen.length
+            : 0;
+        return Math.max(Number(eintrag.preis) || 0, Math.round(3 * jeGuss));
+    }
+    if (KOEDER_PREIS[toolId]) {
+        // Köder wachsen mit dem Fang (07.11.): ein Stück kostet einen festen Anteil dessen,
+        // was ein Fisch mit diesem Köder im Schnitt bringt (core/angeln.js ackerWert × Ø wert).
+        // Vorher fest 50 Gold je Wurm — ab der ersten Woche praktisch gratis.
+        const { ackerWert } = require("./angeln"); // lazy: angeln lädt werkzeug
+        const k = KOEDER_PREIS[toolId];
+        const jeStueck = Math.max(k.mindest, Math.round(k.einheiten * ackerWert(state || {})));
+        return jeStueck * (Number(eintrag.menge) || 1);
+    }
     return Math.max(0, Number(eintrag.preis) || 0);
 }
+
+/**
+ * Köderpreis je Stück in Fischwert-Einheiten (ackerWert = Wert eines Fischs mit wert 1).
+ * Ø Fang: Wurm ≈ 2, Teig ≈ 2,5, Leuchtköder ≈ 4 Einheiten → Anteil 25 / 35 / 45 %.
+ * `mindest` = Preis je Stück am Spielanfang. Spiegel der Texte: ui/laden/LadenFenster.jsx.
+ */
+const KOEDER_PREIS = {
+    koeder_wurm: { einheiten: 0.5, mindest: 50 },
+    koeder_teig: { einheiten: 0.9, mindest: 3000 },
+    koeder_leucht: { einheiten: 1.8, mindest: 60000 },
+};
 
 function fehler(status, text, extra = null) {
     return { ok: false, status, error: text, ...(extra || {}) };
@@ -143,6 +196,9 @@ function kaufeWerkzeug(state, toolId, { restVorrat, merkeKauf, freigelegteFelder
 
     if (eintrag.art === "einmalig" && w[eintrag.feld] === true) {
         return fehler(400, "Das hast du schon.");
+    }
+    if (eintrag.braucht && w[eintrag.braucht] !== true) {
+        return fehler(400, "Dafür brauchst du zuerst eine einfache Angel.");
     }
     if (toolId === "backpack_upgrade" && w.backpackLevel >= BACKPACK_MAX_LEVEL) {
         return fehler(400, `Der Rucksack ist voll ausgebaut (${50 + BACKPACK_MAX_LEVEL * 10} Plätze).`);

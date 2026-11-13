@@ -4,7 +4,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import OverlayView from "./OverlayView";
-import { msToClock } from "./overlayUtils";
+import { msToClock, timerDisplayMs } from "./overlayUtils";
 
 export default function WinChallengeOverlay() {
   const { overlayKey } = useParams();
@@ -42,8 +42,8 @@ export default function WinChallengeOverlay() {
     const iv = setInterval(() => {
       const t = docRef.current?.timer;
       if (!t) return;
-      const ms = t.running ? Date.now() - (t.startedAt || 0) : (t.elapsedMs || 0);
-      if (timerDisplayRef.current) timerDisplayRef.current.textContent = msToClock(ms);
+      // Hoch- oder runterzählend (Countdown bleibt bei 00:00:00 stehen)
+      if (timerDisplayRef.current) timerDisplayRef.current.textContent = msToClock(timerDisplayMs(t));
     }, 250);
     return () => clearInterval(iv);
   }, []);
@@ -64,9 +64,7 @@ export default function WinChallengeOverlay() {
 
   if (!doc) return null;
 
-  const timerMs = doc.timer?.running
-    ? Date.now() - (doc.timer?.startedAt || 0)
-    : (doc.timer?.elapsedMs || 0);
+  const timerMs = timerDisplayMs(doc.timer || {});
   const scale = Number(doc.style?.scale) || 1;
 
   return (

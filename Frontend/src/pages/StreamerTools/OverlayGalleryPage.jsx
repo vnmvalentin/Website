@@ -6,34 +6,17 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 import SEO from "../../components/SEO";
+import { Page, PageHeader, Tabs, Button } from "../../components/ui";
 import OverlayPreview from "../ClashRoyale/WinTracker/OverlayPreview";
 import OverlayView from "../WinChallenge/OverlayView";
 import { STYLE_PRESETS } from "../WinChallenge/stylePresets";
 import { OVERLAY_TEMPLATES, CR_FONT_HREF } from "../ClashRoyale/WinTracker/overlayTheme";
 import { PollWidget, PredictionWidget, GoalWidget, StatsWidget } from "../StreamTool/OverlayWidgets";
-import { defaultConfig, useDemoSim, paintDemo, toGoalView, toStatsView } from "../StreamTool/streamToolConfig";
+import { defaultConfig, effectiveModules, useDemoSim, paintDemo, toGoalView, toStatsView } from "../StreamTool/streamToolConfig";
+import { useFontLink } from "../../components/shell/useFontLink";
+import { WT_SETTINGS, WC_DOC, WC_TIMER_MS } from "./demoData";
 
 const noop = () => {};
-
-// Wie im Win-Tracker-Editor voreingestellt (WinTrackerPage.jsx)
-export const WT_SETTINGS = {
-  showDailyProfit: true, showWinLossNumbers: true, showWinLossPercent: true, showLast5: true,
-  bgColor: "#0c0c12", bgOpacity: 88, bgGradient: false, bgColor2: "#1a1a2e", borderColor: "",
-  last5Style: "result", last5Direction: "newestLeft", last5NewBadge: true,
-  showDeck: true, showProfile: true, deckPlacement: "top", language: "de",
-  paginateOverlay: false, paginateIntervalS: 6, showClan: false,
-  overlayTheme: "classic", royalePanel: "blue", royalePattern: true, overlayScale: 100,
-};
-
-export const WC_DOC = {
-  title: "Win Challenge",
-  items: [
-    { id: "d1", name: "3 Siege mit Zufallsdeck", useWins: true, target: 3, progress: 2 },
-    { id: "d2", name: "Ohne Zauber gewinnen", done: true },
-    { id: "d3", name: "Gegen einen Zuschauer", pinned: true },
-  ],
-};
-export const WC_TIMER_MS = (47 * 60 + 12) * 1000; // stehende Beispielzeit statt 00:00:00
 
 /** Verkleinert ein Overlay mit fester Pixelbreite passend in seine Kachel (nie größer als 100 %). */
 export function Fit({ children }) {
@@ -72,8 +55,8 @@ export function Fit({ children }) {
 /** Eine Vorlage: die ganze Kachel ist der Link */
 function GalleryTile({ label, note, to, children }) {
   return (
-    <Link to={to} className="group flex flex-col rounded-xl border border-white/10 bg-[#101016] hover:border-violet-400/45 transition-colors overflow-hidden" data-gallery-tile>
-      <div className="flex-1 min-h-[200px] flex items-center justify-center p-4 bg-[#08080b] border-b border-white/10 overflow-hidden" data-gallery-preview>
+    <Link to={to} className="group flex flex-col rounded-lg border border-line bg-surface/80 hover:border-accent/45 transition-colors overflow-hidden" data-gallery-tile>
+      <div className="flex-1 min-h-[200px] flex items-center justify-center p-4 bg-[#08080b] border-b border-line overflow-hidden" data-gallery-preview>
         {children}
       </div>
       <div className="flex items-center justify-between gap-3 px-4 py-3">
@@ -81,14 +64,14 @@ function GalleryTile({ label, note, to, children }) {
           <span className="block text-sm font-semibold text-white truncate">{label}</span>
           {note && <span className="block text-xs text-white/45 truncate">{note}</span>}
         </span>
-        <span className="shrink-0 text-xs font-semibold text-violet-300 group-hover:text-violet-200">Verwenden →</span>
+        <span className="shrink-0 text-xs font-semibold text-accent-soft group-hover:text-white">Verwenden →</span>
       </div>
     </Link>
   );
 }
 
 function TwitchWidgets() {
-  const m = useMemo(() => defaultConfig().modules, []);
+  const m = useMemo(() => effectiveModules(defaultConfig()), []);
   const sim = useDemoSim(true, 2);
   const items = [
     { id: "poll", label: "Umfragen", note: "Balken füllen sich mit jeder Stimme", el: sim.poll && <PollWidget data={paintDemo(sim.poll, m.poll)} module={m.poll} /> },
@@ -116,32 +99,27 @@ export default function OverlayGalleryPage() {
   const tab = TABS.find((x) => x.id === params.get("reiter")) || TABS[0];
 
   // Der Royale-Look braucht seine Schrift — das echte Overlay lädt sie genauso (WinTrackerOverlayPage.jsx)
-  useEffect(() => {
-    if (document.querySelector(`link[href="${CR_FONT_HREF}"]`)) return;
-    const link = document.createElement("link");
-    link.rel = "stylesheet";
-    link.href = CR_FONT_HREF;
-    document.head.appendChild(link);
-  }, []);
+  useFontLink(CR_FONT_HREF);
 
   return (
-    <div className="page-fade w-full max-w-7xl mx-auto px-2 md:px-4 py-8 md:py-12">
+    <Page width="wide" className="py-4 md:py-10">
       <SEO title="Overlay-Galerie" description="Fertige Looks für die kostenlosen OBS-Overlays: Win Tracker, Win Challenge und Twitch-Umfragen, -Vorhersagen und -Ziele. Mit einem Klick übernehmen." path="/tools/vorlagen" />
-      <Link to="/tools" className="inline-flex items-center gap-1.5 text-sm text-white/50 hover:text-white mb-6"><ArrowLeft size={15} /> Streamer-Tools</Link>
-      <header className="mb-8">
-        <p className="text-xs font-bold uppercase tracking-widest text-violet-300/80 mb-2">Für Streamer</p>
-        <h1 className="font-display text-3xl md:text-5xl font-bold text-white tracking-tight mb-3">Overlay-Galerie</h1>
-        <p className="text-white/55 text-sm md:text-base max-w-2xl">Fertige Looks zum Durchklicken. Ein Klick übernimmt die Vorlage in deinen Editor.</p>
-      </header>
+      <Button to="/tools" variant="ghost" icon={ArrowLeft} className="-ml-3 mb-4">Streamer-Tools</Button>
+      <PageHeader
+        size="hero"
+        className="!mb-8"
+        kicker="Für Streamer"
+        title="Overlay-Galerie"
+        description="Fertige Looks zum Durchklicken. Ein Klick übernimmt die Vorlage in deinen Editor."
+      />
 
-      <div className="flex flex-wrap gap-1 border-b border-white/10 mb-3" role="tablist">
-        {TABS.map((x) => (
-          <button key={x.id} type="button" role="tab" aria-selected={x.id === tab.id} onClick={() => setParams({ reiter: x.id }, { replace: true })}
-            className={`px-4 py-2.5 text-sm font-semibold border-b-2 -mb-px transition-colors ${x.id === tab.id ? "border-violet-400 text-white" : "border-transparent text-white/50 hover:text-white"}`}>
-            {x.label}
-          </button>
-        ))}
-      </div>
+      <Tabs
+        className="mb-3"
+        label="Overlays"
+        value={tab.id}
+        onChange={(id) => setParams({ reiter: id }, { replace: true })}
+        items={TABS.map((x) => ({ value: x.id, label: x.label }))}
+      />
       <p className="text-sm text-white/45 mb-6">{tab.hint}</p>
 
       <div role="tabpanel">
@@ -168,6 +146,6 @@ export default function OverlayGalleryPage() {
         )}
         {tab.id === "twitch" && <TwitchWidgets />}
       </div>
-    </div>
+    </Page>
   );
 }

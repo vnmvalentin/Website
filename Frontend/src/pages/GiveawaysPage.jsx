@@ -12,17 +12,11 @@ import {
 } from "lucide-react";
 import { socket, useFeedRoom } from "../utils/socket";
 import SEO from "../components/SEO";
+import { TwitchGlyph } from "../components/BrandGlyphs";
+import { Page, PageHeader, Card, EmptyState, Button, Dialog, Tabs, Field, Input } from "../components/ui";
 
-const STREAMER_ID = "160224748"; // deine Twitch-ID
+import { STREAMER_ID } from "../config/owner";
 const STREAMER_LOGIN = "vnmvalentin";
-
-function TwitchGlyph({ className }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden="true">
-      <path d="M11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714zM6 0 1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.286 12V0zm14.571 11.143-3.428 3.428h-3.429l-3 3v-3H6.857V1.714h13.714Z" />
-    </svg>
-  );
-}
 
 const REQUIREMENT_TEMPLATES = [
   {
@@ -80,86 +74,52 @@ function CreateGiveawayModal({ onClose, onSave }) {
     req_twitchFollow: false,
   });
 
+  // Pflichtfelder im Fenster selbst anmahnen statt per alert()
+  const [tried, setTried] = useState(false);
   const handleSave = () => {
-      if (!form.title || !form.endDate) return alert("Titel und Enddatum sind Pflicht.");
+      setTried(true);
+      if (!form.title || !form.endDate) return;
       onSave(form);
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={onClose} />
-
-      <div className="relative w-full max-w-lg panel-strong shadow-2xl shadow-black/60 flex flex-col">
-        <div className="flex items-center justify-between p-5 border-b border-white/10">
-          <h2 className="font-display text-xl font-bold text-white flex items-center gap-2"><Gift className="text-violet-300" size={20} /> Neues Giveaway</h2>
-          <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-lg text-white/40 hover:text-white transition-colors"><X size={20} /></button>
+    <Dialog
+      open
+      onClose={onClose}
+      width="lg"
+      kicker="Giveaway"
+      title="Neues Giveaway"
+      footer={<><Button variant="ghost" onClick={onClose}>Abbrechen</Button><Button icon={Gift} onClick={handleSave}>Erstellen</Button></>}
+    >
+      <div className="space-y-4">
+        <Field label="Titel" error={tried && !form.title ? "Bitte einen Titel eingeben." : undefined}>
+          <Input placeholder="Was wird verlost?" value={form.title} onChange={e => setForm({...form, title: e.target.value})} />
+        </Field>
+        <Field label="Gewinn (optional)">
+          <Input placeholder="z. B. 10 € Steam-Karte" value={form.prize} onChange={e => setForm({...form, prize: e.target.value})} />
+        </Field>
+        <div className="grid grid-cols-2 gap-4">
+          <Field label="Anzahl Gewinner">
+            <Input type="number" min="1" value={form.quantity} onChange={e => setForm({...form, quantity: e.target.value})} />
+          </Field>
+          <Field label="Enddatum" error={tried && !form.endDate ? "Bitte ein Enddatum wählen." : undefined}>
+            <Input type="datetime-local" value={form.endDate} onChange={e => setForm({...form, endDate: e.target.value})} />
+          </Field>
         </div>
-
-        <div className="p-6 space-y-4">
-            <div>
-                <label className="text-xs font-bold text-white/40 uppercase tracking-wider mb-1.5 block">Titel</label>
-                <input
-                    className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-3 text-white focus:border-violet-500 outline-none transition-colors placeholder:text-white/20"
-                    placeholder="Was wird verlost?"
-                    value={form.title}
-                    onChange={e => setForm({...form, title: e.target.value})}
-                    autoFocus
-                />
-            </div>
-
-            <div>
-                <label className="text-xs font-bold text-white/40 uppercase tracking-wider mb-1.5 block">Gewinn (Optional)</label>
-                <input
-                    className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-3 text-white focus:border-violet-500 outline-none transition-colors placeholder:text-white/20"
-                    placeholder="z.B. 10€ Steam Karte"
-                    value={form.prize}
-                    onChange={e => setForm({...form, prize: e.target.value})}
-                />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-                <div>
-                    <label className="text-xs font-bold text-white/40 uppercase tracking-wider mb-1.5 block">Anzahl Gewinner</label>
-                    <input
-                        type="number" min="1"
-                        className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-3 text-white focus:border-violet-500 outline-none transition-colors"
-                        value={form.quantity}
-                        onChange={e => setForm({...form, quantity: e.target.value})}
-                    />
-                </div>
-                <div>
-                    <label className="text-xs font-bold text-white/40 uppercase tracking-wider mb-1.5 block">Enddatum</label>
-                    <input
-                        type="datetime-local"
-                        className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-3 text-white focus:border-violet-500 outline-none transition-colors text-sm"
-                        value={form.endDate}
-                        onChange={e => setForm({...form, endDate: e.target.value})}
-                    />
-                </div>
-            </div>
-
-            <div className="pt-2">
-                <label className="flex items-center gap-3 p-3 bg-white/5 border border-white/10 rounded-lg cursor-pointer hover:bg-white/10 transition-colors">
-                    <input
-                        type="checkbox"
-                        className="w-5 h-5 rounded border-white/20 bg-black/50 text-violet-500 focus:ring-violet-500 focus:ring-offset-0"
-                        checked={form.req_twitchFollow}
-                        onChange={e => setForm({...form, req_twitchFollow: e.target.checked})}
-                    />
-                    <div className="text-sm">
-                        <span className="block font-medium text-white">Twitch Follower Only</span>
-                        <span className="block text-xs text-white/50">Teilnehmer müssen {STREAMER_LOGIN} folgen</span>
-                    </div>
-                </label>
-            </div>
-        </div>
-
-        <div className="p-5 border-t border-white/10 flex justify-end gap-3">
-            <button onClick={onClose} className="px-5 py-2.5 rounded-lg font-medium text-white/50 hover:text-white hover:bg-white/5 transition-colors">Abbrechen</button>
-            <button onClick={handleSave} className="px-6 py-2.5 rounded-lg font-bold bg-violet-600 hover:bg-violet-500 text-white transition-colors">Erstellen</button>
-        </div>
+        <label className="flex items-center gap-3 p-3 bg-white/5 border border-line rounded-lg cursor-pointer hover:bg-white/10 transition-colors">
+          <input
+            type="checkbox"
+            className="w-4 h-4 accent-violet-500 shrink-0"
+            checked={form.req_twitchFollow}
+            onChange={e => setForm({...form, req_twitchFollow: e.target.checked})}
+          />
+          <span className="text-sm">
+            <span className="block font-medium text-white">Nur für Follower</span>
+            <span className="block text-xs text-white/50">Teilnehmer müssen {STREAMER_LOGIN} auf Twitch folgen</span>
+          </span>
+        </label>
       </div>
-    </div>
+    </Dialog>
   );
 }
 
@@ -173,11 +133,11 @@ function ActiveGiveawayCard({ giveaway, user, onJoin, isAdmin, onDelete, require
     const met = reqs.every(r => requirementsCheck(r));
 
     return (
-        <div className="group panel p-5 transition-colors hover:bg-white/[0.05] flex flex-col md:flex-row gap-5">
+        <Card className="flex flex-col md:flex-row gap-5">
 
             {/* Icon Box */}
-            <div className="hidden md:flex shrink-0 w-16 h-16 rounded-xl bg-violet-500/10 border border-violet-400/20 items-center justify-center">
-                <Gift className="text-violet-300" size={30} />
+            <div className="hidden md:flex shrink-0 w-14 h-14 rounded-lg bg-accent/10 border border-accent/25 items-center justify-center">
+                <Gift className="text-accent-soft" size={26} />
             </div>
 
             {/* Content */}
@@ -187,9 +147,7 @@ function ActiveGiveawayCard({ giveaway, user, onJoin, isAdmin, onDelete, require
                         <div className="flex items-center gap-2 mb-1">
                              <h3 className="text-lg font-bold text-white leading-tight">{giveaway.title}</h3>
                              {isAdmin && (
-                                <button onClick={() => onDelete(giveaway.id)} className="p-1.5 text-white/20 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors" title="Löschen">
-                                    <Trash2 size={15} />
-                                </button>
+                                <Button variant="ghost" size="sm" icon={Trash2} onClick={() => onDelete(giveaway.id)} title="Löschen" aria-label="Löschen" className="hover:!text-red-400" />
                              )}
                         </div>
                         {giveaway.prize && (
@@ -237,26 +195,23 @@ function ActiveGiveawayCard({ giveaway, user, onJoin, isAdmin, onDelete, require
 
             {/* Action Button */}
             <div className="flex flex-col justify-center items-stretch md:w-44 shrink-0">
-                <button
+                <Button
+                    block
+                    size="lg"
                     onClick={() => onJoin(giveaway)}
-                    disabled={user && !met}
-                    className={`
-                        w-full py-3 px-4 rounded-lg font-bold text-sm transition-colors flex items-center justify-center gap-2
-                        ${!user ? "bg-[#9146FF] hover:bg-[#7c3aed] text-white" :
-                          joined ? "bg-red-500/10 border border-red-500/40 text-red-400 hover:bg-red-500/20" :
-                          met ? "bg-violet-600 hover:bg-violet-500 text-white" :
-                          "bg-white/5 border border-white/10 text-white/30 cursor-not-allowed"}
-                    `}
+                    disabled={!!user && !joined && !met}
+                    variant={!user ? "twitch" : joined ? "secondary" : "primary"}
+                    icon={!user ? TwitchGlyph : undefined}
                 >
-                    {!user ? <><TwitchGlyph className="w-4 h-4" /> Login</> : joined ? "Verlassen" : "Teilnehmen"}
-                </button>
-                {user && !met && (
-                    <div className="text-[10px] text-red-400 text-center mt-2">
+                    {!user ? "Anmelden" : joined ? "Verlassen" : "Teilnehmen"}
+                </Button>
+                {user && !joined && !met && (
+                    <div className="text-xs text-red-400 text-center mt-2">
                         Voraussetzungen fehlen
                     </div>
                 )}
             </div>
-        </div>
+        </Card>
     );
 }
 
@@ -266,7 +221,7 @@ function ExpiredGiveawayCard({ giveaway, isAdmin, onDelete }) {
     const winnerNames = winners.map(id => participants[id]?.displayName || "Unbekannt");
 
     return (
-        <div className="panel p-5 flex flex-col gap-4 opacity-80 hover:opacity-100 transition-opacity">
+        <Card className="flex flex-col gap-4">
             <div className="flex justify-between items-start">
                 <div>
                      <h3 className="text-base font-bold text-white/80">{giveaway.title}</h3>
@@ -277,14 +232,12 @@ function ExpiredGiveawayCard({ giveaway, isAdmin, onDelete }) {
                      </div>
                 </div>
                 {isAdmin && (
-                    <button onClick={() => onDelete(giveaway.id)} className="p-1.5 text-white/20 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors">
-                        <Trash2 size={15} />
-                    </button>
+                    <Button variant="ghost" size="sm" icon={Trash2} onClick={() => onDelete(giveaway.id)} title="Löschen" aria-label="Löschen" className="hover:!text-red-400" />
                 )}
             </div>
 
             {/* Winners Section */}
-            <div className="bg-black/20 rounded-lg p-3 border border-white/10">
+            <div className="bg-black/20 rounded-lg p-3 border border-line">
                 <div className="flex items-center gap-2 text-xs font-bold text-amber-400 uppercase tracking-wider mb-2">
                     <Trophy size={12} /> Gewinner
                 </div>
@@ -300,7 +253,7 @@ function ExpiredGiveawayCard({ giveaway, isAdmin, onDelete }) {
                     <div className="text-sm text-white/30 italic">Noch nicht ausgelost oder keine Teilnehmer.</div>
                 )}
             </div>
-        </div>
+        </Card>
     );
 }
 
@@ -444,7 +397,7 @@ export default function GiveawaysPage() {
       if (!alreadyIn && !allReqsMet(g)) return alert("Voraussetzungen nicht erfüllt.");
 
       const url = alreadyIn ? `/api/giveaways/${g.id}/leave` : `/api/giveaways/${g.id}/join`;
-      const body = alreadyIn ? null : JSON.stringify({ displayName: user.display_name, profileImageUrl: user.profile_image_url });
+      const body = alreadyIn ? null : JSON.stringify({ displayName: user.displayName, profileImageUrl: user.profileImageUrl });
 
       try {
           const res = await fetch(url, {
@@ -466,47 +419,37 @@ export default function GiveawaysPage() {
   const expiredSorted = [...data.expired].sort((a,b) => new Date(b.endDate) - new Date(a.endDate));
 
   return (
-    <div className="page-fade max-w-4xl mx-auto px-2 md:px-4 py-8 md:py-12 min-h-[80vh]">
+    <Page width="default" className="py-4 md:py-8 min-h-[70vh]">
         <SEO title = "Giveaways"/>
 
-        {/* Header */}
-        <div className="flex flex-col items-center text-center gap-4 mb-10">
-            <span className="flex items-center justify-center w-14 h-14 rounded-2xl bg-violet-500/10 border border-violet-400/20 text-violet-300">
-              <Gift size={26} />
-            </span>
-            <h1 className="font-display text-3xl md:text-4xl font-bold text-white tracking-tight">Giveaways</h1>
+        <PageHeader
+            icon={Gift}
+            kicker="Community"
+            title="Giveaways"
+            description="Aktuelle Verlosungen aus dem Stream — anmelden, teilnehmen, Daumen drücken."
+            actions={isAdmin && <Button icon={Plus} onClick={() => setShowModal(true)}>Neues Giveaway</Button>}
+        />
 
-            {/* Underline Tabs */}
-            <div className="flex border-b border-white/10 mt-2">
-            <button
-                className={`px-5 py-2.5 text-sm font-semibold transition-colors border-b-2 -mb-px ${activeTab === "active" ? "border-violet-400 text-white" : "border-transparent text-white/40 hover:text-white/70"}`}
-                onClick={() => setActiveTab("active")}
-            >
-                Laufend ({activeSorted.length})
-            </button>
-            <button
-                className={`px-5 py-2.5 text-sm font-semibold transition-colors border-b-2 -mb-px ${activeTab === "expired" ? "border-violet-400 text-white" : "border-transparent text-white/40 hover:text-white/70"}`}
-                onClick={() => setActiveTab("expired")}
-            >
-                Vergangen ({expiredSorted.length})
-            </button>
-            </div>
-        </div>
+        <Tabs
+            className="mb-6"
+            label="Giveaways"
+            value={activeTab}
+            onChange={setActiveTab}
+            items={[
+                { value: "active", label: "Laufend", badge: activeSorted.length },
+                { value: "expired", label: "Vergangen", badge: expiredSorted.length },
+            ]}
+        />
 
         {/* Content List */}
         <div className="space-y-4">
             {loadError ? (
-                <div className="text-center py-16 px-4 text-white/50 border border-dashed border-white/10 rounded-xl bg-white/[0.02]">
-                    <p className="mb-4">Die Giveaways konnten gerade nicht geladen werden.</p>
-                    <button onClick={refresh} className="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/15 text-white text-sm font-semibold transition-colors">
-                        Erneut versuchen
-                    </button>
-                </div>
+                <EmptyState action={<Button variant="secondary" onClick={refresh}>Erneut versuchen</Button>}>
+                    Die Giveaways konnten gerade nicht geladen werden.
+                </EmptyState>
             ) : activeTab === "active" ? (
                 activeSorted.length === 0 ? (
-                    <div className="text-center py-20 text-white/30 border border-dashed border-white/10 rounded-xl bg-white/[0.02]">
-                        Aktuell keine aktiven Giveaways.
-                    </div>
+                    <EmptyState>Aktuell keine aktiven Giveaways.</EmptyState>
                 ) : (
                     activeSorted.map(g => (
                         <ActiveGiveawayCard
@@ -522,9 +465,7 @@ export default function GiveawaysPage() {
                 )
             ) : (
                 expiredSorted.length === 0 ? (
-                    <div className="text-center py-20 text-white/30 border border-dashed border-white/10 rounded-xl bg-white/[0.02]">
-                        Keine vergangenen Giveaways.
-                    </div>
+                    <EmptyState>Keine vergangenen Giveaways.</EmptyState>
                 ) : (
                     expiredSorted.map(g => (
                         <ExpiredGiveawayCard
@@ -538,22 +479,9 @@ export default function GiveawaysPage() {
             )}
         </div>
 
-        {/* Admin Floating Button */}
-        {isAdmin && (
-            <div className="fixed bottom-8 right-8 z-40">
-                <button
-                    onClick={() => setShowModal(true)}
-                    className="w-10 h-10 rounded-xl bg-violet-600 hover:bg-violet-500 text-white flex items-center justify-center transition-colors shadow-lg shadow-violet-950/40"
-                    title="Neues Giveaway"
-                >
-                    <Plus size={20} />
-                </button>
-            </div>
-        )}
-
-        {/* Admin Modal */}
+        {/* Admin: Neues Giveaway (Knopf steht oben im Seitenkopf) */}
         {showModal && <CreateGiveawayModal onClose={() => setShowModal(false)} onSave={handleCreate} />}
 
-    </div>
+    </Page>
   );
 }

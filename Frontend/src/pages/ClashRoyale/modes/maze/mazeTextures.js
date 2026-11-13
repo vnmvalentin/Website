@@ -20,15 +20,6 @@ function canvas(size) {
   return c;
 }
 
-/** Feines Rauschen über die ganze Fläche — nimmt den Flächen das Glatte. */
-function speckle(ctx, size, rand, amount, alpha) {
-  for (let i = 0; i < amount; i++) {
-    const v = rand() < 0.5 ? 0 : 255;
-    ctx.fillStyle = `rgba(${v},${v},${v},${alpha * rand()})`;
-    ctx.fillRect(rand() * size, rand() * size, 1 + rand() * 2, 1 + rand() * 2);
-  }
-}
-
 function toTexture(c, repeat = 1) {
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace;
@@ -49,99 +40,102 @@ function toBump(c) {
   return tex;
 }
 
-/** Mauerwerk: versetzte Quader in kühlem Schiefergrau, dunkle Fugen, unten etwas Moos. */
+/**
+ * Mauerwerk im Clash-Royale-Stil: klobige, gemalte Quader in Blauviolett — heller Schein an der
+ * Oberkante, dunkler Fuß, kräftige dunkle Fuge. Kein Rauschen, keine Risse (wirkte schmutzig statt
+ * gemalt). Die Farbe ist bewusst hell genug, dass die Fackel ein klares, warmes Bild ergibt.
+ */
 export function wallTextures() {
   const size = 512;
   const c = canvas(size);
   const ctx = c.getContext('2d');
   const rand = rng(1337);
-  ctx.fillStyle = '#17161f';
+  ctx.fillStyle = '#1b1740';
   ctx.fillRect(0, 0, size, size);
-  const rows = 6;
-  const bh = size / rows;
+  const rows = 4, cols = 2;
+  const bh = size / rows, bw = size / cols;
+  const tones = [[96, 106, 188], [86, 94, 172], [108, 118, 200], [92, 100, 180]];
   for (let r = 0; r < rows; r++) {
-    const cols = 3;
-    const bw = size / cols;
     const shift = r % 2 ? bw / 2 : 0;
+    // Farbe je Stein vorab ziehen: der Stein, der über den rechten Rand ragt, muss links gleich aussehen
+    const rowTones = Array.from({ length: cols }, () => tones[Math.floor(rand() * tones.length)]);
     for (let i = -1; i <= cols; i++) {
-      const x = i * bw + shift + 3, y = r * bh + 3;
-      const w = bw - 6, h = bh - 6;
-      const base = 46 + rand() * 26;
-      const tint = rand() * 8;
-      const g = ctx.createLinearGradient(x, y, x, y + h);
-      g.addColorStop(0, `rgb(${base + 4},${base + 10 + tint},${base + 26})`);
-      g.addColorStop(1, `rgb(${base - 18},${base - 14},${base - 4})`);
-      ctx.fillStyle = g;
+      const [tr, tg, tb] = rowTones[((i % cols) + cols) % cols];
+      const x = i * bw + shift + 5, y = r * bh + 5;
+      const w = bw - 10, h = bh - 10;
       ctx.beginPath();
-      ctx.roundRect(x, y, w, h, 6);
+      ctx.roundRect(x, y, w, h, 16);
+      ctx.fillStyle = `rgb(${tr},${tg},${tb})`;
       ctx.fill();
-      // Risse
-      ctx.strokeStyle = 'rgba(10,10,16,0.55)';
-      ctx.lineWidth = 1.2;
-      if (rand() < 0.45) {
-        ctx.beginPath();
-        let cx = x + rand() * w, cy = y + rand() * h * 0.3;
-        ctx.moveTo(cx, cy);
-        for (let k = 0; k < 4; k++) { cx += (rand() - 0.5) * 30; cy += rand() * 18; ctx.lineTo(cx, cy); }
-        ctx.stroke();
-      }
+      const g = ctx.createLinearGradient(0, y, 0, y + h);
+      g.addColorStop(0, 'rgba(210,225,255,0.42)');
+      g.addColorStop(0.22, 'rgba(210,225,255,0.06)');
+      g.addColorStop(0.7, 'rgba(20,14,70,0)');
+      g.addColorStop(1, 'rgba(20,14,70,0.42)');
+      ctx.fillStyle = g;
+      ctx.fill();
+      ctx.lineWidth = 5;
+      ctx.strokeStyle = 'rgba(22,16,58,0.9)';
+      ctx.stroke();
+      // ein gemalter Lichttupfer je Stein
+      ctx.fillStyle = 'rgba(225,235,255,0.08)';
+      ctx.beginPath();
+      ctx.ellipse(x + w * 0.28, y + h * 0.3, w * 0.13, h * 0.09, -0.3, 0, Math.PI * 2);
+      ctx.fill();
     }
   }
-  // Moos und Feuchtigkeit am Fuß der Wand
-  const moss = ctx.createLinearGradient(0, size * 0.72, 0, size);
-  moss.addColorStop(0, 'rgba(40,70,40,0)');
-  moss.addColorStop(1, 'rgba(40,70,40,0.35)');
-  ctx.fillStyle = moss;
-  ctx.fillRect(0, size * 0.72, size, size * 0.28);
-  speckle(ctx, size, rand, 9000, 0.12);
   return { map: toTexture(c), bump: toBump(c) };
 }
 
-/** Bodenplatten: unregelmäßige Steinplatten, warm-dunkel, mit Fugen. */
+/** Bodenplatten: große, helle Schieferplatten mit gemalter Kante — ruhiger als die Wand. */
 export function floorTextures() {
   const size = 512;
   const c = canvas(size);
   const ctx = c.getContext('2d');
   const rand = rng(4242);
-  ctx.fillStyle = '#100f14';
+  ctx.fillStyle = '#211c48';
   ctx.fillRect(0, 0, size, size);
-  const n = 4;
+  const n = 2;
   const s = size / n;
   for (let y = 0; y < n; y++) {
     for (let x = 0; x < n; x++) {
-      const v = 34 + rand() * 18;
-      ctx.fillStyle = `rgb(${v + 6},${v + 2},${v})`;
+      const v = rand() * 14;
       ctx.beginPath();
-      ctx.roundRect(x * s + 4, y * s + 4, s - 8, s - 8, 10);
+      ctx.roundRect(x * s + 6, y * s + 6, s - 12, s - 12, 20);
+      ctx.fillStyle = `rgb(${118 + v},${116 + v},${168 + v})`;
       ctx.fill();
-      const hl = ctx.createRadialGradient(x * s + s * 0.35, y * s + s * 0.3, 4, x * s + s / 2, y * s + s / 2, s * 0.7);
-      hl.addColorStop(0, 'rgba(255,255,255,0.06)');
-      hl.addColorStop(1, 'rgba(0,0,0,0.18)');
+      const hl = ctx.createLinearGradient(x * s, y * s, x * s + s, y * s + s);
+      hl.addColorStop(0, 'rgba(230,235,255,0.22)');
+      hl.addColorStop(0.5, 'rgba(230,235,255,0)');
+      hl.addColorStop(1, 'rgba(24,16,70,0.26)');
       ctx.fillStyle = hl;
-      ctx.fillRect(x * s + 4, y * s + 4, s - 8, s - 8);
+      ctx.fill();
+      ctx.lineWidth = 5;
+      ctx.strokeStyle = 'rgba(26,20,64,0.85)';
+      ctx.stroke();
     }
   }
-  speckle(ctx, size, rand, 12000, 0.14);
   return { map: toTexture(c), bump: toBump(c) };
 }
 
-/** Decke: grobe Balken über dunklem Stein — oben soll es eng und finster wirken. */
+/** Decke: dunkles Blauviolett mit warmen Holzbalken (Kontur wie überall). */
 export function ceilingTexture() {
   const size = 256;
   const c = canvas(size);
   const ctx = c.getContext('2d');
-  const rand = rng(99);
-  ctx.fillStyle = '#0b0a0e';
+  ctx.fillStyle = '#2a2560';
   ctx.fillRect(0, 0, size, size);
   for (let i = 0; i < 2; i++) {
     const y = i * size / 2 + 20;
     const g = ctx.createLinearGradient(0, y, 0, y + 50);
-    g.addColorStop(0, '#2a1d14');
-    g.addColorStop(1, '#140d09');
+    g.addColorStop(0, '#a56a36');
+    g.addColorStop(1, '#6e421f');
     ctx.fillStyle = g;
     ctx.fillRect(0, y, size, 50);
+    ctx.fillStyle = 'rgba(43,28,16,0.9)';
+    ctx.fillRect(0, y - 4, size, 4);
+    ctx.fillRect(0, y + 50, size, 4);
   }
-  speckle(ctx, size, rand, 4000, 0.15);
   return toTexture(c);
 }
 

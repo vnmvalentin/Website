@@ -1,18 +1,20 @@
 // LightsOut.jsx — Horror-Labyrinth in der Ego-Perspektive. Eigene Hülle ohne Website-Kopfzeile:
 // Hauptmenü → Spiel (three.js, lazy) → Ende. Die Spielwelt lebt in game.js, hier nur Oberfläche.
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { ArrowLeftToLine, X } from 'lucide-react';
-import { drawScareFace } from './scareFace';
+import { X } from 'lucide-react';
 import { LEVELS } from './levels';
+import { ALL_NOTES } from './lore';
 import { SYMBOLS, STROKE_ONLY, SYMBOL_NAMES } from './symbols';
 import { useCoop, loadName } from './useCoop';
 import './theme.css';
+import { useFontLink } from '../../components/shell/useFontLink';
+import BackToSite from '../../components/shell/BackToSite';
 
 const FONT_HREF = 'https://fonts.googleapis.com/css2?family=Special+Elite&display=swap';
 const PREFS_KEY = 'lo:prefs';
 const BEST_KEY = 'lo:best-run';
 const PROGRESS_KEY = 'lo:progress';
+const NOTES_KEY = 'lo:notes';
 const clampLevel = (n) => Math.max(0, Math.min(LEVELS.length - 1, Math.floor(Number(n) || 0)));
 
 function readJson(key, fallback) {
@@ -138,7 +140,7 @@ function Controls() {
       <dt>Shift</dt><dd>Rennen — laut</dd>
       <dt>C</dt><dd>Schleichen — fast lautlos (halten)</dd>
       <dt>F</dt><dd>Taschenlampe an/aus — ohne Licht gewöhnen sich die Augen</dd>
-      <dt>E</dt><dd>Aufheben, verstecken, benutzen (halten: drehen, einsetzen)</dd>
+      <dt>E</dt><dd>Aufheben, lesen, verstecken, benutzen (halten: drehen, einsetzen)</dd>
       <dt>0 – 9</dt><dd>Code am Zahlenschloss eingeben</dd>
       <dt>Esc</dt><dd>Pause</dd>
     </dl>
@@ -196,19 +198,42 @@ function Bulb() {
   );
 }
 
-/** Vollbild-Fratze. Wird einmal gezeichnet, die Bewegung macht CSS. */
-function Jumpscare({ soft }) {
-  const ref = useRef(null);
-  useEffect(() => {
-    const c = ref.current;
-    if (!c) return;
-    c.width = 900;
-    c.height = 900;
-    drawScareFace(c);
-  }, []);
+/**
+ * Erwischt. Die Szene selbst spielt in der 3D-Welt (game.js: das Monster packt einen). Hier liegt nur der
+ * Rahmen darüber: in der Phase 'grab' rote, pulsierende Ränder und Bildstörungen, in der Phase 'cut' der
+ * harte Schnitt ins Schwarze.
+ */
+function Jumpscare({ soft, phase }) {
+  return <div className={`lo-scare is-${phase || 'grab'}${soft ? ' is-soft' : ''}`} aria-hidden="true" />;
+}
+
+/**
+ * Gefundene Notiz. Allein steht das Spiel, solange man liest (note.paused): das Blatt liegt groß in der Bildmitte.
+ * Zu mehreren läuft die Welt weiter — dann bleibt es ein kleines Blatt am unteren Bildrand.
+ */
+function NoteSheet({ note }) {
+  const sheet = (
+    <div className={`lo-note-sheet${note.paused ? ' is-reading' : ''}`} role="note">
+      <b>{note.title}</b>
+      <p>{note.text}</p>
+      <small>{note.paused && <span className="lo-note-state">Spiel pausiert</span>}<span><kbd>E</kbd> weglegen</span></small>
+    </div>
+  );
+  return note.paused ? <div className="lo-note-dim">{sheet}</div> : sheet;
+}
+
+/** Die Akte im Menü: alle Notizen in Lesereihenfolge; was noch nicht gefunden ist, bleibt geschwärzt. */
+function CaseFile({ found }) {
   return (
-    <div className={`lo-scare${soft ? ' is-soft' : ''}`}>
-      <canvas ref={ref} />
+    <div className="lo-file">
+      <p className="lo-lead">Was im Sanatorium Erlengrund geschah — soweit du es schon gefunden hast. In jeder Ebene liegen Notizen und Dinge, die Jonas zurückgelassen hat.</p>
+      <ol>
+        {ALL_NOTES.map((n) => (found.includes(n.id) ? (
+          <li key={n.id}><b>{n.title}</b><p>{n.text}</p></li>
+        ) : (
+          <li key={n.id} className="is-missing"><b>{n.item ? 'Fundstück — noch nicht gefunden' : 'Noch nicht gefunden'}</b></li>
+        )))}
+      </ol>
     </div>
   );
 }
@@ -372,12 +397,18 @@ export default function LightsOut() {
   const [screen, setScreen] = useState('menu'); // menu | game | end | nogl
   const [loading, setLoading] = useState(false);
   const [fading, setFading] = useState(false);
+  // Art der Blende: '' = weich (0,8 s), 'hard' = harter Schnitt (Aufprall im Vorspann), 'slow' = langsames
+  // Einblenden nach dem Start
+  const [fadeMode, setFadeMode] = useState('');
   const [paused, setPaused] = useState(true);
   const [hud, setHud] = useState(null);
   const [scare, setScare] = useState(null);
+  const [note, setNote] = useState(null);
+  // Gefundene Notizen (ids) — bleiben über alle Durchgänge, im Menü als „Akte“ nachzulesen
+  const [found, setFound] = useState(() => readJson(NOTES_KEY, { ids: [] }).ids || []);
   const [result, setResult] = useState(null);
   const [run, setRun] = useState({ level: 0, total: 0, full: true });
-  const [dialog, setDialog] = useState(null); // settings | coop | controls
+  const [dialog, setDialog] = useState(null); // settings | coop | controls | file
   const [gpu] = useState(detectGpu);
   const [worldReady, setWorldReady] = useState(false);
   const [pending, setPending] = useState(null);
@@ -393,13 +424,7 @@ export default function LightsOut() {
   prefsRef.current = prefs;
   const touchOnly = isTouchOnly();
 
-  useEffect(() => {
-    if (document.querySelector(`link[href="${FONT_HREF}"]`)) return;
-    const link = document.createElement('link');
-    link.rel = 'stylesheet';
-    link.href = FONT_HREF;
-    document.head.appendChild(link);
-  }, []);
+  useFontLink(FONT_HREF);
 
   const setPrefs = useCallback((patch) => {
     setPrefsState((p) => {
@@ -432,10 +457,11 @@ export default function LightsOut() {
   const start = useCallback(async (level, total = 0, full = level === 0, how = {}) => {
     setResult(null);
     setScare(null);
+    setNote(null);
     setHud(null);
     // Neue Ebene beginnt pausiert — außer beim direkten Übergang (vorher blieb "läuft" vom letzten Spiel stehen)
     if (!how.autoplay) setPaused(true);
-    setRun({ level, total, full });
+    setRun({ level, total, full, intro: !!how.intro });
     setLoading(true);
     let mod;
     try {
@@ -488,10 +514,21 @@ export default function LightsOut() {
     const game = mod.createGame(hostRef.current, { ...prefsRef.current, quality: prefsRef.current.gfx, level, seed: seed ?? seedParam, autoplay, intro, net }, {
       onHud: setHud,
       onPause: setPaused,
-      onFade: setFading,
+      onFade: (on, mode) => { setFadeMode(mode || ''); setFading(on); },
       onScare: (s) => setScare(s),
+      onNote: (n) => {
+        setNote(n);
+        if (!n) return;
+        setFound((old) => {
+          if (old.includes(n.id)) return old;
+          const next = [...old, n.id];
+          writeJson(NOTES_KEY, { ids: next });
+          return next;
+        });
+      },
       onEnd: (r) => {
         setScare(null);
+        setNote(null);
         if (net) {
           // Koop: Weiter bzw. Neustart bestimmt der Host (alle laden auf sein Startsignal hin)
           const c = coopRef.current;
@@ -569,18 +606,32 @@ export default function LightsOut() {
       {(screen === 'game' || screen === 'end') && (
         <div className="lo-stage" ref={stageRef} onClick={() => { if (paused && screen === 'game' && !scare && (hud || worldReady)) resume(); }} />
       )}
-      {screen === 'game' && !cinematic && <div className="lo-vignette" />}
+      {screen === 'game' && !cinematic && <div className="lo-vignette" style={{ '--fear': paused ? 0 : (hud?.fear || 0) }} />}
+      {screen === 'game' && <div className="lo-grain" aria-hidden="true" />}
       {screen === 'game' && !paused && !scare && !cinematic && <Hud hud={hud} />}
       {screen === 'game' && !paused && cinematic && <p className="lo-skip"><kbd>Leertaste</kbd> überspringen</p>}
-      {scare && <Jumpscare soft={scare.soft} />}
-      <div className={`lo-fade${fading ? ' is-on' : ''}`} />
+      {/* Anruf während der Anfahrt: Untertitel (Jonas ist nur verrauscht zu hören, Lena spricht man selbst) */}
+      {screen === 'game' && !paused && cinematic && hud.line && (
+        <p className={`lo-subtitle${hud.line.who === 'Jonas' ? ' is-call' : ''}`} key={hud.line.text}>
+          {hud.line.who && <b>{hud.line.who}</b>}
+          {hud.line.text}
+        </p>
+      )}
+      {screen === 'game' && !paused && !scare && !cinematic && note && <NoteSheet note={note} />}
+      {scare && <Jumpscare soft={scare.soft} phase={scare.phase} />}
+      <div className={`lo-fade${fading ? ' is-on' : ''}${fadeMode ? ` is-${fadeMode}` : ''}`} />
 
       {screen === 'game' && paused && !scare && !loading && (
         <div className="lo-overlay">
           <div className="lo-panel">
             <p className="lo-kicker">Ebene {run.level + 1} von {LEVELS.length}{coopRun ? ' · Koop' : ''}</p>
-            <h2>{hud && !cinematic ? 'Pause' : current.title}</h2>
-            {!(hud && !cinematic) && <p className="lo-lead">{current.intro}</p>}
+            <h2>{hud && !cinematic ? 'Pause' : run.intro ? 'Lights Out' : current.title}</h2>
+            {/* Neues Spiel: der Vorspann erzählt, worum es geht — hier nichts vorwegnehmen */}
+            {!(hud && !cinematic) && (
+              <p className="lo-lead">
+                {run.intro ? 'Es beginnt mit einem Vorspann von etwa einer Minute. Die Leertaste überspringt ihn.' : current.intro}
+              </p>
+            )}
             {coopRun && <p className="lo-lead is-warn">Koop: Die Welt läuft weiter, während du hier stehst.</p>}
             <Controls />
             <Settings prefs={prefs} setPrefs={setPrefs} gpu={gpu} />
@@ -598,11 +649,11 @@ export default function LightsOut() {
       {screen === 'menu' && (
         <div className="lo-menu">
           <div className="lo-menu-light" aria-hidden="true" />
-          <Link to="/fun" className="lo-back" title="Zurück zur Website"><ArrowLeftToLine size={17} />Website</Link>
+          <BackToSite className="lo-back" iconSize={17} alwaysLabel />
           <div className="lo-menu-inner is-center">
             <Bulb />
             <h1 className="lo-title">Lights Out</h1>
-            <p className="lo-tagline">Ein Wald, ein Haus, ein Keller, ein Garten. Und in jedem etwas, das im Dunkeln wartet.</p>
+            <p className="lo-tagline">Dein Bruder ist seit drei Tagen verschwunden. Sein Auto steht am Tor des Sanatoriums Erlengrund — geschlossen seit 1987.</p>
             {touchOnly ? (
               <p className="lo-warn">Dieses Spiel braucht Maus und Tastatur. Öffne es am Computer.</p>
             ) : (
@@ -618,6 +669,7 @@ export default function LightsOut() {
                   <button type="button" className="lo-btn" onClick={() => setDialog('settings')}>Einstellungen</button>
                   <button type="button" className="lo-btn" onClick={() => setDialog('controls')}>Steuerung</button>
                 </div>
+                <button type="button" className="lo-btn" onClick={() => setDialog('file')}>Akte Erlengrund · {found.length} / {ALL_NOTES.length} Notizen</button>
               </div>
             )}
             <GpuNote gpu={gpu} />
@@ -632,6 +684,7 @@ export default function LightsOut() {
           </div>
           {dialog === 'settings' && <Dialog title="Einstellungen" onClose={() => setDialog(null)}><Settings prefs={prefs} setPrefs={setPrefs} gpu={gpu} /></Dialog>}
           {dialog === 'controls' && <Dialog title="Steuerung" onClose={() => setDialog(null)}><Controls /></Dialog>}
+          {dialog === 'file' && <Dialog title="Akte Erlengrund" onClose={() => setDialog(null)}><CaseFile found={found} /></Dialog>}
           {dialog === 'coop' && <Dialog title="Koop" onClose={() => setDialog(null)}><CoopLobby coop={coop} /></Dialog>}
         </div>
       )}
@@ -677,7 +730,7 @@ export default function LightsOut() {
             <h2 className={finished ? 'is-win' : 'is-dead'}>{finished ? 'Entkommen' : 'Erwischt'}</h2>
             <p className="lo-lead">
               {finished
-                ? `Alle Ebenen geschafft${run.full ? ` in ${mmss(run.total + result.time)}` : ''}.${run.full && best && run.total + result.time <= best ? ' Neue Bestzeit.' : ''}`
+                ? `Das Tor fällt hinter dir zu. An der Straße wartet Jonas. Alle Ebenen geschafft${run.full ? ` in ${mmss(run.total + result.time)}` : ''}.${run.full && best && run.total + result.time <= best ? ' Neue Bestzeit.' : ''}`
                 : `Nach ${mmss(result.time)}. Die Ebene beginnt von vorn — die anderen bleiben geschafft.`}
             </p>
             <div className="lo-actions">

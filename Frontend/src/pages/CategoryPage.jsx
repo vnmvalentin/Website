@@ -5,6 +5,7 @@ import { ArrowRight, ExternalLink, Lock } from "lucide-react";
 import { getCategory } from "../config/navigation";
 import SEO from "../components/SEO";
 import TileCard from "../components/TileCard";
+import { Page, PageHeader } from "../components/ui";
 
 function CategoryCard({ link, openFeedback }) {
   const Icon = link.icon;
@@ -13,10 +14,10 @@ function CategoryCard({ link, openFeedback }) {
     <>
       <div className="flex items-center justify-between mb-5">
         <span
-          className={`flex items-center justify-center w-12 h-12 rounded-xl border transition-colors ${
+          className={`flex items-center justify-center w-12 h-12 rounded-lg border transition-colors ${
             link.locked
-              ? "bg-white/[0.03] border-white/10 text-white/30"
-              : "bg-violet-500/10 border-violet-400/20 text-violet-300 group-hover:bg-violet-500/20 group-hover:text-violet-200"
+              ? "bg-white/[0.03] border-line text-white/30"
+              : "bg-accent/10 border-accent/25 text-accent-soft group-hover:bg-accent/20 group-hover:text-white"
           }`}
         >
           {Icon && <Icon size={22} />}
@@ -26,7 +27,7 @@ function CategoryCard({ link, openFeedback }) {
         ) : link.href ? (
           <ExternalLink size={16} className="text-white/20 group-hover:text-white/60 transition-colors" />
         ) : (
-          <ArrowRight size={18} className="text-white/20 group-hover:text-violet-300 group-hover:translate-x-1 transition-all" />
+          <ArrowRight size={18} className="text-white/20 group-hover:text-accent-soft group-hover:translate-x-1 transition-all" />
         )}
       </div>
       <h3 className={`font-display text-lg font-bold mb-1.5 ${link.locked ? "text-white/45" : "text-white"}`}>
@@ -34,7 +35,7 @@ function CategoryCard({ link, openFeedback }) {
       </h3>
       <p className={`text-sm leading-relaxed ${link.locked ? "text-white/25" : "text-white/45"}`}>{link.description}</p>
       {link.locked && link.lockedNote && (
-        <p className="mt-4 pt-3 border-t border-white/10 flex items-center gap-2 text-xs font-semibold text-white/40">
+        <p className="mt-4 pt-3 border-t border-line flex items-center gap-2 text-xs font-semibold text-white/40">
           <Lock size={12} className="shrink-0" />
           {link.lockedNote}
         </p>
@@ -43,7 +44,7 @@ function CategoryCard({ link, openFeedback }) {
   );
 
   const classes =
-    "group panel p-6 text-left transition-colors hover:bg-white/[0.06] hover:border-violet-400/30 block w-full";
+    "group rounded-lg bg-surface/80 border border-line p-6 text-left transition-colors hover:bg-white/[0.06] hover:border-accent/30 block w-full";
 
   // Gesperrt: Kachel bleibt stehen, ist aber tot. Die Route selbst bleibt erreichbar.
   if (link.locked) {
@@ -51,7 +52,7 @@ function CategoryCard({ link, openFeedback }) {
       <div
         aria-disabled="true"
         title={link.lockedNote || "Vorübergehend gesperrt"}
-        className="panel p-6 text-left block w-full cursor-not-allowed"
+        className="rounded-lg bg-surface/80 border border-line p-6 text-left block w-full cursor-not-allowed"
       >
         {inner}
       </div>
@@ -67,7 +68,7 @@ function CategoryCard({ link, openFeedback }) {
   }
   if (link.action === "feedback") {
     return (
-      <button onClick={openFeedback} className={classes}>
+      <button type="button" onClick={openFeedback} className={classes}>
         {inner}
       </button>
     );
@@ -84,10 +85,9 @@ export default function CategoryPage({ categoryKey }) {
   const { openFeedback } = useOutletContext() || {};
 
   if (!category) return null;
-  const Icon = category.icon;
 
   return (
-    <div className="page-fade w-full max-w-7xl mx-auto px-2 md:px-4 py-8 md:py-14">
+    <Page width="wide" className="py-4 md:py-10">
       <SEO
         title={category.seoTitle || category.label}
         description={category.seoDescription || category.description}
@@ -123,23 +123,12 @@ export default function CategoryPage({ categoryKey }) {
         ]}
       />
 
-      {/* Hero */}
-      <div className="flex items-start gap-5 mb-10 md:mb-14">
-        <span className="hidden sm:flex items-center justify-center w-16 h-16 rounded-2xl bg-violet-500/10 border border-violet-400/20 text-violet-300 shrink-0">
-          <Icon size={30} />
-        </span>
-        <div>
-          <p className="text-xs font-bold uppercase tracking-widest text-violet-300/80 mb-2">{category.tagline}</p>
-          <h1 className="font-display text-3xl md:text-5xl font-bold text-white tracking-tight mb-3">
-            {category.label}
-          </h1>
-          <p className="text-white/50 text-sm md:text-base max-w-2xl leading-relaxed">{category.description}</p>
-        </div>
-      </div>
+      {/* Kopf ohne Symbol-Kasten: wie Startseite und /tools nur Zeile, Überschrift, Beschreibung */}
+      <PageHeader size="hero" kicker={category.tagline} title={category.label} description={category.description} />
 
       {/* Unterpunkte: Vorschau-Karten (components/TileCard.jsx). Gesperrte bleiben als tote Kachel stehen, noch
           nicht fertige (soon) erscheinen hier gar nicht. */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-7">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 md:gap-6">
         {category.links.filter((l) => !l.soon).map((link, i) => (
           link.locked
             ? <CategoryCard key={link.label} link={link} openFeedback={openFeedback} />
@@ -158,6 +147,6 @@ export default function CategoryPage({ categoryKey }) {
             )
         ))}
       </div>
-    </div>
+    </Page>
   );
 }

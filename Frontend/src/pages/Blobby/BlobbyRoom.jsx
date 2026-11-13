@@ -834,6 +834,8 @@ export default function BlobbyRoom() {
   const [copied, setCopied] = useState(false);
   const [toast, setToast] = useState(null);
   const [showSettings, setShowSettings] = useState(false);
+  // Ego 3D: Der Host übt gegen den Bot, solange Mitspieler fehlen (läuft nur bei ihm)
+  const [egoPractice, setEgoPractice] = useState(false);
   // 2D oder 3D — reine Ansichtssache dieses Geräts, der Server weiß davon nichts
   const [view3d, setView3d] = useState(() => {
     try {
@@ -1041,7 +1043,7 @@ export default function BlobbyRoom() {
   const winnerLabel = winnerTeam
     ? slots.filter((s) => teamOf(s) === winnerTeam).map((s) => game?.players?.[s]?.name).filter(Boolean).join(" & ")
     : "";
-  // Beach 3D: echtes Feld, gerechnet beim Host — eigenes Seitenverhältnis (16:9)
+  // Ego 3D (Einstellungswert "beach"): echtes Feld aus der Ich-Sicht, gerechnet beim Host — eigenes Seitenverhältnis (16:9)
   const isBeach = settings.field === "beach";
   const aspect = isBeach ? 16 / 9 : (FIELD_W[settings.mode] || 800) / WORLD_H;
   // Jeder sieht sich selbst links — wer für Team 2 spielt, bekommt das Feld gespiegelt
@@ -1146,6 +1148,8 @@ export default function BlobbyRoom() {
               game={game}
               mySlot={mySlot}
               onHud={handleHud}
+              practice={egoPractice}
+              onPractice={setEgoPractice}
             />
           ) : (
             <BlobbyGame
@@ -1223,7 +1227,7 @@ export default function BlobbyRoom() {
             </div>
           )}
 
-          {status !== "finished" && missing > 0 && (
+          {status !== "finished" && missing > 0 && !(isBeach && egoPractice) && (
             <div className="bv-overlay rounded-md">
               <div className="bv-card w-full max-w-md p-4 sm:p-5 text-center">
                 <p className="bv-display text-[22px] mb-1">
@@ -1238,6 +1242,11 @@ export default function BlobbyRoom() {
                     {copied ? <Check size={16} /> : <Copy size={16} />}
                   </button>
                 </div>
+                {isBeach && isHost && status === "waiting" && !IS_COARSE_POINTER && (
+                  <button type="button" onClick={() => setEgoPractice(true)} className="bv-btn bv-btn-ghost mt-4">
+                    Solange gegen den Bot üben
+                  </button>
+                )}
                 {isSpectator && (
                   <button type="button" onClick={claimSlot} className="bv-btn bv-btn-sea mt-4">
                     <Volleyball size={15} /> Als Spieler mitspielen
@@ -1314,7 +1323,7 @@ export default function BlobbyRoom() {
 
         {mySlot && isBeach && (
           <p className="text-center text-xs bv-dim mt-4">
-            W A S D oder Pfeiltasten laufen · Leertaste springen (halten = höher) · der Ring im Sand zeigt, wo der Ball gerade ist — je kleiner der Kreis, desto tiefer
+            Maus umsehen · Linksklick schlagen (im Sprung vor der Angriffslinie: schmettern) · Rechtsklick hoch zuspielen · W A S D laufen · Leertaste springen · Shift Hechtsprung · F Vollbild
             {settings.powerups && " · Powerups über dem Netz anspringen, mit E einsetzen"}
             {settings.maxTouches > 0 && ` · max. ${settings.maxTouches} Berührungen pro Seite`}
           </p>

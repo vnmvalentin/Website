@@ -27,7 +27,7 @@ import {
   crownTexture, wakeTexture,
 } from './angelTextures';
 import { createPostFX, neutralEnvironment, warmUp, createQualityGovernor } from '../scene3d/kit';
-import { checkerGrassTexture, chunkyStoneTexture, plankTexture, addOutline, bushGeometry, crSkyMaterial } from '../scene3d/crStyle';
+import { checkerGrassTexture, chunkyStoneTexture, plankTexture, addOutline, bushGeometry, crSkyMaterial, CR_GRADE } from '../scene3d/crStyle';
 
 const cardTextureUrl = (id) => `/api/clash/card-img/${encodeURIComponent(id)}`;
 const animOff = () => document.documentElement.dataset.crAnim === 'off';
@@ -188,7 +188,7 @@ function Angel3D({ state, canInteract, onCatch, deniedRef, myPlayerId, onUnsuppo
     // near nicht zu klein: sonst reicht die Tiefengenauigkeit in der Ferne nicht (Flimmern)
     const introCam = new THREE.PerspectiveCamera(50, 1, 0.3, 600);
     const upVec = new THREE.Vector3(0, COS, -SIN); // Bildschirm-oben in Weltkoordinaten
-    const post = createPostFX(renderer, scene, camera, { bloom: { strength: 0.25, radius: 0.4, threshold: 1.15 }, vignette: 0.18 });
+    const post = createPostFX(renderer, scene, camera, { bloom: { strength: 0.25, radius: 0.4, threshold: 1.15 }, vignette: 0.18, grade: CR_GRADE });
     // Alles im Code erzeugt (kein Download → keine Ladezeit). Gemalter Himmel nur für die Intro-Fahrt.
     const sky = new THREE.Mesh(own(new THREE.SphereGeometry(400, 32, 16)), own(crSkyMaterial()));
     sky.frustumCulled = false;

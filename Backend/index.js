@@ -38,6 +38,7 @@ const { registerSeedRunnersSocket } = require("./routes/seedRunnersRoutes");
 const { registerSacrificeSigilsSocket } = require("./routes/sacrificeSigilsRoutes");
 const { registerFlickSoccerSocket } = require("./routes/flickSoccerRoutes");
 const { registerLightsOutSocket } = require("./routes/lightsOutRoutes");
+const { registerWorldflipSocket } = require("./routes/worldflipRoutes");
 const { createSeedRunnersRouter } = require("./seedRunners/routes");
 const { getRuntime: getSeedRunnersRuntime } = require("./seedRunners/runtime");
 // Blobby Volley läuft NICHT hier, sondern als eigener Prozess: blobbyServer.js. Seine
@@ -57,6 +58,7 @@ const { registerTournamentSocket } = require("./clashRoyale/tournament/matchRoom
 const createStreamToolRouter = require("./streamTool/routes/streamToolRoutes");
 const { registerLiveBadgesSocket } = require("./lib/liveBadges");
 const { createUsedByRouter } = require("./routes/usedByRoutes");
+const { createLiveRouter } = require("./routes/liveRoutes");
 const { createChatAvatarRouter } = require("./routes/chatAvatarRoutes");
 const createStreamScenesRouter = require("./streamScenes/routes/streamScenesRoutes");
 const { createAnalyticsRouter } = require("./analytics/analyticsRoutes");
@@ -238,6 +240,11 @@ app.post("/api/auth/twitch", async (req, res) => {
   if (!token) return res.status(400).json({ error: "Kein Token" });
   const data = await verifyTwitchToken(token);
   if (!data || !data.user_id) return res.status(401).json({ error: "Ungültiger Token" });
+  // Nur Tokens UNSERER App: sonst könnte jede fremde Twitch-App mit dem Token eines Nutzers
+  // hier als dieser Nutzer einloggen (auch als Admin). Fehlt die Client-ID, gibt es keinen Login.
+  if (!process.env.TWITCH_CLIENT_ID || data.client_id !== process.env.TWITCH_CLIENT_ID) {
+    return res.status(401).json({ error: "Ungültiger Token" });
+  }
   const sessionId = createSession(data.user_id, data.login);
   // secure: true bricht Session-Cookies auf http://localhost (ohne TLS)
   const secureCookie = process.env.NODE_ENV === "production";
@@ -353,6 +360,8 @@ app.use("/api/cr-viewer-games", createCrViewerGamesRouter({ requireAuth, ircStat
 // Abo (Stripe): Stand, Bezahlseite, Kundenportal. Wer frei ist, entscheidet billing/entitlements.js
 app.use("/api/billing", createBillingRouter({ requireAuth }));
 app.use("/api/used-by", createUsedByRouter());
+// Ist der eigene Kanal live? (Hinweis in der Kopfzeile, Player der Startseite)
+app.use("/api/live", createLiveRouter({ userId: STREAMER_TWITCH_ID }));
 app.use("/api/chat-avatars", createChatAvatarRouter());
 // 3D-Stream-Szenen: Steuerpult (OBS-Link mit Key) und Figurbaukasten der Zuschauer
 app.use("/api/stream-scenes", createStreamScenesRouter({ requireAuth, STREAMER_TWITCH_ID }));
@@ -476,17 +485,17 @@ app.use("/api/activity", createActivityRouter({
 io.on("connection", (socket) => {
  
     // ── bestehende Handler (unverändert) ──
+    const clashSocketTwitchId = getTwitchIdFromSocket(socket);
+
+    // Einziger Aufrufer: das Admin-Dashboard (Raum streamer:<ID>, siehe adminRoutes.js notifyUpdate).
+    // Vorher trat hier jeder ohne Login jedem Raum bei — Freundeslisten (crf:<id>), Turnier-Chats,
+    // private Spieler-Räume der Minigames. Jetzt nur noch dieser eine Raum und nur für den Admin.
     socket.on("join_room", (room) => {
+        if (!STREAMER_TWITCH_ID || String(clashSocketTwitchId) !== String(STREAMER_TWITCH_ID)) return;
+        if (room !== `streamer:${STREAMER_TWITCH_ID}`) return;
         socket.join(room);
     });
- 
-    socket.on("update_pond_config", (data) => {
-        if (data && data.streamerId && data.config) {
-            socket.to(`streamer:${data.streamerId}`).emit("pond_config_update", data.config);
-        }
-    });
- 
-    const clashSocketTwitchId = getTwitchIdFromSocket(socket);
+
     const isClashAdmin = !!clashSocketTwitchId && String(clashSocketTwitchId) === String(STREAMER_TWITCH_ID);
     const clashSocketTwitchLogin = getSessionFromSocket(socket)?.twitchLogin || null;
     registerClashRoyaleSocket(socket, io, { isAdmin: isClashAdmin, twitchId: clashSocketTwitchId, twitchLogin: clashSocketTwitchLogin });
@@ -509,7 +518,10 @@ io.on("connection", (socket) => {
     registerSacrificeSigilsSocket(socket, io);
 
     // Flick Soccer — rundenbasierter Scheiben-Fußball, 1v1 per Link, serverautoritativ (Engine-Spiegel)
-    registerFlickSoccerSocket(socket, io);
+    registerFlickSoccerSocket(socket, io, { isAdmin: isClashAdmin });
+
+    // Worldflip — 3D-Kartenspiel für 2 bis 4, Räume per Link, serverautoritativ (Engine-Spiegel)
+    registerWorldflipSocket(socket, io);
 
     // Lights Out (Koop) — Räume per Code; Welt aus gemeinsamem Seed, Monster rechnet der Host-Browser
     registerLightsOutSocket(socket, io);

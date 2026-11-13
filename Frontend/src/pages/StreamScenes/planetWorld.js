@@ -400,39 +400,63 @@ export function buildPlot({ seed, tc, owned, paintMat, glassMat, lamp = true }) 
   return out;
 }
 
-// ── Wolkenschrift ───────────────────────────────────────────────────────────
+// ── Himmelsschrift ──────────────────────────────────────────────────────────
 /**
- * Punkte, die einen Text als Wolken nachbilden. lines: Zeilen, width: Breite in Metern.
- * Liefert [{x, y, r}] um (0,0) zentriert (y nach oben).
+ * Schrift als Bild für eine Tafel am Himmel: fette weiße Buchstaben mit dunkler Kontur und weichem
+ * Schatten — vor hellem Tageshimmel genauso lesbar wie vor Nacht und Abendrot. (Vorher bestand die
+ * Schrift aus Wolkenbällchen; das war aus der Entfernung schwer zu lesen.)
+ * @param {string[]} lines
+ * @returns {THREE.CanvasTexture}  Seitenverhältnis SKY_TEXT_ASPECT
  */
-export function cloudTextPoints(lines, width, { step = 1.15, seed = 3 } = {}) {
+export const SKY_TEXT_ASPECT = 2048 / 640;
+export function skyTextTexture(lines) {
   const c = document.createElement('canvas');
-  const fontPx = 160;
-  const lineH = fontPx * 1.05;
-  c.width = 2400;
-  c.height = Math.ceil(lineH * lines.length + 40);
+  c.width = 2048;
+  c.height = 640;
   const ctx = c.getContext('2d');
-  ctx.font = `800 ${fontPx}px ${FONT}`;
-  spacing(ctx, 30);
-  const wMax = Math.max(...lines.map((l) => ctx.measureText(l).width));
-  ctx.fillStyle = '#fff';
+  let fontPx = lines.length > 1 ? 250 : 300;
+  const setFont = () => { ctx.font = `900 ${fontPx}px ${FONT}`; spacing(ctx, Math.round(fontPx * 0.04)); };
+  setFont();
+  while (fontPx > 80 && Math.max(...lines.map((l) => ctx.measureText(l).width)) > c.width - 200) { fontPx -= 6; setFont(); }
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  lines.forEach((l, i) => ctx.fillText(l, c.width / 2, 20 + lineH * (i + 0.5)));
-  const img = ctx.getImageData(0, 0, c.width, c.height).data;
-  const k = width / wMax;                   // Meter je Pixel
-  const px = Math.max(2, Math.round(step / k));
+  ctx.lineJoin = 'round';
+  const lineH = fontPx * 1.02;
+  const y0 = c.height / 2 - (lineH * (lines.length - 1)) / 2;
+  // 1. Schatten + Kontur, 2. Kontur noch einmal scharf, 3. Füllung
+  ctx.strokeStyle = '#0b1630';
+  ctx.lineWidth = fontPx * 0.13;
+  ctx.shadowColor = 'rgba(6, 12, 30, 0.6)';
+  ctx.shadowBlur = 28;
+  ctx.shadowOffsetY = 12;
+  lines.forEach((l, i) => ctx.strokeText(l, c.width / 2, y0 + lineH * i));
+  ctx.shadowColor = 'transparent';
+  ctx.shadowBlur = 0;
+  ctx.shadowOffsetY = 0;
+  lines.forEach((l, i) => ctx.strokeText(l, c.width / 2, y0 + lineH * i));
+  ctx.fillStyle = '#ffffff';
+  lines.forEach((l, i) => ctx.fillText(l, c.width / 2, y0 + lineH * i));
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.anisotropy = 8;
+  return tex;
+}
+
+/**
+ * Wolkenbank unter der Schrift: flacher Streifen aus Wolkenbällchen, an den Enden dünner.
+ * Liefert [{x, y, r}] um (0,0) (y nach oben).
+ */
+export function cloudBankPoints(width, seed = 3, n = 70) {
   const r = rng(seed);
   const pts = [];
-  for (let y = 0; y < c.height; y += px) {
-    for (let x = 0; x < c.width; x += px) {
-      if (img[(y * c.width + x) * 4 + 3] < 140) continue;
-      pts.push({
-        x: (x - c.width / 2) * k + (r() - 0.5) * step * 0.5,
-        y: (c.height / 2 - y) * k + (r() - 0.5) * step * 0.5,
-        r: step * (0.55 + r() * 0.3),
-      });
-    }
+  for (let i = 0; i < n; i++) {
+    const u = r() * 2 - 1;                    // −1 … 1 entlang der Breite
+    const edge = 1 - Math.abs(u) ** 2.2;      // zur Mitte hin dicker
+    pts.push({
+      x: u * width / 2,
+      y: -8.2 - 1.6 * r() + 2.4 * edge * r(),
+      r: 1.3 + 2.6 * edge * (0.5 + r() * 0.5),
+    });
   }
   return pts;
 }

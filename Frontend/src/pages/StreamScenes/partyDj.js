@@ -38,6 +38,7 @@ export function createDj(desk, overlay, { envMap = null, riserMat }) {
   let bubbleAt = 0;
   let label = null;
   let lookSeq = 0;
+  let festive = null;            // Festtagshut, solange der Streamer keine eigene Figur gebaut hat
   const tmp = new THREE.Vector3();
 
   const buildFor = (ch) => {
@@ -46,7 +47,7 @@ export function createDj(desk, overlay, { envMap = null, riserMat }) {
     label?.el.remove();
     label = null;
     if (!ch) return;
-    fig = buildPersonFigure(kit, { seed: personSeed(ch), envMap, look: cachedLook(null, ch) });
+    fig = buildPersonFigure(kit, { seed: personSeed(ch), envMap, look: cachedLook(null, ch), festive });
     fig.group.scale.setScalar(DJ_SCALE);
     fig.group.position.set(0, RISER_H, STAND_Z);
     fig.group.visible = visible;
@@ -86,6 +87,12 @@ export function createDj(desk, overlay, { envMap = null, riserMat }) {
       if (!fig || String(login || '').toLowerCase() !== channel) return;
       const mine = fig;
       requestLook(null, (look) => { if (fig === mine) fig.setOutfit(look); }, channel);
+    },
+    /** Weihnachten: Mütze für den Streamer (eine eigene Figur aus dem Baukasten geht vor). */
+    setFestive(hat) {
+      if ((hat || null) === festive) return;
+      festive = hat || null;
+      if (channel) buildFor(channel);
     },
     setVisible(on) {
       visible = !!on;

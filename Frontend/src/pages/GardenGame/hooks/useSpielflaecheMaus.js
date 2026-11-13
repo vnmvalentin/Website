@@ -1,6 +1,7 @@
 // hooks/useSpielflaecheMaus.js
 // Maus auf der Spielfläche: Pflanzen, Ernten (auch Shift-Ziehen), Gießen, Abbauen, Deko/Tiere setzen,
 // Gebäude verschieben, Zoom per Mausrad, Hover. Ein großer Effekt, ausgelagert aus GameContainer.jsx, Code unverändert.
+import { vorabAbernten } from "./useErnte";
 import { useEffect } from "react";
 import { MAP_CONFIG, TILE_SIZE, kachelIstAcker, getMailboxHitArea, getHoveredRock, getHoveredCell, getDirtCellWorldPos } from "../engine/MapConfig";
 import { istBoden } from "../ui/deko";
@@ -30,8 +31,11 @@ export default function useSpielflaecheMaus({
         if (showLobbyScreen) return;
         const canvas = canvasRef.current;
         if (!canvas) return;
+        // Für die Vorschau der Deko am Zeiger (Spielschleife liest je Bild, damit [R] sofort wirkt)
+        engineRef.current.dekoHandRefs = { deko: selectedDecoToPlaceRef, gespiegelt: decoGespiegeltRef, rotiert: decoRotiertRef };
         const onMouseLeave = () => {
             hoverStore.clear();
+            engineRef.current.editorZeiger = null;
             if (shovelHoldTimerRef.current) clearTimeout(shovelHoldTimerRef.current);
             if (shovelHoldProgressRef.current) clearInterval(shovelHoldProgressRef.current);
             setShovelHoldState({ active: false, progress: 0 });
@@ -39,10 +43,51 @@ export default function useSpielflaecheMaus({
             // Taste längst los ist.
             bodenMalenRef.current = null;
         };
+        /** 2,5D: Soll das Bodenfeld unter dem Zeiger vor dem Pflanzenbild davor gelten? */
+        const bodenHatVorrang3d = (worldX, worldY) => {
+            const mySlot = layout.current.slots[mySlotRef.current] || layout.current.slots[0];
+            const acker = engineRef.current.plotPlants || {};
+            const zelle = getHoveredCell(mySlot, worldX, worldY, acker);
+            if (!zelle) return false;
+            const key = `${zelle.cellX}_${zelle.cellY}`;
+            const jetzt = Date.now();
+            if ((engineRef.current.stoerer || []).some((s) => s.key === key && Number(s.bis) > jetzt)) return true;
+            // Umtopfen (11.11.): ist die Quelle gewählt, zählt ein LEERES Feld unter dem Zeiger —
+            // sonst traf der Klick die Krone der Pflanze davor („Zielfeld ist bereits belegt“).
+            if (selectedTool === "pot" && engineRef.current.umtopfQuelle && !acker[key]) return true;
+            return Boolean(selectedSeedRef.current) && !acker[key];
+        };
+
         // Muss die Umkehrung der Kamera im Renderer sein:
         //   translate(mitte) · scale(zoom) · translate(-spieler)
         // Ohne das /zoom greift bei Zoom ≠ 1 jeder Klick und jedes Hover daneben.
         const toWorld = (clientX, clientY) => {
+            // Editor (05.11.): feste Kamera über dem Grundstück, siehe useSpielschleife
+            const kamera = engineRef.current.editorKamera;
+            if (kamera) {
+                const r = canvas.getBoundingClientRect();
+                return {
+                    worldX: kamera.x + (clientX - r.left - canvas.width / 2) / kamera.zoom,
+                    worldY: kamera.y + (clientY - r.top - canvas.height / 2) / kamera.zoom,
+                };
+            }
+            // 3D-Ansicht: Strahl von der Kamera auf den Boden statt der 2D-Umkehrung
+            const welt3d = engineRef.current.welt3d;
+            if (welt3d?.aktiv) {
+                const r = canvas.getBoundingClientRect();
+                const boden = welt3d.bildschirmZuWelt(clientX, clientY);
+                // 07.11.: Das Feld unter dem Zeiger gewinnt, wenn dort ein Käfer/Unkraut sitzt
+                // oder man mit einem Samen auf ein leeres Feld zeigt — sonst verdeckte die
+                // Krone der Pflanze davor das Feld (Infokarte statt Pflanzen, Käfer nicht klickbar).
+                if (boden && bodenHatVorrang3d(boden.worldX, boden.worldY)) return boden;
+                // Sonst zuerst die aufrecht gezeichneten Pflanzen, dann der Boden
+                const aufPflanze = engineRef.current.renderer?.trefferStehend3d?.(
+                    (clientX - r.left) * (canvas.width / (r.width || 1)),
+                    (clientY - r.top) * (canvas.height / (r.height || 1)),
+                );
+                if (aufPflanze) return aufPflanze;
+                if (boden) return boden;
+            }
             const rect = canvas.getBoundingClientRect();
             const screenX = clientX - rect.left;
             const screenY = clientY - rect.top;
@@ -123,7 +168,8 @@ export default function useSpielflaecheMaus({
                     // bekäme man auf dem einreihigen Wiesenstreifen unter dem Acker
                     // überhaupt keine Laterne unter, weil sie zwangsläufig in ihn
                     // hineinreicht.
-                    if (!istBelag && dy === 0 && liegtAufAcker(cx, cy)) ankerAufAcker = true;
+                    // 06.11.: Böden auch nicht mehr auf den Acker — dort wird gepflanzt.
+                    if ((istBelag || dy === 0) && liegtAufAcker(cx, cy)) ankerAufAcker = true;
                 }
             }
 
@@ -131,7 +177,7 @@ export default function useSpielflaecheMaus({
                 if (!still) {
                     notify(ausserhalb
                         ? "Kein Platz — das Objekt ragt über dein Grundstück hinaus."
-                        : "Kein Platz — die untere Kachel liegt auf dem Acker.", "error");
+                        : istBelag ? "Böden gehören nicht auf den Acker." : "Kein Platz — die untere Kachel liegt auf dem Acker.", "error");
                 }
                 return false;
             }
@@ -472,7 +518,9 @@ export default function useSpielflaecheMaus({
             // Nähe, ein Klick direkt auf das Gebäude tat nichts. Gilt in UND
             // außerhalb des Editors, konsistent damit, dass Deko sich im Editor
             // ebenfalls per Klick greifen lässt statt nur über die E-Taste.
-            const eigenerSchuppen = engineRef.current?.areas?.shed;
+            // 06.11. (Wunsch): außerhalb des Editors nicht mehr anklickbar — ins Haus geht es
+            // nur noch zu Fuß mit E; ein Klick daneben auf den Acker öffnete sonst ständig das Haus.
+            const eigenerSchuppen = editorAktivRef.current ? engineRef.current?.areas?.shed : null;
             if (eigenerSchuppen && eigenerSchuppen.aktiv !== false) {
                 const distSchuppen = Math.hypot(worldX - eigenerSchuppen.x, worldY - eigenerSchuppen.y);
                 if (distSchuppen < COLLISION_RADIUS_BY_AREA_TYPE.shed) {
@@ -565,7 +613,7 @@ export default function useSpielflaecheMaus({
                 // Vorher geschah beim Drüberziehen sichtbar nichts, bis das gesammelte
                 // Bündel (120 ms) beim Server war; das fühlte sich zäh an. Gold und XP
                 // erscheinen weiterhin erst mit der Antwort (handleHarvestMany).
-                spieleErnteTon();
+                spieleErnteTon(0.45, true);
                 const renderer = engineRef.current?.renderer;
                 if (renderer) {
                     const pos = getDirtCellWorldPos(mySlot, treffer.cellX, treffer.cellY);
@@ -582,13 +630,15 @@ export default function useSpielflaecheMaus({
                 // Runde). planeDragErnteFlush sammelt kurz (120ms) und schickt dann
                 // ALLE seither berührten Zellen in einem einzigen Aufruf.
                 dragErnteSammlungRef.current.set(key, pflanze);
+                // Sofort vom Acker nehmen (06.11.), nicht erst mit der Serverantwort
+                setPlotPlants((prev) => vorabAbernten(prev, key));
                 planeDragErnteFlush();
                 return;
             }
             // Leere Zelle plus ein Samen in der Hand: pflanzen statt ernten.
             if (!pflanze && selectedSeedRef.current) {
                 dragHarvestedCellsRef.current.add(key);
-                handleCellClick(treffer.cellX, treffer.cellY);
+                handleCellClick(treffer.cellX, treffer.cellY, { ziehen: true });
             }
         };
 
@@ -597,6 +647,16 @@ export default function useSpielflaecheMaus({
             const clientXLocal = e.clientX - rect.left;
             const clientYLocal = e.clientY - rect.top;
             const { worldX, worldY } = toWorld(e.clientX, e.clientY);
+            // Editor: wo der Zeiger in der Welt steht — dort zeigt die Spielschleife die Deko
+            // in der Hand als Vorschau (Renderer._drawDekoVorschau).
+            const eng = engineRef.current;
+            if (editorAktivRef.current) {
+                const z = eng.editorZeiger || (eng.editorZeiger = { x: 0, y: 0 });
+                z.x = worldX;
+                z.y = worldY;
+            } else {
+                eng.editorZeiger = null;
+            }
 
             // Boden malen, solange die Taste hängt. Still, sonst käme pro Kachel eine
             // Meldung. Ist der Vorrat leer, setzt platziereDeko die Auswahl auf null
@@ -757,6 +817,13 @@ export default function useSpielflaecheMaus({
         const onWheel = (e) => {
             e.preventDefault();
             const richtung = e.deltaY > 0 ? 1 / ZOOM_SCHRITT : ZOOM_SCHRITT;
+            // Editor (11.11.): eigene Ansicht mit eigenem Zoom, siehe useSpielschleife
+            const sicht = engineRef.current.editorSicht;
+            if (sicht) {
+                sicht.zoom = Math.max(sicht.min, Math.min(sicht.max, sicht.zoom * richtung));
+                hoverStore.clear();
+                return;
+            }
             const neu = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, zoomRef.current * richtung));
             if (neu === zoomRef.current) return;
             zoomRef.current = neu;

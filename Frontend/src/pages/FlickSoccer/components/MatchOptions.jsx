@@ -1,7 +1,8 @@
 // components/MatchOptions.jsx — Regeln einer Partie, gleich im Menü und in der Online-Lobby: Tore, Zugzeit, Feld,
 // Torwiederholung, Chaos. value = Einstellungen (engine normalizeSettings), onChange(patch); disabled = nur ansehen.
 import React from "react";
-import { FIELDS, FIELD_IDS, RULES } from "../engine/index.js";
+import { RULES } from "../engine/index.js";
+import FieldPicker from "./FieldPicker.jsx";
 
 export function Seg({ value, options, onChange, label, disabled = false }) {
   return (
@@ -48,18 +49,7 @@ export default function MatchOptions({ value, onChange, disabled = false }) {
           options={RULES.TURN_SECONDS.map((s) => ({ value: s, label: s ? `${s} s` : "Aus" }))}
         />
       </div>
-      <label className="flex items-center justify-between gap-3">
-        <span className="fk-label" title={FIELDS[value.field]?.hint}>Feld</span>
-        <select
-          className="fk-input fk-select"
-          value={value.field}
-          disabled={disabled}
-          onChange={(e) => onChange({ field: e.target.value })}
-          aria-label="Feld"
-        >
-          {FIELD_IDS.map((id) => <option key={id} value={id}>{FIELDS[id].name}</option>)}
-        </select>
-      </label>
+      <FieldPicker value={value.field} disabled={disabled} onChange={(field) => onChange({ field })} />
       <div className="grid grid-cols-2 gap-2">
         <Toggle
           label="Wiederholung"
@@ -70,7 +60,7 @@ export default function MatchOptions({ value, onChange, disabled = false }) {
         />
         <Toggle
           label="Chaos"
-          title="Jeder Zug bringt ein zufälliges Power-up — in sechs Zügen bekommt jedes Team jedes einmal"
+          title="Jedes Team hält drei Karten und darf pro Zug eine ausspielen: Sprengsatz, Geisterscheibe, Eiszeit und neun weitere"
           on={value.chaos}
           disabled={disabled}
           onChange={(chaos) => onChange({ chaos })}

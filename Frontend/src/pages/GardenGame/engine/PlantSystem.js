@@ -24,7 +24,16 @@ const RARITY_ORDER = ["COMMON", "UNCOMMON", "RARE", "EPIC", "LEGENDARY", "MYTHIC
 // einziges Bild zu teilen). Greift nur, solange/falls eine Sorte noch kein
 // eigenes seed.png hat — siehe getPlantVisuals() unten und den Fallback in
 // Renderer.js (_renderPlantBodyLocal).
-const PLANTED_SEED_FALLBACK_IMAGE = "/garden-assets/common/planted_seed.png";
+export const PLANTED_SEED_FALLBACK_IMAGE = "/garden-assets/common/planted_seed.png";
+
+/**
+ * Gespeichertes Samenbild — außer es ist das alte gemeinsame Bild: das bekam bis 06.11. jede
+ * Ware vom Server mit (routes/gardenGameRoutes.js), obwohl jede Sorte längst ihr eigenes
+ * seed.png hat. Solche Einträge stehen noch in Rucksäcken und Spielständen.
+ */
+export function eigenesSamenBild(gespeichert, sorteBild) {
+    return gespeichert && gespeichert !== PLANTED_SEED_FALLBACK_IMAGE ? gespeichert : sorteBild;
+}
 
 function lerp(min, max, t) { return min + (max - min) * t; }
 
@@ -270,7 +279,8 @@ export function getPlantVisuals(seedId, singleUse = true) {
         plantedSeedImage: `${base}/seed.png`,
         plantedSeedFallbackImage: PLANTED_SEED_FALLBACK_IMAGE,
         growthImage: `${base}/plant.png`,
-        structureImage: sharedStructure || `${base}/structure.png`,
+        // Einmalernten haben kein Gerüst (07.11.: kein Verweis mehr auf plants/<id>/structure.png)
+        structureImage: sharedStructure,
         fruitImage: `${base}/fruit.png`,
         harvestImage: singleUse ? `${base}/plant.png` : `${base}/fruit.png`,
     };
@@ -287,7 +297,13 @@ export function getPlantVisuals(seedId, singleUse = true) {
  */
 export function hydrateHarvestedItem(item) {
     if (!item?.seedId) return item;
-    const visuals = getPlantVisuals(item.seedId, item.singleUse !== false);
+    // 07.11.: ohne Angabe im Katalog nachsehen — sonst galt jeder Dauerträger als
+    // Einmalernte, und „Markt gefragt“/Wettbewerb zeigten für Rhabarber & Co. den
+    // Platzhalter (plant.png gibt es bei Dauerträgern nicht).
+    const einmal = item.singleUse !== undefined
+        ? item.singleUse !== false
+        : SEED_CATALOGUE.find((s) => s.id === item.seedId)?.singleUse !== false;
+    const visuals = getPlantVisuals(item.seedId, einmal);
     const bild = visuals.harvestImage || visuals.fruitImage || visuals.growthImage;
     return { ...item, image: item.image || bild, harvestImage: item.harvestImage || bild };
 }
@@ -316,11 +332,11 @@ export const SEED_CATALOGUE = [
     // ── UNCOMMON ──
     { id: "knoblauch",    name: "Knoblauch",     emoji: "🧄", rarity: "UNCOMMON", singleUse: true,  shopPrice: 3000, shopChance: 0.085, stockMin: 1, stockMax: 4,     growMinSec: 2100,    growMaxSec: 6300,    sellMin: 4000,     sellMax: 12000    }, // mg: Pumpkin
     { id: "kartoffel",    name: "Kartoffel",     emoji: "🥔", rarity: "UNCOMMON", singleUse: true,  shopPrice: 2500, shopChance: 0.12, stockMin: 1, stockMax: 2,     growMinSec: 1200,     growMaxSec: 3600,     sellMin: 3200,     sellMax: 9600    }, // mg: Echeveria
-    { id: "ingwer",       name: "Ingwer",        emoji: "🌿", rarity: "UNCOMMON", singleUse: true,  shopPrice: 8700, shopChance: 0.43, stockMin: 1, stockMax: 3,     growMinSec: 90,      growMaxSec: 270,     sellMin: 10000,    sellMax: 30000    }, // mg: Gentian
-    { id: "paprika",      name: "Paprika",       emoji: "🫑", rarity: "UNCOMMON", singleUse: true,  shopPrice: 10000, shopChance: 0.43, stockMin: 1, stockMax: 3,    growMinSec: 100,     growMaxSec: 300,     sellMin: 20000,    sellMax: 60000    }, // mg: Lavender
+    { id: "ingwer",       name: "Ingwer",        emoji: "🌿", rarity: "UNCOMMON", singleUse: true,  shopPrice: 8700, shopChance: 0.43, stockMin: 1, stockMax: 3,     growMinSec: 360,     growMaxSec: 1080,    sellMin: 10000,    sellMax: 30000    }, // mg: Gentian · 08.11.: Wachstum ×4 (war 1,5–4,5 min, gewöhnliche Sorten lohnten sonst nie)
+    { id: "paprika",      name: "Paprika",       emoji: "🫑", rarity: "UNCOMMON", singleUse: true,  shopPrice: 10000, shopChance: 0.43, stockMin: 1, stockMax: 3,    growMinSec: 700,     growMaxSec: 2100,    sellMin: 20000,    sellMax: 60000    }, // mg: Lavender · 08.11.: Wachstum ×7
     { id: "aubergine",    name: "Aubergine",     emoji: "🍆", rarity: "UNCOMMON", singleUse: true,  shopPrice: 12000, shopChance: 0.43, stockMin: 1, stockMax: 3,    growMinSec: 79200,   growMaxSec: 237600,   sellMin: 75000,    sellMax: 225000    }, // mg: Pine Tree
-    { id: "mais",         name: "Mais",          emoji: "🌽", rarity: "UNCOMMON", singleUse: true,  shopPrice: 17500, shopChance: 0.43, stockMin: 1, stockMax: 3,    growMinSec: 240,     growMaxSec: 720,     sellMin: 20123,    sellMax: 60369    }, // mg: Lily
-    { id: "kuebi",        name: "Kürbis",        emoji: "🎃", rarity: "UNCOMMON", singleUse: true,  shopPrice: 30000, shopChance: 0.43, stockMin: 1, stockMax: 3,    growMinSec: 120,     growMaxSec: 360,     sellMin: 50000,    sellMax: 150000   }, // mg: Saffron
+    { id: "mais",         name: "Mais",          emoji: "🌽", rarity: "UNCOMMON", singleUse: true,  shopPrice: 17500, shopChance: 0.43, stockMin: 1, stockMax: 3,    growMinSec: 720,     growMaxSec: 2160,    sellMin: 20123,    sellMax: 60369    }, // mg: Lily · 08.11.: Wachstum ×3
+    { id: "kuebi",        name: "Kürbis",        emoji: "🎃", rarity: "UNCOMMON", singleUse: true,  shopPrice: 30000, shopChance: 0.43, stockMin: 1, stockMax: 3,    growMinSec: 1440,    growMaxSec: 4320,    sellMin: 50000,    sellMax: 150000   }, // mg: Saffron · 08.11.: Wachstum ×12 (war 4 min für ×3,3 — Turbo der ersten Stunde)
     { id: "rhabarber",    name: "Rhabarber",     emoji: "🌿", rarity: "UNCOMMON", singleUse: false, shopPrice: 296, shopChance: 0.64, stockMin: 2, stockMax: 5,      structureGrowSec: 360,   fruitCycleSec: 900,   maxFruits: 8,  fruitSellMin: 30,    fruitSellMax: 90    }, // mg: Fava Bean
     { id: "gurke",        name: "Gurke",         emoji: "🥒", rarity: "UNCOMMON", singleUse: false, shopPrice: 400, shopChance: 0.64, stockMin: 1, stockMax: 5,      structureGrowSec: 33,   fruitCycleSec: 105,    maxFruits: 5,  fruitSellMin: 23,    fruitSellMax: 69    }, // mg: Blueberry
     { id: "zucchini",     name: "Zucchini",      emoji: "🥒", rarity: "UNCOMMON", singleUse: false, shopPrice: 2000, shopChance: 0.15,  stockMin: 1, stockMax: 6,      structureGrowSec: 300, fruitCycleSec: 1200,  maxFruits: 7,  fruitSellMin: 70,   fruitSellMax: 210   }, // Balancing: Ertrag an 6h-Aufbauzeit angepasst
@@ -639,9 +655,9 @@ export function createPlantInstance(seed, cellX, cellY, partyAktiv = null) {
             image: visuals.structureImage,
             seedImage: seed.seedImage || seed.seedShopImage || visuals.seedImage,
             seedShopImage: seed.seedShopImage || visuals.seedShopImage,
-            plantedSeedImage: seed.plantedSeedImage || visuals.plantedSeedImage,
+            plantedSeedImage: eigenesSamenBild(seed.plantedSeedImage, visuals.plantedSeedImage),
             growthImage: seed.growthImage || visuals.growthImage,
-            structureImage: seed.structureImage || visuals.structureImage,
+            structureImage: visuals.structureImage,
             fruitImage: seed.fruitImage || visuals.fruitImage,
             harvestImage: seed.harvestImage || visuals.harvestImage,
             rarity: seed.rarity,
@@ -673,10 +689,10 @@ export function createPlantInstance(seed, cellX, cellY, partyAktiv = null) {
         image: visuals.growthImage,
         seedImage: seed.seedImage || seed.seedShopImage || visuals.seedImage,
         seedShopImage: seed.seedShopImage || visuals.seedShopImage,
-        plantedSeedImage: seed.plantedSeedImage || visuals.plantedSeedImage,
+        plantedSeedImage: eigenesSamenBild(seed.plantedSeedImage, visuals.plantedSeedImage),
         plantedSeedFallbackImage: seed.plantedSeedFallbackImage || visuals.plantedSeedFallbackImage,
         growthImage: seed.growthImage || visuals.growthImage,
-        structureImage: seed.structureImage || visuals.structureImage,
+        structureImage: visuals.structureImage,
         fruitImage: seed.fruitImage || visuals.fruitImage,
         harvestImage: seed.harvestImage || visuals.harvestImage,
         rarity: seed.rarity,

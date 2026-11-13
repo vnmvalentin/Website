@@ -46,6 +46,8 @@ const { runDekoPfadMigration, MARKE: DEKO_MARKE } = require("./deko");
 const { runTierplatzMigration, MARKE: TIERPLATZ_MARKE } = require("./tierplaetze");
 const { runSamenKennungMigration, MARKE: SAMEN_MARKE } = require("./samenKennung");
 const { runTierKennungMigration, MARKE: TIER_KENNUNG_MARKE } = require("./tierKennung");
+const { runWeltkarteMigration, MARKE: WELTKARTE_MARKE } = require("./weltkarte");
+const { runZaunfeldMigration, MARKE: ZAUNFELD_MARKE } = require("./zaunfeld");
 
 /**
  * Alle Marken, die ein durchmigrierter Spielstand trägt.
@@ -58,7 +60,7 @@ const { runTierKennungMigration, MARKE: TIER_KENNUNG_MARKE } = require("./tierKe
  */
 const ALLE_MARKEN = [
     PLOT_MARKE, PLOT_MARKE_WEGE, DEKO_MARKE, XP_MARKE, MARKE_KURVE, MARKE_KORREKTUR, SKILL_MARKE,
-    TIERPLATZ_MARKE, SAMEN_MARKE, TIER_KENNUNG_MARKE,
+    TIERPLATZ_MARKE, SAMEN_MARKE, TIER_KENNUNG_MARKE, WELTKARTE_MARKE, ZAUNFELD_MARKE,
 ];
 
 function alleErledigt(farmStates) {
@@ -131,6 +133,26 @@ function runGardenMigrations(farmStates, { scheduleFarmsSave } = {}) {
             : "keine Änderungen",
     });
 
+    // Hängt an nichts: verschiebt Deko und Tiere auf die neue Weltkarte. Steht vor
+    // den XP-Schritten — ein Abbruch danach darf keine Deko am alten Ort zurücklassen.
+    const weltkarte = runWeltkarteMigration(farmStates, { scheduleFarmsSave });
+    zeilen.push({
+        name: "Weltkarte Dorfplatz",
+        text: weltkarte.staende > 0
+            ? `${weltkarte.deko} Deko / ${weltkarte.tiere} Tiere / ${weltkarte.staende} Spieler`
+            : "keine Änderungen",
+    });
+
+    // Hängt an nichts: nimmt die Deko „Zaunfeld“ heraus und erstattet ihren Preis.
+    // Steht vor den XP-Schritten, damit ein Abbruch danach kein Gold schuldig bleibt.
+    const zaunfeld = runZaunfeldMigration(farmStates, { scheduleFarmsSave });
+    zeilen.push({
+        name: "Zaunfeld entfernt",
+        text: zaunfeld.staende > 0
+            ? `${zaunfeld.stuecke} Stücke / ${zaunfeld.staende} Spieler / ${zaunfeld.erstattet.toLocaleString("de-DE")} Gold erstattet`
+            : "keine Änderungen",
+    });
+
     const xp = runXpMigration(farmStates, { scheduleFarmsSave });
     zeilen.push({
         name: "XP-Nachzahlung",
@@ -166,5 +188,5 @@ function runGardenMigrations(farmStates, { scheduleFarmsSave } = {}) {
 
 module.exports = {
     runGardenMigrations, runPlotMigration, runXpMigration, runXpKurveKorrektur,
-    runSkillStaffelMigration, runDekoPfadMigration, runTierplatzMigration, runSamenKennungMigration, runTierKennungMigration, ALLE_MARKEN,
+    runSkillStaffelMigration, runDekoPfadMigration, runTierplatzMigration, runSamenKennungMigration, runTierKennungMigration, runZaunfeldMigration, ALLE_MARKEN,
 };

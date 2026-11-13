@@ -3,6 +3,7 @@ import { useParams, Link, useNavigate } from "react-router-dom";
 import PollRenderer from "./PollRenderer";
 import { ArrowLeft, Calendar, Clock, AlertCircle } from "lucide-react";
 import SEO from "../../components/SEO";
+import { Page, Card, EmptyState, Button } from "../../components/ui";
 import { socket, useFeedRoom } from "../../utils/socket";
 
 export default function AbstimmungDetail() {
@@ -50,39 +51,37 @@ export default function AbstimmungDetail() {
   if (loading) return <div className="p-20 text-center text-white/30 animate-pulse">Lade Abstimmung...</div>;
 
   if (!poll) return (
-    <div className="page-fade max-w-2xl mx-auto p-10 text-center space-y-4">
-        <div className="inline-flex p-4 rounded-2xl bg-red-500/10 text-red-400 mb-2"><AlertCircle size={32} /></div>
-        <h2 className="font-display text-xl font-bold text-white">Nicht gefunden</h2>
-        <p className="text-white/50">Diese Abstimmung existiert nicht mehr.</p>
-        <button onClick={() => navigate("/Abstimmungen")} className="px-5 py-2.5 rounded-lg bg-violet-600 hover:bg-violet-500 text-white font-semibold transition-colors">Zurück zur Übersicht</button>
-    </div>
+    <Page width="narrow" className="py-10">
+        <Card className="text-center p-10 space-y-4">
+            <div className="inline-flex p-3 rounded-lg bg-red-500/10 text-red-400"><AlertCircle size={26} /></div>
+            <h1 className="font-display text-2xl font-bold tracking-tight text-white">Nicht gefunden</h1>
+            <p className="text-sm text-white/55">Diese Abstimmung existiert nicht mehr.</p>
+            <Button onClick={() => navigate("/Abstimmungen")} icon={ArrowLeft}>Zurück zur Übersicht</Button>
+        </Card>
+    </Page>
   );
 
   const isExpired = new Date(poll.endDate) <= new Date();
 
   return (
-    <div className="page-fade max-w-4xl mx-auto px-2 md:px-4 py-6 md:py-8 min-h-[85vh]">
+    <Page width="default" className="py-4 md:py-6 min-h-[70vh]">
       <SEO title = "Abstimmungen Detail"/>
-      {/* Back Button */}
-      <Link to="/Abstimmungen" className="inline-flex items-center gap-2 text-white/50 hover:text-white transition-colors mb-6 text-sm font-medium group">
-         <div className="p-1.5 rounded-lg bg-white/5 group-hover:bg-white/10 transition-colors"><ArrowLeft size={16} /></div>
-         Zurück zur Übersicht
-      </Link>
+      <Button to="/Abstimmungen" variant="ghost" icon={ArrowLeft} className="-ml-3 mb-4">Zurück zur Übersicht</Button>
 
       {/* Main Card */}
-      <div className="panel-strong overflow-hidden shadow-2xl shadow-black/40">
+      <Card className="!p-0 overflow-hidden !bg-surface">
 
-          {/* Header Banner */}
+          {/* Header Banner — der Verlauf unten hält den Titel auf jedem Bild lesbar */}
           <div className="relative h-48 md:h-64 bg-black/50 overflow-hidden">
              {poll.background ? (
                  <img src={poll.background} alt="" className="w-full h-full object-cover opacity-60" />
              ) : (
                  <div className="w-full h-full bg-black/30" />
              )}
-             <div className="absolute inset-0 bg-gradient-to-t from-[#0d0d1a] via-transparent to-transparent" />
+             <div className="absolute inset-0 bg-gradient-to-t from-surface via-transparent to-transparent" />
 
              <div className="absolute bottom-0 left-0 right-0 p-6 md:p-8">
-                 <h1 className="font-display text-3xl md:text-4xl font-bold text-white mb-3 leading-tight">{poll.title}</h1>
+                 <h1 className="font-display text-3xl md:text-4xl font-bold tracking-tight text-white mb-3 leading-tight">{poll.title}</h1>
 
                  <div className="flex flex-wrap gap-3 text-sm font-medium">
                      <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border ${isExpired ? "bg-red-500/15 border-red-500/30 text-red-200" : "bg-emerald-500/15 border-emerald-500/30 text-emerald-200"}`}>
@@ -100,15 +99,13 @@ export default function AbstimmungDetail() {
           {/* Content Body */}
           <div className="p-6 md:p-8">
               {poll.questions?.length ? (
-                <PollRenderer poll={poll} />
+                <PollRenderer poll={poll} showTitle={false} />
               ) : (
-                <div className="text-center py-10 text-white/30 border border-dashed border-white/10 rounded-xl">
-                    Keine Fragen in dieser Abstimmung.
-                </div>
+                <EmptyState>Keine Fragen in dieser Abstimmung.</EmptyState>
               )}
           </div>
-      </div>
+      </Card>
 
-    </div>
+    </Page>
   );
 }

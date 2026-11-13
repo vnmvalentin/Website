@@ -5,8 +5,11 @@
 // die Einstellungen alle 1,5 s ab (Backend /api/stream-scenes) — alles wirkt live, auch vom Handy aus.
 // Musik kommt von der YTMusicApp auf dem Streamer-PC; der Test verbindet sich von hier aus direkt.
 import React, { useCallback, useContext, useEffect, useRef, useState } from 'react';
-import { Copy, Check, Flame, PartyPopper, DoorOpen, Timer, ExternalLink, Flag, X, RotateCcw, AlignCenterHorizontal } from 'lucide-react';
+import { Copy, Check, Flame, PartyPopper, DoorOpen, Users, Timer, ExternalLink, Flag, X, RotateCcw, AlignCenterHorizontal } from 'lucide-react';
 import { TwitchAuthContext } from '../../components/TwitchAuthContext';
+import { PageHeader, Tabs } from '../../components/ui';
+import { isOwner } from '../../config/owner';
+import NotFound from '../NotFound';
 import { createMusicFeed } from './sceneLink';
 import { GambleStage } from '../StreamGamble/GambleOverlay';
 import {
@@ -192,6 +195,7 @@ function StartingTab({ s, update, command, origin }) {
             <div className="flex flex-wrap gap-2 py-3">
               <Btn primary icon={PartyPopper} onClick={() => command('drop', 'Drop')}>Drop</Btn>
               <Btn icon={Flame} onClick={() => command('fire', 'Feuer')}>Feuer</Btn>
+              <Btn icon={Users} onClick={() => command('polonaise', 'Polonaise')}>Polonaise</Btn>
               <Btn icon={DoorOpen} onClick={() => command('clearFloor', 'Fläche räumen')}>Fläche räumen</Btn>
             </div>
           </Card>
@@ -208,6 +212,8 @@ function StartingTab({ s, update, command, origin }) {
             <Field label="Feuer"><Switch checked={s.effects.fire} onChange={(v) => update({ effects: { ...s.effects, fire: v } })} /></Field>
             <Field label="Strobo" hint="Blitzlicht"><Switch checked={s.effects.strobe} onChange={(v) => update({ effects: { ...s.effects, strobe: v } })} /></Field>
             <Field label="Nebel & CO2"><Switch checked={s.effects.fog} onChange={(v) => update({ effects: { ...s.effects, fog: v } })} /></Field>
+            <Field label="Laser" hint="Strahlenfächer über der Tanzfläche"><Switch checked={s.effects.lasers !== false} onChange={(v) => update({ effects: { ...s.effects, lasers: v } })} /></Field>
+            <Field label="Funkenfontänen" hint="an der Bühnenkante, beim Drop"><Switch checked={s.effects.sparks !== false} onChange={(v) => update({ effects: { ...s.effects, sparks: v } })} /></Field>
           </Card>
         </div>
         <div className="space-y-5">
@@ -223,6 +229,9 @@ function StartingTab({ s, update, command, origin }) {
             )}
             <Field stack label="Tanzstil" hint="„Nach Musik“: ab 135 BPM nur Rave-Tänze">
               <Segmented value={s.danceStyle} onChange={(v) => update({ danceStyle: v })} options={[['auto', 'Nach Musik'], ['rave', 'Rave'], ['mixed', 'Gemischt'], ['classic', 'Klassisch']]} />
+            </Field>
+            <Field label="Gemeinsame Tänze" hint="ab und zu tanzen alle denselben Schritt (beim Drop immer) oder ziehen als Polonaise über die Fläche">
+              <Switch checked={s.groupDance !== false} onChange={(v) => update({ groupDance: v })} />
             </Field>
             <Field label="Höchstens Tänzer" hint="danach gehen die Stillsten"><Range value={s.maxDancers} min={5} max={60} onChange={(v) => update({ maxDancers: v })} /></Field>
             <Field label="Statisten" hint="namenlose Tänzer, zählen nicht mit"><Range value={s.extras} min={0} max={40} onChange={(v) => update({ extras: v })} /></Field>
@@ -474,8 +483,9 @@ function GeneralTab({ s, update, origin }) {
     <div className="grid gap-5 lg:grid-cols-2">
       <div className="space-y-5">
         <Card title="Thema" hint="Gilt für Stream Starting und für den BRB-Planeten auf „Automatisch“.">
-          <Field label="Thema" hint={s.theme === 'halloween' ? 'Kürbisse, Spinnennetze, Fledermäuse; wer keine eigene Figur hat, kommt verkleidet' : 'normale Party'}>
-            <Segmented value={s.theme || 'party'} onChange={(v) => update({ theme: v })} options={[['party', 'Party'], ['halloween', 'Halloween']]} />
+          <Field label="Thema" hint={s.theme === 'halloween' ? 'Kürbisse, Spinnennetze, Fledermäuse; wer keine eigene Figur hat, kommt verkleidet'
+            : s.theme === 'christmas' ? 'Tannen, Lichterketten, Geschenke, Schneefall; wer keine eigene Figur hat, trägt Weihnachtsmütze oder Geweih. Der Planet wird winterlich.' : 'normale Party'}>
+            <Segmented value={s.theme || 'party'} onChange={(v) => update({ theme: v })} options={[['party', 'Party'], ['halloween', 'Halloween'], ['christmas', 'Weihnachten']]} />
           </Field>
         </Card>
         <Card title="Testmodus" hint="Simulierte Zuschauer schreiben, tanzen, bekommen Häuser und laufen beim Planetenlauf mit.">
@@ -493,7 +503,7 @@ function GeneralTab({ s, update, origin }) {
 
 // ── Seite ───────────────────────────────────────────────────────────────────
 export default function StreamScenesControlPage() {
-  const { user, login } = useContext(TwitchAuthContext);
+  const { user } = useContext(TwitchAuthContext);
   const [ctl, setCtl] = useState(null);
   const [error, setError] = useState('');
   const [flash, setFlash] = useState('');
@@ -506,7 +516,7 @@ export default function StreamScenesControlPage() {
   useEffect(() => { try { localStorage.setItem(TAB_KEY, tab); } catch { /* egal */ } }, [tab]);
 
   useEffect(() => {
-    if (!user) return;
+    if (!isOwner(user)) return;
     api('/control').then(setCtl).catch((e) => setError(`Fehler beim Laden: ${e.message}`));
   }, [user]);
 
@@ -530,43 +540,32 @@ export default function StreamScenesControlPage() {
       .catch((e) => setError(`Fehler: ${e.message}`));
   };
 
-  if (!user) {
-    return (
-      <div className="mx-auto max-w-3xl px-4 py-10 text-white">
-        <h1 className="text-3xl font-extrabold">Stream-Szenen steuern</h1>
-        <p className="mt-3 text-white/60">Steuerpult für die 3D-Szenen: Party zum Start, Be Right Back, Kino zum Ende — live, während sie in OBS laufen.</p>
-        <button type="button" onClick={login} className="mt-6 rounded-md bg-violet-600 px-4 py-2.5 font-semibold hover:bg-violet-500">Mit Twitch anmelden</button>
-      </div>
-    );
-  }
+  // Nur für den Kanalbetreiber: alle anderen (auch Abgemeldete) sehen die normale 404 statt eines
+  // Anmelde-Hinweises, der verraten würde, dass es die Seite gibt. Der Betreiber meldet sich über
+  // den Knopf in der Leiste der Tool-Hülle an. Geschützt ist das Steuerpult zusätzlich auf dem Server.
+  if (!isOwner(user)) return <NotFound />;
   if (!ctl) return <div className="mx-auto max-w-3xl px-4 py-10 text-white/50">{error || 'Lade …'}</div>;
 
   const s = ctl.settings;
   const origin = window.location.origin;
 
   return (
-    <div className="mx-auto max-w-[1100px] px-4 py-8 text-white">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-3xl font-extrabold tracking-tight">Stream-Szenen</h1>
-          <p className="mt-1 text-sm text-white/50">Änderungen erscheinen nach 1–2 Sekunden in OBS.</p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {s.demo && <button type="button" onClick={() => update({ demo: false })} className="rounded-md border border-amber-400/40 bg-amber-400/10 px-3 py-1.5 text-sm text-amber-200 hover:bg-amber-400/15">Testmodus an — ausschalten</button>}
-          {s.gamble?.demo && <button type="button" onClick={() => update((cur) => ({ gamble: { ...mergeGambleLayout(cur.gamble), demo: false } }))} className="rounded-md border border-amber-400/40 bg-amber-400/10 px-3 py-1.5 text-sm text-amber-200 hover:bg-amber-400/15">Gamble-Testmodus an — ausschalten</button>}
-          {flash && <span className="rounded-md bg-emerald-500/15 px-3 py-1.5 text-sm text-emerald-300">{flash}</span>}
-        </div>
-      </div>
+    <div className="mx-auto max-w-[1100px] text-white">
+      <PageHeader
+        className="!mb-0"
+        title="Stream-Szenen"
+        description="Änderungen erscheinen nach 1–2 Sekunden in OBS."
+        actions={(s.demo || s.gamble?.demo || flash) && (
+          <>
+            {s.demo && <button type="button" onClick={() => update({ demo: false })} className="rounded-md border border-amber-400/40 bg-amber-400/10 px-3 py-1.5 text-sm text-amber-200 hover:bg-amber-400/15">Testmodus an — ausschalten</button>}
+            {s.gamble?.demo && <button type="button" onClick={() => update((cur) => ({ gamble: { ...mergeGambleLayout(cur.gamble), demo: false } }))} className="rounded-md border border-amber-400/40 bg-amber-400/10 px-3 py-1.5 text-sm text-amber-200 hover:bg-amber-400/15">Gamble-Testmodus an — ausschalten</button>}
+            {flash && <span className="rounded-md bg-emerald-500/15 px-3 py-1.5 text-sm text-emerald-300">{flash}</span>}
+          </>
+        )}
+      />
       {error && <p className="mt-3 text-sm text-red-400">{error}</p>}
 
-      <nav className="mt-6 flex gap-1 overflow-x-auto border-b border-white/10" role="tablist">
-        {TABS.map(([k, l]) => (
-          <button key={k} type="button" role="tab" aria-selected={tab === k} onClick={() => setTab(k)}
-            className={`-mb-px whitespace-nowrap border-b-2 px-4 py-2.5 text-sm font-medium transition-colors ${tab === k ? 'border-violet-400 text-white' : 'border-transparent text-white/50 hover:text-white/80'}`}>
-            {l}
-          </button>
-        ))}
-      </nav>
+      <Tabs className="mt-6" label="Szenen" value={tab} onChange={setTab} items={TABS.map(([k, l]) => ({ value: k, label: l }))} />
 
       <div className="mt-5">
         {tab === 'starting' && <StartingTab s={s} update={update} command={command} origin={origin} />}

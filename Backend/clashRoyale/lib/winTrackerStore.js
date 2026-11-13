@@ -211,9 +211,15 @@ try { db.exec("ALTER TABLE cr_wintracker_settings ADD COLUMN show_clan INTEGER N
 try { db.exec("ALTER TABLE cr_wintracker_settings ADD COLUMN overlay_theme TEXT NOT NULL DEFAULT 'classic'"); } catch { /* Spalte existiert bereits */ }
 try { db.exec("ALTER TABLE cr_wintracker_settings ADD COLUMN royale_panel TEXT NOT NULL DEFAULT 'blue'"); } catch { /* Spalte existiert bereits */ }
 try { db.exec("ALTER TABLE cr_wintracker_settings ADD COLUMN royale_pattern INTEGER NOT NULL DEFAULT 1"); } catch { /* Spalte existiert bereits */ }
+// Eckige Ecken statt abgerundeter Karte/Blasen (Nov. 2026), in beiden Stilen. Standard aus.
+try { db.exec("ALTER TABLE cr_wintracker_settings ADD COLUMN square_corners INTEGER NOT NULL DEFAULT 0"); } catch { /* Spalte existiert bereits */ }
 // Overlay-Größe in Prozent (100-200): echtes CSS-zoom statt Hochskalieren in OBS — die Schrift
 // wird in der Zielgröße gerendert und bleibt scharf. Standard 100, bestehende Quellen bleiben gleich.
 try { db.exec("ALTER TABLE cr_wintracker_settings ADD COLUMN overlay_scale INTEGER NOT NULL DEFAULT 100"); } catch { /* Spalte existiert bereits */ }
+// Feste Overlay-Breite/-Höhe in Pixeln (Nov. 2026), 0 = automatisch. Ist eins davon gesetzt,
+// skaliert das Overlay seinen Inhalt selbst auf dieses Format (overlay_scale gilt dann nicht).
+try { db.exec("ALTER TABLE cr_wintracker_settings ADD COLUMN overlay_width INTEGER NOT NULL DEFAULT 0"); } catch { /* Spalte existiert bereits */ }
+try { db.exec("ALTER TABLE cr_wintracker_settings ADD COLUMN overlay_height INTEGER NOT NULL DEFAULT 0"); } catch { /* Spalte existiert bereits */ }
 
 // Manueller Session-Reset (Button im Editor, siehe /accounts/:id/reset-session in
 // crWinTrackerRoutes.js): hebt den Sessionbeginn auf "jetzt" an, ohne auf die automatische

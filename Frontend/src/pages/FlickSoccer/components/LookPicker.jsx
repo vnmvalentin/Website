@@ -1,9 +1,9 @@
-// components/LookPicker.jsx — Auswahl für Ball, Rasen und Torjubel (Kataloge in progress.js): freigeschaltete zum
+// components/LookPicker.jsx — Auswahl für Ball und Torjubel (Kataloge in progress.js): freigeschaltete zum
 // Auswählen, gesperrte mit Bedingung und Fortschritt. Gleiches Aussehen wie die Scheiben-Auswahl (SkinPicker).
 import React, { useEffect, useRef } from "react";
 import { Lock, Sparkles } from "lucide-react";
 import { CATALOGS, itemProgress, itemUnlocked } from "../progress.js";
-import { drawBallPreview, drawTurfPreview } from "../render.js";
+import { drawBallPreview } from "../render.js";
 
 export function LookPreview({ kind, id, size = 44 }) {
   const ref = useRef(null);
@@ -14,7 +14,6 @@ export function LookPreview({ kind, id, size = 44 }) {
     const draw = () => {
       if (!alive) return;
       if (kind === "ball") drawBallPreview(canvas, id);
-      else if (kind === "turf") drawTurfPreview(canvas, id);
     };
     draw();
     document.fonts?.ready.then(draw).catch(() => {}); // der Achter-Ball hat eine Ziffer
@@ -25,7 +24,7 @@ export function LookPreview({ kind, id, size = 44 }) {
   if (kind === "celebration") {
     return <span className="fk-look-icon" style={{ width: size, height: size }}><Sparkles size={Math.round(size * 0.5)} /></span>;
   }
-  return <canvas ref={ref} className={kind === "turf" ? "fk-look-turf" : ""} style={{ width: size, height: size, display: "block" }} aria-hidden="true" />;
+  return <canvas ref={ref} style={{ width: size, height: size, display: "block" }} aria-hidden="true" />;
 }
 
 export default function LookPicker({ kind, value, onChange, stats }) {

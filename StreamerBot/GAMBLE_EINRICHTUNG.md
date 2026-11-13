@@ -34,6 +34,8 @@ Jede dieser Aktionen bekommt genau **einen** Unterbefehl:
 | Gamble !gamble | Command `!gamble` | `Gamble` |
 | Gamble !rakete | Command `!rakete` | `Rakete` |
 | Gamble !topf | Command `!topf` | `Topf` |
+| Gamble !watchtime | Command `!watchtime` | `WatchtimeBefehl` |
+| Gamble !followage | Command `!followage` | `Followage` |
 
 **Befehle anlegen:** Reiter **Commands** → Rechtsklick → **Add**.
 - Befehl eintragen und **Location: Start** wählen.
@@ -52,6 +54,21 @@ In deiner bestehenden Aktion **End_Stream** als **ersten** Unterbefehl einfügen
 Der Gewinner steht danach im Chat und im Overlay. Außerdem liegt er in der globalen Variable `session_topf_gewinner`, falls du ihn in den Stream-Credits zeigen willst.
 
 Mods können auch jederzeit `!topf ziehen` schreiben.
+
+## 3b. Zuschauzeit aus StreamElements übernehmen (einmalig)
+
+Die Zuschauzeit zählt Streamer.bot über die Aktion `Gamble Watchtime` selbst. Damit die alten Stunden aus StreamElements nicht verloren gehen:
+
+1. Neue Aktion `Gamble Import`, **kein Trigger**, ein Unterbefehl **Execute C# Method** → `GambleCore` → `WatchtimeImport`.
+2. Rechtsklick auf die Aktion → **Test**. Am besten, wenn du nicht live bist: Das Ergebnis steht danach im Chat und im Log, z. B. „Zuschauzeit übernommen: 812 von 840 Zuschauern aktualisiert“.
+3. Mit `!watchtime` bei dir selbst prüfen.
+4. Erst danach bei StreamElements `!watchtime` und `!followage` abschalten (Chat Commands → Default Commands). Die Aktion `Gamble Import` kann dann weg.
+
+Gut zu wissen:
+- Es braucht keinen Token. StreamElements gibt die Liste öffentlich heraus.
+- Pro Zuschauer gilt der größere Wert aus StreamElements und Streamer.bot. Ein zweiter Durchlauf zählt also nichts doppelt.
+- Punkte werden nicht übernommen, nur die Zuschauzeit.
+- Heißt dein Kanal bei StreamElements anders als auf Twitch, trägst du ihn oben in `GambleCore.cs` bei `SE_KANAL` ein.
 
 ## 4. Overlay in OBS
 
@@ -75,6 +92,8 @@ Das Overlay verbindet sich wie die Stream-Credits mit `ws://127.0.0.1:8080/`. De
 | `!gamble <betrag>` | 50:50 — gewonnen = doppelt zurück, verloren = weg. Ergebnis kommt sofort im Chat |
 | `!rakete <betrag> <ziel>` | z. B. `!rakete 100 2.5`. Erreicht die Rakete 2,5x, gibt es 250 zurück. Die erste Wette öffnet eine Runde mit 30 s Wartezeit |
 | `!topf` | wie viel im Topf liegt |
+| `!watchtime` / `!watchtime <name>` | Zuschauzeit |
+| `!followage` / `!followage <name>` | seit wann jemand dem Kanal folgt |
 
 Beträge gehen als `500`, `1k`, `2.5k`, `half`, `all` oder `25%`.
 

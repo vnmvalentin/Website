@@ -2,11 +2,14 @@
 // Detailfenster für ein platziertes Tier. Vorher konnte man ein Tier nur anklicken,
 // um es wortlos einzupacken — was es überhaupt kann, stand nirgends.
 import React, { useEffect, useState } from 'react';
+import { StandFenster } from "./laden/Marktstand";
+import { fischBild, fischName } from "./fische";
+import { istSatt, sattBis } from "../engine/PetSystem";
 import { Clock, Percent, Pencil } from 'lucide-react';
 import { HudIcon, PetIcon, SpecialIcon } from './gameIcons';
 import {
     PET_ABILITY_LABELS, PET_ABILITY_DESCRIPTIONS, PET_PROC_CHANCE,
-    getPetTickMs, getGoldfinderRange, getPetSellPrice, getErntehelferExtra,
+    getPetTickMs, getGoldfinderFund, ackerStundenErtrag, getPetSellPrice, getErntehelferExtra,
     getGaertnerNachwuchs, getGaertnerWurzelwerk, getForscherBoost, getKaufmannBoost,
 } from '../engine/PetSystem';
 
@@ -24,9 +27,24 @@ const ABILITY_ERKLAERUNG = {
     kaufmann: "Wirkt nur beim Verkaufen des gesamten Ernte-Lagers, nicht beim einzelnen Verkauf. Mehrere Kaufleute stapeln nicht — es zählt der stärkste.",
 };
 import { RARITY_TEXT, RARITY_DOT, formatGold, formatDuration } from './gardenTokens';
-import { GardenModal, PrimaryButton, StatLine } from './gardenUi';
+import { PrimaryButton, NebenKnopf } from './gardenUi';
+import { versionedAsset } from '../engine/assetVersion';
 
-export default function PetDetailModal({ pet, zuechter = 0, onClose, onStow, onSell, onRename }) {
+/** Kennzahl auf Pergament (06.11.) — wie StatLine in gardenUi.jsx, nur mit dunkler Schrift. */
+function StatLine({ icon: Icon, label, value, valueClass = "text-[#3b2516]" }) {
+    return (
+        <div className="flex items-center justify-between gap-3 py-1">
+            <span className="flex items-center gap-1.5 text-[11px] font-bold text-[#6e4426]">
+                {Icon ? <Icon size={12} className="shrink-0" /> : null}
+                {label}
+            </span>
+            <span className={`text-xs font-bold tabular-nums ${valueClass}`}>{value}</span>
+        </div>
+    );
+}
+
+export default function PetDetailModal({ pet, zuechter = 0, onClose, onStow, onSell, onRename, fische = [], onFuettern, plotPlants = {} }) {
+    const futterFische = (Array.isArray(fische) ? fische : []).filter((f) => f.fischId !== "stiefel");
     const [draftName, setDraftName] = useState("");
     useEffect(() => {
         setDraftName(pet ? (pet.customName || "") : "");
@@ -40,17 +58,18 @@ export default function PetDetailModal({ pet, zuechter = 0, onClose, onStow, onS
     const sellPrice = getPetSellPrice(rarity);
     const tickMs = getPetTickMs(level);
 
-    const [goldMin, goldMax] = getGoldfinderRange(level);
+    // 07.11.: wächst mit dem eigenen Acker (Spiegel von core/pets.js getGoldfinderFund)
+    const [goldMin, goldMax] = getGoldfinderFund(level, ackerStundenErtrag(plotPlants));
 
     return (
-        <GardenModal
-            title={pet.customName || pet.name || "Tier"}
-            subtitle={[pet.customName ? pet.name : null, abilityLabel ? `${abilityLabel} · Stufe ${level}` : "Ohne Fähigkeit"].filter(Boolean).join(" · ")}
+        <StandFenster markise={false} inhaltHintergrund="#f3e3c3"
+            titel={pet.customName || pet.name || "Tier"}
+            untertitel={[pet.customName ? pet.name : null, abilityLabel ? `${abilityLabel} · Stufe ${level}` : "Ohne Fähigkeit"].filter(Boolean).join(" · ")}
             onClose={onClose}
-            breite="klein"
-            headerRight={
+            breite="max-w-md"
+            kopfRechts={
                 <span className={`flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider ${RARITY_TEXT[rarity]}`}>
-                    <span className={`w-2 h-2 rounded-full ${RARITY_DOT[rarity]}`} />
+                    <span className={`w-2 h-2 ${RARITY_DOT[rarity]}`} />
                     {rarity}
                 </span>
             }
@@ -59,25 +78,21 @@ export default function PetDetailModal({ pet, zuechter = 0, onClose, onStow, onS
                     <PrimaryButton onClick={onStow} className="flex-1">
                         Einpacken
                     </PrimaryButton>
-                    <button
-                        type="button"
-                        onClick={onSell}
-                        className="flex-1 px-3 py-2 rounded-2xl border border-slate-700 text-slate-300 hover:text-white hover:border-slate-600 text-xs font-semibold transition-colors"
-                    >
+                    <NebenKnopf onClick={onSell} className="flex-1 justify-center">
                         Verkaufen · {formatGold(sellPrice)}
-                    </button>
+                    </NebenKnopf>
                 </div>
             }
         >
             <div className="flex items-center gap-4 mb-4">
-                <div className="w-20 h-20 shrink-0 rounded-2xl border border-slate-800 bg-slate-950 flex items-center justify-center">
+                <div className="w-20 h-20 shrink-0 border-[3px] border-[#3b2516] bg-[#fffaf0] flex items-center justify-center">
                     {pet.image ? (
-                        <img src={pet.image} alt="" className="w-16 h-16 object-contain" draggable={false} />
+                        <img src={versionedAsset(pet.image)} alt="" className="w-16 h-16 object-contain" style={{ imageRendering: "pixelated" }} draggable={false} />
                     ) : (
                         <PetIcon.emptySlot size={28} />
                     )}
                 </div>
-                <p className="text-xs text-slate-400 leading-relaxed">
+                <p className="text-xs text-[#6e4426] leading-relaxed">
                     {ability
                         ? PET_ABILITY_DESCRIPTIONS[ability.type] || "Diese Fähigkeit ist noch nicht beschrieben."
                         : "Dieses Tier hat keine aktive Fähigkeit und dient nur der Deko."}
@@ -85,15 +100,15 @@ export default function PetDetailModal({ pet, zuechter = 0, onClose, onStow, onS
             </div>
 
             {ability ? (
-                <div className="rounded-2xl border border-slate-800 bg-slate-950/50 px-3 py-2 mb-4">
-                    <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-1">Fähigkeit</div>
+                <div className="border-[3px] border-[#3b2516] bg-[#fffaf0] px-3 py-2 mb-4">
+                    <div className="text-[10px] uppercase tracking-wider text-[#6e4426] mb-1">Fähigkeit</div>
 
                     {ability.type === "goldfinder" && (
                         <StatLine
                             icon={PetIcon.goldfinder}
                             label="Fund pro Auslösung"
                             value={`${formatGold(goldMin)} – ${formatGold(goldMax)}`}
-                            valueClass="text-amber-400"
+                            valueClass="text-[#a87414]"
                         />
                     )}
                     {ability.type === "seedfinder" && (
@@ -102,13 +117,13 @@ export default function PetDetailModal({ pet, zuechter = 0, onClose, onStow, onS
                                 icon={PetIcon.gaertner}
                                 label="Nachwuchs ohne Samen"
                                 value={`${Math.round(getGaertnerNachwuchs(level, zuechter) * 100)} % je Einmalernte`}
-                                valueClass="text-emerald-400"
+                                valueClass="text-[#2f6b2c]"
                             />
                             <StatLine
                                 icon={Clock}
                                 label="Wächst schneller"
                                 value={`+${Math.round(getGaertnerWurzelwerk(level, zuechter) * 100)} % auf dem ganzen Grundstück`}
-                                valueClass="text-emerald-400"
+                                valueClass="text-[#2f6b2c]"
                             />
                         </>
                     )}
@@ -117,7 +132,7 @@ export default function PetDetailModal({ pet, zuechter = 0, onClose, onStow, onS
                             icon={PetIcon.erntehelfer}
                             label="Zweites Stück je eigener Ernte"
                             value={`${Math.round(getErntehelferExtra(level, zuechter) * 100)} % Chance`}
-                            valueClass="text-emerald-400"
+                            valueClass="text-[#2f6b2c]"
                         />
                     )}
                     {ability.type === "forscher" && (
@@ -125,7 +140,7 @@ export default function PetDetailModal({ pet, zuechter = 0, onClose, onStow, onS
                             icon={PetIcon.forscher}
                             label="Mehr Erfahrung je Ernte"
                             value={`+${Math.round(getForscherBoost(level, zuechter) * 100)} % XP`}
-                            valueClass="text-sky-400"
+                            valueClass="text-[#2f5a9a]"
                         />
                     )}
                     {ability.type === "kaufmann" && (
@@ -133,7 +148,7 @@ export default function PetDetailModal({ pet, zuechter = 0, onClose, onStow, onS
                             icon={PetIcon.kaufmann}
                             label="Höherer Verkaufspreis"
                             value={`+${Math.round(getKaufmannBoost(level, zuechter) * 100)} % beim Alles-Verkaufen`}
-                            valueClass="text-amber-400"
+                            valueClass="text-[#a87414]"
                         />
                     )}
 
@@ -146,10 +161,10 @@ export default function PetDetailModal({ pet, zuechter = 0, onClose, onStow, onS
                         </>
                     )}
 
-                    <p className="text-[10px] text-slate-500 mt-2 leading-relaxed">
+                    <p className="text-[10px] text-[#6e4426] mt-2 leading-relaxed">
                         {ABILITY_ERKLAERUNG[ability.type] || ""}
                     </p>
-                    <p className="text-[10px] text-slate-500 mt-1.5 leading-relaxed">
+                    <p className="text-[10px] text-[#6e4426] mt-1.5 leading-relaxed">
                         Tiere arbeiten nur, während du im Spiel bist. Offline verdienen sie nichts mehr.
                         {zuechter > 0 ? ` Der Skill „Züchter" ist eingerechnet (+${Math.round(zuechter * 100)} %).` : ""}
                     </p>
@@ -157,17 +172,47 @@ export default function PetDetailModal({ pet, zuechter = 0, onClose, onStow, onS
             ) : null}
 
             {pet.specialType ? (
-                <div className="rounded-2xl border border-slate-800 bg-slate-950/50 px-3 py-2 mb-4 flex items-center justify-between">
-                    <span className={`flex items-center gap-1.5 text-xs font-semibold ${pet.specialType === "Golden" ? "text-amber-400" : "text-fuchsia-400"}`}>
+                <div className="border-[3px] border-[#3b2516] bg-[#fffaf0] px-3 py-2 mb-4 flex items-center justify-between">
+                    <span className={`flex items-center gap-1.5 text-xs font-semibold ${pet.specialType === "Golden" ? "text-[#a87414]" : "text-fuchsia-400"}`}>
                         {pet.specialType === "Golden" ? <SpecialIcon.golden size={13} /> : <SpecialIcon.rainbow size={13} />}
                         {pet.specialType}
                     </span>
-                    <span className="text-[11px] text-slate-400">Seltene Färbung</span>
+                    <span className="text-[11px] text-[#6e4426]">Seltene Färbung</span>
                 </div>
             ) : null}
 
-            <div className="rounded-2xl border border-slate-800 bg-slate-950/50 px-3 py-2 mb-4">
-                <label className="block text-[10px] uppercase tracking-wider text-slate-500 mb-1.5">Name geben</label>
+            {/* Füttern (06.11., Backend core/pets.js sattBisVon): nur satte Tiere arbeiten */}
+            {onFuettern && (
+                <div className="mb-4 border-[3px] border-[#3b2516] bg-[#fffaf0] px-3 py-2">
+                    <div className="mb-1.5 flex items-center justify-between gap-2">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-[#6e4426]">Füttern</span>
+                        {istSatt(pet) ? (
+                            <span className="border-2 border-[#3b2516] bg-[#dcebc8] px-1.5 text-[10px] font-bold text-[#2f5a28]">
+                                satt · {sattBis(pet) > 0 ? `noch ${formatDuration(Math.max(0, sattBis(pet) - Date.now()))}` : "Startfutter"}
+                            </span>
+                        ) : (
+                            <span className="border-2 border-[#3b2516] bg-[#f6c8b8] px-1.5 text-[10px] font-bold text-[#a8302a]">verhungert · arbeitet nicht</span>
+                        )}
+                    </div>
+                    {futterFische.length === 0 ? (
+                        <p className="text-[11px] text-[#6e4426]">Kein Fisch im Eimer. Angeln kannst du am Steg im Dorfteich.</p>
+                    ) : (
+                        <div className="grid grid-cols-5 gap-1.5">
+                            {futterFische.slice(0, 10).map((f) => (
+                                <button key={f.instanceId} type="button" title={`${fischName(f.fischId)} verfüttern`}
+                                    onClick={() => onFuettern(pet, f.instanceId)}
+                                    className="flex aspect-square items-center justify-center border-[3px] border-[#3b2516] bg-[#bfe6f2] transition-transform duration-75 hover:-translate-y-0.5">
+                                    <img src={fischBild(f.fischId)} alt="" className="h-8 w-auto" style={{ imageRendering: "pixelated" }} />
+                                </button>
+                            ))}
+                        </div>
+                    )}
+                    <p className="mt-1.5 text-[10px] text-[#8a7a5a]">Tiere arbeiten nur, solange sie satt sind. Ein Fisch hält 3 Stunden, seltenere länger — bis zu 24 Stunden im Voraus.</p>
+                </div>
+            )}
+
+            <div className="border-[3px] border-[#3b2516] bg-[#fffaf0] px-3 py-2 mb-4">
+                <label className="block text-[10px] uppercase tracking-wider text-[#6e4426] mb-1.5">Name geben</label>
                 <div className="flex gap-2">
                     <input
                         type="text"
@@ -176,7 +221,7 @@ export default function PetDetailModal({ pet, zuechter = 0, onClose, onStow, onS
                         placeholder={pet.name}
                         onChange={(e) => setDraftName(e.target.value)}
                         onKeyDown={(e) => { if (e.key === "Enter") onRename?.(pet, draftName.trim()); }}
-                        className="flex-1 px-2.5 py-1.5 rounded-2xl bg-slate-950 border border-slate-700 text-xs text-white placeholder:text-slate-600 focus:border-violet-500 focus:outline-none"
+                        className="flex-1 px-2.5 py-1.5 bg-white border-[3px] border-[#3b2516] text-xs text-[#3b2516] placeholder:text-[#a8967e] focus:bg-white focus:outline-none"
                     />
                     <PrimaryButton onClick={() => onRename?.(pet, draftName.trim())} className="shrink-0">
                         <span className="inline-flex items-center gap-1.5"><Pencil size={12} /> Speichern</span>
@@ -184,15 +229,15 @@ export default function PetDetailModal({ pet, zuechter = 0, onClose, onStow, onS
                 </div>
             </div>
 
-            <div className="rounded-2xl border border-slate-800 bg-slate-950/50 px-3 py-2">
-                <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-1">Wert</div>
+            <div className="border-[3px] border-[#3b2516] bg-[#fffaf0] px-3 py-2">
+                <div className="text-[10px] uppercase tracking-wider text-[#6e4426] mb-1">Wert</div>
                 <StatLine
                     icon={HudIcon.gold}
                     label="Verkaufspreis am Tier-Stand"
                     value={`${sellPrice.toLocaleString("de-DE")} Gold`}
-                    valueClass="text-amber-400"
+                    valueClass="text-[#a87414]"
                 />
             </div>
-        </GardenModal>
+        </StandFenster>
     );
 }

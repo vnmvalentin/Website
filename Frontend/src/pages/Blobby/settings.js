@@ -17,7 +17,8 @@ export const POWERUP_LABELS = {
 };
 
 export function normalizeSettings(raw) {
-  // "beach" = 3D-Feld mit WASD (beach/), gerechnet beim Host statt auf dem Server
+  // "beach" = Ego-Volleyball: 3D-Feld aus der Ich-Sicht (beach/), gerechnet beim Host statt
+  // auf dem Server. Der Wert heißt noch wie das Feld "Beach 3D", das es ersetzt hat.
   const field = raw?.field === "beach" ? "beach" : "classic";
   return {
     mode: raw?.mode === "2v2" ? "2v2" : "1v1",
@@ -33,7 +34,7 @@ export function settingsSummary(s) {
   const n = normalizeSettings(s);
   if (n.field === "beach") {
     return [
-      "Beach 3D",
+      "Ego 3D",
       n.mode === "2v2" ? "2 gegen 2" : "1 gegen 1",
       n.maxTouches === 3 ? "max. 3 Berührungen" : "Berührungen frei",
       n.powerups ? "Powerups an" : "Powerups aus",

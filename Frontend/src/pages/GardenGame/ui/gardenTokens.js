@@ -143,12 +143,14 @@ export const HUD_SURFACE =
  * Zwei Stufen dunkler (green-600/700) behält den Grasgrün-Charakter, ohne
  * gegen den eigenen Text zu kämpfen.
  */
+// 07.11.: flach wie KaufKnopf (ui/laden/Marktstand.jsx) — kein Verlauf, Holzrand;
+// gesperrt beige statt Schiefergrau (das war in der Umkleide noch der alte Look).
 export const BTN_PRIMARY =
-    "bg-gradient-to-b from-green-600 to-green-700 border-[3px] border-green-950 rounded-2xl " +
-    "shadow-[0_4px_0_0_#052e16] transition-[transform,box-shadow] duration-100 " +
-    "hover:from-green-500 hover:to-green-600 " +
-    "active:translate-y-1 active:shadow-[0_1px_0_0_#052e16] " +
-    "disabled:translate-y-1 disabled:shadow-none disabled:opacity-50 disabled:from-slate-500 disabled:to-slate-600 disabled:border-slate-800";
+    "bg-[#4f9a3a] border-[3px] border-[#3b2516] " +
+    "shadow-[0_3px_0_0_#3b2516] transition-[transform,box-shadow] duration-75 " +
+    "hover:bg-[#5faa45] " +
+    "active:translate-y-0.5 active:shadow-[0_1px_0_0_#3b2516] " +
+    "disabled:translate-y-0 disabled:shadow-none disabled:bg-[#d8cfb8] disabled:!text-[#7a6a50]";
 
 /** Kleine cremefarbene Marke für kurze Texte/Zahlen (Feedback 30.08.: "soft
  * cream for text backgrounds") — bewusst NUR für Kleinteile (Chips, Zähler),

@@ -73,6 +73,19 @@ function merkeUebersteuerung(typ, bis, now = Date.now()) {
     aufraeumen(now);
 }
 
+/** Das Wetter, das gerade läuft (06.11., fürs Angeln) — Admin vor Rotation, sonst Sonne. */
+function wetterJetzt(now = Date.now()) {
+    for (let i = abschnitte.length - 1; i >= 0; i--) {
+        const x = abschnitte[i];
+        if (x.quelle === "admin" && x.ab <= now && x.bis >= now) return x.typ;
+    }
+    for (let i = abschnitte.length - 1; i >= 0; i--) {
+        const x = abschnitte[i];
+        if (x.quelle === "rotation" && x.ab <= now && (x.bis === null || x.bis >= now)) return x.typ;
+    }
+    return "sun";
+}
+
 /** Alle Effekte, deren Wetter irgendwann in [von, bis] lief. */
 function erlaubteEffekte(von, bis = Date.now()) {
     const out = new Set();
@@ -123,6 +136,6 @@ function gueltigeEffekte(traeger, now = Date.now()) {
 
 module.exports = {
     EFFEKT_FUER_WETTER, EFFEKT_HALTBAR_MS, VERLAUF_MS,
-    wetterAusRotation, merkeRotation, merkeUebersteuerung, erlaubteEffekte, pruefeEffekte, gueltigeEffekte,
+    wetterAusRotation, wetterJetzt, merkeRotation, merkeUebersteuerung, erlaubteEffekte, pruefeEffekte, gueltigeEffekte,
     _abschnitte: abschnitte,
 };

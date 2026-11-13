@@ -270,18 +270,21 @@ export function FensterZeile({ bild, titel, marke, text, wert, unterWert, aktion
     );
 }
 
+// 07.11.: Holz-Look wie NebenKnopfHolz (ui/laden/Marktstand.jsx) statt der alten
+// runden Schiefer-Knöpfe — die standen noch in Umkleide, Haus und „Neue Saat“.
 const NEBENKNOPF_TON = {
-    normal: "border-slate-700 text-slate-300 hover:border-violet-500 hover:text-violet-200",
-    // Endgültiges (Wegwerfen): rot umrandet, damit man es nicht mit „Einen“ verwechselt.
-    gefahr: "border-rose-800 text-rose-300 hover:bg-rose-900/40 hover:text-white",
+    normal: "bg-[#f3e3c3] text-[#6e4426] hover:bg-[#fff3c4]",
+    // Endgültiges (Wegwerfen): rot, damit man es nicht mit „Einen“ verwechselt.
+    gefahr: "bg-[#c8403a] text-white hover:bg-[#d85a4a]",
 };
 
 /** Nebenaktion neben dem grünen Hauptknopf („Alle“, „×10“, „Einen“). */
-export function NebenKnopf({ children, ton = "normal", className = "", ...props }) {
+export function NebenKnopf({ children, ton = "normal", className = "", style, ...props }) {
     return (
         <button
             type="button"
-            className={`inline-flex items-center gap-1.5 rounded-2xl border px-2.5 py-2 text-xs font-semibold transition-colors disabled:border-slate-800 disabled:bg-transparent disabled:text-slate-600 ${NEBENKNOPF_TON[ton] || NEBENKNOPF_TON.normal} ${className}`}
+            className={`inline-flex items-center gap-1.5 border-[3px] px-2.5 py-1.5 text-xs font-bold transition-transform duration-75 active:translate-y-0.5 disabled:translate-y-0 disabled:opacity-50 ${NEBENKNOPF_TON[ton] || NEBENKNOPF_TON.normal} ${className}`}
+            style={{ borderColor: "#3b2516", boxShadow: "0 3px 0 0 #3b2516", ...style }}
             {...props}
         >
             {children}

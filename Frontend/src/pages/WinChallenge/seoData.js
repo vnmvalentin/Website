@@ -53,7 +53,7 @@ const de = {
   features: [
     {
       title: 'Challenge-Liste mit Siegzähler',
-      text: 'Beliebig viele Challenges mit eigenem Ziel. Siege hochzählen, erledigte abhaken, wichtige anpinnen und die Reihenfolge per Ziehen ändern.',
+      text: 'Beliebig viele Challenges mit eigenem Ziel. Siege hochzählen, Serien wie B2B oder B3B Win für Win abhaken, erledigte abhaken, wichtige anpinnen und die Reihenfolge per Ziehen ändern.',
     },
     {
       title: 'Steuerung über den Twitch-Chat',
@@ -157,7 +157,7 @@ const en = {
   features: [
     {
       title: 'Challenge list with win counter',
-      text: 'As many challenges as you like, each with its own goal. Count wins, tick off finished ones, pin important ones and reorder by dragging.',
+      text: 'As many challenges as you like, each with its own goal. Count wins, tick off streaks like B2B or B3B win by win, tick off finished ones, pin important ones and reorder by dragging.',
     },
     {
       title: 'Control from Twitch chat',

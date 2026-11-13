@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { NEWS_UPDATES } from "../utils/newData";
 import SEO from "../components/SEO";
+import { Page, PageHeader, Card } from "../components/ui";
 import { ChevronDown } from "lucide-react";
 
 function splitVersion(version) {
@@ -14,12 +15,14 @@ function UpdateEntry({ update, defaultOpen }) {
   const { num, title } = splitVersion(update.version);
 
   return (
-    <div className="panel overflow-hidden">
+    <Card className="!p-0 overflow-hidden">
       <button
+        type="button"
         onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
         className="w-full flex items-center gap-4 px-5 py-4 text-left hover:bg-white/[0.03] transition-colors"
       >
-        <span className="shrink-0 text-xs font-mono font-bold text-violet-300 bg-violet-500/10 border border-violet-400/20 px-2.5 py-1 rounded-md">
+        <span className="shrink-0 text-xs font-mono font-bold text-accent-soft bg-accent/10 border border-accent/25 px-2.5 py-1 rounded-md">
           {num}
         </span>
         <span className="flex-1 min-w-0 text-sm font-semibold text-white truncate">
@@ -33,16 +36,16 @@ function UpdateEntry({ update, defaultOpen }) {
       </button>
 
       {open && (
-        <div className="dropdown-in px-5 md:px-8 pb-8 pt-2 space-y-8 border-t border-white/10">
+        <div className="dropdown-in px-5 md:px-8 pb-8 pt-2 space-y-8 border-t border-line">
           {update.sections.map((sec, sIdx) => (
             <div key={sIdx} className="pt-6">
               <h3 className="font-semibold text-base text-white/85 mb-4 flex items-center gap-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-pink-500 shrink-0" />
+                <span className="w-1.5 h-1.5 rounded-full bg-accent-soft shrink-0" />
                 {sec.title}
               </h3>
               <ul className="space-y-3 pl-4">
                 {sec.items.map((item, iIdx) => (
-                  <li key={iIdx} className="text-white/50 text-sm flex items-start gap-3">
+                  <li key={iIdx} className="text-white/55 text-sm flex items-start gap-3">
                     <span className="text-white/25 mt-0.5">▹</span>
                     <span className="leading-relaxed">{item}</span>
                   </li>
@@ -52,33 +55,25 @@ function UpdateEntry({ update, defaultOpen }) {
           ))}
         </div>
       )}
-    </div>
+    </Card>
   );
 }
 
 export default function Updates() {
   return (
-    <div className="page-fade max-w-4xl mx-auto py-6">
+    <Page width="default" className="py-6">
       <SEO
         title="Updates"
         description="Alle Neuerungen, Fixes und Features im Überblick."
         path="/updates"
       />
-      <div className="mb-10">
-        <p className="text-xs font-bold uppercase tracking-widest text-violet-300/80 mb-2">Changelog</p>
-        <h1 className="font-display text-4xl md:text-5xl font-bold text-white tracking-tight">
-          Updates & News
-        </h1>
-        <p className="text-white/50 mt-3 text-base md:text-lg">
-          Alle Neuerungen, Fixes und Features im Überblick.
-        </p>
-      </div>
+      <PageHeader kicker="Changelog" title="Updates & News" description="Alle Neuerungen, Fixes und Features im Überblick." />
 
       <div className="space-y-3">
         {NEWS_UPDATES.map((update, idx) => (
           <UpdateEntry key={idx} update={update} defaultOpen={idx === 0} />
         ))}
       </div>
-    </div>
+    </Page>
   );
 }

@@ -394,18 +394,23 @@ function Train3D({ data, module, offsetRef, still, onFail }) {
             </div>
           )}
           {levelUp > 0 && !still && <div key={levelUp} className="sts3-levelup">Level {shownLevel}!</div>}
-          <div className="sts3-hud-card">
-            <div className="sts3-hud-row">
-              <span className="sts3-hud-kicker">{golden ? 'Goldener Hype Train' : 'Hype Train'}</span>
-              {showTimer && remaining > 0 && <span className="sts3-hud-timer">{mmss(remaining)}</span>}
+          {/* Das Level steht als große Zahl im Farbblock — die eine Angabe, die
+              man auch in einem verkleinerten Stream noch lesen soll */}
+          <div className={`sts3-hud-card${golden ? ' is-golden' : ''}`}>
+            <div className="sts3-hud-lvl"><small>Level</small><b>{shownLevel}</b></div>
+            <div className="sts3-hud-body">
+              <div className="sts3-hud-row">
+                <span className="sts3-hud-kicker">{golden ? 'Goldener Hype Train' : 'Hype Train'}</span>
+                {showTimer && remaining > 0 && <span className="sts3-hud-timer">{mmss(remaining)}</span>}
+              </div>
+              <div className="sts3-hud-row">
+                <span className="sts3-hud-people">{people.length} {people.length === 1 ? 'Fahrgast' : 'Fahrgäste'}</span>
+                {module.showProgress !== false && <span className="sts3-hud-pct">{Math.round(pct)} %</span>}
+              </div>
+              {module.showProgress !== false && (
+                <div className="sts3-prog"><i style={{ width: `${pct.toFixed(1)}%` }} /></div>
+              )}
             </div>
-            <div className="sts3-hud-row">
-              <b className="sts3-hud-level">Level {shownLevel}</b>
-              <span className="sts3-hud-people">{people.length} {people.length === 1 ? 'Fahrgast' : 'Fahrgäste'}</span>
-            </div>
-            {module.showProgress !== false && (
-              <div className="sts3-prog"><i style={{ width: `${pct.toFixed(1)}%` }} /><span>{Math.round(pct)} %</span></div>
-            )}
           </div>
         </div>
       </div>

@@ -50,16 +50,49 @@ export default function RulesDialog({ open, onClose }) {
           <section className="py-3">
             <h3 className="fk-section-title mb-1">Chaos-Modus</h3>
             <p className="fk-dim">
-              Zuschaltbar bei den Regeln. Jeder Zug bringt automatisch ein Power-up, das auf genau diesen Schuss wirkt:
-              Schwergewicht, Turbo, Riese, Gummibande, Eiszeit oder Doppelschuss. Die Reihenfolge ist zufällig und
-              für beide Teams verschieden. Fair bleibt es, weil jedes Team in sechs Zügen jedes Power-up genau einmal bekommt.
+              Zuschaltbar bei den Regeln. Jedes Team hält drei Karten auf der Hand und darf pro Zug eine davon ausspielen —
+              oder keine und sie für später aufheben. Karte antippen, dann schießen: Sie wirkt auf genau diesen Schuss, danach
+              ziehst du eine neue. Es gibt zwölf Karten, darunter Sprengsatz, Geisterscheibe, Schrumpfstrahl, Eiszeit, Alle Mann
+              und Doppelschuss. Beide Hände liegen offen. Fair bleibt es, weil jedes Team aus einem eigenen Stapel zieht, in dem
+              jede Karte genau einmal steckt.
+            </p>
+            <p className="fk-dim mt-2">
+              Dazu kommen Ereignisse, die das ganze Feld treffen: Nach zwei ruhigen Zügen gilt zwei Züge lang eine
+              Sonderregel für beide — Blitzeis, Bleikugel, Flummi, Vollgas, Winzlinge, Murmel, Erdbeben oder Stromausfall.
+              Oben steht, was gerade gilt und was als Nächstes kommt.
             </p>
           </section>
           <section className="py-3">
             <h3 className="fk-section-title mb-1">Felder</h3>
             <p className="fk-dim">
-              Neben dem Stadion gibt es die kleine Halle, Pfosten als Hindernisse an der Mittellinie, den Käfig mit schrägen
-              Ecken und das Scheunentor mit riesigen Toren. Die Aufstellungen passen sich dem Feld an.
+              Elf Felder, jedes mit eigenem Boden und eigener Besonderheit: die kleine Halle, der Trainingsplatz mit Pfosten,
+              der Käfig mit schrägen Ecken, das Scheunentor mit riesigen Toren, die Eisbahn (alles rutscht weiter), der Flipper
+              (Bumper schießen zurück), das Wurmloch (zwei Portale), der Strand (Sand bremst), der Burghof (Mauern an der
+              Mittellinie) und die Rundbahn mit runden Ecken. Die Aufstellungen passen sich dem Feld an.
+            </p>
+          </section>
+          <section className="py-3">
+            <h3 className="fk-section-title mb-1">Eigene Aufstellung</h3>
+            <p className="fk-dim">
+              Bei den Aufstellungen öffnet „Eigene bauen“ einen Editor: Schieb deine fünf Scheiben auf der eigenen Hälfte
+              dorthin, wo du sie haben willst. Der Mittelkreis bleibt frei. Bis zu fünf eigene Aufstellungen werden gemerkt
+              und gelten auch online.
+            </p>
+          </section>
+          <section className="py-3">
+            <h3 className="fk-section-title mb-1">Tour</h3>
+            <p className="fk-dim">
+              20 Gegner in vier Pokalen, jeder mit eigenem Feld und eigenen Regeln. Ein Sieg schaltet den nächsten frei und
+              bringt bis zu drei Sterne: drei ohne Gegentor, zwei mit einem, sonst einen. Sterne schalten neue Scheiben frei.
+              Der letzte Gegner jedes Pokals hat eine Sonderregel, zum Beispiel einen Vorsprung oder schwerere Scheiben.
+            </p>
+          </section>
+          <section className="py-3">
+            <h3 className="fk-section-title mb-1">Trickschüsse</h3>
+            <p className="fk-dim">
+              Feste Stellungen, ein Schuss: Der Ball muss ins rechte Tor. Daneben geschossen, steht alles wieder da. Drei
+              Sterne für einen Treffer beim ersten Versuch, zwei bis zum dritten. Nach fünf Fehlversuchen kannst du dir die
+              Lösung zeigen lassen.
             </p>
           </section>
           <section className="py-3">

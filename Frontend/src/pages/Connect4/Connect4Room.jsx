@@ -6,6 +6,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { io } from "socket.io-client";
 import { Disc, Copy, Check, LogOut, RotateCcw, Loader2, Users } from "lucide-react";
 import SEO from "../../components/SEO";
+import { Button, Card, Input } from "../../components/ui";
 
 const ROWS = 6;
 const COLS = 7;
@@ -164,19 +165,13 @@ export default function Connect4Room() {
     return (
       <div className="page-fade w-full max-w-md mx-auto px-2 md:px-4 py-16">
         <SEO title="Connect 4" description="Diese Connect-4-Partie wurde nicht gefunden." path={`/connect4/${code}`} />
-        <div className="panel p-6 text-center">
-          <h1 className="font-display text-xl font-bold text-white mb-2">Spiel nicht gefunden</h1>
-          <p className="text-sm text-white/50 mb-5">
+        <Card className="text-center">
+          <h1 className="font-display text-2xl font-bold tracking-tight text-white mb-2">Spiel nicht gefunden</h1>
+          <p className="text-sm text-white/55 mb-5">
             Dieser Link ist abgelaufen oder die Partie wurde beendet.
           </p>
-          <button
-            type="button"
-            onClick={() => navigate("/connect4")}
-            className="bg-violet-600 hover:bg-violet-500 text-white font-semibold px-5 py-2.5 rounded-lg text-sm transition-colors"
-          >
-            Neues Spiel erstellen
-          </button>
-        </div>
+          <Button to="/connect4" icon={Disc}>Neues Spiel erstellen</Button>
+        </Card>
       </div>
     );
   }
@@ -185,31 +180,28 @@ export default function Connect4Room() {
     return (
       <div className="page-fade w-full max-w-md mx-auto px-2 md:px-4 py-16">
         <SEO title="Connect 4 · Einladung" description="Tritt einer Connect-4-Partie bei." path={`/connect4/${code}`} />
-        <div className="panel p-6 text-center">
-          <span className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-violet-500/10 border border-violet-400/20 text-violet-300 mb-4">
-            <Disc size={26} />
+        <Card className="text-center">
+          <span className="inline-flex items-center justify-center w-12 h-12 rounded-lg bg-accent/10 border border-accent/25 text-accent-soft mb-4">
+            <Disc size={22} />
           </span>
-          <h1 className="font-display text-xl font-bold text-white mb-1">Connect-4-Einladung</h1>
-          <p className="text-xs uppercase tracking-widest text-white/30 mb-5">Code: {code}</p>
+          <h1 className="font-display text-2xl font-bold tracking-tight text-white mb-1">Connect-4-Einladung</h1>
+          <p className="text-xs uppercase tracking-widest text-white/35 mb-5">Code: {code}</p>
           <form onSubmit={submitName} className="space-y-3">
-            <input
+            <Input
               type="text"
               autoFocus
               value={name}
               onChange={(e) => setName(e.target.value)}
               maxLength={24}
+              aria-label="Dein Name"
               placeholder="Dein Name"
-              className="w-full bg-black/40 border border-white/10 rounded-lg px-3.5 py-2.5 text-white placeholder:text-white/25 focus:border-violet-500 focus:outline-none transition-colors text-sm text-center"
+              aria-invalid={error ? true : undefined}
+              className="text-center"
             />
             {error && <p className="text-sm text-red-300">{error}</p>}
-            <button
-              type="submit"
-              className="w-full bg-violet-600 hover:bg-violet-500 text-white font-semibold py-2.5 rounded-lg text-sm transition-colors"
-            >
-              Beitreten
-            </button>
+            <Button type="submit" block>Beitreten</Button>
           </form>
-        </div>
+        </Card>
       </div>
     );
   }
@@ -237,11 +229,11 @@ export default function Connect4Room() {
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
         <div className="flex items-center gap-3">
-          <span className="hidden sm:flex items-center justify-center w-11 h-11 rounded-xl bg-violet-500/10 border border-violet-400/20 text-violet-300">
+          <span className="hidden sm:flex items-center justify-center w-11 h-11 rounded-lg bg-accent/10 border border-accent/25 text-accent-soft">
             <Disc size={20} />
           </span>
           <div>
-            <h1 className="font-display text-xl font-bold text-white">Connect 4</h1>
+            <h1 className="font-display text-2xl font-bold tracking-tight text-white">Connect 4</h1>
             <p className="text-[11px] text-white/40 tracking-widest uppercase">
               Code: {code}
               {game?.spectatorCount > 0 && (
@@ -253,22 +245,10 @@ export default function Connect4Room() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={copyLink}
-            className="flex items-center gap-2 bg-white/5 hover:bg-white/10 border border-white/10 text-white/80 hover:text-white text-sm font-semibold px-3.5 py-2 rounded-lg transition-colors"
-          >
-            {copied ? <Check size={15} className="text-emerald-400" /> : <Copy size={15} />}
+          <Button variant="secondary" onClick={copyLink} icon={copied ? Check : Copy}>
             {copied ? "Kopiert" : "Link kopieren"}
-          </button>
-          <button
-            type="button"
-            onClick={leaveGame}
-            className="flex items-center gap-2 bg-white/5 hover:bg-red-500/15 border border-white/10 hover:border-red-500/30 text-white/60 hover:text-red-300 text-sm font-semibold px-3.5 py-2 rounded-lg transition-colors"
-          >
-            <LogOut size={15} />
-            Verlassen
-          </button>
+          </Button>
+          <Button variant="ghost" onClick={leaveGame} icon={LogOut}>Verlassen</Button>
         </div>
       </div>
 
@@ -314,29 +294,17 @@ export default function Connect4Room() {
           <Loader2 size={20} className="animate-spin text-violet-300 mx-auto mb-3" />
           <p className="text-white/60 text-sm mb-4">Schick diesen Link an einen Freund, um zu starten:</p>
           <div className="flex items-center gap-2 max-w-md mx-auto">
-            <code className="flex-1 bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-white/80 text-xs sm:text-sm truncate text-left">
+            <code className="flex-1 h-10 leading-10 bg-black/30 border border-line rounded-lg px-3 text-white/80 text-xs sm:text-sm truncate text-left">
               {window.location.origin}/connect4/{code}
             </code>
-            <button
-              type="button"
-              onClick={copyLink}
-              className="shrink-0 flex items-center gap-1.5 bg-violet-600 hover:bg-violet-500 text-white text-sm font-semibold px-3.5 py-2 rounded-lg transition-colors"
-            >
-              {copied ? <Check size={15} /> : <Copy size={15} />}
-            </button>
+            <Button onClick={copyLink} icon={copied ? Check : Copy} aria-label={copied ? "Kopiert" : "Link kopieren"} className="shrink-0" />
           </div>
         </div>
       )}
 
       {isSpectator && (!game?.players?.[1] || !game?.players?.[2]) && (
         <div className="flex justify-center mb-6">
-          <button
-            type="button"
-            onClick={claimSlot}
-            className="flex items-center gap-2 bg-violet-600 hover:bg-violet-500 text-white text-sm font-semibold px-4 py-2.5 rounded-lg transition-colors"
-          >
-            <Disc size={15} /> Als Spieler mitspielen
-          </button>
+          <Button onClick={claimSlot} icon={Disc}>Als Spieler mitspielen</Button>
         </div>
       )}
 
@@ -412,15 +380,9 @@ export default function Connect4Room() {
       {/* Revanche */}
       {game?.status === "finished" && mySlot != null && (
         <div className="flex flex-col items-center gap-2 mt-6">
-          <button
-            type="button"
-            onClick={requestRematch}
-            disabled={!!game.rematch?.[mySlot]}
-            className="flex items-center gap-2 bg-violet-600 hover:bg-violet-500 disabled:bg-violet-600/40 disabled:cursor-not-allowed text-white text-sm font-semibold px-4 py-2.5 rounded-lg transition-colors"
-          >
-            <RotateCcw size={15} />
+          <Button onClick={requestRematch} disabled={!!game.rematch?.[mySlot]} icon={RotateCcw}>
             {game.rematch?.[mySlot] ? "Warte auf Gegner…" : "Revanche"}
-          </button>
+          </Button>
           {game.rematch?.[otherSlot(mySlot)] && !game.rematch?.[mySlot] && (
             <p className="text-xs text-violet-300">Dein Gegner möchte eine Revanche!</p>
           )}

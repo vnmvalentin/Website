@@ -1,7 +1,7 @@
 // GameFrame.jsx — Rahmen von /clash und den Kartenspielen: Rautenhintergrund wie der Minigames-Hub, oben der Weg
 // zurück, Sprachwahl (DE/EN, clashI18n.js) und Einstellungen, darunter Titel + Inhalt. Läuft in der CR-Hülle.
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import SEO from '../../../components/SEO';
 import HubStage from '../hub/HubStage';
@@ -20,7 +20,10 @@ export const CHIP = 'cr-chip flex items-center gap-2 h-11 rounded-xl font-cr tex
 export default function GameFrame({ title, icon, seo, back, children, wide = false }) {
   const { openSettings } = useCrPrefs();
   const { lang, t, changeLang } = useClashLang();
-  const backTo = back || { to: '/clash', label: t.clashRoyale };
+  const { pathname } = useLocation();
+  // Standard-Zurück führt in den passenden Reiter des /clash-Hubs (Viewer Games → Für Streamer, sonst Kartenspiele)
+  const hubTab = pathname.startsWith('/clash/viewer-games') ? 'streamer' : 'kartenspiele';
+  const backTo = back || { to: `/clash?reiter=${hubTab}`, label: t.clashRoyale };
   return (
     <div className="page-fade cr-arcade-bg h-full overflow-y-auto custom-scrollbar relative">
       {seo && (

@@ -2,7 +2,7 @@
 // Leiste des Deko-Editors (Bearbeiten-Modus der eigenen Farm).
 // Reine Anzeige — Zustand und Aktionen kommen aus GameContainer.jsx.
 import React from "react";
-import { HUD_SURFACE } from "../gardenTokens";
+import { Taste } from "../pergament";
 import { HudIcon, WeatherIcon } from "../gameIcons";
 import { dekoLicht } from "../deko";
 import { LICHT_MAX } from "../../engine/Renderer";
@@ -13,15 +13,18 @@ export function EditorLeiste({
     setSelectedTool, setSelectedSeed, setSelectedCarryItem, setSelectedPetToPlace,
 }) {
     return (
-        <div className={`absolute bottom-24 left-1/2 -translate-x-1/2 max-w-[min(56rem,92vw)] ${HUD_SURFACE} p-2`}>
-            <div className="flex items-center gap-2 mb-1.5 px-1">
+        // Holzbrett wie die Schnellleiste (06.11.), Deko-Felder aus Pergament
+        <div className="absolute bottom-[7.6rem] left-1/2 max-w-[min(56rem,92vw)] -translate-x-1/2 border-[3px] p-2"
+            style={{ borderColor: "#2b1d12", background: "repeating-linear-gradient(0deg, #8a5a32 0 18px, #7a4e2a 18px 20px)", boxShadow: "0 4px 0 0 #2b1d12" }}>
+            <div className="mb-2 flex items-center gap-2 border-2 bg-[#f3e3c3] px-2 py-1" style={{ borderColor: "#3b2516" }}>
                 <HudIcon.editor size={12} className="shrink-0" />
-                <span className="text-[10px] uppercase tracking-wider font-semibold text-amber-100">
+                <span className="text-[10px] font-bold text-[#3b2516]">
                     Einrichten — Klick wählt, Klick aufs Grundstück setzt ab,
-                    {" "}<kbd className="bg-slate-800 border border-slate-700 px-1 rounded-xl text-slate-200">R</kbd> spiegelt,
-                    {" "}Klick auf gesetzte Deko packt sie ein
+                    {" "}<Taste>R</Taste> spiegelt,
+                    {" "}Klick auf gesetzte Deko packt sie ein ·
+                    {" "}<Taste>WASD</Taste> verschiebt die Ansicht, Mausrad zoomt
                 </span>
-                <span className="ml-auto flex items-center gap-2 text-[10px] font-semibold text-amber-100/90 tabular-nums">
+                <span className="ml-auto flex items-center gap-2 text-[10px] font-bold tabular-nums text-[#6e4426]">
                     {decoInventory.length} vorrätig · {decoPlacements.filter((d) => d.slotIndex === mySlotIndex).length} aufgestellt
                     {(() => {
                         // Feedback 30.08.: "Lichter-Limit im Editor anzeigen" — LICHT_MAX
@@ -39,9 +42,8 @@ export function EditorLeiste({
                                 title={amLimit
                                     ? "Nur die dir nächsten Laternen leuchten gleichzeitig — weiter entfernte bleiben dunkel."
                                     : "So viele deiner Laternen können gleichzeitig leuchten."}
-                                className={`flex items-center gap-1 rounded-lg border px-1.5 py-0.5 ${
-                                    amLimit ? "border-amber-400/60 text-amber-300" : "border-amber-100/20 text-amber-100/70"
-                                }`}
+                                className={`flex items-center gap-1 border-2 px-1.5 py-px ${amLimit ? "bg-[#ffe066] text-[#8a3a2a]" : "bg-[#fffaf0] text-[#6e4426]"}`}
+                                style={{ borderColor: "#3b2516" }}
                             >
                                 <WeatherIcon.moonlight size={11} />
                                 {eigeneLichter}/{LICHT_MAX} Lichter
@@ -51,7 +53,7 @@ export function EditorLeiste({
                 </span>
             </div>
             {decoInventory.length === 0 ? (
-                <div className="px-2 py-3 text-xs text-amber-100/80">
+                <div className="px-2 py-3 text-xs font-bold text-[#f3e3c3]">
                     Keine Deko im Vorrat — im Deko-Shop gibt es Nachschub.
                 </div>
             ) : (
@@ -71,11 +73,10 @@ export function EditorLeiste({
                                     setSelectedCarryItem(null);
                                     setSelectedPetToPlace(null);
                                 }}
-                                className={`w-12 h-12 rounded-xl border flex items-center justify-center transition-colors ${
-                                    gewaehlt
-                                        ? "border-violet-500 bg-violet-600/20"
-                                        : "border-slate-800 bg-slate-900/60 hover:border-slate-600"
+                                className={`flex h-12 w-12 items-center justify-center border-[3px] transition-transform duration-75 ${
+                                    gewaehlt ? "-translate-y-0.5 bg-[#ffe066]" : "bg-[#f3e3c3] hover:-translate-y-0.5 hover:bg-[#fff3c4]"
                                 }`}
+                                style={{ borderColor: "#3b2516", boxShadow: gewaehlt ? "0 4px 0 0 #3b2516" : "0 2px 0 0 #3b2516" }}
                             >
                                 <ItemIcon item={deko} className="w-9 h-9" emojiClassName="text-2xl" />
                             </button>

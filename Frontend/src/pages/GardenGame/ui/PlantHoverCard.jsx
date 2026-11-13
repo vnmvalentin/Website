@@ -22,8 +22,9 @@ import {
     wetterListe,
     wetterBoost,
 } from '../engine/PlantSystem';
-import { RARITY_BORDER, RARITY_DOT, formatDuration, statusEffectIcon } from './gardenTokens';
-import { ProgressBar, StatLine } from './gardenUi';
+import { formatDuration, statusEffectIcon } from './gardenTokens';
+import { PergamentKarte, PAbschnitt, PZeile, PBalken } from './pergament';
+import { HOLZ, RAR_FARBE, RAR_NAME, TON } from './pergamentFarben';
 import { SpecialItemIcon } from './ItemIcon';
 import { formatGroesse, groesseAusNorm } from './groesse';
 
@@ -137,117 +138,103 @@ export default function PlantHoverCard({ getPlant, plantKey, x, y, owner = null,
     const StatusIcon = statusEffectIcon(data.statusEffect);
 
     return (
-        <div
-            className={`absolute z-50 pointer-events-none bg-slate-900/97 border ${RARITY_BORDER[data.rarity] || RARITY_BORDER.COMMON} rounded-2xl shadow-xl overflow-hidden`}
+        // Holz-und-Pergament-Look (06.11.), Seltenheit als Band oben
+        <PergamentKarte
+            className="pointer-events-none absolute z-50 overflow-hidden"
             style={{ left, top, width: CARD_WIDTH }}
+            band={RAR_FARBE[data.rarity] || RAR_FARBE.COMMON}
         >
             {/* Kopf */}
-            <div className="flex items-center gap-2.5 px-3 py-2.5 border-b border-slate-800">
+            <PAbschnitt className="flex items-center gap-2.5">
                 {/* Nur Einmalernten dürfen eingefärbt werden: bei Dauerträgern steckt die
                     Veredelung im einzelnen Fruchtstand, nicht in der Staude im Kopfbild. */}
                 {iconSrc ? (
-                    <SpecialItemIcon
-                        item={{ image: iconSrc, name: plant.name }}
-                        special={plant.singleUse ? data.special : null}
-                        statusEffect={plant.singleUse ? data.statusEffect : null}
-                        className="w-8 h-8 shrink-0"
-                    />
+                    <span className="flex h-11 w-11 shrink-0 items-center justify-center border-2 bg-[#fffaf0]" style={{ borderColor: HOLZ }}>
+                        <SpecialItemIcon
+                            item={{ image: iconSrc, name: plant.name }}
+                            special={plant.singleUse ? data.special : null}
+                            statusEffect={plant.singleUse ? data.statusEffect : null}
+                            className="h-8 w-8"
+                        />
+                    </span>
                 ) : null}
                 <div className="min-w-0 flex-1">
-                    <div className="text-sm font-semibold text-white truncate">{plant.name}</div>
-                    <div className="text-[11px] text-slate-400 truncate">
+                    <div className="truncate text-sm font-bold text-[#3b2516]">{plant.name}</div>
+                    <div className="truncate text-[11px] text-[#6e4426]">
                         {ARCHETYPE_LABELS[data.archetypeKey] || "Pflanze"}
                         {" · "}
                         {plant.singleUse ? "Einmalernte" : "Dauerträger"}
                     </div>
                 </div>
-                <span className={`w-2 h-2 rounded-full shrink-0 ${RARITY_DOT[data.rarity] || RARITY_DOT.COMMON}`} />
-            </div>
+                <span className="shrink-0 border-2 px-1 text-[9px] font-bold uppercase text-white" style={{ borderColor: HOLZ, background: RAR_FARBE[data.rarity] || RAR_FARBE.COMMON }}>
+                    {RAR_NAME[data.rarity] || data.rarity}
+                </span>
+            </PAbschnitt>
 
             {owner && (
-                <div className="px-3 py-1.5 border-b border-slate-800 text-[11px] text-slate-400">
-                    Acker von <span className="text-slate-200">{owner}</span> — nur zum Ansehen
-                </div>
+                <PAbschnitt className="text-[11px] text-[#6e4426]">
+                    Acker von <span className="font-bold text-[#3b2516]">{owner}</span> — nur zum Ansehen
+                </PAbschnitt>
             )}
 
             {/* Status */}
-            <div className="px-3 py-2.5 border-b border-slate-800">
+            <PAbschnitt>
                 {data.ready ? (
-                    <div className="flex items-center gap-1.5 text-xs font-semibold text-emerald-400 mb-1.5">
+                    <div className="mb-1.5 flex items-center gap-1.5 text-xs font-bold text-[#2f6b2c]">
                         <HudIcon.check size={13} />
                         {plant.singleUse
                             ? "Erntereif"
                             : `${data.readySlots.length} von ${data.slots.length} reif`}
                     </div>
                 ) : (
-                    <div className="flex items-center justify-between gap-2 mb-1.5">
-                        <span className="text-xs font-medium text-slate-300">
+                    <div className="mb-1.5 flex items-center justify-between gap-2">
+                        <span className="text-xs font-bold text-[#3b2516]">
                             {data.inStructure ? "Wächst heran" : "Reift nach"}
                         </span>
-                        <span className="flex items-center gap-1 text-[11px] text-slate-400 tabular-nums">
+                        <span className="flex items-center gap-1 text-[11px] font-bold tabular-nums text-[#6e4426]">
                             <Clock size={11} />
                             {formatDuration(data.remaining)}
                         </span>
                     </div>
                 )}
-                <ProgressBar
-                    value={data.ready ? 1 : data.progress}
-                    className={data.ready ? "bg-emerald-500" : "bg-violet-500"}
-                />
-            </div>
+                <PBalken wert={data.ready ? 1 : data.progress} farbe={data.ready ? "#5faa45" : "#9a68d8"} />
+            </PAbschnitt>
 
             {/* Werte */}
-            <div className="px-3 py-1.5 border-b border-slate-800">
+            <PAbschnitt letzter={!(data.special || data.statusEffects.length > 0) && (plant.singleUse || data.inStructure || data.slots.length === 0)}>
                 {plant.singleUse ? (
                     <>
-                        <StatLine
-                            icon={HudIcon.gold}
-                            label="Verkaufswert"
-                            value={`${data.singleValue.toLocaleString("de-DE")} Gold`}
-                            valueClass="text-amber-400"
-                        />
-                        <StatLine
-                            icon={HudIcon.ruler}
-                            label="Größe"
-                            value={`${formatGroesse(groesseAusNorm(plant.norm ?? 0.5))} / 100`}
-                        />
-                        {xpProErnte ? (
-                            <StatLine icon={HudIcon.star} label="Erfahrung" value={`+${xpProErnte} XP`} valueClass="text-violet-300" />
-                        ) : null}
+                        <PZeile icon={HudIcon.gold} label="Verkaufswert" value={`${data.singleValue.toLocaleString("de-DE")} Gold`} ton="gold" />
+                        <PZeile icon={HudIcon.ruler} label="Größe" value={`${formatGroesse(groesseAusNorm(plant.norm ?? 0.5))} / 100`} />
+                        {xpProErnte ? <PZeile icon={HudIcon.star} label="Erfahrung" value={`+${xpProErnte} XP`} ton="xp" /> : null}
                     </>
                 ) : (
                     <>
-                        <StatLine
+                        <PZeile
                             icon={HudIcon.gold}
                             label={data.readySlots.length ? "Reife Früchte wert" : "Noch nichts reif"}
                             value={data.readySlots.length ? `${data.readyTotal.toLocaleString("de-DE")} Gold` : "—"}
-                            valueClass={data.readySlots.length ? "text-amber-400" : "text-slate-500"}
+                            ton={data.readySlots.length ? "gold" : "leise"}
                         />
-                        <StatLine icon={HudIcon.ruler} label="Fruchtstände" value={`${data.slots.length}`} />
-                        {xpProErnte ? (
-                            <StatLine icon={HudIcon.star} label="Erfahrung" value={`+${xpProErnte} XP je Frucht`} valueClass="text-violet-300" />
-                        ) : null}
+                        <PZeile icon={HudIcon.ruler} label="Fruchtstände" value={`${data.slots.length}`} />
+                        {xpProErnte ? <PZeile icon={HudIcon.star} label="Erfahrung" value={`+${xpProErnte} XP je Frucht`} ton="xp" /> : null}
                     </>
                 )}
-            </div>
+            </PAbschnitt>
 
             {/* Veredelungen — nur zeigen, wenn es wirklich welche gibt */}
             {(data.special || data.statusEffects.length > 0) && (
-                <div className="px-3 py-2 border-b border-slate-800 space-y-1">
+                <PAbschnitt className="space-y-1" letzter={plant.singleUse || data.inStructure || data.slots.length === 0}>
                     {data.special === "Golden" && (
                         <div className="flex items-center justify-between text-[11px]">
-                            <span className="flex items-center gap-1.5 text-amber-400 font-medium">
-                                <SpecialIcon.golden size={12} /> Golden
-                            </span>
-                            <span className="text-slate-400">2× Wert</span>
+                            <span className={`flex items-center gap-1.5 font-bold ${TON.gold}`}><SpecialIcon.golden size={12} /> Golden</span>
+                            <span className="text-[#6e4426]">2× Wert</span>
                         </div>
                     )}
                     {data.special === "Rainbow" && (
                         <div className="flex items-center justify-between text-[11px]">
-                            <span className="flex items-center gap-1.5 text-fuchsia-400 font-medium">
-                                <SpecialIcon.rainbow size={12} /> Rainbow
-                            </span>
-                            <span className="text-slate-400">5× Wert</span>
+                            <span className={`flex items-center gap-1.5 font-bold ${TON.rainbow}`}><SpecialIcon.rainbow size={12} /> Rainbow</span>
+                            <span className="text-[#6e4426]">5× Wert</span>
                         </div>
                     )}
                     {/* Jedes Wetter einzeln — eine Frucht kann mehrere zugleich tragen. */}
@@ -255,38 +242,34 @@ export default function PlantHoverCard({ getPlant, plantKey, x, y, owner = null,
                         const Icon = statusEffectIcon(effekt);
                         return (
                             <div key={effekt} className="flex items-center justify-between text-[11px]">
-                                <span className="flex items-center gap-1.5 text-sky-400 font-medium">
+                                <span className={`flex items-center gap-1.5 font-bold ${TON.wetter}`}>
                                     {Icon ? <Icon size={12} /> : null}
                                     {STATUS_EFFECT_LABELS[effekt] || effekt}
                                 </span>
-                                <span className="text-slate-400">
-                                    {WEATHER_SELL_BOOST[effekt]}× Wert
-                                </span>
+                                <span className="text-[#6e4426]">{WEATHER_SELL_BOOST[effekt]}× Wert</span>
                             </div>
                         );
                     })}
                     {data.statusEffects.length > 0 && (
-                        <div className="flex items-center justify-between text-[11px] pt-0.5 border-t border-slate-800/80">
-                            <span className="text-slate-500">Wetter zusammen</span>
-                            <span className="text-emerald-400 font-medium">
-                                +{Math.round((data.weatherMult - 1) * 100)}% Verkauf
-                            </span>
+                        <div className="flex items-center justify-between border-t-2 border-[#d9c39a] pt-0.5 text-[11px]">
+                            <span className="text-[#8a7a5a]">Wetter zusammen</span>
+                            <span className={`font-bold ${TON.gut}`}>+{Math.round((data.weatherMult - 1) * 100)}% Verkauf</span>
                         </div>
                     )}
-                </div>
+                </PAbschnitt>
             )}
 
             {/* Fruchtstände einzeln — nur bei Dauerträgern, die schon tragen */}
             {!plant.singleUse && !data.inStructure && data.slots.length > 0 && (
-                <div className="px-3 py-2 max-h-36 overflow-y-auto">
-                    <div className="text-[10px] uppercase tracking-wider text-slate-500 mb-1.5">Fruchtstände</div>
+                <div className="max-h-36 overflow-y-auto px-3 py-2">
+                    <div className="mb-1.5 text-[10px] font-bold uppercase tracking-wider text-[#8a5a32]">Fruchtstände</div>
                     <div className="space-y-0.5">
                         {data.slots.map((slot) => {
                             const SlotIcon = statusEffectIcon(slot.statusEffect);
                             const slotBoost = wetterBoost(slot.statusEffects);
                             return (
                                 <div key={slot.index} className="flex items-center justify-between gap-2 text-[11px]">
-                                    <span className={`flex items-center gap-1.5 ${slot.ready ? "text-emerald-400" : "text-slate-500"}`}>
+                                    <span className={`flex items-center gap-1.5 ${slot.ready ? "font-bold text-[#2f6b2c]" : "text-[#8a7a5a]"}`}>
                                         {/* Reife Frucht im Zustand, in dem man sie erntet — die Veredelung
                                             hängt am Fruchtstand, nicht an der Staude. */}
                                         {slot.ready && plant.fruitImage ? (
@@ -294,23 +277,23 @@ export default function PlantHoverCard({ getPlant, plantKey, x, y, owner = null,
                                                 item={{ image: plant.fruitImage, name: plant.name }}
                                                 special={slot.specialType}
                                                 statusEffect={slot.statusEffect}
-                                                className="w-4 h-4"
+                                                className="h-4 w-4"
                                             />
                                         ) : (
-                                            <span className={`w-1.5 h-1.5 rounded-full ${slot.ready ? "bg-emerald-500" : "bg-slate-600"}`} />
+                                            <span className="h-2 w-2 border" style={{ borderColor: HOLZ, background: slot.ready ? "#5faa45" : "#d8c08a" }} />
                                         )}
                                         {slot.ready ? `Größe ${slot.size}` : formatDuration(slot.readyAt - now)}
                                     </span>
                                     {/* Sonderform und Wetter je Fruchtstand — nicht mehr pauschal für die Staude */}
-                                    <span className="flex items-center gap-2 shrink-0">
+                                    <span className="flex shrink-0 items-center gap-2">
                                         {slot.ready && slot.statusEffect ? (
-                                            <span className="flex items-center gap-1 text-sky-400">
+                                            <span className={`flex items-center gap-1 ${TON.wetter}`}>
                                                 {SlotIcon ? <SlotIcon size={10} /> : null}
                                                 +{Math.round((slotBoost - 1) * 100)}%
                                             </span>
                                         ) : null}
                                         {slot.ready && slot.specialType ? (
-                                            <span className={`flex items-center gap-1 ${slot.specialType === "Golden" ? "text-amber-400" : "text-fuchsia-400"}`}>
+                                            <span className={`flex items-center gap-1 ${slot.specialType === "Golden" ? TON.gold : TON.rainbow}`}>
                                                 {slot.specialType === "Golden" ? <SpecialIcon.golden size={10} /> : <SpecialIcon.rainbow size={10} />}
                                                 {slot.specialType}
                                             </span>
@@ -322,6 +305,6 @@ export default function PlantHoverCard({ getPlant, plantKey, x, y, owner = null,
                     </div>
                 </div>
             )}
-        </div>
+        </PergamentKarte>
     );
 }

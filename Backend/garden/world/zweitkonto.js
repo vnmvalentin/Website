@@ -38,11 +38,31 @@ function pruefsumme(art, wert) {
     return crypto.createHash("sha256").update(`${SALZ}:${art}:${wert}`).digest("hex").slice(0, 24);
 }
 
-/** Client-Adresse hinter nginx (wie analytics/analyticsRoutes.js). */
+/**
+ * Adressen, die kein Anschluss eines Spielers sind: der Server selbst und private Netze.
+ *
+ * FEHLER 11.11.2026: nginx reichte für /api/ keine Besucher-Adresse durch. Der Server sah
+ * deshalb bei JEDEM 127.0.0.1, merkte das als „Anschluss“ — und jede Farm galt mit jeder
+ * anderen als verknüpft: alle Post war gesperrt. Solche Adressen zählen darum nie, auch
+ * nicht die schon gespeicherten (LOKALE_SUMMEN, siehe verknuepft).
+ */
+function istLokal(ip) {
+    const a = String(ip || "").trim().toLowerCase().replace(/^::ffff:/, "");
+    if (!a || a === "::1" || a === "localhost") return true;
+    if (/^(127\.|10\.|192\.168\.|169\.254\.)/.test(a)) return true;
+    if (/^172\.(1[6-9]|2\d|3[01])\./.test(a)) return true;
+    return /^(fc|fd|fe80)/.test(a) && a.includes(":");
+}
+
+/** Client-Adresse hinter nginx (wie analytics/analyticsRoutes.js); "" = unbekannt. */
 function clientIp(req) {
     const weiter = String(req.headers["x-forwarded-for"] || "").split(",").map((s) => s.trim()).filter(Boolean);
-    return weiter.length ? weiter[weiter.length - 1] : (req.socket?.remoteAddress || "");
+    const ip = weiter.length ? weiter[weiter.length - 1] : (req.socket?.remoteAddress || "");
+    return istLokal(ip) ? "" : ip;
 }
+
+/** Prüfsummen der Server-Adressen, die durch den Fehler oben in den Spielständen stehen. */
+const LOKALE_SUMMEN = new Set(["127.0.0.1", "::ffff:127.0.0.1", "::1"].map((ip) => pruefsumme("ip", ip)));
 
 function geraetVon(req) {
     const roh = String(req.headers["x-vf-geraet"] || "");
@@ -103,7 +123,9 @@ function pruefeUndMerke(farmStates, userId, state, req, now = Date.now()) {
             geaendert = true;
         }
     }
-    for (const [h, t] of Object.entries(k.ips)) if (now - Number(t) > IP_HALTBAR_MS) { delete k.ips[h]; geaendert = true; }
+    for (const [h, t] of Object.entries(k.ips)) {
+        if (now - Number(t) > IP_HALTBAR_MS || LOKALE_SUMMEN.has(h)) { delete k.ips[h]; geaendert = true; }
+    }
     const ipListe = Object.entries(k.ips).sort((a, b) => b[1] - a[1]);
     if (ipListe.length > MAX_IPS) { k.ips = Object.fromEntries(ipListe.slice(0, MAX_IPS)); geaendert = true; }
 
@@ -117,6 +139,7 @@ function verknuepft(a, b, now = Date.now()) {
     const kb = kennzeichen(b);
     for (const g of Object.keys(ka.geraete)) if (kb.geraete[g]) return true;
     for (const [h, t] of Object.entries(ka.ips)) {
+        if (LOKALE_SUMMEN.has(h)) continue;
         const t2 = Number(kb.ips[h]);
         if (t2 && now - Number(t) < IP_HALTBAR_MS && now - t2 < IP_HALTBAR_MS) return true;
     }
@@ -125,4 +148,4 @@ function verknuepft(a, b, now = Date.now()) {
 
 const SPERR_TEXT = "Auf diesem Gerät wird schon eine andere Farm gespielt. Pro Gerät ist nur eine Farm erlaubt.";
 
-module.exports = { pruefeUndMerke, verknuepft, istAusnahme, geraetVon, SPERR_TEXT, _pruefsumme: pruefsumme };
+module.exports = { pruefeUndMerke, verknuepft, istAusnahme, geraetVon, SPERR_TEXT, _pruefsumme: pruefsumme, _istLokal: istLokal };

@@ -73,6 +73,24 @@ export function playImpact(ev) {
     setTimeout(() => ac.state === "running" && click(ac, { freq: 1900, dur: 0.07, gain: 0.08, type: "sine" }), 90);
     return;
   }
+  if (ev.type === "bomb") {
+    // Sprengsatz: tiefer Schlag mit einem Knall obendrauf
+    click(ac, { freq: 70, dur: 0.5, gain: 0.5, type: "sine" });
+    click(ac, { freq: 260, dur: 0.22, gain: 0.3, type: "sawtooth", lp: 900 });
+    return;
+  }
+  if (ev.type === "portal") {
+    // Portal: ein Ton, der schnell nach oben wischt
+    click(ac, { freq: 1500, dur: 0.16, gain: 0.1, type: "sine" });
+    setTimeout(() => ac.state === "running" && click(ac, { freq: 2300, dur: 0.12, gain: 0.08, type: "sine" }), 60);
+    return;
+  }
+  if (ev.type === "bumper") {
+    // Flipper-Bumper: heller Glockenschlag, bei jedem Treffer (auch dicht hintereinander)
+    click(ac, { freq: 1250, dur: 0.14, gain: 0.16, type: "square", lp: 3200 });
+    lastHit = now;
+    return;
+  }
   if (now - lastHit < 0.025 || ev.speed < 60) return;
   lastHit = now;
   const v = Math.min(1, ev.speed / 2200);
@@ -88,6 +106,31 @@ export function playShot(power) {
   click(ac, { freq: 300 + power * 200, dur: 0.09, gain: 0.08 + power * 0.15, type: "sawtooth", lp: 1200 });
   // Harter Schuss: tiefer Schlag darunter, damit man die Wucht hört
   if (power >= 0.9) click(ac, { freq: 95, dur: 0.22, gain: 0.32, type: "sine" });
+}
+
+/** Karte gewählt oder ausgespielt: kurzer heller Doppelton. */
+export function playCard() {
+  const ac = audio();
+  if (!ac) return;
+  click(ac, { freq: 880, dur: 0.07, gain: 0.1, type: "triangle" });
+  setTimeout(() => ac.state === "running" && click(ac, { freq: 1320, dur: 0.1, gain: 0.1, type: "triangle" }), 70);
+}
+
+/** Schnell-Nachricht erscheint: weicher „Plopp". */
+export function playEmote() {
+  const ac = audio();
+  if (!ac) return;
+  click(ac, { freq: 520, dur: 0.09, gain: 0.14, type: "sine" });
+  setTimeout(() => ac.state === "running" && click(ac, { freq: 780, dur: 0.12, gain: 0.12, type: "sine" }), 55);
+}
+
+/** Ein Ereignis beginnt: drei absteigende Warntöne. */
+export function playEvent() {
+  const ac = audio();
+  if (!ac) return;
+  [0, 110, 220].forEach((ms, i) => {
+    setTimeout(() => ac.state === "running" && click(ac, { freq: 980 - i * 140, dur: 0.1, gain: 0.11, type: "square", lp: 2200 }), ms);
+  });
 }
 
 /** Hinweis-Ton: zwei aufsteigende Töne (z. B. der Gegner will eine Revanche). */

@@ -2,19 +2,54 @@
 // Spielanzeige unten: Schnellleiste (Samen/Gegenstände), Werkzeug-Ausrüstung und Editor-Knopf links.
 // Reine Anzeige — Zustand und Aktionen kommen aus GameContainer.jsx.
 import React from "react";
-import { HUD_SURFACE } from "../gardenTokens";
 import { itemSpecialName } from "../itemTints";
 import { hatTooltip, getToolImage } from "../../engine/gameConstants";
 import { SpecialItemIcon } from "../ItemIcon";
-import { HudIcon } from "../gameIcons";
+import { versionedAsset } from "../../engine/assetVersion";
+
+// 06.11.: statt brauner Knöpfe — die Schnellleiste ist ein Holzbrett, die Werkzeuge
+// stecken in einem Ledergürtel, Editor und Rucksack sind nur noch ihr Bild.
+const BRETT = {
+    borderColor: "#3b2516",
+    background: "repeating-linear-gradient(0deg, #8a5a32 0 9px, #7a4d2a 9px 11px)",
+    boxShadow: "0 4px 0 0 #3b2516",
+};
+const GUERTEL = {
+    borderColor: "#3b2516",
+    background: "#7a4a2a",
+    boxShadow: "0 4px 0 0 rgba(43,29,18,0.6), inset 0 3px 0 0 #9a6a3a",
+    outline: "2px dashed #c8925a",
+    outlineOffset: "-7px",
+};
+import { rauschJetzt, RAUSCH_SCHONZEIT_S } from "../rausch";
 
 export function Schnellleiste({
     hotbarItems, selectedSeed, selectedCarryItem, selectedPetToPlace, selectedDecoToPlace,
     setSelectedSeed, setSelectedCarryItem, setSelectedPetToPlace, setSelectedDecoToPlace,
-    setSelectedTool, setMovingPlantSource, setItemHoverTooltip,
+    setSelectedTool, setMovingPlantSource, setItemHoverTooltip, ernteRausch,
 }) {
+    // Ernte-Rausch (Backend garden/core/rausch.js) als schmaler Balken direkt über
+    // den Plätzen — seit 04.11. hier statt in der Info-Tafel oben rechts, weil man
+    // beim Ernten ohnehin auf die Leiste schaut.
+    const r = rauschJetzt(ernteRausch);
     return (
-        <div className={`absolute bottom-5 left-1/2 -translate-x-1/2 flex gap-1.5 p-2 ${HUD_SURFACE}`}>
+        <div className="absolute bottom-5 left-1/2 -translate-x-1/2 flex flex-col gap-1.5 border-[3px] p-2" style={BRETT}>
+            <div
+                className="flex items-center gap-2 px-1 text-[11px] font-bold text-[#f3e3c3]"
+                title={`Ernte regelmäßig (spätestens alle ${RAUSCH_SCHONZEIT_S} Sekunden): nach zehn Minuten bringt jede Ernte +15 %. Machst du länger Pause, sinkt der Rausch wieder.`}
+            >
+                <span className="shrink-0">Ernte-Rausch</span>
+                <div className="h-2.5 flex-1 overflow-hidden border-2 border-[#3b2516] bg-[#3b2516]/60">
+                    <div
+                        className={`h-full transition-[width] duration-700 ${r.sinkt ? "bg-[#e0a82a]" : "bg-[#5faa45]"}`}
+                        style={{ width: `${Math.round(r.fuellung * 100)}%`, boxShadow: "inset 0 2px 0 0 rgba(255,255,255,0.35)" }}
+                    />
+                </div>
+                <span className={`w-10 shrink-0 text-right tabular-nums ${r.prozent > 0 ? (r.sinkt ? "text-[#ffe066]" : "text-[#b8e88a]") : "text-[#c9b48a]"}`}>
+                    +{r.prozent} %
+                </span>
+            </div>
+            <div className="flex gap-1.5">
             {Array(9).fill(null).map((_, i) => {
                 const item = hotbarItems[i];
 
@@ -109,10 +144,11 @@ export function Schnellleiste({
                             setItemHoverTooltip((prev) => prev ? { ...prev, x: e.clientX, y: e.clientY } : { item, x: e.clientX, y: e.clientY });
                         }}
                         onMouseLeave={() => setItemHoverTooltip(null)}
-                        className={`relative w-[50px] h-[50px] bg-slate-800/70 rounded-2xl border flex items-center justify-center transition-colors cursor-pointer group
-                            ${item ? "border-slate-700 hover:border-slate-500" : "border-slate-800"}
-                            ${isHeldItem ? "border-violet-500 bg-slate-800" : specialRingClass}`}>
-                        <span className="absolute top-0.5 left-1 text-[9px] font-medium text-slate-600 tabular-nums">{i + 1}</span>
+                        className={`relative flex h-[50px] w-[50px] cursor-pointer items-center justify-center border-[3px] transition-transform duration-75 group
+                            ${isHeldItem ? "-translate-y-1 border-[#fff3c4] bg-[#8a5a32]" : item ? "border-[#3b2516] bg-[#4a2f1c] hover:-translate-y-0.5" : "border-[#3b2516] bg-[#4a2f1c]/70"}
+                            ${isHeldItem ? "" : specialRingClass}`}
+                        style={{ boxShadow: isHeldItem ? "0 4px 0 0 #3b2516" : "inset 0 3px 0 0 rgba(0,0,0,0.35)" }}>
+                        <span className="absolute top-0.5 left-1 text-[9px] font-bold text-[#a8743f] tabular-nums">{i + 1}</span>
                         {item && (
                             <SpecialItemIcon item={item} special={itemSpecial} className="w-8 h-8" emojiClassName="text-2xl" />
                         )}
@@ -122,6 +158,7 @@ export function Schnellleiste({
                     </div>
                 );
             })}
+            </div>
         </div>
     );
 }
@@ -131,7 +168,9 @@ export function Ausruestung({
     setSelectedDecoToPlace, setSelectedCarryItem, setSelectedTool, setMovingPlantSource,
 }) {
     return (
-        <div className={`absolute bottom-5 left-1/2 translate-x-[286px] flex gap-1.5 p-2 ${HUD_SURFACE}`}>
+        <div className="absolute bottom-6 left-1/2 flex translate-x-[286px] items-end gap-1.5 border-y-[3px] px-2 pb-1.5 pt-3" style={GUERTEL}>
+            {/* Gürtelschnalle */}
+            <span aria-hidden="true" className="absolute -left-3 top-1/2 h-8 w-6 -translate-y-1/2 border-[3px]" style={{ borderColor: "#3b2516", background: "#c8a04a", boxShadow: "inset 0 0 0 3px #7a5a1a" }} />
             {[
                 { key: "shovel", label: "Schaufel", hotkey: "1" },
                 { key: "pot", label: "Topf", hotkey: "2" },
@@ -163,24 +202,28 @@ export function Ausruestung({
                             setSelectedTool(prev => (prev === slot.key ? null : slot.key));
                             if (slot.key !== "pot") setMovingPlantSource(null);
                         }}
-                        className={`relative w-[50px] h-[50px] rounded-2xl border flex flex-col items-center justify-center gap-0.5 transition-colors focus:outline-none ${
+                        className={`relative flex h-[54px] w-[48px] flex-col items-center justify-center border-[3px] transition-transform duration-75 focus:outline-none ${
                             isActive
-                                ? "border-violet-500 bg-slate-800"
+                                ? "-translate-y-2 border-[#fff3c4] cursor-pointer"
                                 : owned
-                                    ? "border-slate-700 bg-slate-800/60 hover:border-slate-500 cursor-pointer"
-                                    : "border-slate-800 bg-slate-900/40 cursor-default"
+                                    ? "border-[#3b2516] hover:-translate-y-1 cursor-pointer"
+                                    : "border-[#3b2516] cursor-default"
                         }`}
+                        style={{ background: owned ? "#5a3420" : "#4a2a18", boxShadow: isActive ? "0 4px 0 0 #3b2516" : "inset 0 6px 0 0 #7a4a2a" }}
                     >
-                        <span className="absolute top-0.5 left-1 text-[9px] text-slate-600 tabular-nums">{slot.hotkey}</span>
+                        <span className="absolute top-0 left-1 text-[9px] font-bold text-[#c8925a] tabular-nums">{slot.hotkey}</span>
                         <img
                             src={toolImage}
                             alt=""
                             draggable={false}
-                            className={`w-6 h-6 object-contain ${owned ? "" : "opacity-25 grayscale"}`}
+                            className={`h-9 w-9 object-contain ${owned ? "" : "opacity-25 grayscale"}`}
+                            style={{ imageRendering: "pixelated" }}
                         />
-                        <span className={`text-[10px] tabular-nums ${owned ? "text-slate-200" : "text-slate-700"}`}>
-                            {owned ? equippedTools[slot.key].name : "0"}
-                        </span>
+                        {owned && (
+                            <span className="absolute -bottom-2 left-1/2 -translate-x-1/2 border-2 border-[#3b2516] bg-[#f3e3c3] px-1 text-[9px] font-bold leading-tight text-[#3b2516] tabular-nums">
+                                {equippedTools[slot.key].name}
+                            </span>
+                        )}
                     </button>
                 );
             })}
@@ -216,14 +259,16 @@ export function HudUntenLinks({
                     }
                     setEditorAktiv((an) => !an);
                 }}
-                className={`flex h-10 items-center gap-2 ${HUD_SURFACE} pl-1.5 pr-3 text-xs font-medium transition-colors ${
-                    editorAktiv ? "text-violet-300" : "text-slate-300 hover:text-white"
-                }`}
+                title={editorAktiv ? "Einrichten beenden" : "Einrichten: Deko setzen und das Haus umstellen"}
+                aria-label={editorAktiv ? "Einrichten beenden" : "Einrichten"}
+                className="group relative flex flex-col items-center transition-transform duration-100 hover:-translate-y-1 focus:outline-none"
             >
-                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-xl border-2 border-amber-950/40 bg-amber-50">
-                    <HudIcon.editor size={17} />
-                </span>
-                <span className="hidden sm:inline">{editorAktiv ? "Editor beenden" : "Editor"}</span>
+                <img src={versionedAsset("/garden-assets/icons/hud/editor_pixel.png")} alt="" draggable={false}
+                    className="h-16 w-16 object-contain drop-shadow-[0_4px_0_rgba(43,29,18,0.6)] transition-transform duration-100 group-hover:-rotate-6"
+                    style={{ imageRendering: "pixelated" }} />
+                {editorAktiv && (
+                    <span className="-mt-1 border-2 border-[#3b2516] bg-[#fff3c4] px-1.5 py-0.5 text-[10px] font-bold text-[#3b2516]">Fertig</span>
+                )}
             </button>
         </div>
     );

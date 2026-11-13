@@ -312,7 +312,7 @@ export default function BingoEditorPage() {
              {overlayUrl && (
                 <button 
                   onClick={() => doCopy(overlayUrl, "overlay")}
-                  className="px-4 py-2 bg-violet-600/10 hover:bg-violet-600/20 text-violet-300 border border-violet-500/30 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
+                  className="px-4 py-2 bg-accent/10 hover:bg-accent/20 text-accent-soft border border-accent/30 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
                 >
                   <Copy size={16} /> {copied === "overlay" ? "Kopiert!" : "Browser Source"}
                 </button>
@@ -329,13 +329,13 @@ export default function BingoEditorPage() {
         <div className="xl:col-span-5 flex flex-col h-full min-h-[500px]">
             {/* Tab Headers */}
             <div className="flex border-b border-white/10 mb-4">
-                <button onClick={() => setActiveTab("words")} className={`flex items-center justify-center gap-2 py-3 px-4 text-sm font-medium transition-colors border-b-2 -mb-px ${activeTab === "words" ? "border-violet-500 text-white" : "border-transparent text-white/50 hover:text-white"}`}><Type size={16} /> Wörter
+                <button onClick={() => setActiveTab("words")} className={`flex items-center justify-center gap-2 py-3 px-4 text-sm font-medium transition-colors border-b-2 -mb-px ${activeTab === "words" ? "border-accent text-white" : "border-transparent text-white/50 hover:text-white"}`}><Type size={16} /> Wörter
                 </button>
-                <button onClick={() => setActiveTab("design")} className={`flex items-center justify-center gap-2 py-3 px-4 text-sm font-medium transition-colors border-b-2 -mb-px ${activeTab === "design" ? "border-violet-500 text-white" : "border-transparent text-white/50 hover:text-white"}`}><Palette size={16} /> Design
+                <button onClick={() => setActiveTab("design")} className={`flex items-center justify-center gap-2 py-3 px-4 text-sm font-medium transition-colors border-b-2 -mb-px ${activeTab === "design" ? "border-accent text-white" : "border-transparent text-white/50 hover:text-white"}`}><Palette size={16} /> Design
                 </button>
                 
                 {session.mode === "group" && (
-                  <button onClick={() => setActiveTab("participants")} className={`flex items-center justify-center gap-2 py-3 px-4 text-sm font-medium transition-colors border-b-2 -mb-px ${activeTab === "participants" ? "border-violet-500 text-white" : "border-transparent text-white/50 hover:text-white"}`}><Users size={16} /> Teilnehmer
+                  <button onClick={() => setActiveTab("participants")} className={`flex items-center justify-center gap-2 py-3 px-4 text-sm font-medium transition-colors border-b-2 -mb-px ${activeTab === "participants" ? "border-accent text-white" : "border-transparent text-white/50 hover:text-white"}`}><Users size={16} /> Teilnehmer
                   </button>
                 )}
             </div>
@@ -370,7 +370,7 @@ export default function BingoEditorPage() {
                         </div>
                         <button 
                             disabled={!canEditWords || lockWordsAndRandomize || busy.words} 
-                            className="w-full py-3 rounded-lg bg-violet-600 text-white font-bold hover:bg-violet-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors" 
+                            className="w-full py-3 rounded-lg bg-accent text-white font-bold hover:bg-accent-hover disabled:opacity-50 disabled:cursor-not-allowed transition-colors" 
                             onClick={applyWords}
                         >
                             {busy.words ? "Speichern..." : "Liste Speichern"}
@@ -392,7 +392,7 @@ export default function BingoEditorPage() {
                                         key={n}
                                         disabled={!canEditDesign || lockGridSize || busy.grid}
                                         onClick={() => handleGridChange(n)}
-                                        className={`py-2 rounded-lg border font-bold text-sm transition-colors ${session.gridSize === n ? "bg-violet-600 text-white border-violet-500" : "bg-white/5 border-white/10 text-white/60 hover:bg-white/10"}`}
+                                        className={`py-2 rounded-lg border font-bold text-sm transition-colors ${session.gridSize === n ? "bg-accent text-white border-accent" : "bg-white/5 border-white/10 text-white/60 hover:bg-white/10"}`}
                                      >
                                          {n}x{n}
                                      </button>
@@ -515,7 +515,7 @@ export default function BingoEditorPage() {
                             {(session.participants || []).map(p => (
                                 <div key={p.twitchId} className="flex items-center justify-between p-3 rounded-lg bg-white/5 border border-white/5">
                                     <div className="flex items-center gap-3">
-                                        <div className={`w-2 h-2 rounded-full ${p.role === 'host' ? "bg-violet-500" : "bg-emerald-500"}`} />
+                                        <div className={`w-2 h-2 rounded-full ${p.role === 'host' ? "bg-accent-soft" : "bg-emerald-500"}`} />
                                         <div className="flex flex-col">
                                             <span className="font-semibold text-sm">{p.twitchLogin}</span>
                                             <span className="text-[10px] text-white/40 uppercase tracking-wider">{p.role}</span>
@@ -539,7 +539,7 @@ export default function BingoEditorPage() {
             <div className="flex items-center justify-between p-2 bg-black/30 border border-white/10 rounded-lg">
                  <div className="flex items-center gap-2">
                     <span className="text-xs text-white/40 uppercase font-bold px-2 hidden sm:block">Werkzeug:</span>
-                    <button onClick={() => setMarkMode("none")} className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${markMode === "none" ? "bg-violet-600 text-white" : "text-white/60 hover:bg-white/5"}`}>Maus</button>
+                    <button onClick={() => setMarkMode("none")} className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${markMode === "none" ? "bg-accent text-white" : "text-white/60 hover:bg-white/5"}`}>Maus</button>
                     <button onClick={() => setMarkMode("x")} className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${markMode === "x" ? "bg-red-500 text-white shadow-lg shadow-red-500/20" : "text-white/60 hover:bg-white/5"}`}>X</button>
                     <button onClick={() => setMarkMode("color")} className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${markMode === "color" ? "bg-emerald-600 text-white shadow-lg shadow-emerald-500/20" : "text-white/60 hover:bg-white/5"}`}>
                         <span>Farbe</span>
@@ -568,7 +568,7 @@ export default function BingoEditorPage() {
                 </div>
 
                 {!markActive && (
-                    <div className="bg-white/5 border border-white/10 rounded-xl p-4 text-center animate-pulse">
+                    <div className="bg-white/5 border border-line rounded-lg p-4 text-center animate-pulse">
                         <h3 className="font-bold text-white text-lg">Warten auf Host</h3>
                         <p className="text-white/50 text-sm">Die Session wurde noch nicht gestartet. Du kannst noch keine Felder markieren.</p>
                     </div>

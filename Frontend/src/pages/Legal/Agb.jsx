@@ -6,7 +6,7 @@ import LegalPage, { Section, List, Operator, Mail } from "./LegalPage";
 import { LEGAL } from "../../config/legal";
 import { PREMIUM_INCLUDES, PREMIUM_PRICE } from "../../utils/billingApi";
 
-const A = ({ to, children }) => <Link to={to} className="text-violet-300 hover:text-violet-200">{children}</Link>;
+const A = ({ to, children }) => <Link to={to} className="text-accent-soft hover:text-white underline-offset-2 hover:underline">{children}</Link>;
 
 export default function Agb() {
   return (

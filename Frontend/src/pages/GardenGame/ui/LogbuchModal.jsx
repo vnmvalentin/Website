@@ -22,7 +22,7 @@
 // dem, was der Client sich denkt.
 import React, { useMemo, useState } from 'react';
 import { HudIcon } from './gameIcons';
-import { GardenModal, LeerHinweis, Abschnitt as AbschnittTitel } from './gardenUi';
+import { StandFenster } from './laden/Marktstand';
 import { SpecialItemIcon } from './ItemIcon';
 import { SEED_CATALOGUE, STATUS_EFFECT_LABELS, WEATHER_SELL_BOOST, hydrateHarvestedItem } from '../engine/PlantSystem';
 import { RARITY_TEXT, RARITY_DOT } from './gardenTokens';
@@ -81,8 +81,8 @@ function zaehleGefunden(eintrag) {
 function VariantenKachel({ frucht, variante, gefunden }) {
     return (
         <div
-            className={`relative flex flex-col items-center gap-1 px-2 py-2.5 rounded-2xl border text-center ${
-                gefunden ? "border-slate-700 bg-slate-900" : "border-slate-800 bg-slate-950"
+            className={`relative flex flex-col items-center gap-1 px-2 py-2.5 border-[3px] text-center ${
+                gefunden ? "border-[#3b2516] bg-[#fffaf0]" : "border-[#c9b48a] bg-[#e8d7a8]"
             }`}
         >
             <div className={gefunden ? "" : "opacity-25 grayscale"}>
@@ -94,10 +94,10 @@ function VariantenKachel({ frucht, variante, gefunden }) {
                     emojiClassName="text-2xl"
                 />
             </div>
-            <span className={`text-[11px] font-medium leading-tight ${gefunden ? "text-slate-200" : "text-slate-600"}`}>
+            <span className={`text-[11px] font-medium leading-tight ${gefunden ? "text-[#3b2516]" : "text-[#8a7a5a]"}`}>
                 {variante.label}
             </span>
-            <span className={`text-[10px] leading-tight ${gefunden ? "text-slate-500" : "text-slate-700"}`}>
+            <span className={`text-[10px] leading-tight ${gefunden ? "text-[#6e4426]" : "text-[#a8967e]"}`}>
                 {variante.zusatz}
             </span>
             {gefunden && (
@@ -110,7 +110,7 @@ function VariantenKachel({ frucht, variante, gefunden }) {
 function Abschnitt({ titel, children }) {
     return (
         <div>
-            <AbschnittTitel className="px-1 pb-1.5">{titel}</AbschnittTitel>
+            <div className="mb-2 inline-block border-[3px] border-[#3b2516] bg-[#c99258] px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wider text-[#3b2516]">{titel}</div>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">{children}</div>
         </div>
     );
@@ -131,18 +131,18 @@ function ArtKachel({ art, frucht, eintrag, onOeffnen, verborgen = false }) {
             type="button"
             onClick={onOeffnen}
             title={verborgen ? "Unentdeckte Kreuzung" : `${art.name}${eintrag ? ` — ${gefunden}/${VARIANTEN_GESAMT} Ausprägungen` : " — noch nie geerntet"}`}
-            className={`relative aspect-square flex items-center justify-center rounded-2xl border transition-colors ${
-                eintrag ? "border-slate-700 bg-slate-900 hover:border-slate-500" : "border-slate-800 bg-slate-950 hover:border-slate-700"
+            className={`relative aspect-square flex items-center justify-center border-[3px] transition-colors ${
+                eintrag ? "border-[#3b2516] bg-[#fffaf0] hover:-translate-y-0.5" : "border-[#c9b48a] bg-[#e8d7a8] hover:-translate-y-0.5"
             }`}
         >
             {/* Unentdeckte Kreuzung (ui/zuchtbuch.js): nur der schwarze Umriss. */}
             <span className={verborgen ? "brightness-0 opacity-50" : eintrag ? "" : "opacity-25 grayscale"}>
                 <SpecialItemIcon item={frucht} className="w-10 h-10" emojiClassName="text-2xl" />
             </span>
-            {verborgen && <span className="absolute inset-0 flex items-center justify-center text-lg font-bold text-slate-300">?</span>}
+            {verborgen && <span className="absolute inset-0 flex items-center justify-center text-lg font-bold text-[#3b2516]">?</span>}
             <span className={`absolute bottom-1 left-1 w-1.5 h-1.5 rounded-full ${RARITY_DOT[art.rarity] || RARITY_DOT.COMMON}`} />
             {art.kreuzung && (
-                <span className="absolute top-0.5 left-1.5 text-[11px] font-bold text-emerald-300" title="Kreuzung">×</span>
+                <span className="absolute top-0.5 left-1.5 text-[11px] font-bold text-[#2f6b2c]" title="Kreuzung">×</span>
             )}
             {komplett && <HudIcon.gold size={12} className="absolute top-1 right-1" />}
         </button>
@@ -159,23 +159,23 @@ function ArtDetail({ art, frucht, eintrag, onZurueck, verborgen = false, logbuch
             <button
                 type="button"
                 onClick={onZurueck}
-                className="flex items-center gap-1 text-xs text-slate-400 hover:text-white transition-colors mb-3"
+                className="flex items-center gap-1 text-xs text-[#6e4426] hover:text-black transition-colors mb-3"
             >
                 <HudIcon.back size={14} /> Zur Übersicht
             </button>
 
-            <div className="flex items-center gap-3 mb-4 p-3 rounded-2xl border border-slate-800 bg-slate-900/60">
+            <div className="flex items-center gap-3 mb-4 p-3 border-[3px] border-[#3b2516] bg-[#fffaf0] shadow-[0_3px_0_0_#3b2516]">
                 <span className={verborgen ? "shrink-0 brightness-0 opacity-50" : eintrag ? "shrink-0" : "shrink-0 opacity-25 grayscale"}>
                     <SpecialItemIcon item={frucht} className="w-12 h-12" emojiClassName="text-3xl" />
                 </span>
                 <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
-                        <span className="text-sm font-semibold text-white truncate">{verborgen ? "???" : art.name}</span>
+                        <span className="text-sm font-semibold text-[#3b2516] truncate">{verborgen ? "???" : art.name}</span>
                         <span className={`text-[10px] font-medium ${RARITY_TEXT[art.rarity] || RARITY_TEXT.COMMON}`}>
                             {art.rarity}
                         </span>
                     </div>
-                    <div className="text-[11px] text-slate-500 tabular-nums mt-0.5">
+                    <div className="text-[11px] text-[#6e4426] tabular-nums mt-0.5">
                         {eintrag
                             ? `${gefunden} von ${VARIANTEN_GESAMT} Ausprägungen · ${eintrag.anzahl}× geerntet`
                             : "Noch nie geerntet"}
@@ -184,26 +184,26 @@ function ArtDetail({ art, frucht, eintrag, onZurueck, verborgen = false, logbuch
                         je Elternteil Name (wenn oft genug geerntet) oder ein Hinweis — siehe
                         ui/zuchtbuch.js (Zuchtbuch, 04.11.). */}
                     {art.kreuzung && Array.isArray(art.eltern) && !verborgen && (
-                        <div className="text-[11px] text-emerald-300 mt-1">
+                        <div className="text-[11px] text-[#2f6b2c] mt-1">
                             Kreuzung aus {art.eltern.map((id) => NAME_NACH_ID.get(id) || id).join(" × ")} — pflanze beide direkt nebeneinander und ernte.
                         </div>
                     )}
                     {art.kreuzung && verborgen && (
                         <div className="mt-1.5 space-y-0.5 text-[11px]">
-                            <div className="text-emerald-300">Unentdeckte Kreuzung aus zwei Sorten:</div>
+                            <div className="text-[#2f6b2c]">Unentdeckte Kreuzung aus zwei Sorten:</div>
                             {elternStand(art, logbuch).map((e, i) => (
-                                <div key={i} className="text-slate-300">
-                                    {e.aufgedeckt ? <span className="font-semibold text-white">{e.name}</span> : <span className="text-slate-400">{e.hinweis}</span>}
+                                <div key={i} className="text-[#3b2516]">
+                                    {e.aufgedeckt ? <span className="font-semibold text-[#3b2516]">{e.name}</span> : <span className="text-[#6e4426]">{e.hinweis}</span>}
                                 </div>
                             ))}
-                            <div className="text-slate-500">
+                            <div className="text-[#6e4426]">
                                 Eine Elternsorte zeigt sich, wenn du sie {ELTERN_AUFDECKEN_AB}× geerntet hast. Pflanze beide nebeneinander und ernte — mit etwas Glück entsteht die Kreuzung.
                             </div>
                         </div>
                     )}
                 </div>
                 {gefunden === VARIANTEN_GESAMT && (
-                    <span className="shrink-0 flex items-center gap-1 text-[11px] font-medium text-amber-400">
+                    <span className="shrink-0 flex items-center gap-1 text-[11px] font-medium text-[#a87414]">
                         <HudIcon.gold size={13} /> komplett
                     </span>
                 )}
@@ -221,8 +221,8 @@ function ArtDetail({ art, frucht, eintrag, onZurueck, verborgen = false, logbuch
                             gefunden={variante.treffer(eintrag)}
                         />
                     ))}
-                    <div className="col-span-2 flex items-center px-3 py-2 rounded-2xl border border-slate-800 bg-slate-950">
-                        <span className="flex items-center gap-1.5 text-[11px] text-slate-400 tabular-nums">
+                    <div className="col-span-2 flex items-center px-3 py-2 border-[3px] border-[#c9b48a] bg-[#e8d7a8]">
+                        <span className="flex items-center gap-1.5 text-[11px] text-[#6e4426] tabular-nums">
                             <HudIcon.ruler size={11} />
                             {eintrag
                                 ? `Deine Spanne: ${formatGroesse(Number.isFinite(eintrag.gMin) ? eintrag.gMin : groesseVon({ size: eintrag.min }))} – ${formatGroesse(Number.isFinite(eintrag.gMax) ? eintrag.gMax : groesseVon({ size: eintrag.max }))}`
@@ -299,11 +299,15 @@ export default function LogbuchModal({ logbuch, zuchtbuch, inventory, onClose, o
     const offeneArt = offen ? SEED_CATALOGUE.find((a) => a.id === offen) : null;
 
     return (
-        <GardenModal
-            title="Logbuch"
-            subtitle={offeneArt ? (verborgen(offeneArt) ? "Unentdeckte Kreuzung" : offeneArt.name) : `${gesamtBekannt} von ${SEED_CATALOGUE.length} Arten geerntet`}
+        <StandFenster
+            titel="Logbuch"
+            untertitel={offeneArt ? (verborgen(offeneArt) ? "Unentdeckte Kreuzung" : offeneArt.name) : `${gesamtBekannt} von ${SEED_CATALOGUE.length} Arten geerntet`}
+            markise={false}
+            breite="max-w-3xl"
+            bild="/garden-assets/icons/hud/logbuch_pixel.png"
             onClose={onClose}
             onBack={onBack}
+            inhaltHintergrund="repeating-linear-gradient(0deg, #f3e3c3 0 23px, #e3cfa8 23px 24px)"
         >
             {offeneArt ? (
                 <ArtDetail
@@ -323,16 +327,16 @@ export default function LogbuchModal({ logbuch, zuchtbuch, inventory, onClose, o
                                 value={suche}
                                 onChange={(e) => setSuche(e.target.value)}
                                 placeholder="Art suchen"
-                                className="w-full pl-8 pr-3 py-2 rounded-2xl bg-slate-950 border border-slate-700 text-sm text-white placeholder:text-slate-600 focus:border-violet-500 focus:outline-none"
+                                className="w-full border-[3px] border-[#3b2516] bg-[#fffaf0] py-2 pl-8 pr-3 text-sm text-[#3b2516] placeholder:text-[#a8967e] focus:bg-white focus:outline-none"
                             />
                         </div>
                         <button
                             type="button"
                             onClick={() => setNurGefunden((v) => !v)}
-                            className={`shrink-0 px-3 py-2 rounded-2xl border text-xs font-medium transition-colors ${
+                            className={`shrink-0 px-3 py-2 border-[3px] text-xs font-medium transition-colors ${
                                 nurGefunden
-                                    ? "border-violet-600 bg-violet-600/20 text-violet-200"
-                                    : "border-slate-700 text-slate-400 hover:text-white hover:bg-slate-800"
+                                    ? "border-[#3b2516] bg-[#ffe066] text-[#3b2516]"
+                                    : "border-[#3b2516] bg-[#fffaf0] text-[#6e4426] hover:bg-[#fff3c4]"
                             }`}
                         >
                             Nur geerntete
@@ -340,7 +344,7 @@ export default function LogbuchModal({ logbuch, zuchtbuch, inventory, onClose, o
                     </div>
 
                     {arten.length === 0 ? (
-                        <LeerHinweis>Nichts gefunden.</LeerHinweis>
+                        <p className="py-8 text-center text-sm font-bold text-[#6e4426]">Nichts gefunden.</p>
                     ) : (
                         <div className="grid grid-cols-5 sm:grid-cols-7 gap-1.5">
                             {arten.map(({ art, eintrag }) => (
@@ -355,7 +359,7 @@ export default function LogbuchModal({ logbuch, zuchtbuch, inventory, onClose, o
                             ))}
                         </div>
                     )}
-                    <p className="text-[10px] text-slate-600 leading-relaxed mt-3">
+                    <p className="text-[10px] text-[#8a7a5a] leading-relaxed mt-3">
                         Eingetragen wird beim Ernten. Klick auf eine Frucht zeigt ihre Ausprägungen —
                         einen Winzling und einen Riesen, die Sonderformen Golden und Rainbow, und jeden Wetter-Effekt,
                         der beim Verkauf zusätzlich zählt. Eine Art mit allen {VARIANTEN_GESAMT}{" "}
@@ -365,6 +369,6 @@ export default function LogbuchModal({ logbuch, zuchtbuch, inventory, onClose, o
                     </p>
                 </>
             )}
-        </GardenModal>
+        </StandFenster>
     );
 }

@@ -8,11 +8,150 @@ import { rng } from './kit';
 
 export const CR_INK = 0x2b1c10;
 
+/**
+ * Farbabstimmung für createPostFX({ grade: CR_GRADE }): etwas sattere Farben, eine Spur mehr
+ * Kontrast, Schatten kühl-violett statt grau, Lichter warm — der gemalte Clash-Royale-Eindruck.
+ * Bewusst mild: die Kartenartworks laufen durch denselben Durchgang.
+ */
+export const CR_GRADE = { saturation: 1.14, contrast: 1.05, shadows: [0.0, 0.004, 0.03], highlights: [0.018, 0.008, -0.012] };
+
+/**
+ * Einheitliche Bewegungskurven für alle CR-Szenen — Aufdecken, Nehmen und Landen sollen sich in
+ * jedem Modus gleich anfühlen: weich los, kurz über das Ziel hinaus, zurückfedern.
+ *   back(t)  0→1 mit leichtem Überschwingen (Drehen, Hinfliegen)
+ *   inOut(t) weich los, weich an (Kamerafahrten, Flüge ohne Überschwingen)
+ *   land(t)  Zusatz-Maßstab beim Ankommen: kurz größer, ein kleines Nachfedern, dann 0
+ */
+export const crEase = {
+  back: (t) => 1 + 2.2 * (t - 1) ** 3 + 1.2 * (t - 1) ** 2,
+  inOut: (t) => (t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2),
+  land: (t) => (t <= 0 || t >= 1 ? 0 : 0.09 * Math.exp(-4.5 * t) * Math.sin(t * Math.PI * 2.6)),
+};
+
 function canvas(w, h = w) {
   const c = document.createElement('canvas');
   c.width = w;
   c.height = h;
   return c;
+}
+
+/**
+ * Weicher Schatten unter einer Karte: abgerundetes Rechteck, weich auslaufend (schwarz, die
+ * Deckkraft regelt das Material). Bild 128×160 = Kartenformat mit Rand für die Unschärfe —
+ * die Fläche deshalb ~1,35× so groß wie die Karte anlegen.
+ */
+export function cardShadowTexture() {
+  const W = 128, H = 160, c = canvas(W, H);
+  const ctx = c.getContext('2d');
+  // Schatten-Trick statt ctx.filter (überall verfügbar): Rechteck außerhalb malen, nur sein
+  // weicher Schatten fällt auf die Fläche
+  ctx.shadowColor = 'rgba(0,0,0,1)';
+  ctx.shadowBlur = 16;
+  ctx.shadowOffsetX = W * 2;
+  ctx.fillStyle = '#000';
+  ctx.beginPath();
+  ctx.roundRect(-W * 2 + 18, 18, W - 36, H - 36, 12);
+  ctx.fill();
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+
+/**
+ * Kartensockel im Clash-Royale-Blau mit Goldrand — Blau+Gold heißt „hier kann man klicken“,
+ * wie die Knöpfe und Kartenfächer im Spiel. Innen leicht vertieft (dunkler Rand oben).
+ * Seitenverhältnis 4:5 (wie eine Karte mit Rand).
+ */
+export function cardSocketTexture() {
+  const W = 256, H = 320, c = canvas(W, H);
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#2b1c10';
+  ctx.fillRect(0, 0, W, H);
+  const gold = ctx.createLinearGradient(0, 0, 0, H);
+  gold.addColorStop(0, '#ffe58a');
+  gold.addColorStop(0.45, '#f2b632');
+  gold.addColorStop(1, '#a8681a');
+  ctx.fillStyle = gold;
+  ctx.beginPath();
+  ctx.roundRect(5, 5, W - 10, H - 10, 26);
+  ctx.fill();
+  // feine helle Kante oben am Gold
+  ctx.strokeStyle = 'rgba(255,248,210,0.7)';
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(30, 9); ctx.lineTo(W - 30, 9);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.roundRect(19, 19, W - 38, H - 38, 16);
+  const blue = ctx.createLinearGradient(0, 19, 0, H - 19);
+  blue.addColorStop(0, '#2457b8');
+  blue.addColorStop(0.5, '#2f6ad0');
+  blue.addColorStop(1, '#1d468f');
+  ctx.fillStyle = blue;
+  ctx.fill();
+  ctx.lineWidth = 4;
+  ctx.strokeStyle = 'rgba(16,22,60,0.9)';
+  ctx.stroke();
+  // Vertiefung: Schatten der Goldkante fällt oben und links ins Blau
+  ctx.save();
+  ctx.clip();
+  const inner = ctx.createLinearGradient(0, 19, 0, 60);
+  inner.addColorStop(0, 'rgba(5,12,40,0.55)');
+  inner.addColorStop(1, 'rgba(5,12,40,0)');
+  ctx.fillStyle = inner;
+  ctx.fillRect(0, 0, W, 60);
+  const innerL = ctx.createLinearGradient(19, 0, 46, 0);
+  innerL.addColorStop(0, 'rgba(5,12,40,0.35)');
+  innerL.addColorStop(1, 'rgba(5,12,40,0)');
+  ctx.fillStyle = innerL;
+  ctx.fillRect(0, 0, 46, H);
+  ctx.restore();
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.anisotropy = 8;
+  return t;
+}
+
+/**
+ * Gemaltes Gold für Leisten und Rahmen (wie die Goldkanten der Clash-Royale-Menüs): quer zur
+ * Leiste dunkler Fuß, sattes Gold, helle Glanzkante oben, schmale Kontur an beiden Rändern.
+ * v läuft quer zur Leiste — senkrechte Leisten deshalb als liegende bauen und um 90° drehen.
+ */
+export function goldTrimTexture() {
+  const W = 8, H = 128, c = canvas(W, H);
+  const ctx = c.getContext('2d');
+  // Canvas-y nach unten = Textur-v nach oben: oben im Bild = Oberkante der Leiste
+  const g = ctx.createLinearGradient(0, 0, 0, H);
+  g.addColorStop(0, '#5a3408');
+  g.addColorStop(0.07, '#c88a24');
+  g.addColorStop(0.14, '#fff2b8');
+  g.addColorStop(0.24, '#ffd45e');
+  g.addColorStop(0.55, '#eba72c');
+  g.addColorStop(0.86, '#a9661a');
+  g.addColorStop(0.94, '#7a4510');
+  g.addColorStop(1, '#3e2408');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, W, H);
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+
+/**
+ * Stoff in Falten: Fläche mit Wellen in der Tiefe (senkrechte Falten), damit Licht und Schatten
+ * echte Falten zeichnen statt einer flachen, bemalten Fläche. `sway` lässt die Falten nach unten
+ * etwas tiefer werden (hängender Stoff).
+ */
+export function foldedClothGeometry(w, h, { folds = 6, depth = 0.07, segX = 72, segY = 6, sway = 0.35 } = {}) {
+  const g = new THREE.PlaneGeometry(w, h, segX, segY);
+  const p = g.attributes.position;
+  for (let i = 0; i < p.count; i++) {
+    const u = p.getX(i) / w + 0.5, v = p.getY(i) / h + 0.5; // v = 1 oben
+    const f = Math.sin(u * folds * Math.PI * 2) + 0.3 * Math.sin(u * folds * Math.PI * 4.7 + 1.3);
+    p.setZ(i, f * depth * (1 + sway * (1 - v)));
+  }
+  g.computeVertexNormals();
+  return g;
 }
 
 function tex(c, rx = 1, ry = rx) {

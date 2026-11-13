@@ -48,7 +48,52 @@ const BASE_MODULE = {
   anim: 'up',      // up | fade | left | right
   timer: true,
   glass: true,
+  // false = Akzentfarbe, Deckkraft und Glas kommen aus dem gemeinsamen Design
+  // (THEME_DEFAULTS); true = dieses Modul benutzt seine eigenen Werte.
+  ownLook: false,
 };
+
+/**
+ * Gemeinsames Design aller Karten. Stil und Ecken gelten immer für alle, die
+ * übrigen Werte für jedes Modul ohne `ownLook`.
+ * style: 'clean' = moderner Stil (Standard), 'classic' = die ursprünglichen Karten.
+ */
+export const THEME_DEFAULTS = {
+  style: 'clean',
+  accent: '#9146ff',
+  opacity: 80,
+  glass: true,
+  radius: 12,
+};
+
+/**
+ * Karten, die dem gemeinsamen Design folgen. Die Murmelbahn fehlt bewusst: sie
+ * ist eine große Zeichenfläche mit eigener, höherer Deckkraft.
+ */
+export const THEMED_IDS = ['poll', 'prediction', 'followerGoal', 'subGoal', 'streamStats', 'raidClip'];
+
+const LOOK_KEYS = ['accent', 'opacity', 'glass'];
+
+/**
+ * Module so, wie die Widgets sie brauchen: das gemeinsame Design ist bereits
+ * eingerechnet. Overlay, Dashboard-Bühne und Vorschauen gehen alle hier durch —
+ * die Einstellungen im Dashboard dagegen lesen die gespeicherten Werte.
+ */
+export function effectiveModules(config) {
+  const theme = { ...THEME_DEFAULTS, ...(config?.theme || {}) };
+  const out = { ...config.modules };
+  for (const id of THEMED_IDS) {
+    const mod = out[id];
+    if (!mod) continue;
+    out[id] = {
+      ...mod,
+      ...(mod.ownLook ? {} : { accent: theme.accent, opacity: theme.opacity, glass: theme.glass }),
+      style: theme.style,
+      radius: theme.radius,
+    };
+  }
+  return out;
+}
 
 /**
  * Wie viel Platz ein Ziel einnimmt. Beide Ziel-Module teilen sich das:
@@ -65,12 +110,15 @@ const GOAL_LOOK = {
 export const MODULE_DEFAULTS = {
   // showHead: Kopfzeile der Karte (Art des Moduls, Status, Timer). Wer das
   // Overlay klein halten will, schaltet die ganze Zeile ab.
-  poll: { ...BASE_MODULE, x: 90, y: 620, showHead: true, colors: [...POLL_COLORS] },
+  // layout: 'card' = Karte mit einer Zeile je Antwort, 'bar' = eine schmale
+  // Leiste über die Breite (Frage, Antworten, Zeit in einer Zeile).
+  poll: { ...BASE_MODULE, x: 90, y: 620, showHead: true, layout: 'card', colors: [...POLL_COLORS] },
   prediction: {
     ...BASE_MODULE,
     x: 1090,
     y: 620,
     showHead: true,
+    layout: 'card',
     colors: [...PREDICTION_COLORS],
     // Zwischen Sperrung und Auflösung passiert nichts mehr — auf Wunsch
     // verschwindet das Overlay so lange, statt eingefroren stehen zu bleiben.
@@ -309,7 +357,19 @@ export const MODULE_IDS = Object.keys(MODULE_DEFAULTS);
 export const CONFIG_VERSION = 2;
 
 export function defaultConfig() {
-  return { v: CONFIG_VERSION, modules: JSON.parse(JSON.stringify(MODULE_DEFAULTS)) };
+  return { v: CONFIG_VERSION, theme: { ...THEME_DEFAULTS }, modules: JSON.parse(JSON.stringify(MODULE_DEFAULTS)) };
+}
+
+/** Nur gültige Werte aus einem gespeicherten Design übernehmen. */
+function mergeTheme(saved) {
+  const t = { ...THEME_DEFAULTS };
+  if (!saved || typeof saved !== 'object') return t;
+  if (saved.style === 'classic' || saved.style === 'clean') t.style = saved.style;
+  if (/^#[0-9a-fA-F]{6}$/.test(saved.accent || '')) t.accent = saved.accent;
+  if (Number.isFinite(Number(saved.opacity))) t.opacity = Math.min(100, Math.max(0, Number(saved.opacity)));
+  if (Number.isFinite(Number(saved.radius))) t.radius = Math.min(24, Math.max(0, Number(saved.radius)));
+  if (typeof saved.glass === 'boolean') t.glass = saved.glass;
+  return t;
 }
 
 /** Gespeicherte Konfiguration auf die aktuelle Struktur heben. */
@@ -343,7 +403,21 @@ export function mergeConfig(saved) {
     modules.subGoal.twitchType = 'auto';
   }
 
-  return { v: CONFIG_VERSION, modules };
+  // Gemeinsames Design. Stände von vor seiner Einführung haben keines: dann
+  // gibt die Abstimmung Farbe, Deckkraft und Glas vor, und jedes Modul, das
+  // davon abweicht, behält seine eigenen Werte (ownLook) — niemandes Overlay
+  // sieht nach dem Umstieg anders gefärbt aus als vorher.
+  let theme;
+  if (saved.theme && typeof saved.theme === 'object') {
+    theme = mergeTheme(saved.theme);
+  } else {
+    theme = mergeTheme({ accent: modules.poll.accent, opacity: modules.poll.opacity, glass: modules.poll.glass });
+    for (const id of THEMED_IDS) {
+      modules[id].ownLook = LOOK_KEYS.some((k) => modules[id][k] !== theme[k]);
+    }
+  }
+
+  return { v: CONFIG_VERSION, theme, modules };
 }
 
 /* ── Twitch-Daten -> Widget-Daten ─────────────────────────────────────────── */

@@ -50,7 +50,7 @@ const TICK_MS_BY_LEVEL = { 1: 60000, 2: 50000, 3: 40000, 4: 30000, 5: 20000 };
  * 15 % endet — der Helfer liegt bewusst darüber, weil ein Tier teurer ist als
  * ein Skillpunkt).
  */
-const ERNTEHELFER_EXTRA = 0.05;   // je Stufe → L5 = 25 % Chance auf ein zweites Stück
+const ERNTEHELFER_EXTRA = 0.06;   // je Stufe → L5 = 30 % Chance auf ein zweites Stück (07.11.: war 0,05)
 
 /**
  * BALANCING: L5 zahlte im Mittel 6.000.500 je Fund, also rund 108 Mio Gold pro
@@ -86,7 +86,7 @@ const GOLDFINDER_RANGES = {
  * beim Erntehelfer mit und kann keinen Rucksack verstopfen.
  */
 const GAERTNER_NACHWUCHS = 0.12;   // je Stufe → L5 = 60 % kostenloser Nachwuchs
-const GAERTNER_WURZELWERK = 0.06;  // je Stufe → L5 = 30 % schnelleres Wachstum
+const GAERTNER_WURZELWERK = 0.08;  // je Stufe → L5 = 40 % schnelleres Wachstum (07.11.: war 0,06)
 
 /**
  * v2-Balancing (Punkt 9): "nur 3 Slots, Eier verlieren Sinn bei Max-Level". Die
@@ -110,8 +110,8 @@ const GAERTNER_WURZELWERK = 0.06;  // je Stufe → L5 = 30 % schnelleres Wachstu
  * aber zwei verschiedene Systeme mit demselben Namen hätte am Spielstand wie ein
  * Anzeigefehler ausgesehen.
  */
-const FORSCHER_XP_PRO_STUFE = 0.08;    // je Stufe → L5 = +40 % XP je Ernte
-const KAUFMANN_VERKAUF_PRO_STUFE = 0.03; // je Stufe → L5 = +15 % Verkaufspreis (SUB_BONUS bleibt mit +50% klar davor)
+const FORSCHER_XP_PRO_STUFE = 0.10;    // je Stufe → L5 = +50 % XP je Ernte (07.11.: war 0,08)
+const KAUFMANN_VERKAUF_PRO_STUFE = 0.04; // je Stufe → L5 = +20 % Verkaufspreis (07.11.: war 0,03; SUB_BONUS bleibt mit +25 % davor)
 
 function clampLevel(level) {
     const n = Math.floor(Number(level) || 1);
@@ -126,15 +126,37 @@ function getGoldfinderRange(level) {
     return GOLDFINDER_RANGES[clampLevel(level)] || GOLDFINDER_RANGES[1];
 }
 
+/**
+ * Goldfinder wächst mit dem Acker (07.11.). Die festen Beträge oben sind nur noch die
+ * Untergrenze: sonst sank er mit dem Fortschritt auf unter 1 % des Einkommens (Simulator).
+ * Ziel je Stufe: dieser Anteil vom Stunden-Ertrag des Ackers (Katalogwerte, wie beim
+ * Fischwert in core/angeln.js), verteilt auf die erwarteten Funde je Stunde.
+ * Spiegel in Frontend engine/PetSystem.js (GOLDFINDER_ACKER_ANTEIL, getGoldfinderFund).
+ */
+// Der Katalogwert ist 10–30× kleiner als der echte Verdienst je Spielstunde (Größe, Vielfalt,
+// Fähigkeiten, Wetter, Offline-Wachstum; Simulator 07.11.) → Stufe 5 ≈ 3–6 % des Einkommens.
+const GOLDFINDER_ACKER_ANTEIL = { 1: 0.08, 2: 0.16, 3: 0.28, 4: 0.42, 5: 0.6 };
+/** Grundchance je Takt — Spiegel von GOLDFINDER_AUSLOESE_CHANCE in core/economy.js. */
+const GOLDFINDER_CHANCE = 0.10;
+function getGoldfinderFund(level, ackerStunde) {
+    const stufe = clampLevel(level);
+    const [min, max] = getGoldfinderRange(stufe);
+    const fundeJeStunde = (3600000 / getPetTickMs(stufe)) * GOLDFINDER_CHANCE;
+    const mitte = (GOLDFINDER_ACKER_ANTEIL[stufe] * Math.max(0, Number(ackerStunde) || 0)) / fundeJeStunde;
+    return [Math.max(min, Math.floor(mitte * 0.5)), Math.max(max, Math.floor(mitte * 1.5))];
+}
+
 function getPetTickMs(level) {
     return TICK_MS_BY_LEVEL[clampLevel(level)] || TICK_MS_BY_LEVEL[1];
 }
 
 /** Chance auf ein zweites Erntestück, nach Erntehelfer-Stufe (0 = kein Helfer). */
 function getErntehelferExtra(stufe) {
-    const n = Math.max(0, Math.min(5, Math.floor(Number(stufe) || 0)));
+    const n = Math.max(0, Math.min(5, Number(stufe) || 0));
     return n * ERNTEHELFER_EXTRA;
 }
+
+const petId = (p) => String(p?.id || p?.instanceId || "");
 
 /**
  * Höchste Stufe einer Fähigkeit unter den PLATZIERTEN Tieren.
@@ -144,10 +166,31 @@ function getErntehelferExtra(stufe) {
  * Absicht und der Grund, warum die drei Tierplätze überhaupt eine Entscheidung
  * sind — wer alle drei Fähigkeiten will, braucht drei verschiedene Tiere.
  */
-function besteStufe(state, typ) {
+/**
+ * Hunger (06.11., Wunsch: „Tiere geben nichts Besseres, sondern funktionieren nur, wenn
+ * sie nicht verhungert sind“): jedes Tier hat eine Sättigung bis `state.tierFutter[id]`.
+ * Ist sie abgelaufen, ruht seine Fähigkeit, bis man es mit einem Fisch füttert
+ * (core/angeln.js fuettern). Ein Tier ohne Eintrag (neu, oder von vor dieser Regel)
+ * bekommt einmal STARTFUTTER_MS — sonst stünden nach dem Update alle Tiere still.
+ */
+const STARTFUTTER_MS = 6 * 60 * 60 * 1000;
+
+function sattBisVon(state, p, now = Date.now()) {
+    const key = petId(p);
+    if (!key || !state) return 0;
+    if (!state.tierFutter || typeof state.tierFutter !== "object") state.tierFutter = {};
+    if (state.tierFutter[key] === undefined) state.tierFutter[key] = now + STARTFUTTER_MS;
+    return Number(state.tierFutter[key]) || 0;
+}
+
+const istSatt = (state, p, now = Date.now()) => sattBisVon(state, p, now) > now;
+
+function besteStufe(state, typ, now = Date.now()) {
     let beste = 0;
     for (const p of Array.isArray(state?.petPlacements) ? state.petPlacements : []) {
-        if (p?.ability?.type === typ) beste = Math.max(beste, clampLevel(p.ability.level));
+        if (p?.ability?.type !== typ) continue;
+        if (!istSatt(state, p, now)) continue;
+        beste = Math.max(beste, clampLevel(p.ability.level));
     }
     return beste;
 }
@@ -168,7 +211,7 @@ function getKaufmannStufe(state) {
     return besteStufe(state, "kaufmann");
 }
 
-const petId = (p) => String(p?.id || p?.instanceId || "");
+// (petId steht weiter oben, weil besteStufe es braucht)
 
 /** Sucht ein Tier in beiden Listen des Spielstands. */
 function findePet(state, id) {
@@ -183,9 +226,9 @@ function findePet(state, id) {
 }
 
 module.exports = {
-    PET_SELL_PRICES, getPetSellPrice, getGoldfinderRange, getPetTickMs,
+    PET_SELL_PRICES, getPetSellPrice, getGoldfinderRange, getGoldfinderFund, GOLDFINDER_ACKER_ANTEIL, getPetTickMs,
     clampLevel, findePet, petId,
     GAERTNER_NACHWUCHS, GAERTNER_WURZELWERK, getGaertnerStufe,
-    ERNTEHELFER_EXTRA, getErntehelferStufe, getErntehelferExtra, besteStufe,
+    ERNTEHELFER_EXTRA, getErntehelferStufe, getErntehelferExtra, besteStufe, sattBisVon, istSatt, STARTFUTTER_MS,
     FORSCHER_XP_PRO_STUFE, KAUFMANN_VERKAUF_PRO_STUFE, getForscherStufe, getKaufmannStufe,
 };

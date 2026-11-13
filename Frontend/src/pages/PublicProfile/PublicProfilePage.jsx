@@ -5,6 +5,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { ArrowRight, Check, Loader2, Share2, UserRound } from "lucide-react";
 import SEO from "../../components/SEO";
+import { Page, PageHeader, Card, Section as UiSection, Button } from "../../components/ui";
 import { leagueIconUrl, leagueName } from "../ClashRoyale/data/leagueIcons";
 import { trophyArenaIcon } from "../ClashRoyale/data/trophyArenas";
 
@@ -19,22 +20,20 @@ function Stat({ value, label }) {
   );
 }
 
+// Abschnitt mit Link „Selbst nutzen“ o. Ä. rechts oben — der gemeinsame Baustein aus components/ui
 function Section({ title, kicker, to, linkLabel, children }) {
   return (
-    <section className="flex flex-col border border-white/10 bg-[#101016]">
-      <header className="flex items-baseline justify-between gap-3 px-5 pt-5">
-        <div className="min-w-0">
-          <p className="text-[11px] font-bold uppercase tracking-widest text-violet-300/80">{kicker}</p>
-          <h2 className="font-display text-lg font-bold text-white">{title}</h2>
-        </div>
-        {to && (
-          <Link to={to} className="group shrink-0 inline-flex items-center gap-1 text-xs font-semibold text-white/45 hover:text-violet-300">
-            {linkLabel} <ArrowRight size={13} className="transition-transform group-hover:translate-x-0.5" />
-          </Link>
-        )}
-      </header>
-      <div className="p-5 flex-1">{children}</div>
-    </section>
+    <UiSection
+      title={title}
+      kicker={kicker}
+      actions={to && (
+        <Link to={to} className="group inline-flex items-center gap-1 text-xs font-semibold text-white/45 hover:text-accent-soft">
+          {linkLabel} <ArrowRight size={13} className="transition-transform group-hover:translate-x-0.5" />
+        </Link>
+      )}
+    >
+      {children}
+    </UiSection>
   );
 }
 
@@ -143,9 +142,9 @@ function ShareButton({ name }) {
     } catch { /* ohne Zwischenablage bleibt die Adresszeile */ }
   };
   return (
-    <button type="button" onClick={share} className="inline-flex items-center gap-2 border border-white/15 px-3.5 py-2 text-sm font-semibold text-white/80 hover:text-white hover:border-white/30 transition-colors">
-      {done ? <Check size={15} /> : <Share2 size={15} />} {done ? "Link kopiert" : "Profil teilen"}
-    </button>
+    <Button variant="secondary" onClick={share} icon={done ? Check : Share2}>
+      {done ? "Link kopiert" : "Profil teilen"}
+    </Button>
   );
 }
 
@@ -172,7 +171,7 @@ export default function PublicProfilePage() {
   const empty = data && Object.keys(s).length === 0;
 
   return (
-    <div className="page-fade w-full max-w-5xl mx-auto px-2 md:px-4 py-8 md:py-12">
+    <Page width="default" className="py-4 md:py-8">
       <SEO
         title={data ? `${name} — Profil` : "Profil"}
         description={`Das Profil von ${name} auf vnmvalentin.de: Clash-Royale-Statistik, Turniere, Level und Spielstände.`}
@@ -183,31 +182,29 @@ export default function PublicProfilePage() {
       {loading && <p className="flex items-center gap-2 text-sm text-white/50 py-16"><Loader2 size={16} className="animate-spin" /> Lade Profil …</p>}
 
       {!loading && error && (
-        <div className="border border-white/10 bg-[#101016] p-8 max-w-lg">
-          <h1 className="font-display text-2xl font-bold text-white mb-2">Kein öffentliches Profil</h1>
-          <p className="text-sm text-white/50 mb-5">{error} Profile sind erst sichtbar, wenn man sie unter „Profil“ selbst einschaltet.</p>
-          <Link to="/profile" className="inline-flex items-center gap-1.5 text-sm font-semibold text-violet-300 hover:text-violet-200">
+        <Card className="p-8 max-w-lg">
+          <h1 className="font-display text-2xl font-bold tracking-tight text-white mb-2">Kein öffentliches Profil</h1>
+          <p className="text-sm text-white/55 mb-5">{error} Profile sind erst sichtbar, wenn man sie unter „Profil“ selbst einschaltet.</p>
+          <Button to="/profile" variant="secondary">
             Eigenes Profil einrichten <ArrowRight size={15} />
-          </Link>
-        </div>
+          </Button>
+        </Card>
       )}
 
       {data && (
         <>
-          <header className="flex flex-wrap items-center gap-5 mb-8 md:mb-10">
-            {data.avatar
-              ? <img src={data.avatar} alt="" className="w-20 h-20 rounded-lg object-cover border border-white/10 shrink-0" />
-              : <span className="w-20 h-20 rounded-lg border border-white/10 bg-white/[0.03] flex items-center justify-center text-white/30 shrink-0"><UserRound size={32} /></span>}
-            <div className="min-w-0 flex-1">
-              <p className="text-xs font-bold uppercase tracking-widest text-violet-300/80 mb-1">Profil</p>
-              <h1 className="font-display text-3xl md:text-4xl font-bold text-white tracking-tight truncate">{name}</h1>
-              <a href={`https://twitch.tv/${data.login}`} target="_blank" rel="noopener noreferrer" className="text-sm text-white/40 hover:text-white/70">twitch.tv/{data.login}</a>
-            </div>
-            <ShareButton name={name} />
-          </header>
+          <PageHeader
+            media={data.avatar
+              ? <img src={data.avatar} alt="" className="w-20 h-20 rounded-lg object-cover border border-line" />
+              : <span className="w-20 h-20 rounded-lg border border-line bg-white/[0.03] flex items-center justify-center text-white/30"><UserRound size={32} /></span>}
+            kicker="Profil"
+            title={name}
+            description={<a href={`https://twitch.tv/${data.login}`} target="_blank" rel="noopener noreferrer" className="hover:text-white">twitch.tv/{data.login}</a>}
+            actions={<ShareButton name={name} />}
+          />
 
           {empty ? (
-            <p className="border border-white/10 bg-[#101016] p-6 text-sm text-white/50">Hier ist noch nichts zu sehen — {name} hat noch keine Spielstände auf der Seite.</p>
+            <Card as="p" className="text-sm text-white/55">Hier ist noch nichts zu sehen — {name} hat noch keine Spielstände auf der Seite.</Card>
           ) : (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
               {s.winTracker && <WinTrackerSection d={s.winTracker} />}
@@ -219,6 +216,6 @@ export default function PublicProfilePage() {
           )}
         </>
       )}
-    </div>
+    </Page>
   );
 }

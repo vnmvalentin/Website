@@ -2,15 +2,18 @@
 // Auswahl, damit man auf dem Desktop nicht scrollen muss. Name und Design stehen im Profil (ui/ProfileDialog.jsx), oben
 // nur als Chip. Am Handy sitzt „Anpfiff" in einer festen Leiste unten. Einstellungen: Hülle (ui/Shell.jsx → prefs.js).
 import React, { useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { Bot, Users, Globe, ArrowRight, UserRound } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import { Bot, Users, Globe, ArrowRight, UserRound, Star, Crosshair } from "lucide-react";
 import SEO from "../../components/SEO";
 import Pitch from "./components/Pitch.jsx";
 import FormationPicker from "./components/FormationPicker.jsx";
 import DiscPreview from "./components/DiscPreview.jsx";
 import MatchOptions, { Seg } from "./components/MatchOptions.jsx";
-import { FIELDS, FORMATIONS, FORMATION_IDS, kickoffState } from "./engine/index.js";
+import { FIELDS, FORMATION_IDS, formationInfo, kickoffState } from "./engine/index.js";
 import { AI_LEVELS } from "./ai.js";
+import { loadStats } from "./stats.js";
+import { TOUR_MAX_STARS, TOUR_STAGES, stageOpen } from "./tour.js";
+import { TRICK_COUNT } from "./trickData.js";
 import { useFlickShell } from "./ui/shellContext.js";
 
 const MODES = [
@@ -21,6 +24,8 @@ const MODES = [
 
 // Was über und unter der Feld-Vorschau Platz braucht (Kopfleiste, Überschrift, Kartenränder, Aufstellungs-Reihe)
 const PREVIEW_OFFSET = 462;
+// Eigene Aufstellungen stehen in einer zweiten Reihe — so viel Höhe kostet sie
+const SECOND_ROW = 132;
 
 function randomFormation() {
   return FORMATION_IDS[Math.floor(Math.random() * FORMATION_IDS.length)];
@@ -31,6 +36,8 @@ export default function FlickMenu() {
   const { openRules, openProfile, prefs, updatePrefs: set } = useFlickShell();
   const [joinCode, setJoinCode] = useState("");
   const [editTeam, setEditTeam] = useState(0); // zu zweit: wessen Aufstellung gerade gewählt wird
+  const [stats] = useState(loadStats);
+  const tourNext = TOUR_STAGES.find((s) => stageOpen(s, stats.tour) && !stats.tour[s.id]) || null;
 
   const hotseat = prefs.mode === "hotseat";
   const team = hotseat ? editTeam : 0;
@@ -108,6 +115,22 @@ export default function FlickMenu() {
       <div className="grid gap-5 lg:grid-cols-[minmax(340px,420px)_1fr] items-start">
         <div className="fk-card fk-menu-left">
           <div className="fk-rows">
+            <div className="fk-entries">
+              <Link to="/flick-soccer/tour" className="fk-tour-entry" title={tourNext ? `Nächster Gegner: ${tourNext.name}` : "Alle Gegner besiegt"}>
+                <span className="fk-tour-entry-star"><Star size={19} fill="currentColor" /></span>
+                <span className="min-w-0 flex-1">
+                  <span className="block font-bold text-[15.5px] leading-tight">Tour</span>
+                  <span className="block fk-faint fk-num text-[12.5px] leading-snug truncate">{stats.tourStars} / {TOUR_MAX_STARS} Sterne</span>
+                </span>
+              </Link>
+              <Link to="/flick-soccer/trick" className="fk-tour-entry" title="Ein Schuss, ein Tor">
+                <span className="fk-tour-entry-star trick"><Crosshair size={19} /></span>
+                <span className="min-w-0 flex-1">
+                  <span className="block font-bold text-[15.5px] leading-tight">Trickschüsse</span>
+                  <span className="block fk-faint fk-num text-[12.5px] leading-snug truncate">{stats.trickDone} / {TRICK_COUNT} gelöst</span>
+                </span>
+              </Link>
+            </div>
             <section className="p-5">
               <h2 className="fk-section-title mb-3">Spielmodus</h2>
               <div className="grid grid-cols-3 gap-2">
@@ -170,9 +193,9 @@ export default function FlickMenu() {
           <div className="hidden lg:block mb-4">
             <Pitch
               state={preview}
-              maxHeightOffset={PREVIEW_OFFSET}
+              maxHeightOffset={PREVIEW_OFFSET + (prefs.customFormations.length ? SECOND_ROW : 0)}
               skins={[prefs.skin, hotseat ? prefs.skin2 : prefs.skin]}
-              look={{ turf: prefs.turf, ball: prefs.ball }}
+              look={{ ball: prefs.ball }}
             />
           </div>
           <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
@@ -188,7 +211,7 @@ export default function FlickMenu() {
               )}
             </div>
             <span className="fk-faint text-[13px] truncate">
-              {prefs.field !== "standard" ? `${FIELDS[prefs.field].name}: ${FIELDS[prefs.field].hint}` : FORMATIONS[formationValue]?.hint}
+              {prefs.field !== "standard" ? `${FIELDS[prefs.field].name}: ${FIELDS[prefs.field].hint}` : formationInfo(formationValue).hint}
               {prefs.mode === "ai" ? " · Der Computer wählt seine selbst" : ""}
             </span>
           </div>
@@ -196,7 +219,7 @@ export default function FlickMenu() {
             value={formationValue}
             onChange={setFormation}
             team={team}
-            className="grid-cols-3 sm:grid-cols-5 @2xl:grid-cols-10"
+            className="grid-cols-3 sm:grid-cols-5 @2xl:grid-cols-11"
           />
         </div>
       </div>

@@ -31,6 +31,7 @@ import { createAssets, createPostFX, warmUp } from '../ClashRoyale/modes/scene3d
 import {
   carpetTexture, wallTexture, velvetTexture, doorTexture, signTexture, posterTexture, lightPoolTexture,
 } from './cinemaTextures';
+import { createChristmasDecor } from './christmasDecor';
 
 /**
  * Eigene Plakate für den Flur: jedes Bild in src/assets/streamScenes/posters/ wird
@@ -190,7 +191,9 @@ function curtainGeometry(w, h, dir) {
  * @param {{ overlay?: HTMLElement|null, skipIntro?: boolean, skipNames?: string[], onClip?: (clip: object|null, rect: object|null) => void }} opts
  *   overlay: Ebene für die Namensschilder des Publikums; skipNames: nehmen nie Platz (Kanal, Bots)
  */
-export function createCinemaScene(canvas, { overlay = null, skipIntro = false, skipNames = [], onClip, figures = 'people', onFatal } = {}) {
+export function createCinemaScene(canvas, { overlay = null, skipIntro = false, skipNames = [], onClip, figures = 'people', theme = 'party', onFatal } = {}) {
+  // Thema „christmas“: Tannen, Girlanden und Lichterketten im Saal und im Flur, das Publikum trägt Mützen
+  const festive = theme === 'christmas';
   let seatFov = 40;
   let viewW = 1920, viewH = 1080;
   let nowT = 0;
@@ -370,7 +373,8 @@ export function createCinemaScene(canvas, { overlay = null, skipIntro = false, s
         const z = seatZ(row);
         if (row === MY_ROW && x > -0.1) continue;
         // Oberkante des Kopfs im Sitzen (höhere der beiden Figurarten)
-        const top = y + Math.max(SEATED_HEAD_TOP, PERSON_SEATED_HEAD_TOP) + 0.03;
+        // … mit Weihnachtsmütze entsprechend höher
+        const top = y + Math.max(SEATED_HEAD_TOP, PERSON_SEATED_HEAD_TOP) + (festive ? 0.27 : 0.03);
         const blocks = [-0.26, 0.26].some((dx) => {
           head.set(x + dx, top, z + 0.1).project(cam);
           return head.z < 1 && head.x > minX && head.x < maxX && head.y > minY;
@@ -382,7 +386,9 @@ export function createCinemaScene(canvas, { overlay = null, skipIntro = false, s
   // Spiegelungen für die Metall-Roboter und die Murmelköpfe
   const pmrem = new THREE.PMREMGenerator(renderer);
   const envTex = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
-  const audience = createAudience(scene, overlay, audienceSeats, { skip: skipNames, envMap: envTex, figures });
+  const audience = createAudience(scene, overlay, audienceSeats, { skip: skipNames, envMap: envTex, figures, festive });
+  const xmas = festive ? createChristmasDecor(scene, { envMap: envTex, layout: 'cinema' }) : null;
+  xmas?.setVisible(true);
 
   // ── Vorhang ──
   const CURT_W = 7.4, CURT_H = 7.9, CURT_Z = -9.85, CURT_Y = 0.9 + CURT_H / 2;
@@ -758,6 +764,8 @@ export function createCinemaScene(canvas, { overlay = null, skipIntro = false, s
     // Publikum; Namensschilder nur auf dem Weg zum Platz
     nowT = t;
     audience.update(t, camera, viewW, viewH, 1 - phase(t, T_WALK_END - 1.5, T_WALK_END + 0.3));
+    // Lichterketten laufen ruhig durch (kein Takt im Kino)
+    xmas?.update(t, dt, t * 1.5, 0);
   };
 
   // Erst starten, wenn Fototexturen, Plakate, Figur-Datei und die ersten Profilbilder da sind.
@@ -791,6 +799,7 @@ export function createCinemaScene(canvas, { overlay = null, skipIntro = false, s
     dispose() {
       disposed = true;
       audience.dispose();
+      xmas?.dispose();
       envTex.dispose();
       pmrem.dispose();
       assets.dispose();

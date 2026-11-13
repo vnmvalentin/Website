@@ -41,6 +41,11 @@ check_sim_mirror() {
     echo "Abbruch: Flick-Soccer-Spiegel veraltet. Im Ordner Backend:  npm run flick:spiegel" >&2
     exit 1
   fi
+  # Worldflip: Der Server prüft Online-Züge mit einer gespiegelten Kopie der Regeln (Backend/worldflip/shared).
+  if ! (cd "$ROOT/Backend" && node worldflip/tools/spiegel.js --pruefen); then
+    echo "Abbruch: Worldflip-Spiegel veraltet. Im Ordner Backend:  npm run worldflip:spiegel" >&2
+    exit 1
+  fi
 }
 
 # Sicherheitslücken in Abhängigkeiten: vor jedem Deploy die ungefährlichen Updates einspielen (npm audit fix,

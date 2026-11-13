@@ -92,13 +92,13 @@ const PROPS = {
 
 /**
  * Stellt Requisiten an Wände (Plätze aus propSpots).
- * @param {{ scene: THREE.Scene, assets: any, kind: 'halls'|'cellar', spots: { cell: number[], back: number[], maxDepth: number }[],
+ * @param {{ scene: THREE.Scene, assets: any, kind: 'halls'|'cellar', spots: { cell: number[], back: number[], maxDepth: number, gap?: number }[],
  *           S: number, addProp: (cx:number, cz:number, hx:number, hz:number)=>void, rng: ()=>number }} p
  */
 export function placeRoomProps({ scene, assets, kind, spots, S, addProp, rng }) {
   const list = PROPS[kind];
   if (!list) return;
-  spots.forEach(({ cell, back, maxDepth }, i) => {
+  spots.forEach(({ cell, back, maxDepth, gap = 0 }, i) => {
     const spec = list[i % list.length];
     const tint = spec.tint ? new THREE.Color(spec.tint) : null;
     const holder = assets.model(spec.id, spec.h, tint ? { tweak: (m) => m.color.multiply(tint) } : {});
@@ -118,8 +118,8 @@ export function placeRoomProps({ scene, assets, kind, spots, S, addProp, rng }) 
       const k = Math.min(1, maxDepth / deep, (S - 0.3) / wide);
       g.scale.setScalar(k);
       g.rotation.y = rot + (rng() < 0.5 ? 0 : Math.PI);
-      const cx = cell[0] * S + back[0] * (S / 2 - (deep * k) / 2 - 0.04);
-      const cz = cell[1] * S + back[1] * (S / 2 - (deep * k) / 2 - 0.04);
+      const cx = cell[0] * S + back[0] * (S / 2 - (deep * k) / 2 - 0.04 - gap);
+      const cz = cell[1] * S + back[1] * (S / 2 - (deep * k) / 2 - 0.04 - gap);
       g.position.set(cx, 0, cz);
       const hx = (along === 'z' ? deep : wide) * k / 2;
       const hz = (along === 'z' ? wide : deep) * k / 2;
@@ -132,19 +132,25 @@ export function placeRoomProps({ scene, assets, kind, spots, S, addProp, rng }) 
 /**
  * Plätze für Requisiten: Sackgassen (an der Rückwand) und gerade Gänge (an einer Seitenwand),
  * außerhalb der Sperrliste, mindestens 3 Kacheln voneinander entfernt, zufällig gemischt.
- * @returns {{ cell: number[], back: number[], maxDepth: number }[]}
+ * opts.passable(x, z, d): kommt man von der Kachel in Richtung d weiter? (Vorgabe: Nachbarkachel offen — die Anstalt
+ * hat zusätzlich dünne Wände zwischen offenen Kacheln.) opts.gapOf(cell, d): so weit ragt die Wand in die Kachel.
+ * @returns {{ cell: number[], back: number[], maxDepth: number, gap: number }[]}
  */
-export function propSpots(maze, isOpen, dirs, avoid, rng, max) {
+export function propSpots(maze, isOpen, dirs, avoid, rng, max, opts = {}) {
+  const passable = opts.passable || ((x, z, [dx, dz]) => isOpen(maze, x + dx, z + dz));
+  const gapOf = opts.gapOf || (() => 0);
   const cand = [];
   for (let z = 1; z < maze.size - 1; z++) {
     for (let x = 1; x < maze.size - 1; x++) {
       if (!isOpen(maze, x, z) || avoid.has(z * maze.size + x)) continue;
-      const open = dirs.filter(([dx, dz]) => isOpen(maze, x + dx, z + dz));
+      const open = dirs.filter((d) => passable(x, z, d));
       if (open.length === 1) {
-        cand.push({ cell: [x, z], back: [-open[0][0], -open[0][1]], maxDepth: 0.9 });
+        const back = [-open[0][0], -open[0][1]];
+        cand.push({ cell: [x, z], back, maxDepth: 0.9, gap: gapOf([x, z], back) });
       } else if (open.length === 2 && open[0][0] === -open[1][0] && open[0][1] === -open[1][1]) {
-        const walls = dirs.filter(([dx, dz]) => !isOpen(maze, x + dx, z + dz));
-        cand.push({ cell: [x, z], back: walls[Math.floor(rng() * walls.length)], maxDepth: 0.6 });
+        const walls = dirs.filter((d) => !passable(x, z, d));
+        const back = walls[Math.floor(rng() * walls.length)];
+        cand.push({ cell: [x, z], back, maxDepth: 0.6, gap: gapOf([x, z], back) });
       }
     }
   }

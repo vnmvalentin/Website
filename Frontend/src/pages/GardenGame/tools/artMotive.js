@@ -71,7 +71,7 @@ export const MOTIVE = [
   { id: "rute", art: "struktur", ziel: "structure/canebush.png", breite: 768, hoehe: 1024, motiv: "a cane bush made of several thin upright woody canes with serrated green leaves, tied to a short wooden stake" },
   { id: "strauch", art: "struktur", ziel: "structure/bush.png", motiv: "a round compact leafy green shrub with small oval leaves" },
   { id: "bodenranke", art: "struktur", ziel: "structure/groundvines.png", breite: 1024, hoehe: 768, motiv: "a low sprawling ground vine with large round leaves and curly runners spreading wide and flat" },
-  { id: "blattstaude", art: "struktur", ziel: "structure/reddish.png", motiv: "a rhubarb plant with huge wrinkled green leaves on thick red stalks" },
+  { id: "blattstaude", art: "struktur", ziel: "structure/reddish.png", motiv: "a big wide bushy clump of many large wrinkled green leaves overlapping each other, much wider than tall, a few short pinkish green leaf stalks just visible between the lower leaves" },
 
   // ── Früchte der Dauerträger (je eine; das Spiel setzt sie einzeln aufs Gerüst) ──
   ...[
@@ -142,8 +142,6 @@ export const MOTIVE = [
   { id: "samentuete", art: "gegenstand", breite: 768, hoehe: 1024, motiv: "an empty paper seed packet seen from the front, with a folded and crimped top edge, plain warm cream paper with a thin green border and a large blank empty area in the middle" },
 
   // ── Stände ──
-  { id: "haendlerstand", art: "stand", breite: 1216, hoehe: 832, motiv: "a wooden market stall with a green and cream striped canvas awning, crates full of vegetables, a hanging scale and a chalk price board" },
-  { id: "erntefeststand", art: "stand", breite: 1216, hoehe: 832, motiv: "an autumn harvest festival booth with a warm orange and red striped awning, pumpkins and corn sheaves, hanging paper lanterns, a wreath of colorful leaves and a wooden prize board" },
 
   // ── Tiere ──
   // Alle in Seitenansicht nach rechts (das Spiel spiegelt für links). Ziel = Vorschaubild;
@@ -178,12 +176,12 @@ export const MOTIVE = [
     ["flower1", "nature/flower1.png", "a wooden planter box full of red, yellow and blue flowers", 1216, 832],
     ["flower2", "nature/flower2.png", "a rough grey stone trough planter full of purple lavender and small white daisies", 1216, 832],
     ["flower3", "nature/flower3.png", "a rusty corten steel planter full of succulents and tall ornamental grass", 1216, 832],
-    ["blumen_wiese", "nature/blumen_wiese.png", "a lush clump of wildflowers with red poppies, blue cornflowers and yellow daisies among green grass", 1024, 1024],
-    ["blumen_wiese2", "nature/blumen_wiese2.png", "a lush clump of wildflowers with white chamomile, pink clover and purple bellflowers among green grass", 1024, 1024],
-    ["blumen_wiese3", "nature/blumen_wiese3.png", "a lush clump of wildflowers with blue forget-me-nots, yellow buttercups and orange marigolds among green grass", 1024, 1024],
-    ["blumen_wiese4", "nature/blumen_wiese4.png", "a lush clump of tall wildflowers with purple foxgloves, white daisies and pink thistles among green grass", 1024, 1024],
+    ["blumen_wiese", "nature/blumen_wiese.png", "a loose bunch of wild flowers, red poppies, blue cornflowers and yellow daisies on long thin green stems with a few leaves, the stems ending freely at the bottom like a picked bouquet", 1024, 1024],
+    ["blumen_wiese2", "nature/blumen_wiese2.png", "a lush clump of wildflowers with white chamomile, pink clover and purple bellflowers on green leafy stems, no grass block, no soil, no ground underneath", 1024, 1024],
+    ["blumen_wiese3", "nature/blumen_wiese3.png", "a lush clump of wildflowers with blue forget-me-nots, yellow buttercups and orange marigolds on green leafy stems, no grass block, no soil, no ground underneath", 1024, 1024],
+    ["blumen_wiese4", "nature/blumen_wiese4.png", "a lush clump of tall wildflowers with purple foxgloves, white daisies and pink thistles on green leafy stems, no grass block, no soil, no ground underneath", 1024, 1024],
     ["hecke", "nature/hecke.png", "a long neatly trimmed rectangular green boxwood hedge, much wider than tall", 1216, 832],
-    ["hecke_klein", "nature/hecke_klein.png", "a small fluffy round green garden shrub made of many soft rounded leaf clusters, like a little cloud of leaves, gentle leafy bumps along its outline", 1024, 1024],
+    ["hecke_klein", "nature/hecke_klein.png", "a small round green garden bush seen from the front, a few rounded leaf clumps, simple bumpy outline, short and slightly wider than tall", 1024, 1024],
     ["cherry_blossom", "nature/cherry_blossom.png", "a small cherry blossom tree with a slender brown trunk and a crown full of pink blossoms", 832, 1216],
     ["tulpenbett", "nature/tulpenbett.png", "a small square wooden raised bed full of colorful red, yellow, pink and purple tulips", 1024, 1024],
     ["deco_bench", "social/bank.png", "a garden bench with green painted wooden slats and black wrought iron legs and armrests", 1216, 832],
@@ -195,18 +193,17 @@ export const MOTIVE = [
     ["tisch", "social/tisch.png", "a small round bistro garden table with a white marble top and a black metal pedestal", 1024, 1024],
     ["pool", "social/pool.png", "a small rectangular swimming pool with turquoise water, a light stone border and a metal ladder, seen from above", 1024, 1024],
     ["zaun", "objects/fence.png", "a straight section of natural brown wooden picket fence seen exactly from the front, two thick end posts and pointed pickets between them on two horizontal rails", 1216, 832],
-    ["zaun_klein", "objects/fence_1x1.png", "a straight section of natural wooden picket fence seen exactly from the front, four evenly spaced pointed pickets on two horizontal rails that run straight out to both image edges", 1024, 1024],
     ["heuballen", "objects/heuballen.png", "a rectangular golden hay bale tied with two ropes", 1024, 1024],
     ["gnome1", "objects/gnome1.png", "a garden gnome statue with a red pointed hat and white beard holding a small watering can, standing on a round base", 832, 1216],
     ["gnome2", "objects/gnome2.png", "a garden gnome statue with a red pointed hat and white beard holding a fishing rod, standing on a round base", 832, 1216],
     ["gnome3", "objects/gnome3.png", "a garden gnome statue with a red pointed hat and white beard sitting cross-legged on a mossy round stone", 832, 1216],
-    ["vogelscheuche", "objects/vogelscheuche.png", "a friendly scarecrow on a wooden post with a straw hat, blue overalls, patched shirt and outstretched arms, a little bird sitting on the hat", 832, 1216],
+    ["vogelscheuche", "objects/vogelscheuche.png", "a friendly scarecrow made of straw on a wooden cross post, a simple burlap sack head with stitched button eyes and a stitched smile, a straw hat, a patched shirt, straw sticking out of the sleeves and collar, outstretched arms, a little bird sitting on the hat", 832, 1216],
     ["deco_statue", "objects/statue_placeholder.png", "a classical grey stone statue of a robed woman on a square stone pedestal", 832, 1216],
     ["teich", "objects/teich.png", "a small round garden pond with a grey stone rim, clear blue water and floating lily pads with a pink water lily", 1216, 832],
     ["brunnen", "objects/brunnen1.png", "a round stone garden fountain basin with a stone bird statue in the middle spouting a small stream of water", 1024, 1024],
     ["deco_fountain", "objects/fountain_placeholder.png", "a large ornate round two-tiered stone fountain with water splashing down into a wide basin", 1216, 832],
     ["deco_arch", "objects/bogen.png", "a rustic wooden garden arch made of thick beams with a curved top beam", 1024, 1024],
-  ].map(([id, datei, motiv, breite, hoehe]) => ({ id, art: "deko", ziel: `deco/${datei}`, motiv, breite, hoehe, ...(id === "zaun_klein" && { zaunFeld: true }) })),
+  ].map(([id, datei, motiv, breite, hoehe]) => ({ id, art: "deko", ziel: `deco/${datei}`, motiv, breite, hoehe })),
 
   // ── Bodenbeläge: eine Kachel je Bild; nahtlos macht sie erst farmArtUebernehmen.js.
   // Schlichte Beläge nur aus der Bildmitte (ausschnitt), sonst entsteht ein Kachelgitter. ──
@@ -422,14 +419,20 @@ export const MOTIVE = [
     ["market", "an open wooden market stall with a shingled roof on four posts, a counter with crates of fresh vegetables and fruit, a brass weighing scale and a small chalk board", 1024, 1024],
     ["pet_market", "an open wooden market stall with a shingled roof on four posts, straw bales, a small wooden animal pen, sacks of animal feed and a hanging bell", 1024, 1024],
     ["quest_board", "a wooden notice board on two posts with a little roof, pinned paper notes with simple drawings and checkboxes", 1216, 1024],
-    ["shed", "a small wooden garden shed with a red roof, a blue wooden door and a window with a flower box, a little grass patch around its base", 1024, 1024],
-    ["shed_variants/celestial", "a small magical garden shed made of pale lilac crystal and silver, a glowing cyan crystal door, a round window showing a galaxy, a little satellite dish on the roof", 1024, 1024],
-    ["shed_variants/forge", "a small blacksmith forge shed of dark wood and stone with copper pipes, a chimney, an anvil and a heap of coal beside it, a warm glowing furnace window", 1024, 1024],
-    ["shed_variants/herbs", "a small herbalist shed of dark wood with a hanging sign, bundles of dried herbs hanging from the roof, jars of potions in the window, lavender growing around it", 1024, 1024],
-    ["shed_variants/observatory", "a small enchanted observatory shed with a mossy roof, a brass orrery on top, an ornate teal door with leaf patterns and glowing purple crystals around its base", 1024, 1024],
-    ["shed_variants/orbital", "a small futuristic space station module shed of white and grey metal panels, a round airlock door, solar panels on the roof and a round window showing planet earth", 1024, 1024],
-    ["shed_variants/seedsman", "a small old seed merchant shed of carved warm wood with a hanging shop sign, a wall of little seed drawers and a green gem above the door", 1024, 1024],
-    ["shed_variants/void_weaver", "a small mysterious dark shed of black wood with bone white trim, a glowing purple eye above the door, a swirling dark portal window and floating rune stones", 1024, 1024],
+    // 04.11.: Gold-Shop als Stand auf dem Dorfplatz (vorher ein HUD-Knopf).
+    ["gold_shop", "an open wooden market stall with a golden yellow shingled roof on four posts painted gold, a counter with a small chest of gold coins, a display of tiny decorative mailboxes and garden sheds as showpieces, a hanging sign with a gold coin", 1024, 1024],
+    // 05.11.: Händler-Aufträge und Erntefest bekommen eigene Stände (bisher nur Reiter am Missionsbrett).
+    ["haendler", "a travelling merchant's covered wooden wagon with a deep blue canvas roof, a hanging lantern, stacked crates and parcels with paper delivery tags, a small wooden order board with pinned notes", 1216, 1024],
+    ["erntefest", "an autumn harvest festival booth with a warm orange and red striped awning on wooden posts, pumpkins and corn sheaves, hanging paper lanterns, a wreath of colorful leaves and a wooden prize board", 1024, 1024],
+    ["shed", "a cozy little wooden farm cottage, symmetric front with a red shingled gable roof, a wide wooden double door in the middle, two small windows with flower boxes, a lantern beside the door and a short stone foundation", 1024, 1024],
+    // 06.11.: Skins wie das Haus (Vorderansicht C) gerade von vorn — die erste Fassung kam schräg.
+    ["shed_variants/celestial", "the symmetric flat front facade of a small magical garden shed made of pale lilac crystal and silver, a glowing cyan crystal door, a round window showing a galaxy, a little satellite dish on the roof, the door in the middle, seen straight from the front with no side walls visible", 1024, 1024],
+    ["shed_variants/forge", "the symmetric flat front facade of a small blacksmith forge shed of dark wood and stone with copper pipes, a chimney, an anvil and a heap of coal beside it, a warm glowing furnace window, the door in the middle, seen straight from the front with no side walls visible", 1024, 1024],
+    ["shed_variants/herbs", "the symmetric flat front facade of a small herbalist shed of dark wood with a hanging sign, bundles of dried herbs hanging from the roof, jars of potions in the window, lavender growing around it, the door in the middle, seen straight from the front with no side walls visible", 1024, 1024],
+    ["shed_variants/observatory", "the symmetric flat front facade of a small enchanted observatory shed with a mossy roof, a brass orrery on top, an ornate teal door with leaf patterns and glowing purple crystals around its base, the door in the middle, seen straight from the front with no side walls visible", 1024, 1024],
+    ["shed_variants/orbital", "the symmetric flat front facade of a small futuristic space station module shed of white and grey metal panels, a round airlock door, solar panels on the roof and a round window showing planet earth, the door in the middle, seen straight from the front with no side walls visible", 1024, 1024],
+    ["shed_variants/seedsman", "the symmetric flat front facade of a small old seed merchant shed of carved warm wood with a hanging shop sign, a wall of little seed drawers and a green gem above the door, the door in the middle, seen straight from the front with no side walls visible", 1024, 1024],
+    ["shed_variants/void_weaver", "the symmetric flat front facade of a small mysterious dark shed of black wood with bone white trim, a glowing purple eye above the door, a swirling dark portal window and floating rune stones, the door in the middle, seen straight from the front with no side walls visible", 1024, 1024],
     ["mailbox", "a classic red metal mailbox with a rounded top and a little flag, on a tall wooden post", 768, 1344],
     ["mailbox_variants/brick", "a mailbox built from red and grey toy building bricks with a red flag, on a tall grey brick post", 768, 1344],
     ["mailbox_variants/cyber", "a black high tech mailbox with glowing cyan screen and neon lights, on a tall black metal lattice post", 768, 1344],
@@ -457,7 +460,11 @@ export function promptFuer(m, mitLora, stilName) {
   if (!vorlage) throw new Error(`Unbekannte Bildart: ${m.art}`);
   const anderer = stilName ? STILE[stilName] : null;
   if (stilName && !anderer) throw new Error(`Unbekannter Stil: ${stilName} (vorhanden: ${Object.keys(STILE).join(", ")})`);
-  const stil = m.art === "boden" ? (anderer?.boden ?? STIL_BODEN) : (anderer?.objekt ?? STIL);
-  const text = `${vorlage.replace("{MOTIV}", m.motiv)}, ${stil}`;
+  // Gebäude (Läden, Schuppen, Briefkasten, Brett): eigener Text, wenn der Stil einen hat —
+  // Flux kippt bei „building“ sonst in eine glänzende 3D-Schrägansicht (04.11., Pixel-Stil).
+  const gebaeude = m.id?.startsWith("welt_") && anderer?.gebaeude;
+  const stil = m.art === "boden" ? (anderer?.boden ?? STIL_BODEN) : gebaeude ? anderer.gebaeude : (anderer?.objekt ?? STIL);
+  const grund = gebaeude ? `retro game sprite of ${m.motiv}` : vorlage.replace("{MOTIV}", m.motiv);
+  const text = `${grund}, ${stil}`;
   return mitLora ? `${LORA_WORT}, ${text}` : text;
 }

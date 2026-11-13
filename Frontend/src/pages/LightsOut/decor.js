@@ -1,9 +1,10 @@
 // decor.js — Ausstattung von Anstalt und Keller (alles Fotomaterial bzw. Poly-Haven-Scans, CC0):
 //
-//  • Räume: die offenen 3×3-Hallen des Labyrinths werden möbliert. Anstalt = Behandlungsraum (Linoleum,
-//    Behandlungsstuhl in der Mitte, Instrumentenwagen, Hocker, Betten, Schränke, Rollstühle, Infusionsständer),
-//    Keller = Lagerraum (Kistenstapel, Fässer, Regale, Eimer). Die Möbel in der Raummitte sperren diese Kachel
-//    für die Monster (maze.blocked), damit sie nicht hindurchlaufen.
+//  • Anstalt: dünne Wände und Türen der Station (buildWardWalls) und die Einrichtung ihrer Zimmer (furnishWard) —
+//    Schlafsaal, Krankenzimmer, Behandlung, Schwesternzimmer, Arztzimmer, Tagesraum, Wäschekammer, Einzelzimmer,
+//    jedes mit Schild über der Tür.
+//  • Keller: die offenen 3×3-Hallen des Irrgartens werden Lagerräume (furnishRooms: Kistenstapel, Fässer, Regale).
+//    Große Möbel sperren ihre Kachel für die Monster (maze.blocked), damit sie nicht hindurchlaufen.
 //  • Flackerlampen: Leuchtstoffröhren hängen an Kabeln von der Decke (Anstalt), Käfiglampen im Keller. Manche
 //    sind tot, die anderen flackern nach eigenem Muster. Echtes Licht geben nur die nächsten paar (fester
 //    Vorrat an Punktlichtern — jedes Licht kostet in jedem Shader, deshalb nicht eines je Lampe). Kommt ein
@@ -11,14 +12,28 @@
 //  • Rohre an der Kellerdecke, als durchgehende Stränge entlang der Wände.
 import * as THREE from 'three';
 import { instancedChunks } from '../ClashRoyale/modes/scene3d/kit';
+import { edgeKey } from './maze';
 
 const DIRS4 = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+
+/** Gemischte Kopie (Fisher–Yates mit dem Spiel-Zufall): in jedem Browser dieselbe Reihenfolge, wichtig für Koop. */
+function shuffled(list, rng) {
+  const out = list.slice();
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
+}
 
 /**
  * Lädt ein Modell, skaliert es in einen Kasten (Breite entlang der Wand, Tiefe in den Raum, Höhe), stellt es
  * auf (x, z) und meldet seine Grundfläche als Hindernis. back = Richtung zur Wand (Rückseite), sonst frei drehbar.
+ *   perp: lange Seite quer zur Wand (Betten stehen mit dem Kopfende an der Wand)
+ *   face: Vorderseite des Modells (+z) zeigt von der Wand weg in den Raum (Schreibtisch, Schrank)
+ *   gap:  Abstand zur Wand in Metern
  */
-function placeModel(ctx, { id, h, x, z, back = null, rotY = 0, maxW = 2, maxD = 0.9, collide = true, tint = null, flip = false }) {
+function placeModel(ctx, { id, h, x, z, back = null, rotY = 0, maxW = 2, maxD = 0.9, collide = true, tint = null, flip = false, perp = false, face = false, gap = 0 }) {
   const { scene, assets, addProp } = ctx;
   const holder = assets.model(id, h, tint ? { tweak: (m) => m.color.multiply(new THREE.Color(tint)) } : {});
   const g = new THREE.Group();
@@ -31,11 +46,15 @@ function placeModel(ctx, { id, h, x, z, back = null, rotY = 0, maxW = 2, maxD = 
     let rot = rotY;
     let wide = size.x;
     let deep = size.z;
-    if (back) {
-      // längere Seite parallel zur Wand
-      const along = back[0] !== 0 ? 'z' : 'x';
+    if (back && face) {
+      rot = Math.atan2(-back[0], -back[1]);
+    } else if (back) {
+      // Ausdehnung entlang der Wand und in den Raum hinein, wenn das Modell ungedreht steht
+      const alongX = back[0] === 0;
+      wide = alongX ? size.x : size.z;
+      deep = alongX ? size.z : size.x;
       rot = 0;
-      if ((along === 'z') === (size.x > size.z)) { rot = Math.PI / 2; wide = size.z; deep = size.x; }
+      if ((wide < deep) !== perp) { rot = Math.PI / 2; [wide, deep] = [deep, wide]; }
       if (flip) rot += Math.PI;
     } else if (Math.abs(Math.sin(rot)) > 0.7) { wide = size.z; deep = size.x; }
     const k = Math.min(1, maxD / deep, maxW / wide);
@@ -44,8 +63,8 @@ function placeModel(ctx, { id, h, x, z, back = null, rotY = 0, maxW = 2, maxD = 
     let cx = x;
     let cz = z;
     if (back) {
-      cx += back[0] * (-(deep * k) / 2);
-      cz += back[1] * (-(deep * k) / 2);
+      cx -= back[0] * ((deep * k) / 2 + gap);
+      cz -= back[1] * ((deep * k) / 2 + gap);
     }
     g.position.set(cx, 0, cz);
     if (collide) {
@@ -100,93 +119,387 @@ function ivStand(ctx, x, z) {
 }
 
 /**
- * Möbliert die 3×3-Räume. avoid: Kachel-Indizes, auf denen schon etwas liegt (Sicherungen, Spinde, Start …).
+ * Möbliert die offenen 3×3-Lagerräume des Kellers: Kistenstapel in der Mitte (sperrt die Kachel für das
+ * Monster, maze.blocked), Regale, Fässer und Eimer an den Wänden.
+ * avoid: Kachel-Indizes, auf denen schon etwas liegt (Ventile, Start …).
+ *
  * @param {{ scene:THREE.Scene, assets:any, keep:Function, maze:any, isOpen:Function, S:number, addProp:Function,
- *           rng:()=>number, kind:'halls'|'cellar', avoid:Set<number> }} ctx
- * @returns {{ lamps: number[][] }} Raummitten (für eine Hängelampe über dem Raum)
+ *           rng:()=>number, avoid:Set<number> }} ctx
+ * @returns {{ lamps: number[][] }} Kacheln, über denen eine Hängelampe brennt (eine je Raum)
  */
 export function furnishRooms(ctx) {
-  const { scene, assets, keep, maze, isOpen, S, rng, kind, avoid } = ctx;
+  const { maze, isOpen, S, rng, avoid } = ctx;
   const size = maze.size;
   const lamps = [];
-  const floorMat = kind === 'halls'
-    ? assets.pbr(keep(new THREE.MeshStandardMaterial({ color: 0x8a7a66, roughness: 0.6 })), 'old_linoleum_flooring_01', 3, 3, { normalScale: 0.6 })
-    : null;
-  if (floorMat) floorMat.color.setRGB(0.62, 0.58, 0.52); // Foto ist hell und warm — gealtert abdunkeln
+  const idx = (x, z) => z * size + x;
   for (const [cx, cz] of maze.rooms || []) {
-    const idx = (x, z) => z * size + x;
     // Raum muss wirklich 3×3 offen sein (könnte am Rand angeschnitten sein)
     let full = true;
     for (let z = cz - 1; z <= cz + 1; z++) for (let x = cx - 1; x <= cx + 1; x++) if (!isOpen(maze, x, z)) full = false;
     if (!full) continue;
     const wx = cx * S;
     const wz = cz * S;
-    if (floorMat) {
-      const floor = new THREE.Mesh(keep(new THREE.PlaneGeometry(S * 3 - 0.05, S * 3 - 0.05)), floorMat);
-      floor.rotation.x = -Math.PI / 2;
-      floor.position.set(wx, 0.004, wz);
-      floor.receiveShadow = true;
-      scene.add(floor);
-    }
-    // Mitte: Behandlungsstuhl mit Wagen und Hocker bzw. Kistenstapel
     if (!avoid.has(idx(cx, cz))) {
-      const rot = Math.floor(rng() * 4) * (Math.PI / 2);
-      const fx = -Math.sin(rot);
-      const fz = -Math.cos(rot);
-      if (kind === 'halls') {
-        placeModel(ctx, { id: 'BarberShopChair_01', h: 1.15, x: wx, z: wz, rotY: rot, maxW: 0.9, maxD: 1.3 });
-        // Instrumentenwagen seitlich, Hocker davor (Arzt-Seite)
-        placeModel(ctx, { id: 'tool_cart', h: 0.9, x: wx + fz * 0.85, z: wz - fx * 0.85, rotY: rot + Math.PI / 2, maxW: 0.7, maxD: 0.45 });
-        placeModel(ctx, { id: 'metal_stool_01', h: 0.55, x: wx - fz * 0.75 + fx * 0.3, z: wz + fx * 0.75 + fz * 0.3, rotY: rng() * 6, maxW: 0.4, maxD: 0.4 });
-      } else {
-        placeModel(ctx, { id: 'wooden_crate_02', h: 0.8, x: wx - 0.25, z: wz, rotY: rng() * 0.4, maxW: 0.9, maxD: 0.9 });
-        placeModel(ctx, { id: 'wooden_crate_02', h: 0.6, x: wx + 0.55, z: wz + 0.35, rotY: 0.6 + rng() * 0.4, maxW: 0.65, maxD: 0.65 });
-        placeModel(ctx, { id: 'barrel_03', h: 0.95, x: wx + 0.2, z: wz - 0.7, rotY: rng() * 6, maxW: 0.6, maxD: 0.6, tint: 0x6a5a4c });
-      }
+      placeModel(ctx, { id: 'wooden_crate_02', h: 0.8, x: wx - 0.25, z: wz, rotY: rng() * 0.4, maxW: 0.9, maxD: 0.9 });
+      placeModel(ctx, { id: 'wooden_crate_02', h: 0.6, x: wx + 0.55, z: wz + 0.35, rotY: 0.6 + rng() * 0.4, maxW: 0.65, maxD: 0.65 });
+      placeModel(ctx, { id: 'barrel_03', h: 0.95, x: wx + 0.2, z: wz - 0.7, rotY: rng() * 6, maxW: 0.6, maxD: 0.6, tint: 0x6a5a4c });
       maze.blocked.add(idx(cx, cz));
     }
     lamps.push([cx, cz]);
-    // Ränder: an den Außenwänden des Raums entlang
-    const wallPieces = kind === 'halls'
-      ? [
-        { id: 'old_bed_frame', h: 0.85, d: 0.95 },
-        { id: 'drawer_cabinet', h: 1.15, d: 0.5 },
-        { id: 'wheelchair_01', h: 0.95, d: 0.7 },
-        { iv: true },
-        { id: 'medical_box', h: 0.35, d: 0.4 },
-        { id: 'metal_trash_can', h: 0.75, d: 0.45 },
-        { id: 'old_bed_frame', h: 0.85, d: 0.95 },
-      ]
-      : [
-        { id: 'worn_metal_rack', h: 1.9, d: 0.55 },
-        { id: 'barrel_03', h: 0.95, d: 0.6, tint: 0x5a5e52 },
-        { id: 'wooden_bucket_01', h: 0.4, d: 0.4 },
-        { id: 'wooden_crate_01', h: 0.6, d: 0.6 },
-        { id: 'worn_metal_rack', h: 1.9, d: 0.55 },
-      ];
-    let n = Math.floor(rng() * wallPieces.length);
+    const pieces = [
+      { id: 'worn_metal_rack', h: 1.9, d: 0.55 },
+      { id: 'barrel_03', h: 0.95, d: 0.6, tint: 0x5a5e52 },
+      { id: 'wooden_bucket_01', h: 0.4, d: 0.4 },
+      { id: 'wooden_crate_01', h: 0.6, d: 0.6 },
+      { id: 'worn_metal_rack', h: 1.9, d: 0.55 },
+    ];
+    let n = Math.floor(rng() * pieces.length);
     for (let z = cz - 1; z <= cz + 1; z++) {
       for (let x = cx - 1; x <= cx + 1; x++) {
         if (x === cx && z === cz) continue;
-        if (avoid.has(idx(x, z)) || rng() < 0.3) continue;
-        // eine echte Wand des Raums neben dieser Kachel (nicht der Durchgang nach draußen)
-        const walls = DIRS4.filter(([dx, dz]) => {
-          const ox = x + dx;
-          const oz = z + dz;
-          const inside = Math.abs(ox - cx) <= 1 && Math.abs(oz - cz) <= 1;
-          return !inside && !isOpen(maze, ox, oz);
+        // nach außen zeigende Wände dieser Randkachel
+        const walls = DIRS4.filter((d) => {
+          const ox = x + d[0];
+          const oz = z + d[1];
+          return !(Math.abs(ox - cx) <= 1 && Math.abs(oz - cz) <= 1) && !isOpen(maze, ox, oz);
         });
-        if (!walls.length) continue;
+        if (avoid.has(idx(x, z)) || rng() < 0.3 || !walls.length) continue;
         const back = walls[Math.floor(rng() * walls.length)];
-        const spec = wallPieces[n++ % wallPieces.length];
-        const px = x * S + back[0] * (S / 2 - 0.04);
-        const pz = z * S + back[1] * (S / 2 - 0.04);
-        if (spec.iv) {
-          ivStand(ctx, x * S + back[0] * (S / 2 - 0.35), z * S + back[1] * (S / 2 - 0.35));
-          continue;
-        }
-        placeModel(ctx, { id: spec.id, h: spec.h, x: px, z: pz, back, maxW: S - 0.3, maxD: spec.d, tint: spec.tint, flip: rng() < 0.5 });
+        const spec = pieces[n++ % pieces.length];
+        placeModel(ctx, {
+          id: spec.id, h: spec.h, x: x * S + back[0] * (S / 2 - 0.04), z: z * S + back[1] * (S / 2 - 0.04), back,
+          maxW: S - 0.3, maxD: spec.d, tint: spec.tint, flip: rng() < 0.5,
+        });
       }
+    }
+  }
+  return { lamps };
+}
+
+// ── Anstalt: Wände, Türen, Zimmer ─────────────────────────────────────────
+
+/** Türöffnung in den dünnen Wänden: Breite und Höhe in Metern */
+const DOOR_W = 1.1;
+const DOOR_H = 2.1;
+
+/** Quader, dessen große Flächen die Wandtextur im selben Maßstab zeigen wie eine ganze Wandkachel (S breit, wallH hoch). */
+function slabGeometry(len, h, thick, S, wallH, y0) {
+  const g = new THREE.BoxGeometry(len, h, thick);
+  const uv = g.attributes.uv;
+  // Flächen 4 und 5 (±z) sind die Wandseiten: je vier Ecken ab Index 16
+  for (let i = 16; i < 24; i++) uv.setXY(i, uv.getX(i) * (len / S), (y0 + uv.getY(i) * h) / wallH);
+  g.translate(0, y0 + h / 2, 0);
+  return g;
+}
+
+/**
+ * Baut die dünnen Wände der Station (maze.edges) und die Türen (maze.doorEdges): je Tür zwei Wandstücke neben
+ * der Öffnung, ein Sturz darüber, ein Rahmen, ein Türblatt (steht offen ins Zimmer) und außen ein Schild.
+ * Wände und Wandstücke sind Hindernis und Sichtsperre (addWall), das offene Türblatt nur Hindernis (addProp).
+ *
+ * @param {{ scene:THREE.Scene, keep:Function, maze:any, S:number, wallH:number, thick:number, wallMat:THREE.Material,
+ *           addWall:Function, addProp:Function, rng:()=>number, signTexture:(t:string)=>THREE.Texture,
+ *           doorTexture:(t:string)=>THREE.Texture }} p
+ * @returns {{ meshes: THREE.InstancedMesh[], leaves: {mesh:THREE.Mesh, x:number, z:number, open:number, closed:number}[] }}
+ *   meshes zum Aufräumen (dispose); leaves = die Türblätter mit ihrer Drehung offen/zu
+ */
+export function buildWardWalls({ scene, keep, maze, S, wallH, thick, wallMat, addWall, addProp, rng, signTexture, doorTexture }) {
+  const size = maze.size;
+  const n2 = size * size;
+  const m4 = new THREE.Matrix4();
+  const q = new THREE.Quaternion();
+  const v = new THREE.Vector3();
+  const one = new THREE.Vector3(1, 1, 1);
+  const up = new THREE.Vector3(0, 1, 0);
+  const sideLen = (S - DOOR_W) / 2 + thick / 2;
+  const lists = { full: [], side: [], lintel: [], post: [], head: [] };
+  const push = (list, x, y, z, rotY) => list.push(m4.compose(v.set(x, y, z), q.setFromAxisAngle(up, rotY), one).clone());
+  /** Mitte und Lage einer Kachelgrenze: along = Richtung, in der die Wand verläuft */
+  const edgeInfo = (key) => {
+    const ia = Math.floor(key / n2);
+    const ib = key % n2;
+    const ax = ia % size;
+    const az = (ia - ax) / size;
+    const bx = ib % size;
+    const bz = (ib - bx) / size;
+    // Wand quer zur Verbindung der beiden Kacheln
+    const alongZ = ax !== bx;
+    return { mx: ((ax + bx) / 2) * S, mz: ((az + bz) / 2) * S, alongZ, rotY: alongZ ? Math.PI / 2 : 0 };
+  };
+  for (const key of maze.edges) {
+    const e = edgeInfo(key);
+    push(lists.full, e.mx, 0, e.mz, e.rotY);
+    // (etwas länger als die Kachel, damit an den Zimmerecken keine Kerbe bleibt)
+    if (e.alongZ) addWall(e.mx, e.mz, thick / 2, S / 2); else addWall(e.mx, e.mz, S / 2, thick / 2);
+  }
+
+  const frameMat = keep(new THREE.MeshStandardMaterial({ color: 0x343a34, roughness: 0.7 }));
+  const leafTex = keep(doorTexture(''));
+  const leafMat = keep(new THREE.MeshStandardMaterial({ map: leafTex, color: 0x9aa39a, roughness: 0.75 }));
+  const leafGeo = keep(new THREE.BoxGeometry(DOOR_W - 0.1, DOOR_H - 0.04, 0.045));
+  leafGeo.translate((DOOR_W - 0.1) / 2, (DOOR_H - 0.04) / 2 + 0.01, 0);
+  const signGeo = keep(new THREE.PlaneGeometry(1.0, 0.25));
+  const signMats = new Map();
+  const signMat = (text) => {
+    if (!signMats.has(text)) signMats.set(text, keep(new THREE.MeshStandardMaterial({ map: keep(signTexture(text)), roughness: 0.6 })));
+    return signMats.get(text);
+  };
+  const rooms = maze.ward.rooms;
+  const leaves = [];
+  for (const [key, d] of maze.doorEdges) {
+    const e = edgeInfo(key);
+    // t = Einheitsvektor entlang der Wand, n = von der Tür ins Zimmer (Kachel a liegt im Zimmer)
+    const tx = e.alongZ ? 0 : 1;
+    const tz = e.alongZ ? 1 : 0;
+    const nx = Math.sign(d.a[0] - d.b[0]);
+    const nz = Math.sign(d.a[1] - d.b[1]);
+    for (const s of [-1, 1]) {
+      const off = s * (DOOR_W / 2 + sideLen / 2);
+      const cx = e.mx + tx * off;
+      const cz = e.mz + tz * off;
+      push(lists.side, cx, 0, cz, e.rotY);
+      if (e.alongZ) addWall(cx, cz, thick / 2, sideLen / 2); else addWall(cx, cz, sideLen / 2, thick / 2);
+      push(lists.post, e.mx + tx * s * (DOOR_W / 2), 0, e.mz + tz * s * (DOOR_W / 2), e.rotY);
+    }
+    push(lists.lintel, e.mx, 0, e.mz, e.rotY);
+    push(lists.head, e.mx, 0, e.mz, e.rotY);
+    // Schild über der Tür, vom Flur aus zu lesen (bei Verbindungstüren zwischen Zimmern: keins)
+    if (d.other === 0) {
+      const sign = new THREE.Mesh(signGeo, signMat(rooms[d.room - 1].sign));
+      sign.position.set(e.mx - nx * (thick / 2 + 0.006), DOOR_H + 0.3, e.mz - nz * (thick / 2 + 0.006));
+      sign.rotation.y = Math.atan2(-nx, -nz);
+      scene.add(sign);
+    }
+    // Türblatt: steht rechtwinklig offen ins Zimmer, an einem der beiden Pfosten angeschlagen. Manche fehlen.
+    if (rng() < 0.82) {
+      const s = rng() < 0.5 ? -1 : 1;
+      const hx = e.mx + tx * s * (DOOR_W / 2 - 0.05) + nx * (thick / 2);
+      const hz = e.mz + tz * s * (DOOR_W / 2 - 0.05) + nz * (thick / 2);
+      const leaf = new THREE.Mesh(leafGeo, leafMat);
+      leaf.position.set(hx, 0, hz);
+      // lokale +x (vom Scharnier weg) zeigt ins Zimmer, leicht verdreht
+      leaf.rotation.y = Math.atan2(-nz, nx) + (rng() - 0.5) * 0.16;
+      leaf.castShadow = true;
+      leaf.receiveShadow = true;
+      scene.add(leaf);
+      // (für events.js: die Tür kann zuschlagen — zu = Blatt liegt in der Wand, zum anderen Pfosten hin)
+      leaves.push({ mesh: leaf, x: hx, z: hz, open: leaf.rotation.y, closed: Math.atan2(s * tz, -s * tx) });
+      const len = DOOR_W - 0.1;
+      addProp(hx + nx * (len / 2), hz + nz * (len / 2), Math.abs(nx) * (len / 2) + 0.04, Math.abs(nz) * (len / 2) + 0.04);
+    }
+  }
+  const parts = [
+    [keep(slabGeometry(S + thick, wallH, thick, S, wallH, 0)), wallMat, lists.full],
+    [keep(slabGeometry(sideLen, wallH, thick, S, wallH, 0)), wallMat, lists.side],
+    [keep(slabGeometry(DOOR_W, wallH - DOOR_H, thick, S, wallH, DOOR_H)), wallMat, lists.lintel],
+    [keep(new THREE.BoxGeometry(0.09, DOOR_H, thick + 0.07).translate(0, DOOR_H / 2, 0)), frameMat, lists.post],
+    [keep(new THREE.BoxGeometry(DOOR_W + 0.09, 0.09, thick + 0.07).translate(0, DOOR_H + 0.045, 0)), frameMat, lists.head],
+  ];
+  const meshes = [];
+  for (const [geo, mat, list] of parts) {
+    if (!list.length) continue;
+    for (const mesh of instancedChunks(geo, mat, list, 24)) {
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      scene.add(mesh);
+      meshes.push(mesh);
+    }
+  }
+  return { meshes, leaves };
+}
+
+/**
+ * Was in welchem Zimmer steht. Jede Art hat ein Hauptstück (main) und Möbel für die übrigen Wandplätze (fill:
+ * id, h = Höhe, d = Tiefe an der Wand, face = Vorderseite zum Raum; iv = Infusionsständer), chance = Anteil der
+ * Wandplätze, die besetzt werden.
+ */
+const CABINET = { id: 'drawer_cabinet', h: 1.15, d: 0.5, face: true };
+const TRASH = { id: 'metal_trash_can', h: 0.75, d: 0.45 };
+const BOX = { id: 'medical_box', h: 0.35, d: 0.4 };
+const PLANT = { id: 'potted_plant_02', h: 0.9, d: 0.5 };
+const RACK = { id: 'worn_metal_rack', h: 1.9, d: 0.55 };
+const WARD_FILL = {
+  dorm: { fill: [CABINET, TRASH], chance: 0.5 },
+  patient: { fill: [CABINET, TRASH, { id: 'metal_stool_01', h: 0.55, d: 0.4 }, { iv: true }], chance: 0.45 },
+  treatment: { fill: [CABINET, BOX, TRASH, BOX], chance: 0.7 },
+  office: { fill: [CABINET, CABINET, PLANT, TRASH], chance: 0.8 },
+  doctor: { fill: [CABINET, PLANT, { id: 'painted_wooden_bench', h: 0.85, d: 0.6, face: true }, CABINET], chance: 0.7 },
+  dayroom: { fill: [{ id: 'painted_wooden_bench', h: 0.85, d: 0.6, face: true }, PLANT, CABINET], chance: 0.5 },
+  storage: { fill: [RACK, { id: 'wooden_crate_01', h: 0.6, d: 0.6 }, RACK, { id: 'wooden_bucket_01', h: 0.4, d: 0.4 }, { id: 'barrel_03', h: 0.95, d: 0.6, tint: 0x5a5e52 }], chance: 0.9 },
+  isolation: { fill: [], chance: 0 },
+};
+
+/**
+ * Richtet die Zimmer der Station ein (maze.ward.rooms). Man erkennt jedes am Schild über der Tür und an dem, was
+ * darin steht: Schlafsaal = Bettenreihen an den langen Wänden, Krankenzimmer = ein, zwei Betten, Behandlung = der
+ * Stuhl unter der Lampe, Schwesternzimmer und Arztzimmer = Schreibtisch, Tagesraum = Tisch und Rollstühle mit dem
+ * Gesicht zur Wand, Wäschekammer = Regale, Einzelzimmer = ein Bettgestell mitten im leeren Raum.
+ * Türkacheln bleiben frei; Kacheln mit großen Möbeln sind für das Monster gesperrt (maze.blocked).
+ *
+ * @param {{ scene:THREE.Scene, assets:any, keep:Function, maze:any, isOpen:Function, S:number, addProp:Function,
+ *           rng:()=>number, avoid:Set<number>, thick:number }} ctx
+ * @returns {{ lamps: number[][] }} Kacheln, über denen eine Hängelampe brennt (Behandlung, Schlafsaal, Tagesraum,
+ *   Schwesternzimmer)
+ */
+export function furnishWard(ctx) {
+  const { scene, assets, keep, maze, isOpen, S, rng, avoid } = ctx;
+  const size = maze.size;
+  const idx = (x, z) => z * size + x;
+  const lamps = [];
+  const { rooms, doorTiles } = maze.ward;
+  const floorMat = assets.pbr(keep(new THREE.MeshStandardMaterial({ color: 0x8a7a66, roughness: 0.6 })), 'old_linoleum_flooring_01', 1, 1, { normalScale: 0.6 });
+  floorMat.color.setRGB(0.62, 0.58, 0.52); // Foto ist hell und warm — gealtert abdunkeln
+  const block = (x, z) => maze.blocked.add(idx(x, z));
+
+  for (const r of rooms) {
+    const w = r.x1 - r.x0 + 1;
+    const d = r.z1 - r.z0 + 1;
+    const firstChild = scene.children.length;
+    // Linoleum im Zimmer (auf den Fluren liegen Fliesen); eine Kachel = eine Wiederholung des Fotos
+    const floorGeo = keep(new THREE.PlaneGeometry(w * S - 0.02, d * S - 0.02));
+    const uv = floorGeo.attributes.uv;
+    for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * w, uv.getY(i) * d);
+    const floor = new THREE.Mesh(floorGeo, floorMat);
+    floor.rotation.x = -Math.PI / 2;
+    floor.position.set(((r.x0 + r.x1) / 2) * S, 0.004, ((r.z0 + r.z1) / 2) * S);
+    floor.receiveShadow = true;
+    scene.add(floor);
+
+    const usable = (x, z) => !avoid.has(idx(x, z)) && !doorTiles.has(idx(x, z));
+    /** Wandplätze: Kachel am Zimmerrand + Richtung zur Wand. gap = Abstand zur Kachelgrenze (dünne Wand ragt herein). */
+    const slots = [];
+    for (let z = r.z0; z <= r.z1; z++) {
+      for (let x = r.x0; x <= r.x1; x++) {
+        if (!usable(x, z)) continue;
+        for (const back of DIRS4) {
+          const ox = x + back[0];
+          const oz = z + back[1];
+          if (ox >= r.x0 && ox <= r.x1 && oz >= r.z0 && oz <= r.z1) continue;
+          const thin = isOpen(maze, ox, oz);
+          if (thin && !maze.edges.has(edgeKey(maze, x, z, ox, oz))) continue; // Tür
+          slots.push({ x, z, back, gap: thin ? ctx.thick / 2 + 0.04 : 0.04, along: back[0] === 0 ? [1, 0] : [0, 1] });
+        }
+      }
+    }
+    const used = new Set();
+    const freeSlots = () => slots.filter((s) => !used.has(idx(s.x, s.z)));
+    const at = (s, inset = 0) => [s.x * S + s.back[0] * (S / 2 - s.gap - inset), s.z * S + s.back[1] * (S / 2 - s.gap - inset)];
+    /** Möbel an einen Wandplatz stellen. */
+    const put = (s, spec, extra = {}) => {
+      used.add(idx(s.x, s.z));
+      if (spec.iv) { const [px, pz] = at(s, 0.3); ivStand(ctx, px, pz); return; }
+      const [px, pz] = at(s);
+      placeModel(ctx, { id: spec.id, h: spec.h, x: px, z: pz, back: s.back, maxW: S - 0.3, maxD: spec.d, face: !!spec.face, tint: spec.tint, flip: rng() < 0.5, ...extra });
+    };
+    /** Bett mit dem Kopfende an der Wand. */
+    const bed = (s, n) => {
+      put(s, { id: 'old_bed_frame', h: 0.85 }, { perp: true, maxW: 1.05, maxD: 2.0, flip: n % 2 === 0, face: false });
+      block(s.x, s.z);
+      // neben jedem dritten Bett ein Infusionsständer bzw. ein Kasten
+      const side = (n % 2 === 0 ? 1 : -1) * 0.82;
+      const [px, pz] = at(s, 0.3);
+      if (n % 3 === 0) ivStand(ctx, px + s.along[0] * side, pz + s.along[1] * side);
+      else if (n % 3 === 1) placeModel(ctx, { id: 'medical_box', h: 0.35, x: px + s.along[0] * side, z: pz + s.along[1] * side, rotY: rng() * 0.5, maxW: 0.45, maxD: 0.45 });
+    };
+    /** Ein Wandplatz, dessen Wand nicht die Türwand ist — möglichst mitten an der Wand. */
+    const backWall = () => {
+      const list = freeSlots();
+      const score = (s) => {
+        const midX = Math.abs(s.x - (r.x0 + r.x1) / 2);
+        const midZ = Math.abs(s.z - (r.z0 + r.z1) / 2);
+        return (s.back[0] === 0 ? midX : midZ) + rng() * 0.5;
+      };
+      return list.sort((p, q) => score(p) - score(q))[0] || null;
+    };
+    let lampCell = [Math.floor((r.x0 + r.x1) / 2), Math.floor((r.z0 + r.z1) / 2)];
+
+    if (r.type === 'dorm') {
+      // Bettenreihen an den beiden langen Wänden
+      const longX = w >= d;
+      let n = 0;
+      for (const s of slots) {
+        if ((s.back[0] === 0) !== longX || used.has(idx(s.x, s.z))) continue;
+        bed(s, n++);
+      }
+    } else if (r.type === 'patient') {
+      const beds = w * d >= 6 ? 2 : 1;
+      let n = 0;
+      for (const s of shuffled(freeSlots(), rng)) {
+        if (n >= beds) break;
+        if (used.has(idx(s.x, s.z))) continue;
+        bed(s, n++);
+      }
+      // ein Rollstuhl, der zur Wand schaut
+      const s = freeSlots()[0];
+      if (s && rng() < 0.6) {
+        used.add(idx(s.x, s.z));
+        placeModel(ctx, { id: 'wheelchair_01', h: 0.95, x: s.x * S + s.back[0] * 0.35, z: s.z * S + s.back[1] * 0.35, rotY: Math.atan2(-s.back[0], -s.back[1]), maxW: 0.75, maxD: 0.95 });
+      }
+    } else if (r.type === 'treatment') {
+      // Behandlungsstuhl vor der Rückwand, Blick in den Raum; die Lampe hängt über ihm
+      const s = backWall();
+      if (s) {
+        used.add(idx(s.x, s.z));
+        block(s.x, s.z);
+        lampCell = [s.x, s.z];
+        const px = s.x * S + s.back[0] * 0.25;
+        const pz = s.z * S + s.back[1] * 0.25;
+        placeModel(ctx, { id: 'BarberShopChair_01', h: 1.15, x: px, z: pz, rotY: Math.atan2(s.back[0], s.back[1]), maxW: 0.9, maxD: 1.3 });
+        placeModel(ctx, { id: 'tool_cart', h: 0.9, x: px + s.along[0] * 0.95, z: pz + s.along[1] * 0.95, rotY: s.back[0] === 0 ? Math.PI / 2 : 0, maxW: 0.7, maxD: 0.45 });
+        placeModel(ctx, { id: 'metal_stool_01', h: 0.55, x: px - s.along[0] * 0.85 - s.back[0] * 0.5, z: pz - s.along[1] * 0.85 - s.back[1] * 0.5, rotY: rng() * 6, maxW: 0.4, maxD: 0.4 });
+        ivStand(ctx, px - s.along[0] * 0.75 + s.back[0] * 0.55, pz - s.along[1] * 0.75 + s.back[1] * 0.55);
+      }
+    } else if (r.type === 'office' || r.type === 'doctor') {
+      // Schreibtisch an der Wand, Stuhl davor
+      const s = backWall();
+      if (s) {
+        used.add(idx(s.x, s.z));
+        block(s.x, s.z);
+        const [px, pz] = at(s);
+        placeModel(ctx, { id: 'ClassicConsole_01', h: 0.82, x: px, z: pz, back: s.back, face: true, maxW: 1.7, maxD: 0.6 });
+        placeModel(ctx, { id: 'dining_chair_02', h: 0.95, x: s.x * S + s.back[0] * 0.05, z: s.z * S + s.back[1] * 0.05, rotY: Math.atan2(s.back[0], s.back[1]) + (rng() - 0.5) * 0.5, maxW: 0.55, maxD: 0.55 });
+      }
+    } else if (r.type === 'dayroom') {
+      // Tische auf Kacheln mitten im Raum, Rollstühle in einer Reihe mit dem Gesicht zur Wand
+      const inner = [];
+      for (let z = r.z0 + 1; z < r.z1; z++) for (let x = r.x0 + 1; x < r.x1; x++) if (usable(x, z)) inner.push([x, z]);
+      const tables = [];
+      for (const c of shuffled(inner, rng)) {
+        if (tables.length >= 2) break;
+        if (tables.some((t) => Math.abs(t[0] - c[0]) + Math.abs(t[1] - c[1]) < 2)) continue;
+        tables.push(c);
+        placeModel(ctx, { id: 'wooden_picnic_table', h: 0.78, x: c[0] * S, z: c[1] * S, rotY: rng() < 0.5 ? 0 : Math.PI / 2, maxW: 1.9, maxD: 1.6 });
+        block(c[0], c[1]);
+      }
+      if (tables[0]) lampCell = tables[0];
+      const s0 = backWall();
+      if (s0) {
+        const rowSlots = freeSlots().filter((s) => s.back[0] === s0.back[0] && s.back[1] === s0.back[1]).slice(0, 4);
+        for (const s of rowSlots) {
+          used.add(idx(s.x, s.z));
+          placeModel(ctx, { id: 'wheelchair_01', h: 0.95, x: s.x * S + s.back[0] * 0.35, z: s.z * S + s.back[1] * 0.35, rotY: Math.atan2(-s.back[0], -s.back[1]), maxW: 0.75, maxD: 0.95 });
+        }
+      }
+    } else if (r.type === 'isolation') {
+      // ein einzelnes Bettgestell, schief mitten im Raum
+      const c = lampCell;
+      if (usable(c[0], c[1])) {
+        placeModel(ctx, { id: 'old_bed_frame', h: 0.85, x: c[0] * S + (rng() - 0.5) * 0.5, z: c[1] * S + (rng() - 0.5) * 0.5, rotY: rng() * Math.PI, maxW: 2.0, maxD: 2.0 });
+        block(c[0], c[1]);
+      }
+    }
+    // übrige Wandplätze
+    const spec = WARD_FILL[r.type] || WARD_FILL.patient;
+    let n = Math.floor(rng() * Math.max(1, spec.fill.length));
+    for (const s of slots) {
+      if (!spec.fill.length || used.has(idx(s.x, s.z)) || rng() > spec.chance) continue;
+      put(s, spec.fill[n++ % spec.fill.length]);
+    }
+    // Licht brennt nur noch in wenigen Zimmern — die übrigen sind dunkel
+    if (['treatment', 'dorm', 'dayroom', 'office'].includes(r.type)) lamps.push(lampCell);
+    // Möbel merken sich ihr Zimmer: game.js zeichnet sie nur, wenn man hineinsehen kann
+    for (let i = firstChild; i < scene.children.length; i++) {
+      if (scene.children[i].userData.prop) scene.children[i].userData.room = r.id;
     }
   }
   return { lamps };
@@ -277,10 +590,13 @@ export function createFlickerLamps({ scene, assets, keep, rng, S, wallH, kind, c
   }
   let assignAt = 0;
   let near = [];
+  let darkUntil = 0;
 
   return {
     lights,
     lamps,
+    /** Stromausfall: bis zur Spielzeit t brennt keine Lampe. */
+    blackout(t) { darkUntil = Math.max(darkUntil, t); },
     /** Strom ist wieder da: alle lebenden Lampen brennen ruhig (die toten bleiben tot). */
     powerOn() {
       for (const L of lamps) {
@@ -315,6 +631,7 @@ export function createFlickerLamps({ scene, assets, keep, rng, S, wallH, kind, c
           on = L.on;
         } else if (t < L.offUntil) on = false;
         else on = L.mode === 'steady';
+        if (t < darkUntil) on = false;
         const prev = L.level;
         L.level += ((on ? 1 : 0) - L.level) * Math.min(1, dt * (on ? 40 : 25));
         // Knistern beim Umschalten, nur in Hörweite und gedrosselt

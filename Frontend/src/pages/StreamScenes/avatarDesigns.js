@@ -8,17 +8,32 @@ import * as THREE from 'three';
 
 /**
  * slot: Bereich, base: Paket-Figur als Schnitt, color: Stoff, sleeves: lange Ärmel,
- * extras: Zusätze (hood, strings, pocket), logo: 'twitch' + logoColor
+ * extras: Zusätze (hood, strings, pocket, fur, front, belt), logo: Form aus LOGOS + logoColor (+ logoGlow)
  */
 export const DESIGNS = {
   twitchHoodie: { slot: 'body', label: 'Twitch-Hoodie', base: 'Casual_Male', color: '#9146ff', sleeves: true, extras: ['hood', 'strings', 'pocket'], logo: 'twitch', logoColor: '#ffffff' },
   hoodieBlack: { slot: 'body', label: 'Hoodie schwarz', base: 'Casual_Male', color: '#1d1d24', sleeves: true, extras: ['hood', 'strings', 'pocket'], logo: 'twitch', logoColor: '#9146ff' },
   hoodieGrey: { slot: 'body', label: 'Hoodie grau', base: 'Casual_Male', color: '#8d9099', sleeves: true, extras: ['hood', 'strings', 'pocket'] },
   twitchTee: { slot: 'body', label: 'Twitch-Shirt', base: 'Casual_Male', color: '#9146ff', logo: 'twitch', logoColor: '#ffffff' },
-  raveTee: { slot: 'body', label: 'Rave-Shirt', base: 'Casual_Male', color: '#121216', logo: 'twitch', logoColor: '#39ff88' },
+  raveTee: { slot: 'body', label: 'Rave-Shirt', base: 'Casual_Male', color: '#121216', logo: 'twitch', logoColor: '#39ff88', logoGlow: true },
+  hoodieRed: { slot: 'body', label: 'Hoodie rot', base: 'Casual_Male', color: '#c22a2a', sleeves: true, extras: ['hood', 'strings', 'pocket'] },
+  hoodiePink: { slot: 'body', label: 'Hoodie pink', base: 'Casual_Male', color: '#ff5fa8', sleeves: true, extras: ['hood', 'strings', 'pocket'], logo: 'heart', logoColor: '#ffffff' },
+  hoodieBolt: { slot: 'body', label: 'Hoodie Blitz', base: 'Casual_Male', color: '#15151b', sleeves: true, extras: ['hood', 'strings', 'pocket'], logo: 'bolt', logoColor: '#e6ff3a', logoGlow: true },
+  starTee: { slot: 'body', label: 'Sternen-Shirt', base: 'Casual_Male', color: '#1f3b8f', logo: 'star', logoColor: '#ffd23f' },
+  heartTee: { slot: 'body', label: 'Herz-Shirt', base: 'Casual_Male', color: '#f0efe9', logo: 'heart', logoColor: '#e0263a' },
+  boltTee: { slot: 'body', label: 'Blitz-Shirt', base: 'Casual_Male', color: '#121216', logo: 'bolt', logoColor: '#3ad1ff', logoGlow: true },
+  xmasSweater: { slot: 'body', label: 'Weihnachtspulli rot', base: 'Casual_Male', color: '#b3202a', sleeves: true, extras: ['fur'], logo: 'snow', logoColor: '#ffffff' },
+  xmasSweaterGreen: { slot: 'body', label: 'Weihnachtspulli grün', base: 'Casual_Male', color: '#1e6b3a', sleeves: true, extras: ['fur'], logo: 'tree', logoColor: '#ffd23f' },
+  santaCoat: { slot: 'body', label: 'Weihnachtsmann-Mantel', base: 'Casual_Male', color: '#c3202b', sleeves: true, extras: ['fur', 'front', 'belt'] },
   joggerBlack: { slot: 'legs', label: 'Jogginghose schwarz', base: 'Suit_Male', color: '#1d1d24' },
   joggerGrey: { slot: 'legs', label: 'Jogginghose grau', base: 'Suit_Male', color: '#8d9099' },
   joggerPurple: { slot: 'legs', label: 'Jogginghose lila', base: 'Suit_Male', color: '#5b2fb0' },
+  joggerRed: { slot: 'legs', label: 'Weihnachtshose rot', base: 'Suit_Male', color: '#c3202b' },
+  joggerGreen: { slot: 'legs', label: 'Hose grün', base: 'Suit_Male', color: '#1e6b3a' },
+  joggerWhite: { slot: 'legs', label: 'Hose weiß', base: 'Suit_Male', color: '#ecebe6' },
+  jeansBlue: { slot: 'legs', label: 'Jeans blau', base: 'Suit_Male', color: '#34508a' },
+  shortsBlack: { slot: 'legs', label: 'Shorts schwarz', base: 'Casual_Male', color: '#1d1d24' },
+  shortsPurple: { slot: 'legs', label: 'Shorts lila', base: 'Casual_Male', color: '#7a3fe0' },
 };
 
 /** Paket-Figur hinter einer Auswahl (Design → Schnitt, sonst die Figur selbst). */
@@ -57,11 +72,57 @@ function glitchShape() {
   return s;
 }
 
+const poly = (pts) => {
+  const s = new THREE.Shape();
+  s.moveTo(pts[0][0], pts[0][1]);
+  for (const [x, y] of pts.slice(1)) s.lineTo(x, y);
+  s.closePath();
+  return s;
+};
+
+/** Aufdrucke: Formen im Einheitsquadrat (0 … 1), einzeln oder als Liste (überlappende Teile). */
+const LOGOS = {
+  twitch: glitchShape,
+  star() {
+    const pts = [];
+    for (let i = 0; i < 10; i++) {
+      const a = (i / 10) * Math.PI * 2, r = i % 2 ? 0.21 : 0.5;
+      pts.push([0.5 + Math.sin(a) * r, 0.5 + Math.cos(a) * r]);
+    }
+    return poly(pts);
+  },
+  heart() {
+    const s = new THREE.Shape();
+    s.moveTo(0.5, 0.08);
+    s.bezierCurveTo(0.5, 0.08, -0.05, 0.45, 0.08, 0.75);
+    s.bezierCurveTo(0.16, 0.98, 0.44, 0.95, 0.5, 0.72);
+    s.bezierCurveTo(0.56, 0.95, 0.84, 0.98, 0.92, 0.75);
+    s.bezierCurveTo(1.05, 0.45, 0.5, 0.08, 0.5, 0.08);
+    return s;
+  },
+  bolt: () => poly([[0.6, 1], [0.2, 0.45], [0.45, 0.45], [0.35, 0], [0.8, 0.6], [0.55, 0.6]]),
+  /** Schneeflocke: drei gekreuzte Balken mit Querstrichen an den Enden. */
+  snow() {
+    const out = [];
+    const bar = (cx, cy, len, w, rot) => {
+      const cr = Math.cos(rot), sr = Math.sin(rot);
+      return poly([[-len, -w], [len, -w], [len, w], [-len, w]].map(([x, y]) => [0.5 + cx + x * cr - y * sr, 0.5 + cy + x * sr + y * cr]));
+    };
+    for (let i = 0; i < 3; i++) {
+      const a = (i / 3) * Math.PI;
+      out.push(bar(0, 0, 0.5, 0.045, a));
+      for (const e of [-1, 1]) out.push(bar(e * Math.cos(a) * 0.34, e * Math.sin(a) * 0.34, 0.11, 0.035, a + Math.PI / 2));
+    }
+    return out;
+  },
+  tree: () => poly([[0.5, 1], [0.25, 0.68], [0.4, 0.68], [0.15, 0.38], [0.35, 0.38], [0.08, 0.1], [0.42, 0.1], [0.42, 0], [0.58, 0], [0.58, 0.1], [0.92, 0.1], [0.65, 0.38], [0.85, 0.38], [0.6, 0.68], [0.75, 0.68]]),
+};
+
 /**
  * Maße des Schnitts aus der Ruhelage (Weltmaß der Datei): Brust vorn, Bauch vorn, Rücken, Hals.
  * @param {{ meshes: { region: string[], pos: Float32Array, n: number }[] }} info  aus avatarSeams.charInfo
  */
-function measure(info) {
+export function measure(info) {
   // Strahl entlang z durch (0, y): Schnittpunkte mit den Dreiecken des Oberteils (das Netz ist so
   // grob, dass nahe der Mitte oft kein Eckpunkt liegt — deshalb nicht über Eckpunkte messen)
   const hits = (y, x0 = 0) => {
@@ -88,7 +149,36 @@ function measure(info) {
   /** Vorderste Stelle über eine Fläche (Logo flach davor, ohne in der Wölbung zu versinken). */
   const frontArea = (y, half) => { let z = -Infinity; for (let i = -2; i <= 2; i++) for (let j = -2; j <= 2; j++) z = Math.max(z, front(y + j * half / 2, i * half / 2)); return z; };
   const back = (y) => Math.min(...hits(y));
-  return { chestZ: front(1.6), bellyZ: front(1.27), collarZ: front(1.9), backZ: back(1.8), front, frontArea };
+  /**
+   * Umfang in Höhe y: je Winkel der Abstand der Stoff-Fläche von der Körperachse (Strahl nach außen).
+   * Arme zählen nicht. null, wo der Strahl nichts trifft.
+   */
+  const ring = (y, n = 24) => {
+    const zc = info.axis?.Abdomen?.z ?? 0.03;
+    const r = new Array(n).fill(null);
+    const o = new THREE.Vector3(0, y, zc), hit = new THREE.Vector3();
+    const a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3();
+    const ray = new THREE.Ray();
+    for (let k = 0; k < n; k++) {
+      const ang = (k / n) * Math.PI * 2;
+      ray.set(o, new THREE.Vector3(Math.sin(ang), 0, Math.cos(ang)));
+      let best = Infinity;
+      for (const mi of info.meshes) {
+        for (let t = 0; t < mi.n; t++) {
+          if (mi.region[t] !== 'body' || /^(Shoulder|UpperArm|LowerArm|Fist)/.test(mi.bone[t])) continue;
+          const q = t * 9;
+          if (Math.min(mi.pos[q + 1], mi.pos[q + 4], mi.pos[q + 7]) > y || Math.max(mi.pos[q + 1], mi.pos[q + 4], mi.pos[q + 7]) < y) continue;
+          a.set(mi.pos[q], mi.pos[q + 1], mi.pos[q + 2]);
+          b.set(mi.pos[q + 3], mi.pos[q + 4], mi.pos[q + 5]);
+          c.set(mi.pos[q + 6], mi.pos[q + 7], mi.pos[q + 8]);
+          if (ray.intersectTriangle(a, b, c, false, hit)) best = Math.min(best, hit.distanceTo(o));
+        }
+      }
+      if (Number.isFinite(best)) r[k] = best;
+    }
+    return { r, zc };
+  };
+  return { chestZ: front(1.6), bellyZ: front(1.27), collarZ: front(1.9), backZ: back(1.8), front, frontArea, ring };
 }
 
 /**
@@ -233,10 +323,70 @@ export function buildDesignExtras(id, info) {
     p.position.set(0, 1.17, M.bellyZ);
     add('Abdomen', p, true);
   }
-  if (d.logo === 'twitch' && Number.isFinite(M.chestZ)) {
-    const col = new THREE.MeshStandardMaterial({ color: d.logoColor, roughness: 0.6, emissive: d.logoColor === '#39ff88' ? d.logoColor : '#000000', emissiveIntensity: d.logoColor === '#39ff88' ? 0.5 : 0 });
+  if (extras.includes('fur') && Number.isFinite(M.backZ)) {
+    // Kragen: weißer Wulst rund um den Hals
+    const white = new THREE.MeshStandardMaterial({ color: '#f6f4ee', roughness: 0.95 });
+    mats.push(white);
+    const collar = new THREE.Mesh(new THREE.TorusGeometry(0.22, 0.07, 6, 16), white);
+    collar.rotation.x = Math.PI / 2;
+    collar.scale.set(1.15, 1, 1);
+    collar.position.set(0, 1.93, (info.axis?.Neck?.z ?? 0.03) - 0.01);
+    add('Torso', collar);
+  }
+  if (extras.includes('front') && Number.isFinite(M.chestZ)) {
+    // Pelzstreifen vorn herunter: folgt der Wölbung von Brust und Bauch
+    const white = new THREE.MeshStandardMaterial({ color: '#f6f4ee', roughness: 0.95, side: THREE.DoubleSide });
+    mats.push(white);
+    const y0 = 1.2, y1 = 1.86, w = 0.07, n = 8;
+    const pos = [], idx = [];
+    for (let i = 0; i <= n; i++) {
+      const y = y0 + (y1 - y0) * (i / n);
+      const z = Math.max(M.front(y, -w), M.front(y, 0), M.front(y, w));
+      if (!Number.isFinite(z)) continue;
+      const k = pos.length / 3;
+      pos.push(-w, y, z + 0.014, w, y, z + 0.014);
+      if (k >= 2) idx.push(k - 2, k - 1, k, k - 1, k + 1, k);
+    }
+    if (idx.length) {
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+      geo.setIndex(idx);
+      geo.computeVertexNormals();
+      add('Torso', new THREE.Mesh(geo, white), true);
+    }
+  }
+  if (extras.includes('belt')) {
+    // Gürtel: Band um den Bauch (Umfang ausgemessen) mit goldener Schnalle, verformt sich mit dem Stoff
+    const y = 1.24, h = 0.09;
+    const { r, zc } = M.ring(y);
+    if (r.every((x) => x != null)) {
+      const black = new THREE.MeshStandardMaterial({ color: '#15151a', roughness: 0.6, side: THREE.DoubleSide });
+      const gold = new THREE.MeshStandardMaterial({ color: '#f2c230', roughness: 0.4 });
+      gold.name = 'Gold';
+      mats.push(black, gold);
+      const n = r.length;
+      const pos = [], idx = [];
+      for (let k = 0; k <= n; k++) {
+        const a = (k / n) * Math.PI * 2, rad = r[k % n] + 0.016;
+        const x = Math.sin(a) * rad, z = zc + Math.cos(a) * rad;
+        pos.push(x, y - h / 2, z, x, y + h / 2, z);
+        if (k < n) { const q = k * 2; idx.push(q, q + 2, q + 1, q + 1, q + 2, q + 3); }
+      }
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+      geo.setIndex(idx);
+      geo.computeVertexNormals();
+      add('Abdomen', new THREE.Mesh(geo, black), true);
+      const buckle = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.12, 0.03), gold);
+      buckle.position.set(0, y, zc + r[0] + 0.03);
+      add('Abdomen', buckle, true);
+    }
+  }
+  const logoShape = d.logo && LOGOS[d.logo];
+  if (logoShape && Number.isFinite(M.chestZ)) {
+    const col = new THREE.MeshStandardMaterial({ color: d.logoColor, roughness: 0.6, emissive: d.logoGlow ? d.logoColor : '#000000', emissiveIntensity: d.logoGlow ? 0.5 : 0 });
     mats.push(col);
-    const geo = new THREE.ExtrudeGeometry(glitchShape(), { depth: 0.05, bevelEnabled: false });
+    const geo = new THREE.ExtrudeGeometry(logoShape(), { depth: 0.05, bevelEnabled: false });
     const size = extras.includes('strings') ? 0.14 : 0.17;
     geo.translate(-0.5, -0.5, -0.044);
     geo.scale(size, size, 1);

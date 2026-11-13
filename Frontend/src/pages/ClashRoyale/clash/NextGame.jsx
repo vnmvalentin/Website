@@ -10,6 +10,7 @@ import scrollImg from '../../../assets/clashRoyale/ui/icon_daily_task_scroll_ope
 import questionImg from '../../../assets/clashRoyale/ui/question.webp';
 import searchImg from '../../../assets/clashRoyale/ui/search.webp';
 import eyeImg from '../../../assets/clashRoyale/ui/eye.webp';
+import potionImg from '../../../assets/clashRoyale/ui/card_boost_potion.png';
 import swordImg from '../../../assets/clashRoyale/ui/sword.webp';
 
 /** Reihenfolge der Kette; store = localStorage-Schlüssel der Tagesrunde (wie im Hub) */
@@ -18,6 +19,7 @@ const CHAIN = [
   { id: 'kartenraten', to: '/clash/kartenraten', img: questionImg, title: 'guessTitle', text: 'guessText', store: 'crq_guess_v3' },
   { id: 'zoom', to: '/clash/zoom', img: searchImg, title: 'zoomTitle', text: 'zoomText', store: 'crq_zoom_v1' },
   { id: 'pixel', to: '/clash/pixel', img: eyeImg, title: 'pixelTitle', text: 'pixelText', store: 'crq_pixel_v1' },
+  { id: 'farbe', to: '/clash/farbe', img: potionImg, title: 'colorTitle', text: 'colorText', store: 'crq_color_v1' },
   { id: 'stats-duell', to: '/clash/stats-duell', img: swordImg, title: 'statsTitle', text: 'statsText' },
 ];
 

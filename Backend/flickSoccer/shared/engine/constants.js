@@ -62,9 +62,17 @@ export const EMOTES = Object.freeze({
   glueck: 'Glück gehabt',
   ups: 'Ups',
   gg: 'Gutes Spiel',
+  wow: 'Wow!',
+  haha: 'Haha!',
+  nein: 'Neeein!',
+  knapp: 'Knapp!',
+  traum: 'Traumtor!',
+  sorry: 'Sorry',
+  nervoes: 'Nervös?',
+  nochmal: 'Nochmal?',
 });
 export const EMOTE_IDS = Object.freeze(Object.keys(EMOTES));
-export const EMOTE_COOLDOWN_MS = 2500;
+export const EMOTE_COOLDOWN_MS = 2000;
 
 export const RULES = Object.freeze({
   GOALS_TO_WIN: [1, 2, 3, 5],

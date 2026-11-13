@@ -8,13 +8,58 @@ import { createPlantInstance, isPlantReady } from "../engine/PlantSystem";
 import { getDirtCellWorldPos, TILE_SIZE } from "../engine/MapConfig";
 import { formatGold } from "../ui/gardenTokens";
 
+/**
+ * Ernte im Browser vorwegnehmen (Klick UND Shift-Ziehen, 06.11.): Einmalpflanzen
+ * verschwinden sofort, bei Dauerträgern wird die älteste reife Frucht zurückgesetzt.
+ * Der Server bestätigt danach; lehnt er ab, stellt der Aufrufer den alten Stand her.
+ */
+export function vorabAbernten(prev, key) {
+    const p = prev[key];
+    if (!p) return prev;
+    const next = { ...prev };
+    if (p.singleUse !== false) {
+        delete next[key];
+        return next;
+    }
+    // Dauertraeger: die am laengsten reife Frucht optisch zuruecksetzen —
+    // dieselbe Auswahl wie auf dem Server, damit nichts springt.
+    const slots = Array.isArray(p.fruitSlots) ? p.fruitSlots : [];
+    const jetzt = Date.now();
+    let idx = -1; let aeltester = Infinity;
+    for (let i = 0; i < slots.length; i++) {
+        const ra = Number(slots[i]?.readyAt ?? Infinity);
+        if (ra <= jetzt && ra < aeltester) { aeltester = ra; idx = i; }
+    }
+    if (idx === -1) return prev;
+    const neueSlots = slots.slice();
+    neueSlots[idx] = {
+        ...neueSlots[idx],
+        // ×1,2 statt ×1 (Bug gefunden 01.09.: "beim Anklicken auf Multipflanzen,
+        // die bereits standen, 400 Bad Request"). Der Server würfelt den
+        // nachgewachsenen Fruchtstand bewusst OHNE Seed (neuerFruchtstand in
+        // core/economy.js, ×0,8 bis ×1,2 vom Zyklus — absichtlich nicht
+        // vorhersagbar, siehe Kommentar dort). Diese Vorschau hier riet bisher
+        // glatt ×1 — lag der Server-Wurf darüber (rund die Hälfte der Fälle),
+        // zeigte die Staude sich hier schon reif, während der Server beim
+        // Klick noch "Noch nicht reif."/"Keine reife Frucht." ablehnte. Bei
+        // einem 3-Stunden-Strauch (Blaubeere, Erdbeere) blieb das bis zu 36
+        // Minuten lang so UND wurde bei jedem Klick sofort zurückgerollt (siehe
+        // "veraltet" unten) — die Staude wirkte dauerhaft blockiert. ×1,2 ist die
+        // obere Grenze des Server-Wurfs: die Vorschau darf jetzt spät liegen,
+        // nie mehr zu früh.
+        readyAt: jetzt + Math.round((Number(p.fruitCycleMs) || 60000) * 1.2),
+        statusEffects: [], statusEffect: null, statusEffectUntil: null, specialType: null,
+    };
+    next[key] = { ...p, fruitSlots: neueSlots };
+    return next;
+}
 export default function useErnte({
     handleBuySeedAllRef, handleBuySeedAll, handleBuySeedRef, handleBuySeed, selectedSeed,
     inventory, plotPlants, petPlacements, mySlotRef, skillWirkung, partyLaeuftJetzt, setPlotPlants,
     playSound, layout, engineRef, setInventory, setSelectedSeed, debouncedSave, notify,
     ernteLaeuftRef, ernteWarteschlangeRef, apiCall, kreuzungenAufnehmen, isDragHarvestingRef,
     applyEconomy, hydratePlantVisuals, letzteErnteRef, uebernimmVomServer, farmStateRef, flushSave,
-    handleHarvestRef, dragErnteFlushTimerRef, dragErnteSammlungRef, spieleErnteTon,
+    handleHarvestRef, dragErnteFlushTimerRef, dragErnteSammlungRef, spieleErnteTon, spielePflanzTon,
 }) {
     useEffect(() => { handleBuySeedAllRef.current = handleBuySeedAll; }, [handleBuySeedAll]);
 
@@ -22,7 +67,7 @@ export default function useErnte({
     useEffect(() => { handleBuySeedRef.current = handleBuySeed; }, [handleBuySeed]);
 
     // ── Plant seed in cell ────────────────────────────────────────────────────
-    const handleCellClick = useCallback(async (cellX, cellY) => {
+    const handleCellClick = useCallback(async (cellX, cellY, { ziehen = false } = {}) => {
         const seedToPlant = selectedSeed || inventory[0];
         if (!seedToPlant) return;
         const key = `${cellX}_${cellY}`;
@@ -41,7 +86,8 @@ export default function useErnte({
             Date.now(),
         );
         setPlotPlants(prev => ({ ...prev, [key]: plant }));
-        playSound("plant", 0.5);
+        // Steigender Ton nur beim Shift-Ziehen über mehrere Zellen (06.11.)
+        if (spielePflanzTon) spielePflanzTon(0.5, ziehen); else playSound("plant", 0.5);
         // v2 (Feedback 28.08.): Pflanz-Wurf — das Tütchen fällt sichtbar auf die
         // Zelle, statt dass die Pflanze kommentarlos erscheint (siehe spawnSaatWurf).
         const pflanzMySlot = layout.current.slots[mySlotRef.current] || layout.current.slots[0];
@@ -59,7 +105,7 @@ export default function useErnte({
             return nextInv;
         });
         debouncedSave();
-    }, [selectedSeed, inventory, plotPlants, notify, debouncedSave, skillWirkung, petPlacements]);
+    }, [selectedSeed, inventory, plotPlants, notify, debouncedSave, skillWirkung, petPlacements, spielePflanzTon]);
 
     // ── Harvest plant ─────────────────────────────────────────────────────────
     // Wert, Groesse, Sonderform und Wetterbonus rechnet weiterhin ausschliesslich
@@ -83,49 +129,10 @@ export default function useErnte({
             return;
         }
         ernteLaeuftRef.current.add(key);
-        // Derselbe Ketten-Ton wie beim Shift-Ziehen: schnell hintereinander geklickt steigt er.
-        spieleErnteTon();
+        // Einzelklick: immer der Grundton — steigen darf er nur beim Shift-Ziehen (06.11.)
+        spieleErnteTon(0.45, false);
         const vorherigerStand = plant;
-        setPlotPlants((prev) => {
-            const p = prev[key];
-            if (!p) return prev;
-            const next = { ...prev };
-            if (p.singleUse !== false) {
-                delete next[key];
-                return next;
-            }
-            // Dauertraeger: die am laengsten reife Frucht optisch zuruecksetzen —
-            // dieselbe Auswahl wie auf dem Server, damit nichts springt.
-            const slots = Array.isArray(p.fruitSlots) ? p.fruitSlots : [];
-            const jetzt = Date.now();
-            let idx = -1; let aeltester = Infinity;
-            for (let i = 0; i < slots.length; i++) {
-                const ra = Number(slots[i]?.readyAt ?? Infinity);
-                if (ra <= jetzt && ra < aeltester) { aeltester = ra; idx = i; }
-            }
-            if (idx === -1) return prev;
-            const neueSlots = slots.slice();
-            neueSlots[idx] = {
-                ...neueSlots[idx],
-                // ×1,2 statt ×1 (Bug gefunden 01.09.: "beim Anklicken auf Multipflanzen,
-                // die bereits standen, 400 Bad Request"). Der Server würfelt den
-                // nachgewachsenen Fruchtstand bewusst OHNE Seed (neuerFruchtstand in
-                // core/economy.js, ×0,8 bis ×1,2 vom Zyklus — absichtlich nicht
-                // vorhersagbar, siehe Kommentar dort). Diese Vorschau hier riet bisher
-                // glatt ×1 — lag der Server-Wurf darüber (rund die Hälfte der Fälle),
-                // zeigte die Staude sich hier schon reif, während der Server beim
-                // Klick noch "Noch nicht reif."/"Keine reife Frucht." ablehnte. Bei
-                // einem 3-Stunden-Strauch (Blaubeere, Erdbeere) blieb das bis zu 36
-                // Minuten lang so UND wurde bei jedem Klick sofort zurückgerollt (siehe
-                // "veraltet" unten) — die Staude wirkte dauerhaft blockiert. ×1,2 ist die
-                // obere Grenze des Server-Wurfs: die Vorschau darf jetzt spät liegen,
-                // nie mehr zu früh.
-                readyAt: jetzt + Math.round((Number(p.fruitCycleMs) || 60000) * 1.2),
-                statusEffects: [], statusEffect: null, statusEffectUntil: null, specialType: null,
-            };
-            next[key] = { ...p, fruitSlots: neueSlots };
-            return next;
-        });
+        setPlotPlants((prev) => vorabAbernten(prev, key));
         const ernte = () => apiCall("/action", {
             method: "POST",
             body: JSON.stringify({ action: "harvest", key }),
@@ -417,7 +424,14 @@ export default function useErnte({
                 let next = prev;
                 let kopiert = false;
                 for (const [key, ergebnis] of Object.entries(ernten)) {
-                    if (!ergebnis?.ok) continue;   // diese eine Zelle war zu schnell dran — die anderen zaehlen trotzdem
+                    if (!ergebnis?.ok) {
+                        // Rucksack voll: die Frucht hängt noch — den vorab abgeernteten Stand zurückholen
+                        if (ergebnis?.error?.includes("Rucksack") && vorherKarte.get(key)) {
+                            if (!kopiert) { next = { ...next }; kopiert = true; }
+                            next[key] = vorherKarte.get(key);
+                        }
+                        continue;   // diese eine Zelle war zu schnell dran — die anderen zaehlen trotzdem
+                    }
                     const vorherigerStand = vorherKarte.get(key);
                     if (!vorherigerStand) continue;
                     letzteErnteRef.current.set(key, Date.now());
@@ -441,7 +455,7 @@ export default function useErnte({
                             if (besonders) {
                                 const special = besonders.specialData.name;
                                 const farbe = special === "Rainbow" ? "#f472b6" : "#fde047";
-                                renderer.spawnFeedback(x, y - 18, special === "Rainbow" ? "🌈 Rainbow!" : "✨ Golden!",
+                                renderer.spawnFeedback(x, y - 18, special === "Rainbow" ? "Rainbow!" : "Golden!",
                                     { color: farbe, durationMs: 1300 });
                                 if (special === "Golden" || special === "Rainbow") renderer.spawnFunken(x, y, special);
                             }
@@ -490,6 +504,12 @@ export default function useErnte({
             if (echterMismatch) await uebernimmVomServer(null);
         } catch (err) {
             const m = err?.message || "Ernte fehlgeschlagen.";
+            // Der ganze Zug kam nicht an: vorab abgeerntete Zellen wiederherstellen
+            setPlotPlants((prev) => {
+                const next = { ...prev };
+                for (const [key, stand] of vorherKarte) next[key] = stand;
+                return next;
+            });
             // Dieselbe Grosszügigkeit wie bei handleHarvest: "zu schnell gezogen"
             // (nichts mehr reif, Zelle inzwischen leer) ist beim Schnellziehen der
             // Normalfall, kein Fehler, den man melden muss. Lehnt der Server aber

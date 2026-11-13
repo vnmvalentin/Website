@@ -134,10 +134,103 @@ function drawHalloweenSky(ctx, t, w, h) {
   }
 }
 
+/** Weihnachts-Hintergrund der LED-Wand: Winternacht, Mond, Schlitten, Tannen, Schneefall. */
+function drawChristmasSky(ctx, t, w, h) {
+  const g = ctx.createLinearGradient(0, 0, 0, h);
+  g.addColorStop(0, '#06122e');
+  g.addColorStop(0.6, '#0d2450');
+  g.addColorStop(1, '#1b3a6a');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, w, h);
+  // Mond mit Hof
+  const mx = 300, my = 190;
+  const halo = ctx.createRadialGradient(mx, my, 60, mx, my, 320);
+  halo.addColorStop(0, 'rgba(210,230,255,0.35)');
+  halo.addColorStop(1, 'rgba(210,230,255,0)');
+  ctx.fillStyle = halo;
+  ctx.fillRect(mx - 330, my - 330, 660, 660);
+  ctx.fillStyle = '#eef4ff';
+  ctx.beginPath();
+  ctx.arc(mx, my, 104, 0, Math.PI * 2);
+  ctx.fill();
+  // Schlitten mit drei Rentieren zieht alle 40 s über den Himmel
+  const sx = ((t % 40) / 14) * (w + 700) - 350;
+  if (sx < w + 350) {
+    const sy = 210 - Math.sin((sx / w) * Math.PI) * 70;
+    ctx.fillStyle = '#040a1c';
+    ctx.strokeStyle = '#040a1c';
+    ctx.lineWidth = 3;
+    for (let i = 0; i < 3; i++) {
+      const rx = sx + 120 + i * 62, ry = sy - 14 - i * 9 + Math.sin(t * 6 + i) * 4;
+      ctx.beginPath();
+      ctx.ellipse(rx, ry, 24, 10, -0.15, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(rx + 24, ry - 12, 8, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(rx - 14, ry + 6); ctx.lineTo(rx - 22, ry + 26);
+      ctx.moveTo(rx + 12, ry + 6); ctx.lineTo(rx + 22, ry + 24);
+      ctx.moveTo(rx + 26, ry - 18); ctx.lineTo(rx + 22, ry - 32); ctx.moveTo(rx + 28, ry - 18); ctx.lineTo(rx + 36, ry - 30);
+      ctx.stroke();
+    }
+    ctx.beginPath();
+    ctx.moveTo(sx + 96, sy - 8); ctx.lineTo(sx + 300, sy - 34);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(sx - 40, sy - 26);
+    ctx.lineTo(sx + 70, sy - 26);
+    ctx.quadraticCurveTo(sx + 96, sy - 20, sx + 92, sy + 8);
+    ctx.lineTo(sx - 30, sy + 8);
+    ctx.quadraticCurveTo(sx - 56, sy + 4, sx - 40, sy - 26);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(sx + 10, sy - 38, 17, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.lineWidth = 5;
+    ctx.beginPath();
+    ctx.moveTo(sx - 50, sy + 22); ctx.lineTo(sx + 96, sy + 22);
+    ctx.quadraticCurveTo(sx + 118, sy + 20, sx + 116, sy + 2);
+    ctx.stroke();
+  }
+  // Schneehügel und Tannen unten
+  ctx.fillStyle = '#dfeaf8';
+  ctx.beginPath();
+  ctx.moveTo(0, h);
+  ctx.lineTo(0, h - 80);
+  ctx.quadraticCurveTo(w * 0.25, h - 150, w * 0.5, h - 90);
+  ctx.quadraticCurveTo(w * 0.75, h - 40, w, h - 110);
+  ctx.lineTo(w, h);
+  ctx.fill();
+  ctx.fillStyle = '#0c2a26';
+  for (const [x, th] of [[120, 190], [260, 130], [1600, 210], [1760, 150], [1850, 110]]) {
+    const base = h - 70;
+    for (let i = 0; i < 3; i++) {
+      const tw = th * (0.5 - i * 0.12), ty = base - th * (0.25 + i * 0.25);
+      ctx.beginPath();
+      ctx.moveTo(x - tw, ty + th * 0.3); ctx.lineTo(x, ty - th * 0.1); ctx.lineTo(x + tw, ty + th * 0.3);
+      ctx.fill();
+    }
+  }
+  // Schneeflocken (feste Bahnen aus der Nummer, kein Zufall je Bild)
+  ctx.fillStyle = 'rgba(255,255,255,0.85)';
+  for (let i = 0; i < 90; i++) {
+    const sp = 60 + (i % 7) * 22;
+    const x = ((i * 137.5) % w) + Math.sin(t * 0.8 + i) * 24;
+    const y = (t * sp + i * 91) % (h + 20) - 10;
+    const rad = 2.5 + (i % 4) * 1.4;
+    ctx.beginPath();
+    ctx.arc(x, y, rad, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
 export function drawLedWall(ctx, t, s) {
   const w = LED_W, h = LED_H;
   const spooky = s.theme === 'halloween';
+  const xmas = s.theme === 'christmas';
   if (spooky) drawHalloweenSky(ctx, t, w, h);
+  else if (xmas) drawChristmasSky(ctx, t, w, h);
   else {
     ctx.fillStyle = '#05050a';
     ctx.fillRect(0, 0, w, h);
@@ -171,10 +264,10 @@ export function drawLedWall(ctx, t, s) {
 
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillStyle = spooky ? 'rgba(255,190,110,0.85)' : 'rgba(255,255,255,0.6)';
+  ctx.fillStyle = spooky ? 'rgba(255,190,110,0.85)' : xmas ? 'rgba(255,214,120,0.95)' : 'rgba(255,255,255,0.6)';
   ctx.font = `800 36px ${FONT}`;
   spacing(ctx, 16);
-  ctx.fillText(spooky ? 'HAPPY HALLOWEEN' : 'GLEICH LIVE', w / 2, 250);
+  ctx.fillText(spooky ? 'HAPPY HALLOWEEN' : xmas ? 'FROHE WEIHNACHTEN' : 'GLEICH LIVE', w / 2, 250);
   ctx.fillStyle = spooky ? '#ff8a1e' : '#fff';
   ctx.font = `900 168px ${FONT}`;
   spacing(ctx, 10);

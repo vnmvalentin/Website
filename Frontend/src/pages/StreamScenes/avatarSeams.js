@@ -316,13 +316,14 @@ export const isHairMaterial = (mat) => isHair([].concat(mat)[0]?.name);
 
 const headFieldCache = new Map();
 /** Höhenfeld des Kopfs ohne Haare: je xz-Zelle die höchste Stelle. */
-function headField(headName, headSrc, headSets) {
-  if (headFieldCache.has(headName)) return headFieldCache.get(headName);
+function headField(headName, headSrc, headSets, hair = false) {
+  const cacheKey = hair ? `${headName}|hair` : headName;
+  if (headFieldCache.has(cacheKey)) return headFieldCache.get(cacheKey);
   headSrc.updateMatrixWorld(true);
   const field = new Map();
   const a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3(), p = new THREE.Vector3();
   for (const [m, sets] of headSets) {
-    if (isHair([].concat(m.material)[0]?.name)) continue;
+    if (isHair([].concat(m.material)[0]?.name) !== hair) continue;
     const idx = m.geometry.index;
     for (const t of sets.head) {
       m.getVertexPosition(idx.getX(t * 3), a); m.localToWorld(a);
@@ -341,7 +342,7 @@ function headField(headName, headSrc, headSets) {
       }
     }
   }
-  headFieldCache.set(headName, field);
+  headFieldCache.set(cacheKey, field);
   return field;
 }
 
@@ -390,11 +391,96 @@ const hairGeoCache = new Map();
  * @param {THREE.BufferAttribute} index  Index des Teils
  */
 export function hairUnderHat(key, m, index, hatName, hatSrc, hatSets, dy) {
-  const matName = [].concat(m.material)[0]?.name || '';
-  if (!isHair(matName)) return null;
-  const cacheKey = `${key}|${hatName}|${dy.toFixed(4)}`;
+  if (!isHairMaterial(m.material)) return null;
+  return hairUnderField(`${key}|${hatName}|${dy.toFixed(4)}`, m, index, hatField(hatName, hatSrc, hatSets, dy));
+}
+
+/**
+ * Höhenfeld der Unterseite eines selbst gebauten Huts (avatarWear.js): alle Meshes des Objekts in
+ * ihrer Lage (Ruhelage, Weltmaß der Datei) abtasten.
+ */
+export function fieldFromObject(object) {
+  object.updateMatrixWorld(true);
+  const field = new Map();
+  field.hi = new Map();
+  const a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3(), p = new THREE.Vector3();
+  object.traverse((o) => {
+    if (!o.isMesh || o.userData.noField) return;
+    const pos = o.geometry.attributes.position, idx = o.geometry.index;
+    const n = (idx ? idx.count : pos.count) / 3;
+    const at = (i, out) => out.fromBufferAttribute(pos, idx ? idx.getX(i) : i).applyMatrix4(o.matrixWorld);
+    for (let t = 0; t < n; t++) {
+      at(t * 3, a); at(t * 3 + 1, b); at(t * 3 + 2, c);
+      const len = Math.max(a.distanceTo(b), b.distanceTo(c), c.distanceTo(a));
+      const steps = Math.max(1, Math.ceil(len / (CELL * 0.5)));
+      for (let i = 0; i <= steps; i++) {
+        for (let j = 0; j <= steps - i; j++) {
+          const u = i / steps, w = j / steps;
+          p.copy(a).multiplyScalar(1 - u - w).addScaledVector(b, u).addScaledVector(c, w);
+          const k = `${Math.floor(p.x / CELL)},${Math.floor(p.z / CELL)}`;
+          const cur = field.get(k);
+          if (cur == null || p.y < cur) field.set(k, p.y);
+        }
+      }
+    }
+  });
+  return field;
+}
+
+/**
+ * Maße eines Kopfs (ohne Haare) für selbst gebaute Hüte und Brillen, Ruhelage in Weltmaß der Datei:
+ * Scheitelhöhe, Querschnitt `drop` unter dem Scheitel (Mitte + Halbachsen), Augen (Material „Face“).
+ */
+const fitCache = new Map();
+export function headFit(headName, headSrc, headSets, drop = 0.22) {
+  const key = `${headName}|${drop}`;
+  if (fitCache.has(key)) return fitCache.get(key);
+  const field = headField(headName, headSrc, headSets);
+  let top = -Infinity;
+  for (const y of field.values()) top = Math.max(top, y);
+  let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity;
+  for (const [k, y] of field) {
+    if (y < top - drop) continue;
+    const [i, j] = k.split(',').map(Number);
+    x0 = Math.min(x0, i * CELL); x1 = Math.max(x1, (i + 1) * CELL);
+    z0 = Math.min(z0, j * CELL); z1 = Math.max(z1, (j + 1) * CELL);
+  }
+  let fit = null;
+  if (Number.isFinite(top) && Number.isFinite(x0)) {
+    fit = { top, y: top - drop, cx: (x0 + x1) / 2, cz: (z0 + z1) / 2, rx: (x1 - x0) / 2, rz: (z1 - z0) / 2, eye: null };
+    // Augen: Dreiecke des Materials „Face“ im Kopfbereich
+    const info = charInfo(headName, headSrc, headSets);
+    let n = 0, ey = 0, ez = -Infinity, ex = 0;
+    for (const mi of info.meshes) {
+      if (!/^face/i.test(mi.matName)) continue;
+      for (let t = 0; t < mi.n; t++) {
+        if (mi.region[t] !== 'head') continue;
+        for (let j = 0; j < 3; j++) {
+          const o = t * 9 + j * 3;
+          ey += mi.pos[o + 1]; n++;
+          ez = Math.max(ez, mi.pos[o + 2]);
+          ex = Math.max(ex, Math.abs(mi.pos[o]));
+        }
+      }
+    }
+    if (n) fit.eye = { y: ey / n, z: ez, x: ex };
+    // Haare: höchste Stelle und größte Breite in dieser Höhe oder darüber (für Bügel, die über den Haaren liegen)
+    fit.hairTop = top;
+    fit.hairRx = 0;
+    for (const [k, y] of headField(headName, headSrc, headSets, true)) {
+      const [i] = k.split(',').map(Number);
+      fit.hairTop = Math.max(fit.hairTop, y);
+      if (y >= top - drop) fit.hairRx = Math.max(fit.hairRx, Math.abs((i + 0.5) * CELL - fit.cx));
+    }
+  }
+  fitCache.set(key, fit);
+  return fit;
+}
+
+/** Haare unter ein Höhenfeld drücken (siehe hairUnderHat). Liefert null, wenn das Mesh kein Haar ist. */
+export function hairUnderField(cacheKey, m, index, field) {
+  if (!isHairMaterial(m.material)) return null;
   if (hairGeoCache.has(cacheKey)) return hairGeoCache.get(cacheKey);
-  const field = hatField(hatName, hatSrc, hatSets, dy);
   const src = m.geometry;
   const n = src.attributes.position.count;
   const posArr = new Float32Array(n * 3);
@@ -407,14 +493,24 @@ export function hairUnderHat(key, m, index, hatName, hatSrc, hatSets, dy) {
   for (let i = 0; i < n; i++) {
     raw.fromBufferAttribute(src.attributes.position, i);
     toWorld(i, raw, w);
-    const bottom = hatBottomAt(field, w.x, w.z);
+    // floor: Hüte, die den ganzen Oberkopf bedecken — auch Haare neben dem Hut bleiben unter dem Hutrand
+    let bottom = hatBottomAt(field, w.x, w.z);
+    if (field.floor != null && (bottom == null || bottom > field.floor)) bottom = field.floor;
     if (bottom != null && w.y > bottom - HAIR_GAP) {
       const cols = [0, 1, 2].map((k) => {
         const e = raw.clone().setComponent(k, raw.getComponent(k) + 1);
         return toWorld(i, e, t).clone().sub(w);
       });
       A.set(cols[0].x, cols[1].x, cols[2].x, cols[0].y, cols[1].y, cols[2].y, cols[0].z, cols[1].z, cols[2].z);
-      const d = new THREE.Vector3(0, bottom - HAIR_GAP - w.y, 0).applyMatrix3(A.invert());
+      // rim: Haare, die über den Hutrand hinausstehen, zusätzlich unter den Hut ziehen (sonst bleibt ein flacher Haarkranz)
+      let dx = 0, dz = 0;
+      const rim = field.rim;
+      if (rim) {
+        const ex = (w.x - rim.cx) / rim.rx, ez = (w.z - rim.cz) / rim.rz;
+        const q = Math.hypot(ex, ez);
+        if (q > 0.94) { dx = (w.x - rim.cx) * (0.94 / q - 1); dz = (w.z - rim.cz) * (0.94 / q - 1); }
+      }
+      const d = new THREE.Vector3(dx, bottom - HAIR_GAP - w.y, dz).applyMatrix3(A.invert());
       raw.add(d);
     }
     posArr.set([raw.x, raw.y, raw.z], i * 3);

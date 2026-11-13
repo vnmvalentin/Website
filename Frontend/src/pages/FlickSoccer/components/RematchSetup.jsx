@@ -2,7 +2,7 @@
 // aktuellen Aufstellung; „ändern" klappt die Auswahl auf. entries: [{ team, label, value, onChange }]
 import React, { useState } from "react";
 import { ChevronDown, ChevronUp } from "lucide-react";
-import { FORMATIONS } from "../engine/index.js";
+import { formationInfo } from "../engine/index.js";
 import FormationPicker from "./FormationPicker.jsx";
 
 export default function RematchSetup({ entries }) {
@@ -23,7 +23,7 @@ export default function RematchSetup({ entries }) {
           >
             <span className={`fk-cap fk-cap-${e.team}`} aria-hidden="true" />
             {e.label && <span className="fk-faint">{e.label}</span>}
-            <span className="font-bold">{FORMATIONS[e.value]?.name}</span>
+            <span className="font-bold">{formationInfo(e.value).name}</span>
             <span className="fk-faint text-[12px]">ändern</span>
             {open === e.team ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
           </button>
@@ -34,7 +34,7 @@ export default function RematchSetup({ entries }) {
           <FormationPicker
             value={current.value}
             team={current.team}
-            className="grid-cols-5 @xl:grid-cols-10"
+            className="grid-cols-4 @xl:grid-cols-8"
             onChange={(id) => {
               current.onChange(id);
               setOpen(null);

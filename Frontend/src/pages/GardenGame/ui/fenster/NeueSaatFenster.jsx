@@ -3,7 +3,8 @@
 // verloren geht, was bleibt und was der Stern bringt. Der Neustart braucht zwei
 // Klicks; danach lädt die Seite neu, weil sich fast der ganze Spielstand ändert.
 import React, { useEffect, useState } from "react";
-import { GardenModal, Abschnitt, ProgressBar, PrimaryButton, NebenKnopf, LeerHinweis } from "../gardenUi";
+import { StandFenster } from "../laden/Marktstand";
+import { Abschnitt, ProgressBar, PrimaryButton, NebenKnopf, LeerHinweis } from "../gardenUi";
 import { formatGold } from "../gardenTokens";
 import { sterneText } from "../prestige";
 
@@ -54,30 +55,30 @@ export default function NeueSaatFenster({ apiCall, onClose, notify, stand: anfan
 
     if (!stand) {
         return (
-            <GardenModal title="Neue Saat" onClose={onClose} breite="mittel">
+            <StandFenster markise={false} inhaltHintergrund="#f3e3c3" titel="Neue Saat" onClose={onClose} breite="max-w-2xl">
                 <LeerHinweis>{fehler ? "Konnte nicht geladen werden." : "Wird geladen…"}</LeerHinweis>
-            </GardenModal>
+            </StandFenster>
         );
     }
 
     const naechster = stand.kosmetik?.find((k) => !k.frei);
 
     return (
-        <GardenModal
-            title="Neue Saat"
-            subtitle="Fang deine Farm neu an und behalte dafür für immer einen Stern."
+        <StandFenster markise={false} inhaltHintergrund="#f3e3c3"
+            titel="Neue Saat"
+            untertitel="Fang deine Farm neu an und behalte dafür für immer einen Stern."
             onClose={onClose}
-            breite="mittel"
+            breite="max-w-2xl"
         >
             <div className="space-y-3">
-                <div className="flex items-center justify-between rounded-2xl border border-amber-800/60 bg-slate-950/60 px-4 py-3">
+                <div className="flex items-center justify-between rounded-2xl border border-amber-800/60 bg-[#fffaf0] px-4 py-3">
                     <div>
-                        <div className="text-xl tracking-widest text-amber-300">{sterneText(stand.sterne, stand.max)}</div>
-                        <div className="text-xs text-slate-400">{stand.sterne} von {stand.max} Sternen</div>
+                        <div className="text-xl tracking-widest text-[#a87414]">{sterneText(stand.sterne, stand.max)}</div>
+                        <div className="text-xs text-[#6e4426]">{stand.sterne} von {stand.max} Sternen</div>
                     </div>
                     <div className="text-right">
-                        <div className="text-sm font-semibold tabular-nums text-amber-300">+{stand.bonusJetzt} %</div>
-                        <div className="text-[11px] text-slate-400">Gold und Erfahrung</div>
+                        <div className="text-sm font-semibold tabular-nums text-[#a87414]">+{stand.bonusJetzt} %</div>
+                        <div className="text-[11px] text-[#6e4426]">Gold und Erfahrung</div>
                     </div>
                 </div>
 
@@ -88,14 +89,14 @@ export default function NeueSaatFenster({ apiCall, onClose, notify, stand: anfan
                         <Abschnitt>Voraussetzungen</Abschnitt>
                         <div className="space-y-2.5 px-1">
                             <div>
-                                <div className="mb-1 flex justify-between text-xs text-slate-300">
+                                <div className="mb-1 flex justify-between text-xs text-[#3b2516]">
                                     <span>Level</span>
                                     <span className="tabular-nums">{stand.level} / {stand.levelNoetig}</span>
                                 </div>
                                 <ProgressBar value={stand.level / stand.levelNoetig} className="bg-violet-500" />
                             </div>
                             <div>
-                                <div className="mb-1 flex justify-between text-xs text-slate-300">
+                                <div className="mb-1 flex justify-between text-xs text-[#3b2516]">
                                     <span>Gold verdient seit {stand.sterne ? "dem letzten Neustart" : "Spielbeginn"}</span>
                                     <span className="tabular-nums">{formatGold(stand.verdient)} / {formatGold(stand.schwelle)}</span>
                                 </div>
@@ -104,7 +105,7 @@ export default function NeueSaatFenster({ apiCall, onClose, notify, stand: anfan
                         </div>
 
                         <Abschnitt>Was der nächste Stern bringt</Abschnitt>
-                        <ul className="space-y-1 px-1 text-xs text-slate-300">
+                        <ul className="space-y-1 px-1 text-xs text-[#3b2516]">
                             <li>Für immer +10 % Gold beim Verkaufen und +10 % Erfahrung beim Ernten (dann +{stand.bonusDanach} %).</li>
                             {naechster && <li>Neu für dich: {naechster.name}.</li>}
                         </ul>
@@ -114,8 +115,8 @@ export default function NeueSaatFenster({ apiCall, onClose, notify, stand: anfan
                 <Abschnitt>Belohnungen zum Anschauen</Abschnitt>
                 <div className="grid grid-cols-1 gap-1 px-1 sm:grid-cols-2">
                     {(stand.kosmetik || []).map((k) => (
-                        <div key={k.id} className={`flex items-center gap-2 rounded-xl border px-2.5 py-1.5 text-xs ${k.frei ? "border-amber-700/60 text-amber-200" : "border-slate-800 text-slate-500"}`}>
-                            <span className="w-9 shrink-0 tabular-nums text-amber-300">{k.ab} ★</span>
+                        <div key={k.id} className={`flex items-center gap-2 rounded-xl border px-2.5 py-1.5 text-xs ${k.frei ? "border-amber-700/60 text-[#a87414]" : "border-[#3b2516] text-[#6e4426]"}`}>
+                            <span className="w-9 shrink-0 tabular-nums text-[#a87414]">{k.ab} ★</span>
                             <span className="min-w-0 flex-1">{k.name}</span>
                         </div>
                     ))}
@@ -125,17 +126,17 @@ export default function NeueSaatFenster({ apiCall, onClose, notify, stand: anfan
                     <div className="grid grid-cols-2 gap-3 px-1 text-xs">
                         <div>
                             <div className="mb-1 font-semibold text-red-300">Wird zurückgesetzt</div>
-                            <ul className="space-y-0.5 text-slate-400">{WEG.map((w) => <li key={w}>– {w}</li>)}</ul>
+                            <ul className="space-y-0.5 text-[#6e4426]">{WEG.map((w) => <li key={w}>– {w}</li>)}</ul>
                         </div>
                         <div>
-                            <div className="mb-1 font-semibold text-emerald-300">Bleibt dir</div>
-                            <ul className="space-y-0.5 text-slate-400">{BLEIBT.map((w) => <li key={w}>– {w}</li>)}</ul>
+                            <div className="mb-1 font-semibold text-[#2f6b2c]">Bleibt dir</div>
+                            <ul className="space-y-0.5 text-[#6e4426]">{BLEIBT.map((w) => <li key={w}>– {w}</li>)}</ul>
                         </div>
                     </div>
                 )}
 
                 {!stand.voll && (
-                    <div className="flex items-center justify-end gap-2 border-t border-slate-800 pt-3">
+                    <div className="flex items-center justify-end gap-2 border-t border-[#3b2516] pt-3">
                         {nachfragen ? (
                             <>
                                 <span className="mr-auto text-xs text-red-300">Wirklich? Das lässt sich nicht rückgängig machen.</span>
@@ -146,7 +147,7 @@ export default function NeueSaatFenster({ apiCall, onClose, notify, stand: anfan
                             </>
                         ) : (
                             <>
-                                {!stand.bereit && <span className="mr-auto text-xs text-slate-500">Noch nicht freigeschaltet.</span>}
+                                {!stand.bereit && <span className="mr-auto text-xs text-[#6e4426]">Noch nicht freigeschaltet.</span>}
                                 <PrimaryButton onClick={() => setNachfragen(true)} disabled={!stand.bereit} className="disabled:opacity-40">
                                     Neue Saat starten
                                 </PrimaryButton>
@@ -155,6 +156,6 @@ export default function NeueSaatFenster({ apiCall, onClose, notify, stand: anfan
                     </div>
                 )}
             </div>
-        </GardenModal>
+        </StandFenster>
     );
 }

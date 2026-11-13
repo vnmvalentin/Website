@@ -1,7 +1,7 @@
 // AvatarBuilderPage.jsx — /tanzfigur: Zuschauer bauen ihre Figur für die Stream-Szenen.
 //
 // Mitte: die Figur in 3D (tanzt, schaut nach vorn, lässt sich per Ziehen drehen). Links und rechts davon je ein Pfeil auf Höhe
-// von Hut, Kopf, Oberkörper, Beinen und Schuhen. Darunter Hautfarbe, Tanz zum Ansehen und Speichern.
+// von Hut, Kopf, Oberkörper, Beinen und Schuhen; das Accessoire wählt man in der Liste rechts. Darunter Hautfarbe, Tanz zum Ansehen und Speichern.
 // Gespeichert wird an der Twitch-ID (Backend /api/stream-scenes/look) — die Figur tanzt dann beim
 // Stream-Start auf der Tanzfläche und sitzt im Abspann im Kino. Ohne Login bleibt ein Entwurf im Browser.
 import React, { useContext, useEffect, useMemo, useRef, useState } from 'react';
@@ -12,7 +12,9 @@ import { PREVIEW_DANCES } from './avatarPreview';
 import { hasWebGL } from './sceneKit';
 
 const DRAFT_KEY = 'tanzfigurEntwurf';
-const SLOT_LABEL = { hat: 'Hut', head: 'Kopf', body: 'Oberkörper', legs: 'Beine', shoes: 'Schuhe' };
+const SLOT_LABEL = { hat: 'Hut', head: 'Kopf', body: 'Oberkörper', legs: 'Beine', shoes: 'Schuhe', extra: 'Accessoire' };
+/** Bereiche mit Pfeilen neben der Figur — das Accessoire steht nur in der Liste rechts. */
+const STAGE_SLOTS = ['hat', 'head', 'body', 'legs', 'shoes'];
 /** Höhe der Pfeile neben der Figur (Anteil der Bühnenhöhe), passend zur Kamera der Vorschau. */
 const SLOT_Y = { hat: 0.08, head: 0.22, body: 0.43, legs: 0.64, shoes: 0.84 };
 
@@ -93,7 +95,7 @@ export default function AvatarBuilderPage() {
 
   const randomize = () => {
     const pick = (slot) => PARTS[slot][Math.floor(Math.random() * PARTS[slot].length)].id;
-    setLook({ hat: Math.random() < 0.45 ? 'none' : pick('hat'), head: pick('head'), body: pick('body'), legs: pick('legs'), shoes: pick('shoes'), skin: Math.floor(Math.random() * SKIN_TONES.length) });
+    setLook({ hat: Math.random() < 0.45 ? 'none' : pick('hat'), head: pick('head'), body: pick('body'), legs: pick('legs'), shoes: pick('shoes'), extra: Math.random() < 0.55 ? 'none' : pick('extra'), skin: Math.floor(Math.random() * SKIN_TONES.length) });
     setStatus('');
   };
 
@@ -162,7 +164,7 @@ export default function AvatarBuilderPage() {
               Von vorn
             </button>
           )}
-          {SLOTS.map((slot) => (
+          {STAGE_SLOTS.map((slot) => (
             <React.Fragment key={slot}>
               <div className="absolute left-0 -translate-y-1/2" style={{ top: `${SLOT_Y[slot] * 100}%` }}>{arrow(slot, -1)}</div>
               <div className="absolute right-0 -translate-y-1/2" style={{ top: `${SLOT_Y[slot] * 100}%` }}>{arrow(slot, 1)}</div>

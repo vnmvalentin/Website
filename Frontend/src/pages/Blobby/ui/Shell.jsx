@@ -1,11 +1,13 @@
 // ui/Shell.jsx — Hülle aller Blobby-Volley-Seiten: eigenes Spiel statt Website-Seite. Statt Kopf- und Fußzeile der Website
 // eine schmale Strandleiste (Logo = Hauptmenü, Steuerung & Regeln, zurück zur Website). Der Look steht in theme.css.
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import { Link, Outlet } from "react-router-dom";
-import { ArrowLeftToLine, Keyboard } from "lucide-react";
+import { Keyboard } from "lucide-react";
 import HelpDialog from "./HelpDialog.jsx";
 import { ShellContext } from "./shellContext.js";
 import "./theme.css";
+import { useFontLink } from "../../../components/shell/useFontLink";
+import BackToSite from "../../../components/shell/BackToSite";
 
 const FONT_HREF = "https://fonts.googleapis.com/css2?family=Lilita+One&family=Rubik:wght@400;500;600;700&display=swap";
 
@@ -13,13 +15,7 @@ export default function BlobbyShell() {
   const [helpOpen, setHelpOpen] = useState(false);
 
   // Schriften einmal laden (siehe theme.css, warum nicht per @import)
-  useEffect(() => {
-    if (document.querySelector(`link[href="${FONT_HREF}"]`)) return;
-    const link = document.createElement("link");
-    link.rel = "stylesheet";
-    link.href = FONT_HREF;
-    document.head.appendChild(link);
-  }, []);
+  useFontLink(FONT_HREF);
 
   const openHelp = useCallback(() => setHelpOpen(true), []);
   const ctx = useMemo(() => ({ openHelp }), [openHelp]);
@@ -34,9 +30,7 @@ export default function BlobbyShell() {
               <button type="button" onClick={openHelp} className="bv-btn bv-btn-sm bv-btn-ghost" title="Steuerung und Regeln">
                 <Keyboard size={15} /><span className="hidden sm:inline">Steuerung &amp; Regeln</span>
               </button>
-              <Link to="/fun" className="bv-icon-btn" title="Zurück zur Website" aria-label="Zurück zur Website">
-                <ArrowLeftToLine size={17} />
-              </Link>
+              <BackToSite className="bv-btn bv-btn-sm bv-btn-ghost" iconSize={15} />
             </div>
           </div>
         </header>

@@ -136,11 +136,18 @@ export default function useGardenLobby({ enabled, worldCode, createWorld, appear
                 // Gold-Shop-Reskin des Namensschilds (core/reskins.js) — live vom
                 // Server, wie badge/appearance auch.
                 nameplate: raw.nameplate || null,
+                // Hut aus dem Gold-Shop (core/reskins.js hut) — ebenso live vom Server
+                hut: raw.hut || null,
                 // Das Positions-Update traegt kein `held` — sonst wuerde das, was
                 // jemand in der Hand haelt, bei jeder Bewegung verschwinden.
                 held: raw.held !== undefined ? raw.held : (existing?.held ?? null),
                 gold: Number.isFinite(raw.gold) ? raw.gold : (existing?.gold ?? 0),
                 level: Number.isFinite(raw.level) ? raw.level : (existing?.level ?? 1),
+                // Innenraum, in dem die Figur gerade steht (Haus/Gold-Shop, siehe sendRaum).
+                // rx/ry = gezeichneter Standort im Raum, zieht ui/HausInnen.jsx nach.
+                raum: raw.raum || null,
+                rx: raw.raum && existing?.raum ? existing.rx : undefined,
+                ry: raw.raum && existing?.raum ? existing.ry : undefined,
                 // Sterne aus „Neue Saat" — Abzeichen, goldener Name, Sternenspur.
                 sterne: Number.isFinite(raw.sterne) ? raw.sterne : (existing?.sterne ?? 0),
             });
@@ -238,7 +245,7 @@ export default function useGardenLobby({ enabled, worldCode, createWorld, appear
                 plot.petPlacements = plot.petPlacements.map((p) => {
                     const alt = p && bekannt.get(p.id);
                     if (!alt || !Number.isFinite(alt.x)) return p;
-                    return { ...p, x: alt.x, y: alt.y, vx: alt.vx, vy: alt.vy, changeDirAt: alt.changeDirAt, facingRight: alt.facingRight };
+                    return { ...p, x: alt.x, y: alt.y, vx: alt.vx, vy: alt.vy, changeDirAt: alt.changeDirAt, facingRight: alt.facingRight, tut: alt.tut };
                 });
             }
             plotsRef.current.set(plot.slotIndex, plot);
@@ -403,6 +410,34 @@ export default function useGardenLobby({ enabled, worldCode, createWorld, appear
     }, []);
 
     /**
+     * Standort im Innenraum melden (Haus oder Gold-Shop, ui/HausInnen.jsx) — jedes Bild
+     * aufgerufen, gedrosselt auf den Server-Takt; steht man still, reicht einmal je Sekunde.
+     * `art` leer = wieder draußen, das geht sofort hinaus.
+     */
+    const raumGesendetRef = useRef({ um: 0, kennung: "" });
+    const sendRaum = useCallback((art, wirt, x, y, rechts, laeuft) => {
+        const socket = socketRef.current;
+        if (!socket?.connected) return;
+        const g = raumGesendetRef.current;
+        if (!art) {
+            if (g.kennung === "") return;
+            g.kennung = "";
+            g.um = 0;
+            socket.emit("garden:raum", null);
+            return;
+        }
+        const now = performance.now();
+        if (now - g.um < MOVE_SEND_MS) return;
+        const kennung = `${art}|${wirt || ""}|${Math.round(x)}|${Math.round(y)}|${rechts ? 1 : 0}|${laeuft ? 1 : 0}`;
+        if (kennung === g.kennung && now - g.um < 1000) return;
+        g.kennung = kennung;
+        g.um = now;
+        socket.emit("garden:raum", { art, wirt: wirt || null, x, y, rechts, laeuft });
+    }, []);
+    // Nach einem Verbindungsabriss kennt der Server den Raum nicht mehr: neu melden lassen
+    useEffect(() => { if (!connected) raumGesendetRef.current.kennung = "-"; }, [connected]);
+
+    /**
      * Auf einen Mitspieler schiessen. Ob das erlaubt ist, entscheidet AUSSCHLIESSLICH
      * der Server (garden:shotgun in Backend/garden/world/lobby.js) — hier wird nur
      * gemeldet, wen es treffen soll.
@@ -430,6 +465,6 @@ export default function useGardenLobby({ enabled, worldCode, createWorld, appear
 
     return {
         slotIndex, connected, worldFull, onlinePlayers, remotePlayersRef, plotsRef, sendMove, sendHeld,
-        activeCode, isPublicWorld, joinError, chatVerlauf, sendChat, sendShotgun,
+        activeCode, isPublicWorld, joinError, chatVerlauf, sendChat, sendShotgun, sendRaum,
     };
 }

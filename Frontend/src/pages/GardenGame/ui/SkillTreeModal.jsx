@@ -36,7 +36,7 @@
 
 import React, { useMemo, useRef, useEffect, useState } from 'react';
 import { ChevronsRight } from 'lucide-react';
-import { GardenModal } from './gardenUi';
+import { StandFenster, NebenKnopfHolz } from './laden/Marktstand';
 import { HudIcon, SkillControlIcon, SkillIcon } from './gameIcons';
 
 const AST_REIHENFOLGE = ["links", "mitte", "rechts"];
@@ -166,7 +166,7 @@ function knotenInfo(skill, i, zustand, kontext, tierInfo) {
             status: naechsteVorhanden
                 ? `Nächste Stufe: ${stufenText(skill, i + 1)} ab Level ${levelFuerStufe(skill, i + 1)}`
                 : "Voll ausgebaut.",
-            statusFarbe: "text-slate-400",
+            statusFarbe: "text-[#6e4426]",
         };
     }
     if (zustand === "naechste") {
@@ -174,7 +174,7 @@ function knotenInfo(skill, i, zustand, kontext, tierInfo) {
             ...basis,
             wertLabel: "Bringt",
             status: "Bereit — ein Klick lernt diese Stufe.",
-            statusFarbe: "text-violet-300",
+            statusFarbe: "text-[#2f5a28] font-bold",
         };
     }
     if (zustand === "gesperrtTier") {
@@ -182,7 +182,7 @@ function knotenInfo(skill, i, zustand, kontext, tierInfo) {
             ...basis,
             wertLabel: "Bringt",
             status: `Zweig noch gesperrt — ${tierInfo?.investiert ?? 0} von ${tierInfo?.benoetigt ?? "?"} Fähigkeiten davor brauchen mindestens einen Punkt.`,
-            statusFarbe: "text-amber-300",
+            statusFarbe: "text-[#a8302a] font-bold",
         };
     }
     if (zustand === "gesperrtLevel") {
@@ -190,7 +190,7 @@ function knotenInfo(skill, i, zustand, kontext, tierInfo) {
             ...basis,
             wertLabel: "Bringt",
             status: `Ab Level ${levelFuerStufe(skill, i)} (du bist Level ${kontext.level}).`,
-            statusFarbe: "text-amber-300",
+            statusFarbe: "text-[#a8302a] font-bold",
         };
     }
     if (zustand === "gesperrtTiefe") {
@@ -198,7 +198,7 @@ function knotenInfo(skill, i, zustand, kontext, tierInfo) {
             ...basis,
             wertLabel: "Bringt",
             status: `Braucht ${punkteFuerStufe(i)} insgesamt vergebene Punkte (du hast ${kontext.punkteVergeben}) — verteile erst breiter.`,
-            statusFarbe: "text-amber-300",
+            statusFarbe: "text-[#a8302a] font-bold",
         };
     }
     if (zustand === "gesperrtPunkte") {
@@ -206,7 +206,7 @@ function knotenInfo(skill, i, zustand, kontext, tierInfo) {
             ...basis,
             wertLabel: "Bringt",
             status: "Kein Fähigkeitspunkt übrig.",
-            statusFarbe: "text-amber-300",
+            statusFarbe: "text-[#a8302a] font-bold",
         };
     }
     // "zukunft": weiter als die nächste Stufe — die Sperre ist immer dieselbe,
@@ -215,11 +215,11 @@ function knotenInfo(skill, i, zustand, kontext, tierInfo) {
         ...basis,
         wertLabel: "Bringt",
         status: `Erst Stufe ${kontext.jetzt + 1} lernen — Stufen lassen sich nicht überspringen.`,
-        statusFarbe: "text-slate-500",
+        statusFarbe: "text-[#8a7a5a]",
     };
 }
 
-function Knoten({ skill, i, x, farbe, zustand, onLernen, info, onHover, onMove, onLeave }) {
+function Knoten({ skill, x, farbe, zustand, onLernen, info, onHover, onMove, onLeave }) {
     const gelernt = zustand === "gelernt";
     const naechste = zustand === "naechste";
     const klickbar = naechste;
@@ -239,16 +239,16 @@ function Knoten({ skill, i, x, farbe, zustand, onLernen, info, onHover, onMove, 
             onMouseEnter={(e) => onHover(e, info)}
             onMouseMove={onMove}
             onMouseLeave={onLeave}
-            className={`absolute top-1/2 -translate-y-1/2 flex items-center justify-center rounded-lg border text-[10px] font-semibold transition-colors ${
+            className={`absolute top-1/2 -translate-y-1/2 flex items-center justify-center border-[3px] text-[10px] font-bold transition-transform duration-75 ${
                 gelernt
-                    ? `${farbe.bg} border-transparent text-slate-950`
+                    ? `${farbe.bg} text-[#3b2516]`
                     : naechste
-                        ? "border-violet-500 bg-violet-600 text-white hover:bg-violet-500 cursor-pointer"
+                        ? "animate-pulse bg-[#ffe066] text-[#3b2516] hover:-translate-y-[calc(50%+2px)] cursor-pointer"
                         : zustand === "gesperrtLevel" || zustand === "gesperrtTier"
-                            ? "border-slate-800 bg-slate-900 text-slate-700 cursor-default"
-                            : "border-slate-700 bg-slate-800/60 text-slate-500 cursor-default"
+                            ? "bg-[#d8c89a] text-[#8a7a5a] cursor-default"
+                            : "bg-[#e8d7a8] text-[#8a7a5a] cursor-default"
             }`}
-            style={{ left: x, width: KNOTEN, height: KNOTEN }}
+            style={{ left: x, width: KNOTEN, height: KNOTEN, borderColor: "#3b2516", boxShadow: gelernt || naechste ? "0 3px 0 0 #3b2516" : "none" }}
         >
             {gelernt ? <HudIcon.check size={13} /> : naechste ? <SkillControlIcon.learn size={13} /> : <HudIcon.locked size={10} />}
         </button>
@@ -281,24 +281,24 @@ function SkillZeile({ skill, farbe, stand, onLernen, onHover, onMove, onLeave })
         // vorher liefen die Zeilen ohne jede Kante ineinander, nur das Icon+Name-Label
         // hatte eine eigene Fläche. Eine dünne untere Kante über die GANZE Zeile
         // (Label UND Level-Achse) reicht als Trenner, ohne die Achse selbst zuzustellen.
-        <div className="flex items-center border-b border-slate-800/60" style={{ height: ZEILEN_HOEHE }}>
+        <div className="flex items-center border-b-2 border-[#e3cfa8]" style={{ height: ZEILEN_HOEHE }}>
             <div
-                className="sticky left-0 z-10 shrink-0 flex items-center gap-2 bg-slate-900/98 pr-3 backdrop-blur-sm"
-                style={{ width: LABEL_BREITE }}
+                className="sticky left-0 z-10 shrink-0 flex items-center gap-2 border-r-[3px] border-[#3b2516] bg-[#c99258] py-1 pl-1.5 pr-2"
+                style={{ width: LABEL_BREITE, height: ZEILEN_HOEHE - 2, boxShadow: "inset 0 3px 0 0 #d8a870" }}
             >
                 {/* Feedback 30.08.: eigenes Icon je Fähigkeit — vorher stand hier nur
                     der Name, jeder Knoten selbst zeigt ohnehin nur Zustand (gelernt/
                     nächste/gesperrt), nie WELCHE Fähigkeit. Feedback 30.08. (zweite
                     Runde): die eigene Farbblase je Fähigkeit (siehe SKILL_FARBE) hebt
                     die Zeilen zusätzlich klarer voneinander ab als der reine Name. */}
-                <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 border-slate-950/50 ${farbe.bg}`}>
+                <span className={`flex h-9 w-9 shrink-0 items-center justify-center border-[3px] border-[#3b2516] ${farbe.bg}`}>
                     {SkillIcon[skill.id] ? React.createElement(SkillIcon[skill.id], { size: 18 }) : null}
                 </span>
                 <div className="min-w-0">
-                    <div className={`text-xs font-medium ${voll ? farbe.text : "text-slate-200"} truncate`}>
+                    <div className="truncate text-xs font-bold text-[#3b2516]">
                         {skill.name}
                     </div>
-                    <div className="text-[10px] tabular-nums text-slate-500 truncate">
+                    <div className="truncate text-[10px] font-bold tabular-nums text-[#5a3a22]">
                         {hatWirkung(skill, jetzt) ? stufenText(skill, jetzt) : "—"}
                         {voll ? " · max" : ` · ${jetzt}/${skill.stufen}`}
                     </div>
@@ -307,13 +307,13 @@ function SkillZeile({ skill, farbe, stand, onLernen, onHover, onMove, onLeave })
             <div className="relative shrink-0" style={{ width: letzterX + KNOTEN + 24, height: ZEILEN_HOEHE }}>
                 <span
                     aria-hidden="true"
-                    className="pointer-events-none absolute top-1/2 -translate-y-1/2 h-0.5"
-                    style={{ left: KNOTEN / 2 + ersterX, width: Math.max(0, letzterX - ersterX), background: "#1e293b" }}
+                    className="pointer-events-none absolute top-1/2 h-2 -translate-y-1/2"
+                    style={{ left: KNOTEN / 2 + ersterX, width: Math.max(0, letzterX - ersterX), background: "#c9b48a", boxShadow: "inset 0 2px 0 0 #b09a70" }}
                 />
                 <span
                     aria-hidden="true"
-                    className="pointer-events-none absolute top-1/2 -translate-y-1/2 h-0.5"
-                    style={{ left: KNOTEN / 2 + ersterX, width: Math.max(0, helleBisX - ersterX), background: farbe.linie }}
+                    className="pointer-events-none absolute top-1/2 h-2 -translate-y-1/2"
+                    style={{ left: KNOTEN / 2 + ersterX, width: Math.max(0, helleBisX - ersterX), background: farbe.linie, boxShadow: "inset 0 2px 0 0 rgba(255,255,255,0.35)" }}
                 />
                 {Array.from({ length: skill.stufen }, (_, idx) => {
                     const i = idx + 1;
@@ -349,16 +349,16 @@ function TierGate({ tier, x, hoehe }) {
             style={{ left: x, height: hoehe }}
         >
             <div
-                className={`absolute left-1 top-0 flex items-center gap-1 whitespace-nowrap text-[10px] font-medium ${
-                    erfuellt ? "text-slate-600" : "text-violet-300"
+                className={`absolute left-1 top-0 flex items-center gap-1 whitespace-nowrap border-2 border-[#3b2516] px-1 text-[10px] font-bold ${
+                    erfuellt ? "bg-[#dcebc8] text-[#2f5a28]" : "bg-[#ffe066] text-[#3b2516]"
                 }`}
             >
                 {erfuellt ? <HudIcon.check size={10} /> : <HudIcon.locked size={10} />}
                 {tier.investiert}/{tier.benoetigt} nötig
             </div>
             <div
-                className={`absolute left-0 bottom-0 border-l ${erfuellt ? "border-slate-700" : "border-violet-600/70"}`}
-                style={{ top: 14, borderLeftStyle: "dashed" }}
+                className={`absolute left-0 bottom-0 border-l-[3px] ${erfuellt ? "border-[#b09a70]" : "border-[#c8403a]"}`}
+                style={{ top: 18, borderLeftStyle: "dashed" }}
             />
         </div>
     );
@@ -393,15 +393,15 @@ function KnotenTooltip({ hover }) {
     const { skill, stufe, gesamt, wert, wertLabel, beschreibung, status, statusFarbe } = info;
     return (
         <div
-            className="fixed z-[80] pointer-events-none w-[260px] rounded-2xl border border-slate-700 bg-slate-900/95 px-3 py-2.5 shadow-xl backdrop-blur-sm"
+            className="fixed z-[80] pointer-events-none w-[260px] border-[3px] border-[#3b2516] bg-[#f3e3c3] px-3 py-2.5 shadow-[0_4px_0_0_#3b2516]"
             style={tooltipPosition(x, y)}
         >
             <div className="flex items-baseline justify-between gap-2">
-                <span className="text-xs font-semibold text-white">{skill.name}</span>
-                <span className="text-[10px] tabular-nums text-slate-500 shrink-0">Stufe {stufe}/{gesamt}</span>
+                <span className="text-xs font-bold text-[#3b2516]">{skill.name}</span>
+                <span className="shrink-0 text-[10px] font-bold tabular-nums text-[#8a5a32]">Stufe {stufe}/{gesamt}</span>
             </div>
-            <div className="mt-1 text-[11px] leading-snug text-slate-400">{beschreibung}</div>
-            <div className="mt-1.5 text-xs font-semibold tabular-nums text-slate-200">
+            <div className="mt-1 text-[11px] leading-snug text-[#6e4426]">{beschreibung}</div>
+            <div className="mt-1.5 text-xs font-bold tabular-nums text-[#3b2516]">
                 {wertLabel}: {wert}
             </div>
             <div className={`mt-1 text-[11px] leading-snug ${statusFarbe}`}>{status}</div>
@@ -476,30 +476,37 @@ export default function SkillTreeModal({ offen, onClose, onBack, katalog, stand,
 
     return (
         <>
-        <GardenModal
+        <StandFenster
             onClose={onClose}
             onBack={onBack}
-            title="Fähigkeiten"
-            subtitle="Jede Ernte bringt Erfahrung. Jedes Level bringt einen Punkt."
-            width="max-w-6xl"
+            titel="Fähigkeiten"
+            untertitel="Jede Ernte bringt Erfahrung, jedes Level einen Punkt"
+            markise={false}
+            breite="max-w-6xl"
+            bild="/garden-assets/icons/hud/faehigkeiten_pixel.png"
         >
             {/* ── Kopf: Level, Fortschritt, offene Punkte ─────────────────────── */}
-            <div className="mb-4 rounded-2xl border border-slate-800 bg-slate-900/60 p-3">
+            <div className="mb-4 mt-2 border-[3px] border-[#3b2516] bg-[#f3e3c3] p-3 shadow-[0_4px_0_0_#3b2516]">
                 <div className="flex items-baseline justify-between gap-3">
                     <div className="flex items-baseline gap-2">
-                        <span className="text-2xl font-semibold tabular-nums text-white">Level {level}</span>
-                        <span className="text-[11px] tabular-nums text-slate-500">
+                        <span className="border-2 border-[#3b2516] bg-[#8a5ac8] px-2 py-0.5 text-xl font-bold tabular-nums text-white">Level {level}</span>
+                        <span className="text-[11px] font-bold tabular-nums text-[#6e4426]">
                             {xpBraucht > 0
                                 ? `${xpHier.toLocaleString("de-DE")} / ${xpBraucht.toLocaleString("de-DE")} XP`
                                 : "Höchstlevel erreicht"}
                         </span>
                     </div>
-                    <span className={`text-sm font-medium tabular-nums ${punkteOffen > 0 ? "text-violet-300" : "text-slate-500"}`}>
-                        {punkteOffen} {punkteOffen === 1 ? "Punkt" : "Punkte"} frei
+                    <span className="flex items-center gap-1.5">
+                        {Array.from({ length: Math.min(punkteOffen, 8) }, (_, i) => (
+                            <span key={i} className="h-4 w-4 animate-pulse border-2 border-[#3b2516] bg-[#ffe066]" style={{ animationDelay: `${i * 120}ms` }} />
+                        ))}
+                        <span className={`text-sm font-bold tabular-nums ${punkteOffen > 0 ? "text-[#3b2516]" : "text-[#8a7a5a]"}`}>
+                            {punkteOffen} {punkteOffen === 1 ? "Punkt" : "Punkte"} frei
+                        </span>
                     </span>
                 </div>
-                <div className="mt-2 h-1.5 w-full overflow-hidden rounded-xl bg-slate-800">
-                    <div className="h-full bg-violet-500" style={{ width: `${anteil * 100}%` }} />
+                <div className="mt-2 h-3.5 w-full border-2 border-[#3b2516] bg-[#c9b48a]">
+                    <div className="h-full bg-[#9a68d8]" style={{ width: `${anteil * 100}%`, boxShadow: "inset 0 2px 0 0 rgba(255,255,255,0.35)" }} />
                 </div>
             </div>
 
@@ -508,17 +515,17 @@ export default function SkillTreeModal({ offen, onClose, onBack, katalog, stand,
                 Der Name jeder Fähigkeit steht sticky links, bleibt also beim
                 Scrollen sichtbar — sonst wüsste man nach ein paar hundert Pixeln
                 nicht mehr, welche Zeile man gerade ansieht. */}
-            <div ref={scrollRef} className="overflow-x-auto pb-2" style={{ overscrollBehavior: "contain" }}>
+            <div ref={scrollRef} className="overflow-x-auto border-[3px] border-[#3b2516] bg-[#f3e3c3] pb-2 shadow-[0_4px_0_0_#3b2516]" style={{ overscrollBehavior: "contain" }}>
                 <div className="relative" style={{ width: LABEL_BREITE + gesamtbreite }}>
                     {/* Level-Lineal */}
-                    <div className="sticky top-0 z-20 flex items-center bg-slate-900/98 backdrop-blur-sm" style={{ height: 24 }}>
+                    <div className="sticky top-0 z-20 flex items-center border-b-[3px] border-[#3b2516] bg-[#b07a45]" style={{ height: 24 }}>
                         <div className="sticky left-0 shrink-0" style={{ width: LABEL_BREITE }} />
                         <div className="relative shrink-0" style={{ width: gesamtbreite, height: 24 }}>
                             {levelMarken.map((l) => (
                                 <span
                                     key={l}
-                                    className={`absolute -translate-x-1/2 text-[10px] tabular-nums ${
-                                        l === level ? "font-semibold text-violet-300" : "text-slate-600"
+                                    className={`absolute -translate-x-1/2 text-[10px] font-bold tabular-nums ${
+                                        l === level ? "border-2 border-[#3b2516] bg-[#8a5ac8] px-1 text-white" : "text-[#3b2516]"
                                     }`}
                                     style={{ left: xVonLevel(l) + KNOTEN / 2 }}
                                 >
@@ -549,8 +556,8 @@ export default function SkillTreeModal({ offen, onClose, onBack, katalog, stand,
                                         als Folge). Dieselbe Deckung wie bei den Zeilen-Labels
                                         darunter (siehe SkillZeile), nur einmal je Spur. */}
                                     <div
-                                        className={`sticky left-0 z-10 flex items-center gap-1.5 bg-slate-900/98 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider backdrop-blur-sm ${farbe.text}`}
-                                        style={{ width: LABEL_BREITE, height: 22 }}
+                                        className="sticky left-0 z-10 flex items-center gap-1.5 border-y-2 border-[#3b2516] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white"
+                                        style={{ width: LABEL_BREITE, height: 22, background: farbe.linie }}
                                     >
                                         <ChevronsRight size={11} />
                                         {AST_LABEL[seite]}
@@ -568,22 +575,17 @@ export default function SkillTreeModal({ offen, onClose, onBack, katalog, stand,
                 </div>
             </div>
 
-            <div className="mt-4 flex items-center justify-between gap-3 border-t border-slate-800 pt-3">
-                <p className="text-[11px] text-slate-500">
+            <div className="mt-4 flex items-center justify-between gap-3">
+                <p className="text-[11px] text-[#e8d7a8]">
                     {punkteVergeben > 0
-                        ? <>Zurücksetzen kostet <span className="text-amber-300">{resetKosten.toLocaleString("de-DE")} Gold</span> — der Preis wächst mit jedem vergebenen Punkt. Überleg dir die Verteilung.</>
+                        ? <>Zurücksetzen kostet <span className="font-bold text-[#ffe066]">{resetKosten.toLocaleString("de-DE")} Gold</span> — der Preis wächst mit jedem vergebenen Punkt. Überleg dir die Verteilung.</>
                         : "Gelernte Fähigkeiten wirken ab der nächsten Ernte."}
                 </p>
-                <button
-                    type="button"
-                    onClick={onZuruecksetzen}
-                    disabled={punkteVergeben === 0}
-                    className="flex shrink-0 items-center gap-1.5 rounded-2xl border border-slate-700 bg-slate-800/60 px-3 py-2 text-xs font-medium text-slate-200 transition-colors hover:bg-slate-800 disabled:opacity-40 disabled:hover:bg-slate-800/60"
-                >
-                    <SkillControlIcon.reset size={13} /> Punkte zurückholen
-                </button>
+                <NebenKnopfHolz onClick={onZuruecksetzen} disabled={punkteVergeben === 0} title="Alle vergebenen Punkte zurückholen">
+                    <span className="inline-flex items-center gap-1.5"><SkillControlIcon.reset size={13} /> Punkte zurückholen</span>
+                </NebenKnopfHolz>
             </div>
-        </GardenModal>
+        </StandFenster>
         <KnotenTooltip hover={hover} />
         </>
     );

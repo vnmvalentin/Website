@@ -110,17 +110,25 @@ export function wallTexture() {
 }
 
 /** Samtvorhang: senkrechte Falten aus hellen und dunklen Bahnen. */
-export function curtainTexture() {
+export function curtainTexture(folds = 0) {
   const w = 256, h = 512;
   const c = canvas(w, h);
   const ctx = c.getContext('2d');
-  const g = ctx.createLinearGradient(0, 0, w, 0);
-  const folds = 6;
-  for (let i = 0; i <= folds * 2; i++) {
-    const p = i / (folds * 2);
-    g.addColorStop(p, i % 2 ? '#3d7fe0' : '#173d82');
+  if (folds > 0) {
+    // Zur gefalteten Geometrie (crStyle.foldedClothGeometry): die Falten zeichnet das Licht, die
+    // Farbe malt nur Samt-Glanz auf den Kämmen und Tiefe in den Tälern dazu
+    const g = ctx.createLinearGradient(0, 0, w, 0);
+    for (let i = 0; i <= folds * 4; i++) {
+      const s = Math.sin((i / (folds * 4)) * folds * Math.PI * 2);
+      g.addColorStop(i / (folds * 4), s > 0.5 ? '#2c5fc0' : s < -0.5 ? '#0f2763' : '#1d4291');
+    }
+    ctx.fillStyle = g;
+  } else {
+    const g = ctx.createLinearGradient(0, 0, w, 0);
+    const n = 6;
+    for (let i = 0; i <= n * 2; i++) g.addColorStop(i / (n * 2), i % 2 ? '#3d7fe0' : '#173d82');
+    ctx.fillStyle = g;
   }
-  ctx.fillStyle = g;
   ctx.fillRect(0, 0, w, h);
   const shade = ctx.createLinearGradient(0, 0, 0, h);
   shade.addColorStop(0, 'rgba(0,0,0,0.45)');
@@ -137,20 +145,51 @@ export function curtainTexture() {
 }
 
 /** Auktionstafel: dunkler grüner Filz mit feinem Korn und goldener Schrift „AUKTION“ oben. */
-export function boardTexture(title) {
-  const w = 1024, h = 640;
+export function boardTexture(title, aspect = 1.6) {
+  // Bildformat = Tafelformat, sonst verzerren die Rauten
+  const w = 1024, h = Math.round(1024 / Math.min(3, Math.max(0.5, aspect)));
   const c = canvas(w, h);
   const ctx = c.getContext('2d');
-  const rand = rng(5);
-  const g = ctx.createRadialGradient(w / 2, h * 0.45, 40, w / 2, h / 2, w * 0.7);
-  g.addColorStop(0, '#1d4a94');
-  g.addColorStop(1, '#0f2756');
-  ctx.fillStyle = g;
+  // Tiefer Samt: dunkler als die blau-goldenen Kartensockel, damit die Karten davor leuchten
+  ctx.fillStyle = '#0f2252';
   ctx.fillRect(0, 0, w, h);
-  speckle(ctx, w, h, rand, 20000, 0.06);
-  ctx.strokeStyle = 'rgba(232,190,100,0.55)';
-  ctx.lineWidth = 4;
-  ctx.strokeRect(26, 26, w - 52, h - 52);
+  // Geprägtes Rautenmuster, ganz leise (Samt mit Muster wie die Menüs im Spiel)
+  const D = 96;
+  for (let y = -D; y < h + D; y += D / 2) {
+    const row = Math.round(y / (D / 2));
+    for (let x = -D + (row % 2 ? D / 2 : 0); x < w + D; x += D) {
+      ctx.beginPath();
+      ctx.moveTo(x, y - D / 2 + 3); ctx.lineTo(x + D / 2 - 3, y); ctx.lineTo(x, y + D / 2 - 3); ctx.lineTo(x - D / 2 + 3, y);
+      ctx.closePath();
+      ctx.fillStyle = 'rgba(70,120,220,0.07)';
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(0,6,30,0.22)';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
+  }
+  // Lichtfleck der Scheinwerfer: warm, weich, auf die Kartenreihen (oberhalb der Mitte)
+  const pool = ctx.createRadialGradient(w / 2, h * 0.42, 10, w / 2, h * 0.48, Math.max(w, h) * 0.62);
+  pool.addColorStop(0, 'rgba(255,214,150,0.42)');
+  pool.addColorStop(0.45, 'rgba(255,190,120,0.16)');
+  pool.addColorStop(1, 'rgba(255,190,120,0)');
+  ctx.fillStyle = pool;
+  ctx.fillRect(0, 0, w, h);
+  // Ränder dunkler (Rahmen wirft Schatten in die Vertiefung) — oben am stärksten
+  const edge = (x0, y0, x1, y1, a) => {
+    const g = ctx.createLinearGradient(x0, y0, x1, y1);
+    g.addColorStop(0, `rgba(2,6,24,${a})`);
+    g.addColorStop(1, 'rgba(2,6,24,0)');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, w, h);
+  };
+  edge(0, 0, 0, 70, 0.75);
+  edge(0, h, 0, h - 40, 0.35);
+  edge(0, 0, 55, 0, 0.5);
+  edge(w, 0, w - 55, 0, 0.5);
+  ctx.strokeStyle = 'rgba(232,180,80,0.45)';
+  ctx.lineWidth = 3;
+  ctx.strokeRect(22, 22, w - 44, h - 44);
   if (title) {
   ctx.font = '64px "Lilita One", system-ui, sans-serif';
   ctx.textAlign = 'center';

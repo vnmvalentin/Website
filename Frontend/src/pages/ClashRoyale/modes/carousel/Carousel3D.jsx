@@ -21,6 +21,8 @@ import { plaqueTexture, frameRingTexture } from '../auction/auctionTextures';
 import { platformTexture, stripeTexture, feltTexture, woodTexture, groundTexture, checkTexture, cobbleTexture } from './carouselTextures';
 import { createPostFX, cloneModel, scatter, warmUp, createQualityGovernor } from '../scene3d/kit';
 import { createCrAssets } from '../scene3d/crAssets';
+import { CR_GRADE, crEase, cardShadowTexture, cardSocketTexture, goldTrimTexture, addOutline } from '../scene3d/crStyle';
+import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 
 const cardTextureUrl = (id) => `/api/clash/card-img/${encodeURIComponent(id)}`;
 const animOff = () => document.documentElement.dataset.crAnim === 'off';
@@ -108,15 +110,16 @@ const Carousel3D = React.forwardRef(function Carousel3D(props, ref) {
     // (Pflasterweg, Filz) flackern durch den Untergrund
     const camera = new THREE.PerspectiveCamera(FOV, 1, 0.6, 250);
     if (import.meta.env.DEV) window.__cr3dScene = scene; // Prüfstand: Szene im Browser untersuchen
-    const post = createPostFX(renderer, scene, camera, { bloom: { strength: 0.3, radius: 0.45, threshold: 1.1 }, vignette: 0.2 });
+    const post = createPostFX(renderer, scene, camera, { bloom: { strength: 0.3, radius: 0.45, threshold: 1.1 }, vignette: 0.2, grade: CR_GRADE });
     // Clash-Royale-Look: gemalte Texturen und Objekte, im Code erzeugt (keine Downloads, kein Warten)
     const assets = createCrAssets(renderer);
     assets.sky(scene, 'kloofendal_48d_partly_cloudy_puresky');
     scene.environmentIntensity = 0.6;
 
     // ── Licht: sonniger Festplatz ────────────────────────────────────────────
-    scene.add(new THREE.HemisphereLight(0xe2f3ff, 0x8a7350, 0.9));
-    const sun = new THREE.DirectionalLight(0xfff0d0, 2.6);
+    // Himmelslicht kühl (Schatten bläulich), Sonne warm — die Tische leuchten warm vor kühlem Grund
+    scene.add(new THREE.HemisphereLight(0xc9dcff, 0x5a5a78, 1.0));
+    const sun = new THREE.DirectionalLight(0xffe6bc, 2.7);
     sun.position.set(-8, 16, 10);
     sun.castShadow = true;
     sun.shadow.mapSize.set(2048, 2048);
@@ -128,7 +131,8 @@ const Carousel3D = React.forwardRef(function Carousel3D(props, ref) {
     // ── Boden + Zelte im Hintergrund ────────────────────────────────────────────
     const groundTex = own(groundTexture());
     groundTex.repeat.set(60, 60);
-    const groundMat = own(new THREE.MeshStandardMaterial({ map: groundTex, color: 0xa8d07a, roughness: 1 }));
+    // Wiese etwas dunkler und kühler: Hintergrund, nicht Blickfang
+    const groundMat = own(new THREE.MeshStandardMaterial({ map: groundTex, color: 0x6e9a7c, roughness: 1 }));
     assets.pbr(groundMat, 'leafy_grass', 240 / 2.5, 240 / 2.5);
     const ground = new THREE.Mesh(own(new THREE.PlaneGeometry(240, 240)), groundMat);
     ground.rotation.x = -Math.PI / 2;
@@ -162,9 +166,12 @@ const Carousel3D = React.forwardRef(function Carousel3D(props, ref) {
     const woodTex = own(woodTexture());
     const woodMat = own(new THREE.MeshStandardMaterial({ map: woodTex, roughness: 0.8, color: 0xd9b89a }));
     assets.pbr(woodMat, 'wood_table_001', 1, 1);
-    const feltTex = own(feltTexture());
-    const feltMat = own(new THREE.MeshStandardMaterial({ map: feltTex, roughness: 0.95, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -4 }));
     const goldMat = own(new THREE.MeshStandardMaterial({ color: 0xe0b04a, roughness: 0.28, metalness: 1 }));
+    // Tischkante: gemaltes Gold mit Prägeverlauf (wie der Rahmen der Auktionstafel)
+    const trimMat = own(new THREE.MeshStandardMaterial({ map: own(goldTrimTexture()), roughness: 0.5, metalness: 0.2 }));
+    // Kartensockel (Blau+Gold = anklickbar) und weiche Kartenschatten darauf
+    const socketMat = own(new THREE.MeshStandardMaterial({ map: own(cardSocketTexture()), roughness: 0.55, metalness: 0.1 }));
+    const shadowTex = own(cardShadowTexture());
     const redMat = own(new THREE.MeshStandardMaterial({ color: 0xb3242b, roughness: 0.6 }));
     const backTex = own(new THREE.TextureLoader().load(propsRef.current.unknownImg));
     backTex.colorSpace = THREE.SRGBColorSpace;
@@ -217,7 +224,13 @@ const Carousel3D = React.forwardRef(function Carousel3D(props, ref) {
     dotGeo.userData.shared = true;
     const holeGeo = own(new THREE.PlaneGeometry(CW * 0.96, CH * 0.96));
     holeGeo.userData.shared = true;
-    const holeMat = own(new THREE.MeshStandardMaterial({ color: 0x132a52, roughness: 1 }));
+    const holeMat = own(new THREE.MeshStandardMaterial({ color: 0x0b1a3d, roughness: 1, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -4 }));
+    // Sockel liegt auf dem Filz, Karte schwebt knapp darüber (SOCKET_TOP + CARD_REST)
+    const SOCKET_TOP = 0.03, CARD_REST = 0.035;
+    const socketGeo = own(new RoundedBoxGeometry(CW + 0.1, SOCKET_TOP + 0.005, CH + 0.1, 2, 0.015));
+    socketGeo.userData.shared = true;
+    const shadowGeo = own(new THREE.PlaneGeometry(CW * 1.34, CH * 1.34));
+    shadowGeo.userData.shared = true;
 
     // ── Festplatz-Deko rund ums Karussell (steht fest, dreht nicht mit) ───────────
     // Nur im Ring, den der Überblick zeigt; vorne (Richtung Kamera, Winkel ≈ 0) bleibt frei,
@@ -254,7 +267,8 @@ const Carousel3D = React.forwardRef(function Carousel3D(props, ref) {
       pathTex.repeat.set(rep, rep);
       pathTex.needsUpdate = true;
       disposables.push(pathTex);
-      const pathMat = new THREE.MeshStandardMaterial({ map: pathTex, roughness: 1 });
+      // Pflaster kühl und gedämpft — war heller als die Tische und zog den Blick
+      const pathMat = new THREE.MeshStandardMaterial({ map: pathTex, roughness: 1, color: 0x9ea3b8 });
       pathMat.userData.own = true;
       assets.pbr(pathMat, 'cobblestone_floor_08', rep / 1.6, rep / 1.6);
       const ring = new THREE.Mesh(new THREE.RingGeometry(platR + 0.1, platR + 2.4, 96, 1), pathMat);
@@ -418,7 +432,7 @@ const Carousel3D = React.forwardRef(function Carousel3D(props, ref) {
       geo = { N, R, step, cols, rows, tw, td };
       const platR = R + td / 2 + 0.7;
       // Plattform
-      const platTex = platformTexture(Math.max(8, N * 2));
+      const platTex = platformTexture(Math.max(8, N * 2), platR);
       const platTopMat = new THREE.MeshStandardMaterial({ map: platTex, roughness: 0.8 });
       platTopMat.userData.own = true;
       disposables.push(platTex);
@@ -500,9 +514,19 @@ const Carousel3D = React.forwardRef(function Carousel3D(props, ref) {
         bulbs.setColorAt(i, new THREE.Color(0xfff1b0));
       }
       built.add(bulbs);
-      // Tische
-      const topGeo = new THREE.BoxGeometry(tw, 0.1, td);
-      const feltGeo = new THREE.PlaneGeometry(tw - 0.2, td - 0.2).rotateX(-Math.PI / 2);
+      // Tische: abgerundete Platte mit Kontur, ringsum eine erhabene Goldkante, darin der Filz
+      const topGeo = new RoundedBoxGeometry(tw, 0.12, td, 3, 0.045);
+      topGeo.userData.shared = true;
+      disposables.push(topGeo);
+      const feltTex = feltTexture(tw / td);
+      disposables.push(feltTex);
+      const feltMat = new THREE.MeshStandardMaterial({ map: feltTex, roughness: 0.95, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -4 });
+      feltMat.userData.own = true;
+      const feltGeo = new THREE.PlaneGeometry(tw - 0.16, td - 0.16).rotateX(-Math.PI / 2);
+      const TRIM = 0.09, TRIM_H = 0.06;
+      const trimX = new RoundedBoxGeometry(tw, TRIM_H, TRIM, 2, 0.022);
+      const trimZ = new RoundedBoxGeometry(td - TRIM * 2 + 0.01, TRIM_H, TRIM, 2, 0.022);
+      [trimX, trimZ].forEach((g) => { g.userData.shared = true; disposables.push(g); });
       const legGeo = new THREE.CylinderGeometry(0.06, 0.08, TABLE_Y - PLATFORM_TOP - 0.1, 10);
       tables = [];
       for (let ti = 0; ti < N; ti++) {
@@ -511,13 +535,23 @@ const Carousel3D = React.forwardRef(function Carousel3D(props, ref) {
         group.position.set(Math.sin(a) * R, 0, Math.cos(a) * R);
         group.rotation.y = a;
         const top = new THREE.Mesh(topGeo, woodMat);
-        top.position.y = TABLE_Y - 0.05;
+        top.position.y = TABLE_Y - 0.06;
         top.castShadow = true;
         top.receiveShadow = true;
+        addOutline(top, 0.02);
         const felt = new THREE.Mesh(feltGeo, feltMat);
         felt.position.y = TABLE_Y + 0.01;
         felt.receiveShadow = true;
         group.add(top, felt);
+        [[0, td / 2 - TRIM / 2, false], [0, -td / 2 + TRIM / 2, false], [tw / 2 - TRIM / 2, 0, true], [-tw / 2 + TRIM / 2, 0, true]].forEach(([x, z, alongZ]) => {
+          const trim = new THREE.Mesh(alongZ ? trimZ : trimX, trimMat);
+          trim.position.set(x, TABLE_Y + TRIM_H / 2 - 0.005, z);
+          if (alongZ) trim.rotation.y = Math.PI / 2;
+          trim.castShadow = true;
+          trim.receiveShadow = true;
+          addOutline(trim, 0.012);
+          group.add(trim);
+        });
         [[-1, -1], [1, -1], [1, 1], [-1, 1]].forEach(([sx, sz]) => {
           const leg = new THREE.Mesh(legGeo, woodMat);
           leg.position.set(sx * (tw / 2 - 0.2), PLATFORM_TOP + (TABLE_Y - PLATFORM_TOP - 0.1) / 2, sz * (td / 2 - 0.2));
@@ -531,9 +565,19 @@ const Carousel3D = React.forwardRef(function Carousel3D(props, ref) {
           const z = (row - (rows - 1) / 2) * (CH + GAP);
           const slot = new THREE.Group();
           slot.position.set(x, TABLE_Y + 0.02, z);
+          const socket = new THREE.Mesh(socketGeo, socketMat);
+          socket.position.y = (SOCKET_TOP + 0.005) / 2 - 0.005;
+          socket.receiveShadow = true;
+          slot.add(socket);
           const flat = new THREE.Group();
           flat.rotation.x = -Math.PI / 2;
           slot.add(flat);
+          // Weicher Schatten der Karte auf dem Sockel (wandert und verblasst, wenn sie sich hebt)
+          const shadowMat = new THREE.MeshBasicMaterial({ map: shadowTex, color: 0x000000, transparent: true, opacity: 0.5, depthWrite: false, toneMapped: false, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -2 });
+          shadowMat.userData.own = true;
+          const shadow = new THREE.Mesh(shadowGeo, shadowMat);
+          shadow.position.z = SOCKET_TOP + 0.002;
+          flat.add(shadow);
           const lift = new THREE.Group();
           flat.add(lift);
           const flip = new THREE.Group();
@@ -554,18 +598,19 @@ const Carousel3D = React.forwardRef(function Carousel3D(props, ref) {
           const frame = new THREE.Mesh(frameGeo, frameMat);
           frame.position.z = -0.002;
           lift.add(frame);
+          // Genommen: dunkle Mulde im Sockel mit Punkt in der Farbe des Nehmenden
           const hole = new THREE.Mesh(holeGeo, holeMat);
-          hole.position.z = 0.001;
+          hole.position.z = SOCKET_TOP + 0.004;
           hole.visible = false;
           flat.add(hole);
           const dotMat = new THREE.MeshBasicMaterial({ color: 0xffffff, toneMapped: false });
           dotMat.userData.own = true;
           const dot = new THREE.Mesh(dotGeo, dotMat);
-          dot.position.z = 0.004;
+          dot.position.z = SOCKET_TOP + 0.007;
           dot.visible = false;
           flat.add(dot);
           group.add(slot);
-          slots.push({ ti, si, slot, lift, flip, front, frontMat, back, frame, frameMat, hole, dot, dotMat, cardId: null, rarity: null, known: false, flipAt: null, taken: false, takenAt: null, hover: 0, sel: 0 });
+          slots.push({ ti, si, slot, lift, flip, front, frontMat, back, frame, frameMat, hole, dot, dotMat, shadow, shadowMat, cardId: null, rarity: null, known: false, flipAt: null, taken: false, takenAt: null, hover: 0, sel: 0 });
         }
         built.add(group);
         tables.push({ group, slots });
@@ -847,11 +892,15 @@ const Carousel3D = React.forwardRef(function Carousel3D(props, ref) {
 
           // Umdrehen: verdeckt = Rückseite oben (π), aufgedeckt = 0
           let rotY = Math.PI;
+          let pop = 0;
           if (sl.known) {
             const fp = sl.flipAt == null ? 1 : clamp01((now - sl.flipAt) / (FLIP_S * 1000));
             rotY = Math.PI * (1 - easeOutBack(fp));
+            // kurzes Anfedern, sobald die Vorderseite oben liegt (gleiche Kurve wie in allen CR-Szenen)
+            if (sl.flipAt != null) pop = crEase.land((now - sl.flipAt - FLIP_S * 700) / 600);
           }
           sl.flip.rotation.y = rotY;
+          sl.flip.scale.setScalar(1 + pop);
           const mine = ti === myTable && !spectator;
           const selected = mine && P.selectedSlot === sl.si && !sl.taken;
           const hovered = mine && hoverSlot === sl.si && P.canAct && !sl.taken;
@@ -859,11 +908,12 @@ const Carousel3D = React.forwardRef(function Carousel3D(props, ref) {
           sl.hover += ((hovered ? 1 : 0) - sl.hover) * kk;
           sl.sel += ((selected ? 1 : 0) - sl.sel) * kk;
           // Genommen: Karte hebt ab und verschwindet, zurück bleibt die Mulde mit Farbpunkt
-          let liftZ = 0.02 + sl.hover * 0.06 + sl.sel * 0.16;
+          const REST = SOCKET_TOP + CARD_REST;
+          let liftZ = REST + sl.hover * 0.06 + sl.sel * 0.16;
           let vis = true;
           if (sl.taken) {
             const tp = sl.takenAt == null ? 1 : clamp01((now - sl.takenAt) / 600);
-            liftZ = 0.02 + tp * 1.2;
+            liftZ = REST + crEase.inOut(tp) * 1.2;
             vis = tp < 1;
             sl.frontMat.opacity = 1 - tp;
             sl.hole.visible = true;
@@ -877,6 +927,12 @@ const Carousel3D = React.forwardRef(function Carousel3D(props, ref) {
           }
           sl.lift.position.z = liftZ;
           sl.flip.visible = vis;
+          // Schatten: je höher die Karte, desto weiter nach rechts unten, größer und blasser;
+          // beim Umdrehen schmaler (Karte steht kurz hochkant)
+          const h = liftZ - REST;
+          sl.shadow.position.set(0.035 + h * 0.35, -0.05 - h * 0.45, SOCKET_TOP + 0.002);
+          sl.shadow.scale.set((1 + h * 0.5) * Math.max(0.08, Math.abs(Math.cos(rotY))), 1 + h * 0.5, 1);
+          sl.shadowMat.opacity = vis ? 0.55 * clamp01(1 - h / 0.9) * (sl.taken ? sl.frontMat.opacity : 1) : 0;
           sl.frameMat.opacity = sl.taken ? 0 : Math.max(sl.sel, mine && P.canAct ? sl.hover * 0.7 : 0);
           sl.frameMat.color.set(sl.sel > 0.5 ? '#22d3ee' : '#ffffff');
           if (!sl.taken && mine && P.canAct && sl.sel < 0.5 && sl.hover < 0.1) sl.frameMat.opacity = 0.12 + pulse * 0.1;

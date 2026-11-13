@@ -61,6 +61,17 @@ export function topVisited(k = 4) {
     .map(([id]) => byId.get(id));
 }
 
+/** Die zuletzt besuchten Unterseiten, die jüngste zuerst („Zuletzt besucht" auf der Startseite) */
+export function recentVisited(k = 3) {
+  const d = read();
+  const byId = new Map(showcaseLinks().map((l) => [l.id, l]));
+  return Object.entries(d)
+    .filter(([id, e]) => byId.has(id) && Number(e?.last) > 0)
+    .sort((a, b) => b[1].last - a[1].last)
+    .slice(0, k)
+    .map(([id]) => byId.get(id));
+}
+
 /** In App einhängen: zählt jeden Seitenwechsel mit */
 export function VisitMemory() {
   const { pathname } = useLocation();

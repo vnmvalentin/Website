@@ -57,8 +57,9 @@ const DE = {
   fanPolicy: 'Supercells Richtlinie für Fan-Inhalte',
 
   // Hub
-  hubNew: 'Neu: Karten-Wordle und Viewer Games — das Chat-Quiz als OBS-Overlay für deinen Stream',
+  hubNew: 'Neu: Farb-Raten, Karten-Wordle und Viewer Games — das Chat-Quiz als OBS-Overlay für deinen Stream',
   hubMinigames: 'Deck Draft Minigames',
+  tabMinigames: 'Minigames', tabMinigamesSub: 'mit Freunden draften oder die Nuzlocke-Challenge wagen',
   hubMinigamesText: 'Zehn Draft-Modi für 2–8 Spieler — Lobby erstellen, Link teilen, losdraften.',
   play: 'Spielen',
   nextUp: 'Als Nächstes',
@@ -74,6 +75,7 @@ const DE = {
   statsTitle: 'Stats-Duell', statsText: 'Höher oder tiefer mit echten Kampfwerten: Leben, Schaden, DPS, Angriffstempo, Reichweite …', statsTag: 'Allein · Serie',
   zoomTitle: 'Zoom-Raten', zoomText: 'Ein winziger Ausschnitt, extrem nah herangezoomt. Alle zwei Versuche siehst du etwas mehr.', zoomTag: 'Allein · Tagesrunde',
   pixelTitle: 'Pixel-Raten', pixelText: 'Die ganze Karte — aber so verpixelt, dass man kaum etwas erkennt. Alle zwei Versuche wird sie schärfer.', pixelTag: 'Allein · Tagesrunde',
+  colorTitle: 'Farb-Raten', colorText: 'Der Karte fehlt eine Farbe. Misch sie mit drei Reglern aus dem Gedächtnis nach — die Karte färbt sich live mit.', colorTag: 'Allein · Tagesrunde',
 
   // Karten-Wordle
   wordleTitle: 'Karten-Wordle', wordleText: 'Rate eine Karte — jede Eigenschaft zeigt dir, wie nah du dran bist. Elixier, Seltenheit, Tempo, Leben …', wordleTag: 'Allein · Tagesrunde',
@@ -119,6 +121,19 @@ const DE = {
   skip: 'Überspringen — deutlicher zeigen',
   zoomSeo: 'Erkennst du die Clash-Royale-Karte an einem winzigen, stark vergrößerten Ausschnitt? Alle zwei Versuche zoomt das Bild heraus. Jeden Tag eine neue Karte.',
   pixelSeo: 'Erkennst du die Clash-Royale-Karte, obwohl sie extrem verpixelt ist? Alle zwei Versuche wird sie schärfer. Jeden Tag eine neue Karte.',
+
+  // Farb-Raten
+  colorHelp: 'Dieser Karte fehlt eine Farbe. Misch sie aus dem Gedächtnis mit den drei Reglern nach — die Karte färbt sich live mit. Ein Tipp pro Karte.',
+  colorSeo: 'Einer Clash-Royale-Karte fehlt eine Farbe: Misch sie mit drei Reglern aus dem Gedächtnis nach, die Karte färbt sich live mit. Jeden Tag fünf Karten, gewertet nach Treffgenauigkeit.',
+  colorRound: (a, b) => `Karte ${a}/${b}`,
+  colorHue: 'Farbton', colorSat: 'Sättigung', colorLight: 'Helligkeit',
+  colorSubmit: 'Farbe festlegen', colorNext: 'Nächste Karte', colorFinish: 'Ergebnis zeigen',
+  colorYours: 'Deine Farbe', colorOriginal: 'Original', colorYourCard: 'Deine Karte',
+  colorMatch: 'Treffer', colorAverage: 'Durchschnitt',
+  colorVerdict: (n) => (n >= 97 ? 'Perfekt!' : n >= 90 ? 'Fast identisch' : n >= 78 ? 'Sehr nah dran' : n >= 60 ? 'Richtige Richtung' : 'Daneben'),
+  colorMoveFirst: 'Beweg einen Regler, um die Farbe einzusetzen.',
+  colorLoadError: 'Diese Karte konnte nicht geladen werden.',
+  colorAlt: 'Karte, der eine Farbe fehlt',
 
   // Kartenraten
   hints: 'Hinweise',
@@ -189,8 +204,9 @@ const EN = {
   notAffiliated: 'This content is not affiliated with, endorsed, sponsored, or specifically approved by Supercell. For more information see',
   fanPolicy: "Supercell's Fan Content Policy",
 
-  hubNew: 'New: Card Wordle and Viewer Games — the chat quiz as an OBS overlay for your stream',
+  hubNew: 'New: Colour Guess, Card Wordle and Viewer Games — the chat quiz as an OBS overlay for your stream',
   hubMinigames: 'Deck Draft Minigames',
+  tabMinigames: 'Minigames', tabMinigamesSub: 'draft with friends or take on the Nuzlocke challenge',
   hubMinigamesText: 'Ten draft modes for 2–8 players — create a lobby, share the link, start drafting.',
   play: 'Play',
   nextUp: 'Up next',
@@ -206,6 +222,7 @@ const EN = {
   statsTitle: 'Stats Duel', statsText: 'Higher or lower with real battle stats: hitpoints, damage, DPS, hit speed, range …', statsTag: 'Solo · streak',
   zoomTitle: 'Zoom Guess', zoomText: 'A tiny detail, zoomed in extremely close. Every two guesses you see a bit more.', zoomTag: 'Solo · daily round',
   pixelTitle: 'Pixel Guess', pixelText: 'The whole card — but so pixelated you can barely tell. Every two guesses it gets sharper.', pixelTag: 'Solo · daily round',
+  colorTitle: 'Colour Guess', colorText: 'One colour of the card is missing. Mix it back from memory with three sliders — the card recolours live.', colorTag: 'Solo · daily round',
 
   wordleTitle: 'Card Wordle', wordleText: 'Guess a card — every attribute tells you how close you are. Elixir, rarity, speed, hitpoints …', wordleTag: 'Solo · daily round',
   wordleHelp: 'Type any card. Green = match, red = no match, ▲▼ = the secret card has more or less.',
@@ -248,6 +265,19 @@ const EN = {
   skip: 'Skip — show more',
   zoomSeo: 'Can you recognise the Clash Royale card from a tiny, extremely zoomed-in detail? Every two guesses the image zooms out. A new card every day.',
   pixelSeo: 'Can you recognise the Clash Royale card even though it is extremely pixelated? Every two guesses it gets sharper. A new card every day.',
+
+  // Color Guess
+  colorHelp: 'One colour of this card is missing. Mix it from memory with the three sliders — the card changes live. One guess per card.',
+  colorSeo: 'One colour of a Clash Royale card is missing: mix it back from memory with three sliders while the card recolours live. Five cards a day, scored by how close you get.',
+  colorRound: (a, b) => `Card ${a}/${b}`,
+  colorHue: 'Hue', colorSat: 'Saturation', colorLight: 'Lightness',
+  colorSubmit: 'Lock in colour', colorNext: 'Next card', colorFinish: 'Show result',
+  colorYours: 'Your colour', colorOriginal: 'Original', colorYourCard: 'Your card',
+  colorMatch: 'match', colorAverage: 'Average',
+  colorVerdict: (n) => (n >= 97 ? 'Perfect!' : n >= 90 ? 'Almost identical' : n >= 78 ? 'Very close' : n >= 60 ? 'Right direction' : 'Way off'),
+  colorMoveFirst: 'Move a slider to fill in the colour.',
+  colorLoadError: 'This card could not be loaded.',
+  colorAlt: 'Card with one colour missing',
 
   hints: 'Clues',
   nextHint: 'Next clue', noMoreHints: 'No more clues',

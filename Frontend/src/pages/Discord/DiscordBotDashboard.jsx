@@ -1,20 +1,13 @@
 import React, { useState, useEffect, useContext } from 'react';
-import { createPortal } from 'react-dom';
 import { Link } from 'react-router-dom';
 import {
     Settings, UserPlus, LogOut, Gamepad2, Tag, CheckSquare,
     Volume2, Users, Tv, Image, Globe, BarChart2,
-    Radio, Ticket, Bot, ArrowRight, ArrowLeft, ChevronDown, Coins,
+    Radio, Ticket, Bot, ArrowRight, ChevronDown, Coins,
 } from 'lucide-react';
 import { TwitchAuthContext } from '../../components/TwitchAuthContext';
-
-function TwitchGlyph({ className }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden="true">
-      <path d="M11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714zM6 0 1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.286 12V0zm14.571 11.143-3.428 3.428h-3.429l-3 3v-3H6.857V1.714h13.714Z" />
-    </svg>
-  );
-}
+import { TwitchLoginButton } from '../../components/ui';
+import { ToolHeader } from '../../components/toolShell/ToolParts';
 
 function DiscordGlyph({ className }) {
   return (
@@ -97,7 +90,7 @@ const GROUPS = [
 const ALL_TABS = GROUPS.flatMap(g => g.tabs);
 
 export default function DiscordBotDashboard() {
-    const { user, login } = useContext(TwitchAuthContext);
+    const { user } = useContext(TwitchAuthContext);
 
     const [isDiscordLoggedIn, setIsDiscordLoggedIn] = useState(false);
     const [servers, setServers] = useState([]);
@@ -273,7 +266,7 @@ export default function DiscordBotDashboard() {
 
     const seo = (title, description) => <SEO title={title} description={description} path="/discord-bot" />;
 
-    /* ── Vor der Anmeldung: bleibt im normalen Layout der Website ───────────────
+    /* ── Vor der Anmeldung: Karte mittig in der Tool-Hülle ─────────────────────
        Diese Fassungen sehen Besucher und Suchmaschinen. */
     if (!user) return (
         <div className="page-fade h-full flex items-center justify-center p-6">
@@ -284,9 +277,7 @@ export default function DiscordBotDashboard() {
                     <h1 className="text-xl font-bold text-white mb-1.5">Discord-Bot</h1>
                     <p className="text-sm text-white/50">Melde dich mit Twitch an, um den Bot zu verwalten.</p>
                 </div>
-                <button onClick={() => login(false)} className="flex items-center gap-2 bg-[#9146FF] hover:bg-[#7c3aed] text-white px-5 h-10 rounded-md text-sm font-semibold transition-colors">
-                    <TwitchGlyph className="w-4 h-4" /> Mit Twitch anmelden
-                </button>
+                <TwitchLoginButton />
                 <LegalLinks />
             </div>
         </div>
@@ -339,27 +330,20 @@ export default function DiscordBotDashboard() {
     const managed = servers.filter(s => s.botPresent);
     const inviteable = servers.filter(s => !s.botPresent);
 
-    // Ab hier eine eigene Oberfläche über das ganze Fenster — ohne die Kopfzeile
-    // der Website. Als Portal, weil der Inhaltsbereich des Layouts einen eigenen
-    // Stapelkontext hat und die Kopfzeile sonst darüber läge.
-    return createPortal(
-        <div className="dc-root fixed inset-0 z-[200] flex flex-col">
+    // Ab hier die Arbeitsfläche über die ganze Höhe der Tool-Hülle (components/toolShell).
+    // Serverwahl und Rechtstexte des Bots stehen in deren Kopfleiste (ToolHeader).
+    return (
+        <div className="dc-root h-full flex flex-col">
             {seo(
                 selectedServer ? `${selectedServer.name} – Discord Bot` : 'Discord Bot',
                 selectedServer ? `Discord Bot Dashboard für den Server ${selectedServer.name}.` : 'Wähle einen Server aus um deinen Discord Bot zu verwalten.',
             )}
+            <h1 className="sr-only">Discord-Bot</h1>
 
-            {/* ══════════ Kopfleiste ══════════ */}
-            <header className="relative z-30 shrink-0 h-12 flex items-center gap-2 px-3 border-b border-[var(--dc-line)] bg-[var(--dc-rail)]">
-                <Link to="/tools" title="Zurück zur Website"
-                    className="w-8 h-8 inline-flex items-center justify-center rounded-md text-white/40 hover:text-white hover:bg-white/5 transition-colors">
-                    <ArrowLeft size={16} />
-                </Link>
-                <DiscordGlyph className="w-4 h-4 text-[#7984f5] shrink-0" />
-                <h1 className="text-[14px] font-bold text-white whitespace-nowrap">Discord-Bot</h1>
-
+            {/* ══════════ Kopfleiste (in der Leiste der Tool-Hülle) ══════════ */}
+            <ToolHeader>
                 {selectedServer && (
-                    <div className="relative ml-2 min-w-0">
+                    <div className="relative min-w-0">
                         <button type="button" onClick={() => setSwitcherOpen(v => !v)} aria-expanded={switcherOpen}
                             className="h-8 pl-1.5 pr-2 inline-flex items-center gap-2 rounded-md border border-white/10 hover:border-white/25 text-[13px] font-semibold text-white max-w-[52vw] transition-colors">
                             {serverIcon(selectedServer, 22)}
@@ -390,9 +374,9 @@ export default function DiscordBotDashboard() {
                     </div>
                 )}
 
-                {dirty && selectedServer && <span className="dc-unsaved ml-3 hidden md:inline-flex">Ungespeichert</span>}
-                <LegalLinks className="ml-auto hidden sm:flex" />
-            </header>
+                {dirty && selectedServer && <span className="dc-unsaved ml-1 hidden md:inline-flex">Ungespeichert</span>}
+                <LegalLinks className="ml-auto hidden md:flex" />
+            </ToolHeader>
 
             {/* ══════════ Serverauswahl ══════════ */}
             {!selectedServer && (
@@ -592,8 +576,7 @@ export default function DiscordBotDashboard() {
                     </main>
                 </div>
             )}
-        </div>,
-        document.body,
+        </div>
     );
 }
 

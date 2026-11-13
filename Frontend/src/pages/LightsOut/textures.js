@@ -129,41 +129,6 @@ export function lockerTexture() {
   return toTexture(c, false);
 }
 
-export function fuseBoxTexture() {
-  const [c, ctx] = canvas(256, 256);
-  ctx.fillStyle = '#6b6f73';
-  ctx.fillRect(0, 0, 256, 256);
-  ctx.strokeStyle = '#2a2a2a';
-  ctx.lineWidth = 8;
-  ctx.strokeRect(8, 8, 240, 240);
-  ctx.fillStyle = '#d8b62a';
-  ctx.beginPath();
-  ctx.moveTo(128, 30); ctx.lineTo(178, 110); ctx.lineTo(78, 110); ctx.closePath();
-  ctx.fill();
-  ctx.fillStyle = '#111';
-  ctx.font = 'bold 54px sans-serif';
-  ctx.textAlign = 'center';
-  ctx.fillText('!', 128, 102);
-  ctx.font = 'bold 22px sans-serif';
-  ctx.fillText('HAUPTSTROM', 128, 150);
-  // Drei Fassungen
-  for (let i = 0; i < 3; i++) {
-    ctx.fillStyle = '#1a1a1a';
-    ctx.fillRect(48 + i * 60, 172, 40, 56);
-  }
-  return toTexture(c, false);
-}
-
-/** Sicherungskasten-Fassung mit eingesetzter Sicherung (für den Fortschritt). */
-export function fuseSlotTexture() {
-  const [c, ctx] = canvas(64, 64);
-  ctx.fillStyle = '#c9a227';
-  ctx.fillRect(8, 4, 48, 56);
-  ctx.fillStyle = '#7a6012';
-  ctx.fillRect(8, 26, 48, 12);
-  return toTexture(c, false);
-}
-
 export function doorTexture(label = 'AUSGANG') {
   const rng = makeRng(3);
   const [c, ctx] = canvas(256, 512);
@@ -192,6 +157,58 @@ export function doorTexture(label = 'AUSGANG') {
     ctx.fill();
   }
   for (let i = 0; i < 5; i++) stain(ctx, rng() * 256, rng() * 512, 30, 'rgba(0,0,0,0.4)');
+  return toTexture(c, false);
+}
+
+/** Emailleschild (Raumname über einem Durchgang, Stationsschild): vergilbt, schwarze Blockschrift, Rost an Rand und Schrauben. */
+export function signTexture(text) {
+  const rng = makeRng(text.length * 131 + text.charCodeAt(0));
+  const [c, ctx] = canvas(512, 128);
+  ctx.fillStyle = '#b9b29c';
+  ctx.fillRect(0, 0, 512, 128);
+  grain(ctx, 512, 128, rng, 2500, 0.18);
+  ctx.strokeStyle = '#2a2622';
+  ctx.lineWidth = 5;
+  ctx.strokeRect(9, 9, 494, 110);
+  let size = 62;
+  const font = () => { ctx.font = `bold ${size}px "Arial Narrow", Arial, sans-serif`; };
+  font();
+  while (ctx.measureText(text).width > 440 && size > 22) { size -= 2; font(); }
+  ctx.fillStyle = '#1c1916';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(text, 256, 68);
+  // Rost: an den Schrauben und vom oberen Rand herab
+  for (const [x, y] of [[22, 22], [490, 22], [22, 106], [490, 106]]) {
+    stain(ctx, x, y, 26, 'rgba(96,46,18,0.8)');
+    ctx.fillStyle = '#3a2a1c';
+    ctx.beginPath();
+    ctx.arc(x, y, 4, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  for (let i = 0; i < 6; i++) stain(ctx, rng() * 512, rng() * 40, 20 + rng() * 40, 'rgba(84,44,20,0.35)');
+  for (let i = 0; i < 4; i++) stain(ctx, rng() * 512, rng() * 128, 30 + rng() * 30, 'rgba(20,18,14,0.3)');
+  return toTexture(c, false);
+}
+
+/** Beschriebenes Blatt Papier (Notiz am Boden oder auf einem Tisch). */
+export function paperTexture(seed = 1) {
+  const rng = makeRng(seed * 7 + 3);
+  const [c, ctx] = canvas(128, 180);
+  ctx.fillStyle = '#d6cfb8';
+  ctx.fillRect(0, 0, 128, 180);
+  grain(ctx, 128, 180, rng, 900, 0.15);
+  ctx.strokeStyle = 'rgba(30,26,40,0.75)';
+  ctx.lineWidth = 1.6;
+  for (let y = 22; y < 160; y += 13) {
+    ctx.beginPath();
+    let x = 14;
+    ctx.moveTo(x, y);
+    const end = 60 + rng() * 54;
+    while (x < end) { x += 3 + rng() * 5; ctx.lineTo(x, y + (rng() - 0.5) * 3); }
+    ctx.stroke();
+  }
+  stain(ctx, 30 + rng() * 70, 40 + rng() * 100, 34, 'rgba(90,60,30,0.35)');
   return toTexture(c, false);
 }
 
@@ -304,61 +321,6 @@ export function codeLockTexture(symbols) {
   });
   for (let i = 0; i < 6; i++) stain(ctx, rng() * 384, rng() * 256, 50, 'rgba(20,30,10,0.35)');
   return toTexture(c, false);
-}
-
-/** Jutesack als Kopf des Gärtners: grobes Gewebe, zwei schief vernähte Augenschlitze, Flecken. */
-export function sackTexture() {
-  const rng = makeRng(77);
-  const [c, ctx] = canvas(256, 256);
-  ctx.fillStyle = '#6b5a40';
-  ctx.fillRect(0, 0, 256, 256);
-  // Gewebe
-  for (let y = 0; y < 256; y += 3) {
-    ctx.fillStyle = `rgba(30,22,12,${0.12 + rng() * 0.12})`;
-    ctx.fillRect(0, y, 256, 1);
-  }
-  for (let x = 0; x < 256; x += 3) {
-    ctx.fillStyle = `rgba(200,180,140,${0.06 + rng() * 0.08})`;
-    ctx.fillRect(x, 0, 1, 256);
-  }
-  grain(ctx, 256, 256, rng, 4000, 0.3);
-  for (let i = 0; i < 7; i++) stain(ctx, rng() * 256, rng() * 256, 20 + rng() * 40, 'rgba(40,10,6,0.45)');
-  // Augenschlitze mit Kreuzstichen (vorn = Bildmitte, die Kugel-UV läuft einmal herum)
-  ctx.strokeStyle = '#120c06';
-  ctx.lineCap = 'round';
-  for (const [ex, ey, rot] of [[106, 112, -0.2], [150, 108, 0.25]]) {
-    ctx.save();
-    ctx.translate(ex, ey);
-    ctx.rotate(rot);
-    ctx.lineWidth = 7;
-    ctx.beginPath();
-    ctx.moveTo(-14, 0);
-    ctx.lineTo(14, 0);
-    ctx.stroke();
-    ctx.lineWidth = 2;
-    for (let k = -12; k <= 12; k += 6) {
-      ctx.beginPath();
-      ctx.moveTo(k - 3, -6);
-      ctx.lineTo(k + 3, 6);
-      ctx.stroke();
-    }
-    ctx.restore();
-  }
-  // vernähter Mund
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.moveTo(108, 160);
-  ctx.quadraticCurveTo(128, 168, 150, 158);
-  ctx.stroke();
-  for (let k = 0; k < 6; k++) {
-    const x = 110 + k * 7.5;
-    ctx.beginPath();
-    ctx.moveTo(x, 155);
-    ctx.lineTo(x + 2, 168);
-    ctx.stroke();
-  }
-  const t = toTexture(c, true);
-  return t;
 }
 
 /* ── Wald ─────────────────────────────────────────────────────────────── */

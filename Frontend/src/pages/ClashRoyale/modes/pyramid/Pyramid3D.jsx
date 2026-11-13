@@ -22,9 +22,10 @@ import {
   glyphBandTexture, friezeTexture, starCeiling, columnTexture, wingedSunTexture, sparkTexture, forbiddenTexture,
 } from './pyramidTextures';
 import {
-  createPostFX, cloneModel, flameMaterial, beamMaterial, monotoneSpline, smoothstep, rng, warmUp, createQualityGovernor,
+  createPostFX, cloneModel, flameMaterial, beamMaterial, monotoneSpline, smoothstep, rng, warmUp, warmUpAsync, createQualityGovernor,
 } from '../scene3d/kit';
 import { createCrAssets } from '../scene3d/crAssets';
+import { CR_GRADE } from '../scene3d/crStyle';
 import { playSound } from '../../ui/sound';
 
 const cardTextureUrl = (id) => `/api/clash/card-img/${encodeURIComponent(id)}`;
@@ -43,6 +44,9 @@ const FOV = 46;
 const TAN = Math.tan(THREE.MathUtils.degToRad(FOV / 2));
 const FLIP_S = 0.55, TURN_S = 0.7;
 const CARD_GLOW = 0.1;
+// Grundlicht in der Kammer: kühles Himmelslicht + warmes Fülllicht von vorne
+const INT_HEMI = 1.05;
+const FILL_I = 1.5;
 
 // Welt: Kammer vorne bis FRONT_Z, Gang bis zum Portal, Außenpyramide drumherum
 const FRONT_Z = 32;                 // Vorderwand der Kammer (weit genug für Hochformat-Kamera)
@@ -143,7 +147,7 @@ const Pyramid3D = React.forwardRef(function Pyramid3D(props, ref) {
     scene.background = new THREE.Color(0x7a8cab);
     scene.fog = new THREE.Fog(EXT_FOG.clone(), 80, 600);
     const camera = new THREE.PerspectiveCamera(FOV, 1, 0.05, 900);
-    const post = createPostFX(renderer, scene, camera, { bloom: { strength: 0.38, radius: 0.5, threshold: 1.1 }, vignette: 0.32 });
+    const post = createPostFX(renderer, scene, camera, { bloom: { strength: 0.22, radius: 0.45, threshold: 1.3 }, vignette: 0.3, grade: CR_GRADE });
     // Clash-Royale-Look: gemalte Texturen und Objekte, im Code erzeugt (keine Downloads, kein Warten)
     const assets = createCrAssets(renderer);
 
@@ -161,8 +165,9 @@ const Pyramid3D = React.forwardRef(function Pyramid3D(props, ref) {
     extSun.position.copy(SUN_DIR).multiplyScalar(200);
     const extHemi = new THREE.HemisphereLight(0xa9c0e6, 0xd7a168, 1.25);
     scene.add(extSun, extHemi);
-    const intHemi = new THREE.HemisphereLight(0xfff0dc, 0x2a1a10, 0.5);
-    const fill = new THREE.DirectionalLight(0xfff4e6, 1.35);
+    // Innen: kühles Himmelslicht gegen warmes Feuer — Schattenseiten werden blauviolett statt braun
+    const intHemi = new THREE.HemisphereLight(0xa9bcff, 0x5a3a6a, INT_HEMI);
+    const fill = new THREE.DirectionalLight(0xfff1dc, FILL_I);
     fill.position.set(1.5, 5, 22);
     scene.add(intHemi, fill);
     const sun = new THREE.SpotLight(0xf4f2ff, 260, 60, THREE.MathUtils.degToRad(16), 0.6, 1.3);
@@ -190,7 +195,11 @@ const Pyramid3D = React.forwardRef(function Pyramid3D(props, ref) {
       if (light) {
         pl = new THREE.PointLight(0xff9440, light.intensity, light.distance, 1.7);
         pl.position.set(x, y + h * 0.5, z);
-        parent.add(pl);
+        // Direkt in die Szene, NICHT in die Gruppe (Gruppen liegen im Ursprung): Gruppen werden
+        // aus-/eingeblendet, und jede Änderung der Lichterzahl lässt three alle beleuchteten
+        // Materialien neu übersetzen — das war ein Ruckler am Ende der Einfahrt.
+        // Ausgeblendet wird über die Helligkeit (Schleife, flames).
+        scene.add(pl);
       }
       flames.push({ mesh, mat, light: pl, base: light?.intensity || 0, phase: Math.random() * 10 });
     };
@@ -453,8 +462,9 @@ const Pyramid3D = React.forwardRef(function Pyramid3D(props, ref) {
     const colTex = columnTexture();
     const mural = wingedSunTexture();
     [glyphBand, frieze, stars, colTex, mural].forEach((t) => { own(t.map); own(t.normalMap); });
-    const hallWallMat = assets.pbr(std({ color: 0xfff0dc }), 'sandstone_blocks_08', 1, 1, { normalScale: 1.1 });
-    const hallFloorMat = assets.pbr(std({ color: 0xf2dcbc, roughness: 0.6 }), 'floor_tiles_04', 1, 1);
+    // Wände und Boden kühler und dunkler als die Pyramide: sie sind Hintergrund, die Stufen leuchten davor
+    const hallWallMat = assets.pbr(std({ color: 0x9d9ad8 }), 'sandstone_blocks_08', 1, 1, { normalScale: 1.1 });
+    const hallFloorMat = assets.pbr(std({ color: 0x8f8cc4, roughness: 0.6 }), 'floor_tiles_04', 1, 1);
     const ceilMat = std({ map: stars.map, normalMap: stars.normalMap, roughness: 0.9 });
     const colShaftMat = assets.pbr(std({ color: 0xffeacc }), 'sandstone_blocks_04', 2, 3);
     const colPaintMat = std({ map: colTex.map, normalMap: colTex.normalMap, roughness: 0.85 });
@@ -471,6 +481,8 @@ const Pyramid3D = React.forwardRef(function Pyramid3D(props, ref) {
         hall.remove(ch);
         ch.traverse((m) => { if (m.isMesh && !m.geometry.userData.shared && !m.userData.sharedGeometry) m.geometry.dispose(); });
       });
+      // Fackellichter hängen direkt in der Szene (siehe addFlame) — mit der Kammer entfernen
+      flames.forEach((f) => { if (f.inHall && f.light) scene.remove(f.light); });
       flames.splice(0, flames.length, ...flames.filter((f) => !f.inHall));
       emberSources.splice(0, emberSources.length, ...emberSources.filter((e) => !e.inHall));
       hallLights = [];
@@ -664,7 +676,8 @@ const Pyramid3D = React.forwardRef(function Pyramid3D(props, ref) {
     };
     const stoneGeo = own(new RoundedBoxGeometry(STONE_W, STONE_H, STONE_D, 3, 0.035));
     stoneGeo.userData.shared = true;
-    const stoneMat = assets.pbr(std({ color: 0xffe4c4 }), 'sandstone_blocks_04', 0.45, 0.5, { normalScale: 0.9 });
+    // Kartensteine in Lapisblau mit Goldrand (eine Platte je Seite) — heben sich vom Sandstein ab
+    const stoneMat = assets.pbr(std({ color: 0xffffff }), 'lapis_block', 1, 1);
 
     const pyramid = new THREE.Group();
     scene.add(pyramid);
@@ -941,6 +954,7 @@ const Pyramid3D = React.forwardRef(function Pyramid3D(props, ref) {
     let last = performance.now();
     let fresh = null;
     let warmed = false;
+    let compileState = 0; // 0 = nicht begonnen, 1 = Shader werden im Hintergrund übersetzt, 2 = fertig
     const fogCol = new THREE.Color();
     const frame = () => {
       raf = requestAnimationFrame(frame);
@@ -957,11 +971,15 @@ const Pyramid3D = React.forwardRef(function Pyramid3D(props, ref) {
       }
       if (!warmed) {
         // Noch verdeckt: alle Shader übersetzen und alle Texturen hochladen, sonst passiert das
-        // erst, wenn etwas zum ersten Mal ins Bild kommt — mitten in der Kamerafahrt (Standbilder)
+        // erst, wenn etwas zum ersten Mal ins Bild kommt — mitten in der Kamerafahrt (Ruckler).
+        // Erst im Hintergrund übersetzen lassen (blockiert nicht), dann einmal alles zeichnen.
+        if (compileState === 0) {
+          compileState = 1;
+          warmUpAsync(renderer, scene, camera, [exterior, corridor, hall, pyramid]).then(() => { compileState = 2; });
+        }
+        if (compileState < 2) return;
         warmed = true;
-        [exterior, corridor, hall, pyramid].forEach((g) => { g.visible = true; });
-        warmUp(renderer, scene, camera, post);
-        last = performance.now();
+        warmUp(renderer, scene, camera, post);        last = performance.now();
         return;
       }
       if (cvs.style.opacity !== '1') cvs.style.opacity = '1';
@@ -996,8 +1014,8 @@ const Pyramid3D = React.forwardRef(function Pyramid3D(props, ref) {
       const inside = smoothstep(57, 47, camPos.z);
       extSun.intensity = 3.2 * (1 - inside);
       extHemi.intensity = 1.25 * (1 - inside);
-      intHemi.intensity = 0.5 * inside;
-      fill.intensity = 1.35 * smoothstep(FRONT_Z + 4, FRONT_Z - 6, camPos.z);
+      intHemi.intensity = INT_HEMI * inside;
+      fill.intensity = FILL_I * smoothstep(FRONT_Z + 4, FRONT_Z - 6, camPos.z);
       sun.intensity = 260 * inside;
       scene.environmentIntensity = 0.85 - 0.6 * inside;
       torch.intensity = 8 * smoothstep(PORTAL_Z + 2, PORTAL_Z - 4, camPos.z) * smoothstep(FRONT_Z - 2, FRONT_Z + 6, camPos.z);
@@ -1057,7 +1075,7 @@ const Pyramid3D = React.forwardRef(function Pyramid3D(props, ref) {
       // Feuer: Flammen zur Kamera drehen, flackern; Funken steigen auf
       const time = now / 1000;
       flames.forEach((f) => {
-        if (!f.mesh.parent?.visible) return;
+        if (!f.mesh.parent?.visible) { if (f.light) f.light.intensity = 0; return; }
         f.mat.uniforms.uTime.value = off ? 0 : time;
         f.mesh.quaternion.copy(camera.quaternion);
         if (f.light) {

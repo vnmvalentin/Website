@@ -28,6 +28,7 @@ import {
   Flashlight,
   PersonStanding,
   HelpCircle,
+  Orbit,
 } from "lucide-react";
 import { InstagramGlyph } from "../components/BrandGlyphs";
 // Kleine Symbolbilder (thumb) — Clash-Royale-Grafiken NUR für Clash-Royale-Seiten, der Rest aus public/media/icons
@@ -41,6 +42,7 @@ import crTvImg from "../assets/clashRoyale/ui/tv.webp";
 import crScrollImg from "../assets/clashRoyale/ui/icon_daily_task_scroll_opened.png";
 import crSearchImg from "../assets/clashRoyale/ui/search.webp";
 import crEyeImg from "../assets/clashRoyale/ui/eye.webp";
+import crPotionImg from "../assets/clashRoyale/ui/card_boost_potion.png";
 
 // Vorschaubilder der Unterseiten (Startseite, Türen, Übersichtsseiten) — erzeugt mit scripts/vorschaubilder.cjs
 // fit: "cover" füllt die Karte (Spiele, Seiten), "contain" zeigt das ganze Bild (Overlays sind kleine Ausschnitte)
@@ -124,6 +126,15 @@ export const NAV_CATEGORIES = [
         previews: [preview("flick-soccer")],
         icon: Goal,
         description: "Scheiben-Fußball Zug um Zug: Formation wählen, Kronkorken zurückziehen und abschießen. Gegen die KI, zu zweit oder online.",
+      },
+      {
+        label: "Worldflip",
+        to: "/worldflip",
+        id: "worldflip",
+        thumb: icon("worldflip"),
+        previews: [preview("worldflip")],
+        icon: Orbit,
+        description: "3D-Kartenspiel: Karten ablegen, während vier Welten um den Tisch kippen und ausbrechen. Gegen Bots, online zu viert oder 2 gegen 2.",
       },
       {
         label: "Lights Out",
@@ -273,6 +284,14 @@ export const NAV_CATEGORIES = [
         thumb: crEyeImg,
         icon: HelpCircle,
         description: "Die Karte ist extrem verpixelt — alle zwei Versuche wird sie schärfer.",
+      },
+      {
+        label: "Farb-Raten",
+        to: "/clash/farbe",
+        id: "cr-farbe",
+        thumb: crPotionImg,
+        icon: HelpCircle,
+        description: "Der Karte fehlt eine Farbe — misch sie mit drei Reglern aus dem Gedächtnis nach.",
       },
     ],
   },

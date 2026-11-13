@@ -46,9 +46,17 @@ function detect() {
     return SOFTWARE_RENDERER.test(renderer);
   }
 
-  // Strenge Probe fehlgeschlagen: Software-Rendering oder gar kein WebGL — beides heißt sparen
+  // Strenge Probe fehlgeschlagen: Software-Rendering oder gar kein WebGL — beides heißt sparen.
+  // Ausnahme (06.11.): nennt der normale Kontext eine echte Grafikkarte, war die strenge Probe
+  // ein Fehlalarm (kommt bei manchen Treibern/Laptops vor) — dann nicht drosseln.
   const looseGl = probeContext(document.createElement('canvas'), {});
+  let looseRenderer = '';
+  try {
+    const info = looseGl?.getExtension('WEBGL_debug_renderer_info');
+    looseRenderer = looseGl ? String(looseGl.getParameter(info ? info.UNMASKED_RENDERER_WEBGL : looseGl.RENDERER) || '') : '';
+  } catch { /* Name nicht lesbar */ }
   releaseContext(looseGl);
+  if (looseRenderer && !SOFTWARE_RENDERER.test(looseRenderer) && /nvidia|geforce|radeon|amd|intel|apple|adreno|mali|arc/i.test(looseRenderer)) return false;
   return true;
 }
 

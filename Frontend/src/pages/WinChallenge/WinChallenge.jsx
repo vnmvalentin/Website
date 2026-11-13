@@ -16,6 +16,12 @@ import { buildWinChallengeJsonLd } from "./jsonLd";
 import OverlayView from "./OverlayView";
 import { STYLE_PRESETS } from "./stylePresets";
 import GameCoverPicker from "./ui/GameCoverPicker";
+import TimerPanel from "./ui/TimerPanel";
+import StreakBoxes from "./ui/StreakBoxes";
+import { SettingRow, Switch, RangeSlider, Segmented } from "./ui/editorKit";
+import { panelTone, GOLD, LABEL, INPUT, BTN_PRIMARY, BTN_QUIET } from "./ui/editorStyles";
+import { useMediaQuery } from "./ui/useMediaQuery";
+import { ToolHeader } from "../../components/toolShell/ToolParts";
 import {
   COUNTER_STYLES,
   HEADER_PROGRESS_MODES,
@@ -24,18 +30,30 @@ import {
   resolveBarWidth,
   MIN_BOX_WIDTH,
   OVERLAY_LAYOUTS,
-  msToClock,
   overallProgress,
+  isItemDone,
+  itemMode,
+  itemModePatch,
+  showsStreakPips,
+  streakClickProgress,
+  streakLengthPatch,
+  STREAK_MIN,
+  STREAK_MAX,
+  DEFAULT_COUNTDOWN_MS,
+  timerDurationMs,
+  timerDisplayMs,
+  timerElapsedMs,
+  timerSetDisplay,
+  timerAdjustDisplay,
+  timerStart,
+  timerPause,
 } from "./overlayUtils";
 import {
   Palette,
   Settings,
-  Play,
-  Pause,
   Pin,
   RotateCcw,
   Plus,
-  Minus,
   Trash2,
   GripVertical,
   Check,
@@ -51,25 +69,10 @@ import {
   Pencil,
   X,
   Hash,
-  ChevronDown,
+  Flame,
 } from "lucide-react";
 
 // --- HELPER FUNCTIONS ---
-
-/** "HH:MM:SS" oder "MM:SS" → Millisekunden (null bei ungültigem Format) */
-function parseClockInput(str) {
-  const m = String(str || "")
-    .trim()
-    .match(/^(\d{1,3}):(\d{1,2})(?::(\d{1,2}))?$/);
-  if (!m) return null;
-  const hasHours = m[3] != null;
-  const h = hasHours ? parseInt(m[1], 10) : 0;
-  const min = hasHours ? parseInt(m[2], 10) : parseInt(m[1], 10);
-  const s = hasHours ? parseInt(m[3], 10) : parseInt(m[2], 10);
-  if (hasHours && min > 59) return null;
-  if (s > 59) return null;
-  return (h * 3600 + min * 60 + s) * 1000;
-}
 
 function hex3to6(hex) {
   if (!hex || typeof hex !== "string") return "#ffffff";
@@ -105,7 +108,8 @@ const DEFAULT_STYLE = {
   // Nur für den Stil „Leiste“: Titel ausblendbar, Timer fest links oder rechts
   barTitle: true, barTimerSide: "right",
 };
-const DEFAULT_TIMER = { running: false, startedAt: 0, elapsedMs: 0, visible: true };
+// mode "up" = Stoppuhr, "down" = Countdown ab durationMs (Rechnung in overlayUtils.js)
+const DEFAULT_TIMER = { running: false, startedAt: 0, elapsedMs: 0, visible: true, mode: "up", durationMs: DEFAULT_COUNTDOWN_MS };
 const DEFAULT_PAGER = { enabled: false, pageSize: 5, intervalSec: 20 };
 const DEFAULT_ANIMATION = {
   enabled: false, mode: "paging",
@@ -118,9 +122,13 @@ const DEFAULT_CHAT_COMMANDS = {
   channel: "",
   channels: [],
   requireModOrBroadcaster: true,
+  // Wer außer dem Streamer Befehle nutzen darf; Bestandsdaten: siehe normalizeChatCommands
+  allowedRoles: { mod: true, vip: false, sub: false, everyone: false },
   replyInChat: true,
 };
 const MAX_CHAT_CHANNELS = 10;
+// Reihenfolge der Rollen-Schalter im Reiter Twitch-Chat
+const CHAT_ROLES = ["mod", "vip", "sub", "everyone"];
 
 const makeItem = () => ({
   id: nanoid(8), name: "", useWins: false, target: 1, progress: 0, done: false, pinned: false,
@@ -137,6 +145,12 @@ function normalizeChatCommands(cc) {
   push(merged.channel);
   merged.channels = [...set].slice(0, MAX_CHAT_CHANNELS);
   merged.channel = merged.channels[0] || "";
+  // Ohne Rollen (Bestandsdaten): alter Schalter "Nur Mods und Streamer" bestimmt sie
+  const roles = cc?.allowedRoles;
+  merged.allowedRoles = roles && typeof roles === "object"
+    ? { mod: roles.mod !== false, vip: roles.vip === true, sub: roles.sub === true, everyone: roles.everyone === true }
+    : { mod: true, vip: false, sub: false, everyone: cc?.requireModOrBroadcaster === false };
+  merged.requireModOrBroadcaster = !merged.allowedRoles.everyone;
   return merged;
 }
 
@@ -300,18 +314,13 @@ function ensureDocShape(input = {}) {
 // --- UI COMPONENTS ---
 
 // Aussehen des Editors: getrennte Tonflächen auf dunklem Grund statt einer Fläche mit
-// Trennlinien. Leiste, Bearbeitungsfläche und Bühne sind je eine Fläche mit Lücke
-// dazwischen; innerhalb einer Fläche trennt nur Abstand. Eingaben sind gefüllt statt
-// umrandet, Schalter und Regler sind eigene Elemente statt der Browser-Standardformen.
-const PANEL = "bg-[#13131b] rounded-md ring-1 ring-white/[0.07]";
-// Gold steht für alles, was mit Gewinnen zu tun hat (Marke, aktiver Reiter, Fortschritt) —
-// derselbe Wert wie --wc-gold in ui/wcTheme.css. Violett bleibt die Farbe der Aktionen.
-const GOLD = "#f5c542";
-const LABEL = "text-[11px] font-semibold text-white/45 uppercase tracking-wider";
-const INPUT =
-  "w-full bg-white/[0.06] hover:bg-white/[0.09] focus:bg-white/[0.09] rounded-sm px-3 py-2 text-sm text-white placeholder-white/25 outline-none ring-1 ring-transparent focus:ring-violet-500 transition-colors";
-const BTN_PRIMARY = "bg-violet-600 hover:bg-violet-500 text-white font-bold rounded-sm transition-colors";
-const BTN_QUIET = "bg-white/[0.06] hover:bg-white/[0.12] text-white/70 hover:text-white rounded-sm transition-colors";
+// Trennlinien. Seitenleiste (Bereiche + Timer), Bearbeitungsfläche und Bühne sind je eine
+// Fläche mit Lücke dazwischen; innerhalb einer Fläche trennt nur Abstand. Die gemeinsamen
+// Klassen stehen in ui/editorStyles.js, Schalter/Regler/Umschalter in ui/editorKit.jsx.
+
+// Ab dieser Breite hat die Seitenleiste mit dem großen Timer Platz; darunter rücken
+// Bereiche und Timer in eine schmale Leiste über die Bearbeitungsfläche.
+const WIDE_QUERY = "(min-width: 1280px)";
 
 // Hintergründe der Bühne. „Kariert“ ist das Zeichen für durchsichtig, wie in jedem
 // Bildprogramm: das Overlay liegt später über dem Spielbild, nicht auf einer Farbe.
@@ -320,75 +329,6 @@ const STAGE_BACKGROUNDS = {
   dark: { background: "#09090b" },
   light: { background: "#e5e7eb" },
 };
-
-/** Eine Einstellung: Name links, Bedienelement rechts. */
-const SettingRow = ({ label, children }) => (
-  <div className="grid grid-cols-1 sm:grid-cols-[minmax(0,11rem)_minmax(0,1fr)] items-center gap-x-4 gap-y-1.5 py-2">
-    <span className="text-sm text-white/70">{label}</span>
-    {children}
-  </div>
-);
-
-/** Ein/Aus-Schalter mit Beschriftung. Eckig wie die übrigen Elemente, keine Pille. */
-const Switch = ({ label, hint, checked, onChange }) => (
-  <label className="flex items-center justify-between gap-4 py-2 cursor-pointer select-none">
-    <span className="min-w-0">
-      <span className="block text-sm text-white/80">{label}</span>
-      {hint && <span className="block text-xs text-white/40 mt-0.5">{hint}</span>}
-    </span>
-    <button
-      type="button"
-      role="switch"
-      aria-checked={checked}
-      onClick={() => onChange(!checked)}
-      className={`relative w-9 h-5 shrink-0 rounded-sm transition-colors ${checked ? "bg-violet-600" : "bg-white/15"}`}
-    >
-      <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-[2px] bg-white transition-transform ${checked ? "translate-x-4" : ""}`} />
-    </button>
-  </label>
-);
-
-// Der Griff des Reglers muss je Browser-Engine einzeln gestaltet werden
-const RANGE_THUMB =
-  "[&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3.5 [&::-webkit-slider-thumb]:h-3.5 [&::-webkit-slider-thumb]:rounded-[3px] [&::-webkit-slider-thumb]:bg-white [&::-moz-range-thumb]:w-3.5 [&::-moz-range-thumb]:h-3.5 [&::-moz-range-thumb]:rounded-[3px] [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:bg-white";
-
-/** Regler mit gefüllter Spur bis zum Griff und dem Wert dahinter. */
-const RangeSlider = ({ label, value, min, max, step, onChange, unit = "" }) => {
-  const pct = Math.min(100, Math.max(0, ((value - min) / (max - min)) * 100));
-  return (
-    <SettingRow label={label}>
-      <div className="flex items-center gap-3">
-        <input
-          type="range"
-          aria-label={label}
-          min={min} max={max} step={step}
-          value={value}
-          onChange={(e) => onChange(parseFloat(e.target.value))}
-          // Harte Kante statt Verlauf: links vom Griff Akzent, rechts die leere Spur
-          style={{ background: `linear-gradient(to right, #8b5cf6 ${pct}%, rgba(255,255,255,0.12) ${pct}%)` }}
-          className={`flex-1 min-w-0 h-1 rounded-sm appearance-none cursor-pointer ${RANGE_THUMB}`}
-        />
-        <span className="w-14 text-right text-sm text-white tabular-nums">{value}{unit}</span>
-      </div>
-    </SettingRow>
-  );
-};
-
-/** Auswahl aus wenigen festen Werten (Unterreiter, Zähler-Anzeige, Ausrichtung, …). */
-const Segmented = ({ label, options, value, onChange }) => (
-  <div className="flex bg-white/[0.06] rounded-sm p-0.5" role="group" aria-label={label}>
-    {options.map((o) => (
-      <button
-        key={o.value}
-        onClick={() => onChange(o.value)}
-        aria-pressed={value === o.value}
-        className={`flex-1 px-2 py-1.5 rounded-[3px] text-xs font-bold whitespace-nowrap transition-colors ${value === o.value ? "bg-white/15 text-white" : "text-white/45 hover:text-white"}`}
-      >
-        {o.label}
-      </button>
-    ))}
-  </div>
-);
 
 /** Farbfeld mit Namen darunter — sechs davon passen in eine Reihe. */
 const ColorPicker = ({ label, value, onChange }) => (
@@ -475,18 +415,17 @@ const SecretLink = ({ value, shown, onToggleShown, copied, onCopy, onRegenerate,
   </div>
 );
 
-// Aktionen in der zweiten Zeile einer Challenge-Karte: immer sichtbar, aber gedämpft.
-// Eingeschaltetes (Zähler an, angepinnt) trägt die Akzentfarbe.
-const ROW_ACTION = "h-7 px-1.5 flex items-center gap-1 rounded-sm text-xs font-bold transition-colors";
+// Aktionen einer Challenge-Karte (Anpinnen, Löschen, „Auf 0“): immer sichtbar, aber gedämpft.
+// Eingeschaltetes (angepinnt) trägt die Akzentfarbe.
+const ROW_ACTION = "h-8 px-2 flex items-center gap-1.5 rounded-sm text-xs font-bold transition-colors";
 const ROW_ACTION_OFF = "text-white/45 hover:text-white hover:bg-white/[0.08]";
 const ROW_ACTION_ON = "text-violet-300 bg-violet-500/15 hover:bg-violet-500/25";
 
-// Schrittweiten für „Zeit anpassen“ im Timer. Ein einziger Schalter plus ± ersetzt
-// die frühere Reihe aus sechs einzelnen Knöpfen.
-const TIMER_STEPS = [
-  { label: "1 Min", ms: 60000 },
-  { label: "10 Min", ms: 600000 },
-  { label: "1 Std", ms: 3600000 },
+// Art einer Challenge: abhaken, Zähler oder Serie (B2B, B3B …) — siehe itemMode in overlayUtils.js
+const ITEM_MODES = [
+  { mode: "check", Icon: Check, stroke: 3, labelKey: "modeCheck" },
+  { mode: "counter", Icon: Hash, stroke: 2.5, labelKey: "modeCounter" },
+  { mode: "streak", Icon: Flame, stroke: 2.5, labelKey: "modeStreak", titleKey: "modeStreakHint" },
 ];
 
 // Sprachfassungen der Seite für die hreflang-Verweise (siehe components/SEO.jsx)
@@ -510,7 +449,8 @@ export default function WinChallenge() {
   const saveTimeoutRef = useRef(null);
   const saveSeqRef = useRef(0);
   const pendingSaveRef = useRef(false);
-  const timeSelectPendingRef = useRef(false);
+  // Breit genug für die Seitenleiste mit dem großen Timer?
+  const wide = useMediaQuery(WIDE_QUERY);
 
   const [activeTab, setActiveTab] = useState("challenges");
   // Frisch angelegte Challenge, deren Namensfeld nach dem Zeichnen den Fokus bekommt
@@ -522,6 +462,14 @@ export default function WinChallenge() {
   }, [focusItemId]);
   // Unter 768px passt nur eine Spalte: entweder der Editor oder die Vorschau
   const [mobileView, setMobileView] = useState("edit");
+  // Fläche, in der zuletzt geklickt oder getippt wurde ("timer" | "edit" | "preview") — sie
+  // trägt den kräftigen Rand (panelTone). Die Bereichswahl zählt zur Bearbeitungsfläche:
+  // wer einen Bereich wählt, arbeitet danach dort.
+  const [activeArea, setActiveArea] = useState("edit");
+  const areaProps = (area) => ({
+    onPointerDownCapture: () => setActiveArea(area),
+    onFocusCapture: () => setActiveArea(area),
+  });
   const [draggingId, setDraggingId] = useState(null);
   const [dropTarget, setDropTarget] = useState(null); // { id, before }
   // Design-Tab: welcher Unterreiter offen ist (Look, Größe, Anzeige, …)
@@ -537,11 +485,6 @@ export default function WinChallenge() {
   const [previewBg, setPreviewBg] = useState("checker");
 
   const [newChannel, setNewChannel] = useState("");
-  // Zeit direkt in der Anzeige bearbeiten (Klick auf die Uhrzeit)
-  const [editingTime, setEditingTime] = useState(false);
-  const [manualTime, setManualTime] = useState("");
-  const [manualTimeError, setManualTimeError] = useState(false);
-  const [timerStep, setTimerStep] = useState(TIMER_STEPS[0].ms);
 
   // Vorschau: Breite des Containers messen, damit das Overlay passend skaliert wird
   const [previewEl, setPreviewEl] = useState(null);
@@ -773,55 +716,62 @@ export default function WinChallenge() {
   };
 
   // Timer — Aktionen werden sofort gespeichert (flush), damit Overlay/Mods nicht hinterherhängen
-  const startTimer = () => { const base = doc?.timer?.elapsedMs || 0; save({ ...doc, timer: { ...(doc?.timer || {}), running: true, startedAt: Date.now() - base, elapsedMs: base } }, { flush: true }); };
-  const pauseTimer = () => { if (!doc?.timer?.running) return; const elapsed = Date.now() - (doc?.timer?.startedAt || 0); save({ ...doc, timer: { ...(doc?.timer || {}), running: false, startedAt: 0, elapsedMs: elapsed } }, { flush: true }); };
-  const resetTimer = () => save({ ...doc, timer: { ...DEFAULT_TIMER, visible: doc?.timer?.visible ?? true } }, { flush: true });
+  // Hoch- und Runterzählen rechnen die Helfer aus overlayUtils.js (gleich wie im Backend)
+  const startTimer = () => save({ ...doc, timer: timerStart({ ...DEFAULT_TIMER, ...(doc?.timer || {}) }) }, { flush: true });
+  const pauseTimer = () => { if (!doc?.timer?.running) return; save({ ...doc, timer: timerPause(doc.timer) }, { flush: true }); };
+  // Richtung und Startzeit bleiben beim Reset erhalten
+  const resetTimer = () => save({
+    ...doc,
+    timer: {
+      ...DEFAULT_TIMER,
+      visible: doc?.timer?.visible ?? true,
+      mode: doc?.timer?.mode === "down" ? "down" : "up",
+      durationMs: timerDurationMs(doc?.timer),
+    },
+  }, { flush: true });
   const adjustTimer = (deltaMs) => {
     if (!doc?.timer) return;
-    const t = doc.timer;
-    const currentElapsed = t.running ? Date.now() - (t.startedAt || 0) : t.elapsedMs || 0;
-    let nextElapsed = Math.max(0, currentElapsed + deltaMs);
-    const updatedTimer = { ...t, elapsedMs: nextElapsed };
-    if (t.running) updatedTimer.startedAt = Date.now() - nextElapsed;
-    save({ ...doc, timer: updatedTimer }, { flush: true });
+    save({ ...doc, timer: timerAdjustDisplay(doc.timer, deltaMs) }, { flush: true });
+  };
+  /**
+   * Richtung wechseln. Zum Countdown: beginnt bei der Startzeit. Zurück zur
+   * Stoppuhr: zeigt die bisher verstrichene Zeit.
+   */
+  const setTimerMode = (mode) => {
+    const t = { ...DEFAULT_TIMER, ...(doc?.timer || {}) };
+    if ((t.mode === "down" ? "down" : "up") === mode) return;
+    const next = mode === "down"
+      ? { ...t, mode, elapsedMs: 0, ...(t.running ? { startedAt: Date.now() } : {}) }
+      : timerSetDisplay({ ...t, mode }, timerElapsedMs(t));
+    save({ ...doc, timer: next }, { flush: true });
+  };
+  /** Startzeit des Countdowns setzen. Die Restzeit verschiebt sich um die Änderung. */
+  const setTimerDuration = (ms) => {
+    const t = { ...DEFAULT_TIMER, ...(doc?.timer || {}) };
+    if (ms !== timerDurationMs(t)) save({ ...doc, timer: { ...t, durationMs: ms } }, { flush: true });
   };
   const toggleTimerVisible = () => {
     const visible = doc?.timer?.visible !== false;
     save({ ...doc, timer: { ...(doc?.timer || {}), visible: !visible } }, { flush: true });
   };
-  /** Übernimmt die eingetippte Zeit. true = übernommen, false = ungültiges Format. */
-  const applyManualTime = () => {
-    const ms = parseClockInput(manualTime);
-    if (ms == null) { setManualTimeError(true); return false; }
-    setManualTimeError(false);
-    const t = doc?.timer || {};
-    const next = { ...t, elapsedMs: ms };
-    if (t.running) next.startedAt = Date.now() - ms;
-    save({ ...doc, timer: next }, { flush: true });
-    setManualTime("");
-    return true;
+  /** Angezeigte Zeit direkt setzen — beim Countdown die Restzeit. */
+  const setTimerDisplay = (ms) =>
+    save({ ...doc, timer: timerSetDisplay({ ...DEFAULT_TIMER, ...(doc?.timer || {}) }, ms) }, { flush: true });
+  // Bedienung des Timers für ui/TimerPanel.jsx
+  const timerActions = {
+    start: startTimer,
+    pause: pauseTimer,
+    reset: resetTimer,
+    adjust: adjustTimer,
+    setDisplay: setTimerDisplay,
+    setMode: setTimerMode,
+    setDuration: setTimerDuration,
+    toggleVisible: toggleTimerVisible,
   };
 
   useEffect(() => { if (!doc?.timer?.running) return; const iv = setInterval(() => setLocalNow(Date.now()), 500); return () => clearInterval(iv); }, [doc?.timer?.running]);
-  const running = !!doc?.timer?.running;
-  const runningElapsed = running ? localNow - (doc?.timer?.startedAt || 0) : (doc?.timer?.elapsedMs || 0);
-  const timerVisible = doc?.timer?.visible !== false;
-
-  // Aufklappfeld der Timer-Leiste (Zeit anpassen, Sichtbarkeit): schließt bei
-  // einem Klick daneben und mit Esc.
-  const [timerMenuOpen, setTimerMenuOpen] = useState(false);
-  const timerMenuRef = useRef(null);
-  useEffect(() => {
-    if (!timerMenuOpen) return;
-    const onDown = (e) => { if (!timerMenuRef.current?.contains(e.target)) setTimerMenuOpen(false); };
-    const onKey = (e) => { if (e.key === "Escape") setTimerMenuOpen(false); };
-    document.addEventListener("mousedown", onDown);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onDown);
-      document.removeEventListener("keydown", onKey);
-    };
-  }, [timerMenuOpen]);
+  // Angezeigte Zeit (beim Countdown die Restzeit) — Name historisch
+  const runningElapsed = timerDisplayMs(doc?.timer || {}, localNow);
 
   const handleCopy = (text, which) => {
     if (!text) return; navigator.clipboard.writeText(text).catch(() => {});
@@ -908,10 +858,18 @@ export default function WinChallenge() {
   const renderPreview = () => {
     if (!doc) return null;
     const namedItems = (doc.items || []).filter((i) => (i.name || "").trim());
-    // Ohne eigene Challenges zeigt die Vorschau zwei Beispiele statt eines leeren Rahmens
+    // Ohne eigene Challenges zeigt die Vorschau Beispiele statt eines leeren Rahmens —
+    // je eines pro Art: abhaken, Zähler, Serie
     const previewDoc = namedItems.length > 0
       ? doc
-      : { ...doc, items: [{ id: "p1", name: t.sampleA, pinned: true }, { id: "p2", name: t.sampleB, useWins: true, target: 3, progress: 1 }] };
+      : {
+          ...doc,
+          items: [
+            { id: "p1", name: t.sampleA, pinned: true },
+            { id: "p2", name: t.sampleB, useWins: true, target: 3, progress: 1 },
+            { id: "p3", name: t.sampleC, useWins: true, streak: true, target: 3, progress: 2 },
+          ],
+        };
     const zoom = previewScale * previewFit;
 
     return (
@@ -978,151 +936,77 @@ export default function WinChallenge() {
       {loading || !doc ? (
         <div className="h-full flex items-center justify-center text-white/30">{t.loading}</div>
       ) : (
-        // Drei Tonflächen auf dem dunklen Grund der Hülle (ui/WcShell.jsx): die Leiste mit
-        // Tabs und Timer, links die Bearbeitungsfläche, rechts die Bühne mit der Vorschau.
-        // In der Breite gedeckelt und zentriert — auf breiten Monitoren lägen Name und
-        // Aktionen einer Zeile sonst einen halben Meter auseinander.
-        <div className="flex-1 min-h-0 w-full max-w-[1400px] mx-auto flex flex-col gap-2 lg:gap-3 p-2 lg:p-4 xl:py-6">
+        // Drei Bereiche auf dem dunklen Grund der Tool-Hülle: links die Seitenleiste mit den
+        // Bereichen und dem großen Timer, in der Mitte die Bearbeitungsfläche, rechts die Bühne
+        // mit der Vorschau. Die Seitenleiste nutzt den Platz, der auf breiten Monitoren sonst
+        // leer neben dem Editor lag — der Timer ist das, was man im Stream ständig bedient, und
+        // war oben in der Leiste zu klein. Unter 1280px (WIDE_QUERY) rücken Bereiche und Timer
+        // als schmale Leiste über die Bearbeitungsfläche (TimerPanel compact).
+        <div className="flex-1 min-h-0 w-full max-w-[1760px] mx-auto flex flex-col xl:flex-row gap-2 lg:gap-3 p-2 lg:p-4">
 
-          {/* LEISTE: Tabs, daneben der Timer und der OBS-Link — beides immer griffbereit.
-              Auf dem Handy rutschen Timer und Link in eine eigene Zeile darunter. */}
-          <div className={`${PANEL} flex flex-col md:flex-row md:items-stretch shrink-0`}>
-            <div className="flex md:flex-1 min-w-0 overflow-x-auto px-1">
+          {/* OBS-Link: in der Kopfleiste der Hülle, von jedem Bereich aus erreichbar */}
+          <ToolHeader>
+            <button
+              type="button"
+              onClick={() => handleCopy(overlayUrl, "overlay")}
+              aria-label={t.copySource}
+              title={t.copySource}
+              className="ml-auto h-8 px-2.5 xl:px-3 shrink-0 whitespace-nowrap inline-flex items-center gap-2 rounded-md bg-accent hover:bg-accent-hover text-white text-[12px] font-bold transition-colors"
+            >
+              {overlayCopied ? <Check size={14} /> : <Copy size={14} />}
+              <span className="hidden xl:inline">{overlayCopied ? t.copied : t.copySource}</span>
+            </button>
+          </ToolHeader>
+
+          {/* SEITENLEISTE: Bereiche und Timer. Breit: eine Spalte links, alles offen sichtbar.
+              Schmal: Bereiche als Reiter, daneben (Handy: darunter) der Timer in einer Zeile. */}
+          <div className="shrink-0 flex flex-col md:flex-row xl:flex-col gap-2 lg:gap-3 xl:w-72 xl:min-h-0 xl:overflow-y-auto custom-scrollbar">
+            <nav
+              aria-label={t.navAria}
+              className={`${panelTone(false)} flex xl:flex-col md:flex-1 xl:flex-none min-w-0 overflow-x-auto xl:overflow-visible ${wide ? "p-1.5 gap-0.5" : "px-1"}`}
+            >
               {[
                 { id: "challenges", label: t.tabChallenges, icon: ListChecks },
                 { id: "custom", label: t.tabDesign, icon: Palette },
                 { id: "chat", label: t.tabChat, icon: MessageSquare },
                 { id: "setup", label: t.tabSetup, icon: Settings },
-              ].map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => { setActiveTab(tab.id); setMobileView("edit"); }}
-                  className={`relative flex items-center gap-2 px-4 py-3.5 text-sm font-bold whitespace-nowrap transition-colors ${
-                    activeTab === tab.id ? "text-white" : "text-white/40 hover:text-white"
-                  }`}
-                >
-                  <tab.icon size={16} className={activeTab === tab.id ? "" : "opacity-50"} style={activeTab === tab.id ? { color: GOLD } : undefined} />
-                  {tab.label}
-                  {activeTab === tab.id && <span className="absolute bottom-0 left-3 right-3 h-0.5" style={{ background: GOLD }} />}
-                </button>
-              ))}
-            </div>
-
-            <div className="flex items-center gap-2 px-2 pb-2 md:py-2 shrink-0">
-
-              {/* TIMER — Start/Pause, Zeit, Reset als eine Einheit. Alles Seltenere steckt im Aufklappfeld. */}
-              <div ref={timerMenuRef} className="relative flex items-center gap-0.5 flex-1 md:flex-none bg-black/30 rounded-sm p-0.5">
-                {!running ? (
-                  <button onClick={startTimer} title={t.start} aria-label={t.start} className="w-8 h-8 shrink-0 flex items-center justify-center bg-green-600 hover:bg-green-500 text-white rounded-[3px] transition-colors">
-                    <Play size={14} fill="currentColor" />
-                  </button>
-                ) : (
-                  <button onClick={pauseTimer} title={t.pause} aria-label={t.pause} className="w-8 h-8 shrink-0 flex items-center justify-center bg-amber-500 hover:bg-amber-400 text-black rounded-[3px] transition-colors">
-                    <Pause size={14} fill="currentColor" />
-                  </button>
-                )}
-
-                {/* Uhrzeit — anklicken zum direkten Bearbeiten (Enter übernimmt, Esc bricht ab) */}
-                <input
-                  type="text"
-                  aria-label={t.timeAria}
-                  title={t.timeTitle}
-                  value={editingTime ? manualTime : msToClock(runningElapsed)}
-                  onFocus={(e) => {
-                    setManualTime(msToClock(runningElapsed));
-                    setManualTimeError(false);
-                    setEditingTime(true);
-                    e.target.select();
-                    // Der Mausklick würde die Markierung beim Loslassen sofort wieder aufheben
-                    timeSelectPendingRef.current = true;
-                  }}
-                  onMouseUp={(e) => {
-                    if (timeSelectPendingRef.current) {
-                      e.preventDefault();
-                      timeSelectPendingRef.current = false;
-                    }
-                  }}
-                  onChange={(e) => { setManualTime(e.target.value); setManualTimeError(false); }}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      if (applyManualTime()) e.target.blur();
-                    } else if (e.key === "Escape") {
-                      e.target.blur();
-                    }
-                  }}
-                  onBlur={() => {
-                    timeSelectPendingRef.current = false;
-                    setEditingTime(false);
-                    setManualTimeError(false);
-                  }}
-                  className={`w-[6.5rem] h-8 mx-0.5 bg-transparent text-center text-lg font-semibold tabular-nums rounded-[3px] outline-none ring-1 transition-colors ${
-                    manualTimeError
-                      ? "text-red-400 ring-red-500/60"
-                      : editingTime
-                        ? "text-white ring-violet-500 bg-white/[0.06]"
-                        : "text-white ring-transparent hover:bg-white/[0.06]"
-                  }`}
-                />
-                {manualTimeError && (
-                  <p className="absolute left-0 top-full mt-1.5 z-20 px-2 py-1 bg-[#1c1c27] ring-1 ring-red-500/40 rounded-sm text-[11px] text-red-400 whitespace-nowrap">{t.timeFormat}</p>
-                )}
-
-                <button onClick={resetTimer} title={t.reset} aria-label={t.reset} className="w-8 h-8 shrink-0 flex items-center justify-center rounded-[3px] text-white/45 hover:text-white hover:bg-white/10 transition-colors">
-                  <RotateCcw size={15} />
-                </button>
-                <button
-                  onClick={() => setTimerMenuOpen((o) => !o)}
-                  aria-expanded={timerMenuOpen}
-                  title={t.timerMore}
-                  aria-label={t.timerMore}
-                  className={`h-8 px-1.5 shrink-0 flex items-center gap-1 rounded-[3px] transition-colors ${timerMenuOpen ? "bg-white/15 text-white" : "text-white/45 hover:text-white hover:bg-white/10"}`}
-                >
-                  {/* Ausgeblendet ist der Zustand, den man sonst übersieht — deshalb steht er in der Leiste */}
-                  {!timerVisible && <EyeOff size={14} className="text-amber-300" />}
-                  <ChevronDown size={15} />
-                </button>
-
-                {timerMenuOpen && (
-                  <div className="absolute left-0 md:left-auto md:right-0 top-full mt-1.5 z-20 w-72 px-3 py-2 bg-[#1c1c27] rounded-md shadow-xl shadow-black/50">
-                    {/* Zeit anpassen — Schrittweite wählen, dann ± */}
-                    <div className="grid grid-cols-[auto_1fr_auto] gap-1.5 py-1">
-                      <button onClick={() => adjustTimer(-timerStep)} title={t.subtractTime} aria-label={t.subtractTime} className={`${BTN_QUIET} px-3 flex items-center`}>
-                        <Minus size={16} />
-                      </button>
-                      <Segmented
-                        label={t.stepAria}
-                        value={timerStep}
-                        onChange={setTimerStep}
-                        options={TIMER_STEPS.map((s, i) => ({ value: s.ms, label: t.steps[i] || s.label }))}
+              ].map((tab) => {
+                const active = activeTab === tab.id;
+                let tone = wide ? "text-white/45 hover:text-white hover:bg-white/[0.04]" : "text-white/40 hover:text-white";
+                if (active) tone = wide ? "text-white bg-white/[0.08]" : "text-white";
+                return (
+                  <button
+                    key={tab.id}
+                    type="button"
+                    onClick={() => { setActiveTab(tab.id); setMobileView("edit"); setActiveArea("edit"); }}
+                    aria-current={active ? "page" : undefined}
+                    className={`relative flex items-center whitespace-nowrap text-sm font-bold transition-colors ${
+                      wide ? "gap-2.5 h-10 px-3 rounded-sm" : "gap-2 px-4 py-3.5"
+                    } ${tone}`}
+                  >
+                    <tab.icon size={16} className={active ? "" : "opacity-50"} style={active ? { color: GOLD } : undefined} />
+                    {tab.label}
+                    {active && (
+                      <span
+                        className={`absolute ${wide ? "left-0 top-2 bottom-2 w-0.5" : "bottom-0 left-3 right-3 h-0.5"}`}
+                        style={{ background: GOLD }}
                       />
-                      <button onClick={() => adjustTimer(timerStep)} title={t.addTime} aria-label={t.addTime} className={`${BTN_QUIET} px-3 flex items-center`}>
-                        <Plus size={16} />
-                      </button>
-                    </div>
-                    <Switch label={t.timerVisible} checked={timerVisible} onChange={toggleTimerVisible} />
-                  </div>
-                )}
-              </div>
+                    )}
+                  </button>
+                );
+              })}
+            </nav>
 
-              {/* Ohne Platz nur das Symbol, damit Tabs und Timer nicht gequetscht werden */}
-              <button
-                onClick={() => handleCopy(overlayUrl, "overlay")}
-                aria-label={t.copySource}
-                title={t.copySource}
-                className={`${BTN_PRIMARY} h-9 xl:w-52 px-3 xl:px-0 flex items-center justify-center gap-2 text-sm`}
-              >
-                {overlayCopied ? <Check size={16} /> : <Copy size={16} />}
-                <span className="hidden xl:inline">{overlayCopied ? t.copied : t.copySource}</span>
-              </button>
+            <div {...areaProps("timer")} className={`${panelTone(activeArea === "timer")} shrink-0 ${wide ? "p-4" : "p-1.5"}`}>
+              <TimerPanel timer={doc.timer} now={localNow} t={t} compact={!wide} actions={timerActions} />
             </div>
           </div>
 
           {/* KÖRPER */}
-          <div className="flex-1 flex gap-2 lg:gap-3 min-h-0">
+          <div className="flex-1 flex gap-2 lg:gap-3 min-h-0 min-w-0">
 
             {/* LINKS: Bearbeitungsfläche. Kopfbereiche stehen fest, nur der Inhalt darunter scrollt. */}
-            <div className={`${PANEL} flex-[1.4] min-w-0 md:max-w-[640px] flex-col min-h-0 ${mobileView === "live" ? "hidden md:flex" : "flex"}`}>
+            <div {...areaProps("edit")} className={`${panelTone(activeArea === "edit")} flex-[1.4] min-w-0 md:max-w-[720px] flex-col min-h-0 ${mobileView === "live" ? "hidden md:flex" : "flex"}`}>
 
               {/* 1. CHALLENGES — oben der Titel wie eine Überschrift, darunter die Liste */}
               {activeTab === "challenges" && (() => {
@@ -1163,16 +1047,21 @@ export default function WinChallenge() {
                     {/* Eine Karte je Challenge, mit Lücke dazwischen. Alles, was sich an einer
                         Challenge einstellen lässt, steht dauerhaft da — als die Aktionen erst beim
                         Überfahren erschienen, hat man sie (und das Cover) nicht gefunden. Damit es
-                        trotzdem ruhig bleibt: eine Tonfläche je Karte, keine Kästen in der Karte,
-                        die Aktionen gedämpft in einer eigenen zweiten Zeile. Der Streifen links
-                        zeigt den Zustand: grün erledigt, violett angepinnt. */}
+                        trotzdem übersichtlich bleibt, hat jede Zeile der Karte genau eine Aufgabe:
+                        oben der Name (mit Anpinnen und Löschen), darunter Art und Stand, und nur
+                        bei einer Serie eine dritte Zeile für die Kästchen. Vorher teilten sich Art,
+                        Länge, „Auf 0“, Anpinnen und Löschen eine Zeile. Der Streifen links zeigt den
+                        Zustand: grün erledigt, violett angepinnt. */}
                     <div
-                      className="flex-1 min-h-0 overflow-y-auto custom-scrollbar px-3 pb-4 space-y-1.5"
+                      className="flex-1 min-h-0 overflow-y-auto custom-scrollbar px-3 pb-4 space-y-2"
                       onDragEnd={endDrag}
                       onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) setDropTarget(null); }}
                     >
                       {(doc.items || []).map((it) => {
-                        const done = it.useWins ? (it.progress || 0) >= (it.target || 0) : !!it.done;
+                        const done = isItemDone(it);
+                        const mode = itemMode(it);
+                        // Serie mit gültiger Länge: Kästchen zum Abhaken statt −/+
+                        const streakBoxes = showsStreakPips(it);
                         const isDragging = draggingId === it.id;
                         const dropBefore = dropTarget?.id === it.id && dropTarget.before;
                         const dropAfter = dropTarget?.id === it.id && !dropTarget.before;
@@ -1180,13 +1069,32 @@ export default function WinChallenge() {
                         if (isDragging) tone = "border-violet-500 bg-violet-500/10 opacity-40";
                         else if (done) tone = "border-green-500/70 bg-green-500/[0.06] hover:bg-green-500/[0.09] focus-within:bg-green-500/[0.09]";
                         else if (it.pinned) tone = "border-violet-500/80 bg-white/[0.04] hover:bg-white/[0.06] focus-within:bg-white/[0.06]";
+                        // Zähler mit Ziel hinter dem Schrägstrich. Steht bei „Zähler“ rechts neben der
+                        // Art, bei einer Serie mit ungültiger Länge an der Stelle der Kästchen.
+                        const counter = (
+                          <div className="shrink-0 flex items-center h-8 bg-black/30 rounded-sm overflow-hidden">
+                            <button type="button" aria-label="−1" onClick={() => updateItem(it.id, { progress: Math.max(0, (it.progress || 0) - 1) })} className="w-8 h-8 hover:bg-white/10 text-white/50 hover:text-white transition-colors">−</button>
+                            <span className={`min-w-7 text-right font-bold text-sm tabular-nums ${done ? "text-green-400" : "text-white"}`}>{it.progress || 0}</span>
+                            <span className="px-1 text-sm text-white/30">/</span>
+                            <input
+                              type="number"
+                              min={1}
+                              aria-label={t.target}
+                              title={t.target}
+                              className="w-8 bg-transparent text-sm tabular-nums text-white/60 focus:text-white focus:outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                              value={it.target || 1}
+                              onChange={(e) => updateItem(it.id, { target: Math.max(1, parseInt(e.target.value || "1", 10)) })}
+                            />
+                            <button type="button" aria-label="+1" onClick={() => updateItem(it.id, { progress: (it.progress || 0) + 1 })} className="w-8 h-8 hover:bg-white/10 text-white/50 hover:text-white transition-colors">+</button>
+                          </div>
+                        );
                         return (
                           <div key={it.id} onDragOver={onDragOver(it.id)} onDrop={onDrop(it.id)} className="relative">
                             {/* Einfügemarke: zeigt vor dem Loslassen, wo die Challenge landet */}
                             <div className={`absolute -top-1 left-0 right-0 h-0.5 z-10 transition-opacity ${dropBefore ? "bg-violet-500 opacity-100" : "opacity-0"}`} />
                             <div className={`absolute -bottom-1 left-0 right-0 h-0.5 z-10 transition-opacity ${dropAfter ? "bg-violet-500 opacity-100" : "opacity-0"}`} />
 
-                            <div className={`flex items-stretch gap-2.5 rounded-sm border-l-2 pl-1 pr-2.5 py-2 transition-colors ${tone}`}>
+                            <div className={`flex items-start gap-2.5 sm:gap-3 rounded-sm border-l-[3px] pl-1 pr-3 py-3 transition-colors ${tone}`}>
                               <div
                                 draggable
                                 onDragStart={onDragStart(it.id)}
@@ -1203,7 +1111,7 @@ export default function WinChallenge() {
                                   requestAnimationFrame(() => grip.focus());
                                 }}
                                 title={t.dragToSort}
-                                className={`shrink-0 self-center p-1 rounded-sm outline-none focus-visible:ring-1 focus-visible:ring-violet-500 transition-colors ${isDragging ? "cursor-grabbing text-violet-400" : "cursor-grab text-white/25 hover:text-white/70 hover:bg-white/5"}`}
+                                className={`shrink-0 self-stretch flex items-center p-1 rounded-sm outline-none focus-visible:ring-1 focus-visible:ring-violet-500 transition-colors ${isDragging ? "cursor-grabbing text-violet-400" : "cursor-grab text-white/25 hover:text-white/70 hover:bg-white/5"}`}
                               >
                                 <GripVertical size={18} />
                               </div>
@@ -1216,12 +1124,13 @@ export default function WinChallenge() {
                                 size="lg"
                               />
 
-                              <div className="flex-1 min-w-0 flex flex-col justify-between gap-1">
-                                {/* Zeile 1: Name und Stand */}
-                                <div className="flex items-center gap-2">
+                              <div className="flex-1 min-w-0 flex flex-col gap-2.5">
+                                {/* Zeile 1: der Name allein, dahinter Anpinnen und Löschen. Der Stand steht
+                                    nicht mehr daneben — eine lange Serie hat den Namen sonst abgeschnitten. */}
+                                <div className="flex items-center gap-1">
                                   <input
                                     id={`wc-item-${it.id}`}
-                                    className={`flex-1 min-w-0 bg-transparent text-base font-semibold placeholder-white/25 focus:outline-none truncate transition-colors ${done ? "text-white/55 focus:text-white" : "text-white"}`}
+                                    className={`flex-1 min-w-0 bg-transparent text-[17px] font-semibold placeholder-white/25 focus:outline-none truncate transition-colors ${done ? "text-white/55 focus:text-white" : "text-white"}`}
                                     placeholder={t.namePlaceholder}
                                     value={it.name}
                                     onChange={(e) => updateItem(it.id, { name: e.target.value })}
@@ -1229,30 +1138,79 @@ export default function WinChallenge() {
                                     // lässt sich so eintippen, ohne zur Maus zu greifen
                                     onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addItemAfter(it.id); } }}
                                   />
+                                  <button
+                                    type="button"
+                                    onClick={() => updateItem(it.id, { pinned: !it.pinned })}
+                                    aria-pressed={!!it.pinned}
+                                    title={it.pinned ? t.unpin : t.pin}
+                                    aria-label={it.pinned ? t.unpin : t.pin}
+                                    className={`${ROW_ACTION} shrink-0 ${it.pinned ? ROW_ACTION_ON : ROW_ACTION_OFF}`}
+                                  >
+                                    <Pin size={15} />{it.pinned && <span className="hidden sm:inline">{t.pinned}</span>}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => removeItem(it.id)}
+                                    title={t.remove}
+                                    aria-label={t.remove}
+                                    className={`${ROW_ACTION} shrink-0 text-white/45 hover:text-red-400 hover:bg-red-500/10`}
+                                  >
+                                    <Trash2 size={15} />
+                                  </button>
+                                </div>
 
-                                  {/* Bei Zählern steht das Ziel direkt hinter dem Schrägstrich und
-                                      lässt sich dort ändern. */}
-                                  {it.useWins ? (
-                                    <div className="shrink-0 flex items-center bg-black/30 rounded-sm overflow-hidden">
-                                      <button onClick={() => updateItem(it.id, { progress: Math.max(0, (it.progress || 0) - 1) })} className="px-2.5 py-1 hover:bg-white/10 text-white/50 hover:text-white transition-colors">−</button>
-                                      <span className={`min-w-6 text-right font-bold text-sm tabular-nums ${done ? "text-green-400" : "text-white"}`}>{it.progress || 0}</span>
-                                      <span className="px-1 text-sm text-white/30">/</span>
-                                      <input
-                                        type="number"
-                                        min={1}
-                                        aria-label={t.target}
-                                        title={t.target}
-                                        className="w-7 bg-transparent text-sm tabular-nums text-white/60 focus:text-white focus:outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-                                        value={it.target || 1}
-                                        onChange={(e) => updateItem(it.id, { target: Math.max(1, parseInt(e.target.value || "1", 10)) })}
-                                      />
-                                      <button onClick={() => updateItem(it.id, { progress: (it.progress || 0) + 1 })} className="px-2.5 py-1 hover:bg-white/10 text-white/50 hover:text-white transition-colors">+</button>
+                                {/* Zeile 2: links die Art der Challenge (Abhaken, Zähler oder Serie), rechts
+                                    das, was zu dieser Art gehört — der Haken, der Zähler mit Ziel oder die
+                                    Länge der Serie (B2B bis B10). */}
+                                <div className="flex flex-wrap items-center justify-between gap-2">
+                                  <div role="radiogroup" aria-label={t.modeAria} className="flex p-0.5 rounded-sm bg-black/30">
+                                    {ITEM_MODES.map((m) => {
+                                      const on = mode === m.mode;
+                                      return (
+                                        <button
+                                          key={m.mode}
+                                          type="button"
+                                          role="radio"
+                                          aria-checked={on}
+                                          title={m.titleKey ? t[m.titleKey] : t[m.labelKey]}
+                                          onClick={() => { if (!on) updateItem(it.id, itemModePatch(it, m.mode)); }}
+                                          className={`h-7 px-2 flex items-center gap-1.5 rounded-[2px] text-xs font-bold transition-colors ${on ? "bg-violet-500/30 text-white" : "text-white/45 hover:text-white"}`}
+                                        >
+                                          {/* Auf dem Handy trägt nur die gewählte Art ihren Namen — sonst
+                                              passt der Stand nicht mehr in die Zeile */}
+                                          <m.Icon size={13} strokeWidth={m.stroke} />
+                                          <span className={on ? "" : "sr-only sm:not-sr-only"}>{t[m.labelKey]}</span>
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+
+                                  {mode === "streak" && (
+                                    <div role="group" aria-label={t.streakLength} title={t.streakLength} className="shrink-0 flex items-center h-8 rounded-sm bg-black/30">
+                                      <button
+                                        type="button"
+                                        onClick={() => updateItem(it.id, streakLengthPatch(it, (it.target || 0) - 1))}
+                                        disabled={(it.target || 0) <= STREAK_MIN}
+                                        aria-label={t.streakShorter}
+                                        className="w-8 h-8 text-white/50 hover:text-white disabled:opacity-30 disabled:pointer-events-none transition-colors"
+                                      >−</button>
+                                      <span className="min-w-[3.25rem] text-center text-xs font-bold text-white/80 tabular-nums whitespace-nowrap">{t.streakWins(it.target || 0)}</span>
+                                      <button
+                                        type="button"
+                                        onClick={() => updateItem(it.id, streakLengthPatch(it, (it.target || 0) + 1))}
+                                        disabled={(it.target || 0) >= STREAK_MAX}
+                                        aria-label={t.streakLonger}
+                                        className="w-8 h-8 text-white/50 hover:text-white disabled:opacity-30 disabled:pointer-events-none transition-colors"
+                                      >+</button>
                                     </div>
-                                  ) : (
+                                  )}
+                                  {mode === "counter" && counter}
+                                  {mode === "check" && (
                                     <button
+                                      type="button"
                                       onClick={() => updateItem(it.id, { done: !it.done })}
                                       aria-pressed={!!it.done}
-                                      className={`shrink-0 h-7 px-2.5 flex items-center gap-1.5 rounded-sm text-xs font-bold transition-colors ${it.done ? "bg-green-500/20 text-green-400 hover:bg-green-500/30" : "bg-black/30 text-white/50 hover:text-white hover:bg-white/10"}`}
+                                      className={`shrink-0 h-8 px-3 flex items-center gap-1.5 rounded-sm text-xs font-bold transition-colors ${it.done ? "bg-green-500/20 text-green-400 hover:bg-green-500/30" : "bg-black/30 text-white/50 hover:text-white hover:bg-white/10"}`}
                                     >
                                       <Check size={14} strokeWidth={3} className={it.done ? "" : "opacity-40"} />
                                       {it.done ? t.done : t.open}
@@ -1260,48 +1218,34 @@ export default function WinChallenge() {
                                   )}
                                 </div>
 
-                                {/* Zeile 2: Art der Challenge als Umschalter (Abhaken oder Zähler) —
-                                    als einzelner „# Zähler“-Knopf sah es nach Text aus. Rechts nur
-                                    Anpinnen und Löschen; sortiert wird per Ziehen am Griff. */}
-                                <div className="flex items-center gap-1.5">
-                                  <div role="radiogroup" aria-label={t.modeAria} className="flex p-0.5 rounded-sm bg-black/30">
-                                    {[
-                                      { wins: false, icon: <Check size={12} strokeWidth={3} />, label: t.modeCheck },
-                                      { wins: true, icon: <Hash size={12} strokeWidth={2.5} />, label: t.modeCounter },
-                                    ].map((m) => {
-                                      const on = !!it.useWins === m.wins;
-                                      return (
-                                        <button
-                                          key={String(m.wins)}
-                                          role="radio"
-                                          aria-checked={on}
-                                          onClick={() => { if (!on) updateItem(it.id, { useWins: m.wins }); }}
-                                          className={`h-6 px-2 flex items-center gap-1 rounded-[2px] text-[11px] font-bold transition-colors ${on ? "bg-white/15 text-white" : "text-white/40 hover:text-white"}`}
-                                        >
-                                          {m.icon} {m.label}
-                                        </button>
-                                      );
-                                    })}
+                                {/* Zeile 3, nur bei einer Serie: ein großes Kästchen je Win, einzeln
+                                    abhakbar, und „Auf 0“ für die gerissene Serie. Eigene Zeile auf
+                                    eigenem Ton, damit zehn Kästchen Platz haben und nichts neben den
+                                    Einstellungen der Karte klemmt. */}
+                                {mode === "streak" && (
+                                  // Kein Umbruch der Zeile selbst: bei wenig Platz brechen die Kästchen in
+                                  // sich um, „Auf 0“ bleibt rechts stehen statt allein in eine neue Zeile zu rutschen
+                                  <div className="flex items-center justify-between gap-3 rounded-sm bg-black/25 px-2.5 py-2">
+                                    {streakBoxes ? (
+                                      <StreakBoxes
+                                        size="lg"
+                                        total={it.target || 0}
+                                        filled={Math.min(it.progress || 0, it.target || 0)}
+                                        onPick={(i) => updateItem(it.id, { progress: streakClickProgress(it, i) })}
+                                        t={t}
+                                      />
+                                    ) : counter}
+                                    <button
+                                      type="button"
+                                      onClick={() => updateItem(it.id, { progress: 0 })}
+                                      disabled={!(it.progress > 0)}
+                                      title={t.streakResetTitle}
+                                      className={`${ROW_ACTION} shrink-0 ${ROW_ACTION_OFF} disabled:opacity-30 disabled:pointer-events-none`}
+                                    >
+                                      <RotateCcw size={14} /> {t.streakReset}
+                                    </button>
                                   </div>
-
-                                  <button
-                                    onClick={() => updateItem(it.id, { pinned: !it.pinned })}
-                                    aria-pressed={!!it.pinned}
-                                    title={it.pinned ? t.unpin : t.pin}
-                                    aria-label={it.pinned ? t.unpin : t.pin}
-                                    className={`${ROW_ACTION} ${it.pinned ? ROW_ACTION_ON : ROW_ACTION_OFF} ml-auto`}
-                                  >
-                                    <Pin size={13} />{it.pinned && <span>{t.pinned}</span>}
-                                  </button>
-                                  <button
-                                    onClick={() => removeItem(it.id)}
-                                    title={t.remove}
-                                    aria-label={t.remove}
-                                    className={`${ROW_ACTION} text-white/45 hover:text-red-400 hover:bg-red-500/10`}
-                                  >
-                                    <Trash2 size={14} />
-                                  </button>
-                                </div>
+                                )}
                               </div>
                             </div>
                           </div>
@@ -1538,8 +1482,30 @@ export default function WinChallenge() {
                   <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar px-5 py-4 space-y-6">
                     <div>
                       <Switch label={t.chatEnable} checked={!!doc.chatCommands?.enabled} onChange={(v) => setChat({ enabled: v })} />
-                      <Switch label={t.chatModsOnly} checked={doc.chatCommands?.requireModOrBroadcaster !== false} onChange={(v) => setChat({ requireModOrBroadcaster: v })} />
                       <Switch label={t.chatReplies} hint={t.chatReplyLang} checked={doc.chatCommands?.replyInChat !== false} onChange={(v) => setChat({ replyInChat: v })} />
+                    </div>
+
+                    {/* Wer darf Befehle nutzen — der Streamer immer */}
+                    <div>
+                      <h4 className={`${LABEL} mb-1.5`}>{t.chatRoles}</h4>
+                      <p className="text-xs text-white/40 mb-1">{t.chatRolesHint}</p>
+                      {(() => {
+                        const roles = normalizeChatCommands(doc.chatCommands).allowedRoles;
+                        const setRole = (key, v) => {
+                          const next = { ...roles, [key]: v };
+                          setChat({ allowedRoles: next, requireModOrBroadcaster: !next.everyone });
+                        };
+                        return CHAT_ROLES.map((key) => (
+                          <div key={key} className={key !== "everyone" && roles.everyone ? "opacity-40" : ""}>
+                            <Switch
+                              label={t.chatRoleLabels[key]}
+                              hint={key === "everyone" ? t.chatRoleEveryoneHint : undefined}
+                              checked={roles.everyone || roles[key]}
+                              onChange={(v) => { if (key === "everyone" || !roles.everyone) setRole(key, v); }}
+                            />
+                          </div>
+                        ));
+                      })()}
                     </div>
 
                     {/* Kanäle */}
@@ -1671,7 +1637,7 @@ export default function WinChallenge() {
             </div>
 
             {/* RECHTS: Bühne — die Vorschau füllt die ganze Fläche und scrollt nie mit */}
-            <div className={`${PANEL} flex-1 min-w-0 flex-col min-h-0 overflow-hidden ${mobileView === "live" ? "flex" : "hidden md:flex"}`}>
+            <div {...areaProps("preview")} className={`${panelTone(activeArea === "preview")} flex-1 min-w-0 flex-col min-h-0 overflow-hidden ${mobileView === "live" ? "flex" : "hidden md:flex"}`}>
               <div className="flex items-center justify-between px-4 py-2.5 shrink-0">
                 <div className="flex items-baseline gap-2">
                   <h3 className={LABEL}>{t.preview}</h3>
@@ -1700,14 +1666,14 @@ export default function WinChallenge() {
 
           {/* Umschalter nur auf schmalen Bildschirmen: dort passt neben der
               Bearbeitungsfläche keine zweite Spalte mehr */}
-          <div className={`${PANEL} md:hidden grid grid-cols-2 shrink-0`}>
+          <div className={`${panelTone(false)} md:hidden grid grid-cols-2 shrink-0`}>
             {[
               { id: "edit", label: t.mobileEdit, icon: Pencil },
               { id: "live", label: t.mobileLive, icon: Monitor },
             ].map((v) => (
               <button
                 key={v.id}
-                onClick={() => setMobileView(v.id)}
+                onClick={() => { setMobileView(v.id); setActiveArea(v.id === "live" ? "preview" : "edit"); }}
                 aria-pressed={mobileView === v.id}
                 className={`relative flex items-center justify-center gap-2 py-3 text-sm font-bold transition-colors ${mobileView === v.id ? "text-white" : "text-white/40 hover:text-white"}`}
               >

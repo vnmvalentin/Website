@@ -260,18 +260,28 @@ export function cloneModel(holder) {
 }
 
 const VignetteShader = {
-  uniforms: { tDiffuse: { value: null }, uAmount: { value: 0.3 }, uWarm: { value: new THREE.Vector3(1, 1, 1) } },
+  uniforms: {
+    tDiffuse: { value: null }, uAmount: { value: 0.3 }, uWarm: { value: new THREE.Vector3(1, 1, 1) },
+    // Farbabstimmung (opts.grade): Sättigung, Kontrast, Farbstich in Schatten/Lichtern — ohne grade neutral
+    uSat: { value: 1 }, uContrast: { value: 1 },
+    uShadowTint: { value: new THREE.Vector3(0, 0, 0) }, uHighTint: { value: new THREE.Vector3(0, 0, 0) },
+  },
   vertexShader: /* glsl */`
     varying vec2 vUv;
     void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
   fragmentShader: /* glsl */`
     uniform sampler2D tDiffuse; uniform float uAmount; uniform vec3 uWarm;
+    uniform float uSat; uniform float uContrast; uniform vec3 uShadowTint; uniform vec3 uHighTint;
     varying vec2 vUv;
     void main() {
       vec4 c = texture2D(tDiffuse, vUv);
+      float l = dot(c.rgb, vec3(0.299, 0.587, 0.114));
+      vec3 g = mix(vec3(l), c.rgb, uSat);
+      g = (g - 0.5) * uContrast + 0.5;
+      g += uShadowTint * (1.0 - smoothstep(0.0, 0.5, l)) + uHighTint * smoothstep(0.5, 1.0, l);
       vec2 d = vUv - 0.5;
       float v = 1.0 - uAmount * smoothstep(0.25, 0.85, dot(d, d) * 2.2);
-      gl_FragColor = vec4(c.rgb * v * uWarm, c.a);
+      gl_FragColor = vec4(clamp(g, 0.0, 1.0) * v * uWarm, c.a);
     }`,
 };
 
@@ -279,7 +289,8 @@ const VignetteShader = {
  * @param {THREE.WebGLRenderer} renderer
  * @param {THREE.Scene} scene
  * @param {THREE.Camera} camera
- * @param {{bloom?: {strength:number, radius:number, threshold:number}|false, vignette?: number, warm?: number[]}} opts
+ * @param {{bloom?: {strength:number, radius:number, threshold:number}|false, vignette?: number, warm?: number[],
+ *   grade?: {saturation?: number, contrast?: number, shadows?: number[], highlights?: number[]}}} opts
  */
 export function createPostFX(renderer, scene, camera, opts = {}) {
   const size = renderer.getDrawingBufferSize(new THREE.Vector2());
@@ -296,10 +307,17 @@ export function createPostFX(renderer, scene, camera, opts = {}) {
   composer.addPass(new OutputPass());
   // vignette: 0 (ohne warm) spart den ganzen Durchgang — z. B. wenn die Seite die Vignette per CSS malt
   let vignette = null;
-  if (opts.vignette !== 0 || opts.warm) {
+  if (opts.vignette !== 0 || opts.warm || opts.grade) {
     vignette = new ShaderPass(VignetteShader);
     vignette.uniforms.uAmount.value = opts.vignette ?? 0.3;
     if (opts.warm) vignette.uniforms.uWarm.value.set(...opts.warm);
+    if (opts.grade) {
+      const g = opts.grade;
+      vignette.uniforms.uSat.value = g.saturation ?? 1;
+      vignette.uniforms.uContrast.value = g.contrast ?? 1;
+      if (g.shadows) vignette.uniforms.uShadowTint.value.set(...g.shadows);
+      if (g.highlights) vignette.uniforms.uHighTint.value.set(...g.highlights);
+    }
     composer.addPass(vignette);
   }
   return {
@@ -322,20 +340,52 @@ export function createPostFX(renderer, scene, camera, opts = {}) {
  * verdeckt ist. Sonst passiert das erst, wenn ein Objekt zum ersten Mal ins Bild kommt — mitten in
  * einer Kamerafahrt, und die Fahrt bleibt für einen Moment stehen. `groups` werden dafür kurz
  * sichtbar geschaltet (und danach wiederhergestellt).
+ *
+ * Gezeichnet wird dabei ALLES, auch was außerhalb des Bildausschnitts liegt: three prüft erst beim
+ * ersten Zeichnen, ob ein Shader fertig ist, und wartet dort blockierend. Vorher wurde nur der
+ * Startausschnitt gezeichnet — die Pyramide hing deshalb in der Einfahrt jedes Mal, wenn Gang,
+ * Kammer und Säulen zum ersten Mal ins Bild kamen. Vorher warmUpAsync abwarten, dann ist dieser
+ * Durchgang kurz.
  */
 export function warmUp(renderer, scene, camera, post, groups = []) {
   const vis = groups.map((g) => g.visible);
   groups.forEach((g) => { g.visible = true; });
+  // Auch einzeln versteckte Objekte (Lichtstrahl, Rahmen, Schilder …) einmal mitzeichnen. Lichter
+  // bleiben, wie sie sind — ihre Anzahl gehört zum Shader-Schlüssel.
+  const hidden = [];
+  const holdsLight = (o) => { let l = false; o.traverse((c) => { if (c.isLight) l = true; }); return l; };
+  scene.traverse((m) => { if (!m.visible && !holdsLight(m)) { m.visible = true; hidden.push(m); } });
   renderer.compile(scene, camera);
   const seen = new Set();
+  const culled = [];
   scene.traverse((m) => {
+    if (m.frustumCulled) { m.frustumCulled = false; culled.push(m); }
     [].concat(m.material || []).forEach((mat) => {
       Object.values(mat).forEach((v) => { if (v?.isTexture && !seen.has(v)) { seen.add(v); renderer.initTexture(v); } });
     });
   });
   if (scene.background?.isTexture) renderer.initTexture(scene.background);
   if (post) post.render(0); else renderer.render(scene, camera);
+  culled.forEach((m) => { m.frustumCulled = true; });
+  hidden.forEach((m) => { m.visible = false; });
   groups.forEach((g, i) => { g.visible = vis[i]; });
+}
+
+/**
+ * Shader im Hintergrund übersetzen lassen (KHR_parallel_shader_compile), ohne den Hauptthread zu
+ * blockieren. Löst auf, sobald alle fertig sind — spätestens nach maxMs (ohne die Erweiterung
+ * wartet three nur kurz; dann fängt warmUp den Rest ab, solange die Szene verdeckt ist).
+ * `groups` bleiben danach sichtbar; warmUp stellt sie wieder her.
+ */
+export function warmUpAsync(renderer, scene, camera, groups = [], maxMs = 1500) {
+  groups.forEach((g) => { g.visible = true; });
+  let compiling;
+  try {
+    compiling = renderer.compileAsync(scene, camera);
+  } catch {
+    return Promise.resolve();
+  }
+  return Promise.race([compiling, new Promise((r) => setTimeout(r, maxMs))]);
 }
 
 // Untergrenze der Auflösung: 60 % — darunter wird es zu matschig. Früher war bei 1 Schluss, damit konnte die
@@ -380,24 +430,31 @@ export function neutralEnvironment(renderer) {
 export function normalFromHeight(heightCanvas, strength = 2, rx = 1, ry = rx) {
   const w = heightCanvas.width, h = heightCanvas.height;
   const src = heightCanvas.getContext('2d').getImageData(0, 0, w, h).data;
-  const H = (x, y) => src[(((y + h) % h) * w + ((x + w) % w)) * 4] / 255;
+  // Höhen einmal als Zahlenfeld, Nachbarspalten/-zeilen vorab umgebrochen — die alte Fassung
+  // rechnete je Pixel 16 Modulos und brauchte beim Pyramidenstart ~0,3 s
+  const hgt = new Float32Array(w * h);
+  for (let i = 0; i < w * h; i++) hgt[i] = src[i * 4] / 255;
+  const xl = new Int32Array(w), xr = new Int32Array(w);
+  for (let x = 0; x < w; x++) { xl[x] = (x - 1 + w) % w; xr[x] = (x + 1) % w; }
   const out = document.createElement('canvas');
   out.width = w; out.height = h;
   const octx = out.getContext('2d');
   const img = octx.createImageData(w, h);
+  const d = img.data;
   for (let y = 0; y < h; y++) {
+    const ru = ((y - 1 + h) % h) * w, r0 = y * w, rd = ((y + 1) % h) * w;
     for (let x = 0; x < w; x++) {
-      const dx = (H(x + 1, y - 1) + 2 * H(x + 1, y) + H(x + 1, y + 1)) - (H(x - 1, y - 1) + 2 * H(x - 1, y) + H(x - 1, y + 1));
-      const dy = (H(x - 1, y + 1) + 2 * H(x, y + 1) + H(x + 1, y + 1)) - (H(x - 1, y - 1) + 2 * H(x, y - 1) + H(x + 1, y - 1));
+      const l = xl[x], r = xr[x];
+      const dx = (hgt[ru + r] + 2 * hgt[r0 + r] + hgt[rd + r]) - (hgt[ru + l] + 2 * hgt[r0 + l] + hgt[rd + l]);
+      const dy = (hgt[rd + l] + 2 * hgt[rd + x] + hgt[rd + r]) - (hgt[ru + l] + 2 * hgt[ru + x] + hgt[ru + r]);
       // Canvas-Zeilen laufen nach unten, Textur-v nach oben → dy mit umgekehrtem Vorzeichen
-      let nx = -dx * strength, ny = dy * strength, nz = 1;
-      const l = Math.hypot(nx, ny, nz);
-      nx /= l; ny /= l; nz /= l;
-      const i = (y * w + x) * 4;
-      img.data[i] = (nx * 0.5 + 0.5) * 255;
-      img.data[i + 1] = (ny * 0.5 + 0.5) * 255;
-      img.data[i + 2] = (nz * 0.5 + 0.5) * 255;
-      img.data[i + 3] = 255;
+      const nx = -dx * strength, ny = dy * strength;
+      const inv = 1 / Math.sqrt(nx * nx + ny * ny + 1);
+      const i = (r0 + x) * 4;
+      d[i] = (nx * inv * 0.5 + 0.5) * 255;
+      d[i + 1] = (ny * inv * 0.5 + 0.5) * 255;
+      d[i + 2] = (inv * 0.5 + 0.5) * 255;
+      d[i + 3] = 255;
     }
   }
   octx.putImageData(img, 0, 0);

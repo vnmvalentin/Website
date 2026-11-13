@@ -27,8 +27,8 @@ import {
 } from './chatterFigure';
 import { loadFigureKit, buildMocapFigure, beatScale, WALK_MPS } from './mocapFigure';
 import { requestChatAvatar } from './chatAvatars';
-import { loadPeopleKit, buildPersonFigure, personBeatScale, personSeed, PERSON_WALK_MPS, COSTUMES } from './peopleFigure';
-import { RAVE_MOVES } from './raveMoves';
+import { loadPeopleKit, buildPersonFigure, personBeatScale, personSeed, PERSON_WALK_MPS, COSTUMES, FESTIVE_HATS } from './peopleFigure';
+import { RAVE_MOVES, RAVE_CALM } from './raveMoves';
 import { requestLook } from './sceneLink';
 
 const MAX_DANCERS = 60;
@@ -126,16 +126,24 @@ function mocapBodyFactory(kit, getBpm) {
 function peopleBodyFactory(kit, getBpm, getLook, getCostumes) {
   return (msg, envMap) => {
     const seed = personSeed(msg.userId || msg.name);
-    // Halloween: ohne eigene Figur kommt jeder verkleidet (Hexe, Zombie, Kuh …)
-    const fig = buildPersonFigure(kit, { seed, envMap, look: getLook?.(msg.userId, msg.name) || null, pool: getCostumes?.() ? COSTUMES : null });
+    // Halloween: ohne eigene Figur kommt jeder verkleidet (Hexe, Zombie, Kuh …); Weihnachten: mit Mütze oder Geweih
+    const theme = getCostumes?.();
+    const fig = buildPersonFigure(kit, {
+      seed, envMap, look: getLook?.(msg.userId, msg.name) || null,
+      pool: theme === 'halloween' ? COSTUMES : null,
+      festive: theme === 'christmas' ? FESTIVE_HATS[(seed >>> 3) % FESTIVE_HATS.length] : null,
+    });
     // Taktgekoppelte Tänze: jede Figur steigt an einer anderen Stelle der Schleife ein
     const shift = seed % 4;
     let walkScale = 1;
     let srcKey = '';
+    let sync = false;
     return {
       fig,
       group: fig.group,
       avatarInLabel: true,
+      /** Gemeinsamer Tanz: alle an derselben Stelle der Schleife (sonst steigt jeder versetzt ein). */
+      setSync(on) { sync = !!on; },
       setActivity(next) {
         const key = next.kind === 'walk' ? 'walk' : next.move;
         if (key === srcKey) return;
@@ -150,7 +158,7 @@ function peopleBodyFactory(kit, getBpm, getLook, getCostumes) {
       update(dt, t, beat, yaw, hop, glow, baseY = 0) {
         fig.group.rotation.y = yaw;
         fig.group.position.y = baseY + (hop > 0 ? 0.16 * Math.sin(hop * Math.PI) : 0);
-        fig.update(dt, beat + shift);
+        fig.update(dt, sync ? beat : beat + shift);
       },
       headTop: () => fig.group.position.y + fig.headTop(),
       dispose: () => fig.dispose(),
@@ -180,7 +188,17 @@ const STYLES = {
 STYLES.people = {
   ...STYLES.mocap,
   rave: RAVE_MOVES,
-  raveHype: ['handsup', 'handsup_m', 'jumpstyle', 'jumpstyle_m', 'fistpump', 'fistpump_m', 'hakken', 'hakken_m', 'clapjump', 'shuffle', 'shuffle_m', 'headbang', 'sideflip'],
+  raveHype: ['handsup', 'handsup_m', 'jumpstyle', 'jumpstyle_m', 'fistpump', 'fistpump_m', 'hakken', 'hakken_m', 'clapjump', 'shuffle', 'shuffle_m', 'headbang', 'sideflip',
+    'stomp', 'stomp_m', 'gunfingers', 'kazotsky', 'kazotsky_m', 'spin', 'spin_m'],
+  // leise Stellen in der Musik
+  calm: RAVE_CALM,
+  // Polonaise-Schritt vorhanden (Clip „conga“ aus raveMoves.js)
+  conga: true,
+  // gemeinsame Tänze: alle im selben Schritt (wild = beim Drop, mid = zwischendurch)
+  group: {
+    wild: ['handsup', 'fistpump', 'jumpstyle', 'clapjump', 'stomp', 'gunfingers'],
+    mid: ['twostep', 'wavearms', 'floss', 'shuffle', 'pointer', 'twist'],
+  },
   travel: {
     walk: { speed: 0.95, face: 'along' },
     moonwalk: { speed: 0.65, face: 'back' },
@@ -280,7 +298,7 @@ function turnTo(cur, goal, dt, rate) {
  * @param {{ envMap?: THREE.Texture|null, bpm?: number, figures?: 'people'|'robots', floorTop?: number, getLook?: (userId: string) => object|null }} [opts]
  *   floorTop: Oberkante der Tanzfläche (die LED-Kacheln stehen über dem Hallenboden)
  *   getLook:  selbst gebaute Figur eines Zuschauers (avatarLooks.js), sonst die feste Zufallsfigur
- *   getCostumes: true → Neue ohne eigene Figur kommen verkleidet (Halloween)
+ *   getCostumes: Thema ('halloween' → Neue ohne eigene Figur kommen verkleidet, 'christmas' → mit Weihnachtsmütze)
  */
 export function createDancers(scene, overlay, floor, door, { envMap = null, bpm: startBpm = 124, figures = 'people', floorTop = 0, getLook = null, getCostumes = null } = {}) {
   const dancers = new Map();    // userId → Tänzer
@@ -294,6 +312,40 @@ export function createDancers(scene, overlay, floor, door, { envMap = null, bpm:
   let nextExtraAt = 0;
   const tmp = new THREE.Vector3();
   let energy = 0;
+  let calm = false;             // leise Stelle in der Musik → ruhige Tänze
+  let conga = null;             // laufende Polonaise: { s, gap, moving, startT, endBeat }
+  // Weg der Polonaise: Oval über die Tanzfläche (Bogenlängen-Tabelle für gleichmäßiges Tempo)
+  const loop = (() => {
+    const cx = (floor.x0 + floor.x1) / 2, cz = (floor.z0 + floor.z1) / 2;
+    const rx = (floor.x1 - floor.x0) / 2 - 1.3, rz = (floor.z1 - floor.z0) / 2 - 1.3;
+    const N = 240;
+    const pts = [], len = [0];
+    for (let i = 0; i <= N; i++) {
+      const a = (i / N) * Math.PI * 2;
+      pts.push([cx + Math.sin(a) * rx, cz + Math.cos(a) * rz]);
+      if (i) len.push(len[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]));
+    }
+    const total = len[N];
+    /** Punkt und Laufrichtung bei Bogenlänge s (läuft im Kreis). */
+    const at = (s, out) => {
+      const u = ((s % total) + total) % total;
+      let lo = 0, hi = N;
+      while (hi - lo > 1) { const mid = (lo + hi) >> 1; if (len[mid] <= u) lo = mid; else hi = mid; }
+      const k = (u - len[lo]) / Math.max(1e-6, len[hi] - len[lo]);
+      out.x = pts[lo][0] + (pts[hi][0] - pts[lo][0]) * k;
+      out.z = pts[lo][1] + (pts[hi][1] - pts[lo][1]) * k;
+      out.yaw = Math.atan2(pts[hi][0] - pts[lo][0], pts[hi][1] - pts[lo][1]);
+      return out;
+    };
+    return { total, at };
+  })();
+  const slot = { x: 0, z: 0, yaw: 0 };
+  /** Polonaise auflösen: jeder tanzt dort weiter, wo er gerade ist. */
+  const endConga = (t, beat) => {
+    if (!conga) return;
+    conga = null;
+    for (const d of dancers.values()) if (d.state === 'conga') danceNow(d, t, beat);
+  };
   let lastBeat = 0;             // zuletzt bekannter Takt (für Nachrichten zwischen zwei Bildern)
   let disposed = false;
   // Figurart steht erst nach dem Laden fest; bis dahin Nachrichten sammeln
@@ -364,7 +416,9 @@ export function createDancers(scene, overlay, floor, door, { envMap = null, bpm:
   const chooseMove = (d, hype) => {
     const mode = activeMode();
     const rave = mode === 'rave' || (mode === 'mixed' && Math.random() < 0.5);
-    const pool = hype
+    const pool = calm && style.calm && !hype
+      ? style.calm
+      : hype
       ? (rave ? style.raveHype : style.hype)
       : rave
         ? (Math.random() < 0.8 ? d.favsRave : style.rave)
@@ -383,6 +437,7 @@ export function createDancers(scene, overlay, floor, door, { envMap = null, bpm:
   const danceNow = (d, t, beat, hype = energy >= 1) => {
     const wasDancing = d.state === 'dancing';
     d.state = 'dancing';
+    if (d.sync) { d.sync = false; d.body.setSync?.(false); }
     d.move = chooseMove(d, hype);
     d.nextAt = beat + randBeats(hype ? HYPE_BEATS : DANCE_BEATS);
     d.body.setActivity({ kind: 'dance', move: d.move, fade: wasDancing ? DANCE_FADE : FADE_S }, t);
@@ -392,6 +447,7 @@ export function createDancers(scene, overlay, floor, door, { envMap = null, bpm:
   const decide = (d, t, beat) => {
     const hype = energy >= 1;
     if (Math.random() < (hype ? HYPE_TRAVEL_CHANCE : TRAVEL_CHANCE)) {
+      if (d.sync) { d.sync = false; d.body.setSync?.(false); }
       d.state = 'travel';
       d.move = pick(Object.keys(style.travel), d.move);
       d.travelT = t;
@@ -487,6 +543,7 @@ export function createDancers(scene, overlay, floor, door, { envMap = null, bpm:
 
     /** Steuerpult „Fläche räumen“: alle gehen (Statisten kommen von selbst wieder). */
     clearFloor() {
+      conga = null;
       for (const d of dancers.values()) leave(d);
       queued.length = 0;
     },
@@ -508,6 +565,68 @@ export function createDancers(scene, overlay, floor, door, { envMap = null, bpm:
         }
       }
     },
+
+    /** Leise Stelle in der Musik: alle wechseln nach und nach auf ruhige Tänze (und danach zurück). */
+    setCalm(on) {
+      if (calm === !!on) return;
+      calm = !!on;
+      if (!style?.calm) return;
+      for (const d of dancers.values()) {
+        if (d.state === 'dancing') d.nextAt = Math.min(d.nextAt, lastBeat + 1 + Math.random() * 7);
+      }
+    },
+
+    /**
+     * Gemeinsamer Tanz: alle auf der Fläche tanzen `beats` Schläge lang denselben Schritt im selben
+     * Takt, danach löst es sich versetzt wieder auf. kind: 'wild' (Drop) oder 'mid' (zwischendurch).
+     * @returns {string|null} der gewählte Tanz
+     */
+    together(beats = 8, kind = 'wild') {
+      const pool = style?.group?.[kind];
+      if (!pool) return null;
+      const move = pool[Math.floor(Math.random() * pool.length)];
+      const t = performance.now() / 1000;
+      for (const d of dancers.values()) {
+        if (d.state !== 'dancing' && d.state !== 'travel') continue;
+        d.state = 'dancing';
+        d.move = move;
+        d.sync = true;
+        d.body.setSync?.(true);
+        d.nextAt = lastBeat + beats + Math.random() * 3;
+        if (kind === 'wild') d.hop = 1;
+        d.body.setActivity({ kind: 'dance', move, fade: 0.3 }, t);
+      }
+      return move;
+    },
+
+    /**
+     * Polonaise: alle auf der Fläche reihen sich hintereinander ein (Hände auf den Schultern des
+     * Vordermanns) und ziehen `beats` Schläge lang im Oval über die Tanzfläche.
+     * @returns {boolean} ob sie gestartet ist
+     */
+    polonaise(beats = 48) {
+      if (!style?.conga || conga) return false;
+      // Reihenfolge entlang des Wegs: wer dem Start am nächsten steht, geht vorn
+      const line = [...dancers.values()].filter((d) => d.state === 'dancing' || d.state === 'travel');
+      if (line.length < 3) return false;
+      loop.at(0, slot);
+      line.sort((a, b) => Math.hypot(a.body.group.position.x - slot.x, a.body.group.position.z - slot.z)
+        - Math.hypot(b.body.group.position.x - slot.x, b.body.group.position.z - slot.z));
+      const gap = Math.min(0.66, loop.total / line.length);
+      conga = { s: 0, gap, moving: false, startT: performance.now() / 1000, beats, endBeat: Infinity };
+      line.forEach((d, i) => {
+        d.state = 'conga';
+        d.congaIdx = i;
+        d.inLine = false;
+        d.move = 'conga';
+        d.sync = true;            // alle im selben Schritt; danceNow hebt das danach wieder auf
+        d.body.setSync?.(true);
+        d.body.setWalkSpeed?.(style.walkSpeed * 1.6);
+        d.body.setActivity({ kind: 'walk' }, conga.startT);
+      });
+      return true;
+    },
+    get polonaiseOn() { return !!conga; },
 
     onMessage(msg) {
       if (!style) {
@@ -596,11 +715,11 @@ export function createDancers(scene, overlay, floor, door, { envMap = null, bpm:
       const list = [...dancers.values()];
       for (let i = 0; i < list.length; i++) {
         const a = list[i];
-        if (a.state === 'entering' || a.state === 'leaving') continue;
+        if (a.state === 'entering' || a.state === 'leaving' || a.state === 'conga') continue;
         const pa = a.body.group.position;
         for (let j = i + 1; j < list.length; j++) {
           const c = list[j];
-          if (c.state === 'entering' || c.state === 'leaving') continue;
+          if (c.state === 'entering' || c.state === 'leaving' || c.state === 'conga') continue;
           const pc = c.body.group.position;
           const dx = pc.x - pa.x, dz = pc.z - pa.z;
           const dist = Math.hypot(dx, dz);
@@ -612,6 +731,14 @@ export function createDancers(scene, overlay, floor, door, { envMap = null, bpm:
       }
 
       lastBeat = beat;
+      // Polonaise: losgehen, sobald die meisten eingereiht sind (spätestens nach 7 s), nach `beats` Schlägen auflösen
+      if (conga) {
+        let inLine = 0, all = 0;
+        for (const d of list) if (d.state === 'conga') { all++; if (d.inLine) inLine++; }
+        if (!conga.moving && (inLine >= all * 0.7 || t - conga.startT > 7)) { conga.moving = true; conga.endBeat = beat + conga.beats; }
+        if (conga.moving) conga.s += 0.85 * (bpm / 124) * dt;
+        if (all < 2 || beat >= conga.endBeat) endConga(t, beat);
+      }
       for (const d of list) {
         const p = d.body.group.position;
         const faceCam = Math.atan2(FACE.x - p.x, FACE.z - p.z);
@@ -631,6 +758,28 @@ export function createDancers(scene, overlay, floor, door, { envMap = null, bpm:
             d.yaw = turnTo(d.yaw, Math.atan2(dx, dz), dt, 10);
             d.body.setWalkSpeed?.(style.walkSpeed);
             d.body.setActivity({ kind: 'walk' }, t);
+          }
+        } else if (d.state === 'conga' && conga) {
+          // Platz in der Reihe: erst hinlaufen, dann im Polonaise-Schritt mitziehen
+          loop.at(conga.s - d.congaIdx * conga.gap, slot);
+          const dx = slot.x - p.x, dz = slot.z - p.z;
+          const dist = Math.hypot(dx, dz);
+          if (!d.inLine) {
+            if (dist < 0.25) {
+              d.inLine = true;
+              d.body.setActivity({ kind: 'dance', move: 'conga', fade: 0.3 }, t);
+            } else {
+              const step = Math.min(dist, style.walkSpeed * 1.6 * dt);
+              p.x += (dx / dist) * step;
+              p.z += (dz / dist) * step;
+              d.body.walked(step);
+              d.yaw = turnTo(d.yaw, Math.atan2(dx, dz), dt, 10);
+            }
+          } else {
+            const k = clamp01(dt * 8);
+            p.x += dx * k;
+            p.z += dz * k;
+            d.yaw = turnTo(d.yaw, slot.yaw, dt, 8);
           }
         } else {
           // Jede Figur hat ihre eigene Taktung (d.nextAt); Einmal-Clips (Salto) danach sofort
@@ -666,7 +815,7 @@ export function createDancers(scene, overlay, floor, door, { envMap = null, bpm:
         // Auf der Tanzfläche eine Stufe höher (Kacheln), sonst steckten die Füße im Boden
         const onFloor = p.x > floor.x0 - 0.1 && p.x < floor.x1 + 0.1 && p.z > floor.z0 - 0.1 && p.z < floor.z1 + 0.1;
         d.baseY += ((onFloor ? floorTop : 0) - d.baseY) * clamp01(dt * 12);
-        d.body.update(dt, t, beat + d.offset * 0.12, d.yaw, d.hop, 0.75 + 0.6 * kick + (d.hop > 0 ? 0.6 : 0), d.baseY);
+        d.body.update(dt, t, d.sync ? beat : beat + d.offset * 0.12, d.yaw, d.hop, 0.75 + 0.6 * kick + (d.hop > 0 ? 0.6 : 0), d.baseY);
 
         // Namensschild über dem Kopf
         tmp.set(p.x, d.body.headTop() + 0.16, p.z).project(camera);

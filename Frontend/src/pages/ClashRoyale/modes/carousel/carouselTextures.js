@@ -36,51 +36,106 @@ function toTexture(c, { repeat = false } = {}) {
   return tex;
 }
 
-/** Plattform von oben: Holzsegmente abwechselnd hell/dunkel, rot-goldener Rand. */
-export function platformTexture(segments = 16) {
-  const size = 1024;
+/**
+ * Plattform von oben: Segmente aus strahlenförmigen Brettern (je Segment mehrere Bretter mit
+ * versetzten Stoßfugen, Maserung längs, Nägel), dunkle Fugen, rot-goldener Rand und ein Ring um
+ * die Säule. Gemalt wie die Holzflächen in der Arena — vorher liefen feine Ringe quer über die
+ * ganze Scheibe und wirkten aus der Nähe verwaschen und gestreckt. `platR` (Meter) hält die
+ * Brettbreite überall gleich.
+ */
+export function platformTexture(segments = 16, platR = 8) {
+  const size = 2048;
   const c = canvas(size);
   const ctx = c.getContext('2d');
   const rand = rng(3);
   const m = size / 2;
+  const pxPerM = m / platR;
+  const rim = 0.42 * pxPerM;                 // roter Rand
+  const hub = Math.max(0.7, platR * 0.12) * pxPerM; // Ring um die Säule
+  // Gedeckte Töne: die Plattform ist Hintergrund, die Tische davor sollen heller wirken
+  const TONES = [['#b98c5e', '#a77a4e'], ['#a97c50', '#966b43']];
+  ctx.fillStyle = '#3a2412';
+  ctx.fillRect(0, 0, size, size);
+  const wedgePath = (a0, a1, r0, r1) => {
+    ctx.beginPath();
+    ctx.arc(m, m, r1, a0, a1);
+    ctx.arc(m, m, r0, a1, a0, true);
+    ctx.closePath();
+  };
   for (let i = 0; i < segments; i++) {
     const a0 = (i / segments) * Math.PI * 2, a1 = ((i + 1) / segments) * Math.PI * 2;
-    ctx.fillStyle = i % 2 ? '#c99a62' : '#b5844f';
+    // Bretter je Segment: außen etwa 0,75 m breit (schmaler wirkte unruhig)
+    const boards = Math.max(2, Math.round(((a1 - a0) * (m - rim)) / (0.75 * pxPerM)));
+    for (let b = 0; b < boards; b++) {
+      const b0 = a0 + ((a1 - a0) * b) / boards, b1 = a0 + ((a1 - a0) * (b + 1)) / boards;
+      // Stoßfugen versetzt: Brett in 2–3 Stücke entlang des Radius
+      const cuts = [hub, hub + (m - rim - hub) * (0.3 + rand() * 0.25), m - rim];
+      if (rand() < 0.5) cuts.splice(2, 0, cuts[1] + (m - rim - cuts[1]) * (0.4 + rand() * 0.3));
+      for (let k = 0; k < cuts.length - 1; k++) {
+        const [light, dark] = TONES[(i + b + k) % 2];
+        wedgePath(b0, b1, cuts[k], cuts[k + 1]);
+        const mid = (b0 + b1) / 2;
+        const g = ctx.createLinearGradient(
+          m + Math.cos(mid) * cuts[k], m + Math.sin(mid) * cuts[k],
+          m + Math.cos(mid) * cuts[k + 1], m + Math.sin(mid) * cuts[k + 1],
+        );
+        g.addColorStop(0, dark);
+        g.addColorStop(0.5, light);
+        g.addColorStop(1, dark);
+        ctx.fillStyle = g;
+        ctx.fill();
+        // Maserung längs des Bretts (leicht gewellt)
+        ctx.save();
+        ctx.clip();
+        ctx.strokeStyle = 'rgba(96,56,22,0.18)';
+        for (let s = 0; s < 3; s++) {
+          const a = b0 + (b1 - b0) * (0.15 + rand() * 0.7);
+          ctx.lineWidth = 1.5 + rand() * 2;
+          ctx.beginPath();
+          for (let r = cuts[k]; r <= cuts[k + 1]; r += 24) {
+            const aa = a + Math.sin(r / 60 + s * 2) * 0.004;
+            const x = m + Math.cos(aa) * r, y = m + Math.sin(aa) * r;
+            if (r === cuts[k]) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+          }
+          ctx.stroke();
+        }
+        ctx.restore();
+        // Fuge um jedes Brettstück + zwei Nägel an der Stoßkante
+        wedgePath(b0, b1, cuts[k], cuts[k + 1]);
+        ctx.strokeStyle = 'rgba(43,28,16,0.7)';
+        ctx.lineWidth = 3;
+        ctx.stroke();
+      }
+    }
+    // Segmentgrenze kräftiger
+    ctx.strokeStyle = 'rgba(43,28,16,0.95)';
+    ctx.lineWidth = 7;
     ctx.beginPath();
-    ctx.moveTo(m, m);
-    ctx.arc(m, m, m, a0, a1);
-    ctx.closePath();
+    ctx.moveTo(m + Math.cos(a0) * hub, m + Math.sin(a0) * hub);
+    ctx.lineTo(m + Math.cos(a0) * (m - rim), m + Math.sin(a0) * (m - rim));
+    ctx.stroke();
+  }
+  // Ring um die Säule: Rot mit Goldkanten
+  const ring = (r0, r1, fill) => {
+    ctx.beginPath();
+    ctx.arc(m, m, r1, 0, Math.PI * 2);
+    ctx.arc(m, m, r0, 0, Math.PI * 2, true);
+    ctx.fillStyle = fill;
     ctx.fill();
-  }
-  // Maserung als feine Ringe
-  ctx.strokeStyle = 'rgba(90,55,20,0.18)';
-  for (let r = 40; r < m; r += 14 + rand() * 10) {
-    ctx.lineWidth = 1 + rand() * 1.5;
-    ctx.beginPath();
-    ctx.arc(m, m, r, 0, Math.PI * 2);
-    ctx.stroke();
-  }
-  // Fugen zwischen den Segmenten
-  ctx.strokeStyle = 'rgba(60,35,10,0.55)';
-  ctx.lineWidth = 3;
-  for (let i = 0; i < segments; i++) {
-    const a = (i / segments) * Math.PI * 2;
-    ctx.beginPath();
-    ctx.moveTo(m, m);
-    ctx.lineTo(m + Math.cos(a) * m, m + Math.sin(a) * m);
-    ctx.stroke();
-  }
-  // Rand: rotes Band mit Goldkanten
-  ctx.lineWidth = 34;
-  ctx.strokeStyle = '#b3242b';
-  ctx.beginPath();
-  ctx.arc(m, m, m - 20, 0, Math.PI * 2);
-  ctx.stroke();
-  ctx.lineWidth = 6;
-  ctx.strokeStyle = '#f2c14e';
-  [m - 3, m - 37].forEach((r) => { ctx.beginPath(); ctx.arc(m, m, r, 0, Math.PI * 2); ctx.stroke(); });
-  speckle(ctx, size, size, rand, 9000, 0.07);
-  return toTexture(c);
+  };
+  ring(0, hub, '#b3242b');
+  ring(hub - 14, hub, '#f2c14e');
+  ring(hub * 0.55, hub * 0.55 + 10, '#f2c14e');
+  // Rand: rotes Band mit Goldkanten und Kontur
+  ring(m - rim, m, '#b3242b');
+  ring(m - rim, m - rim + 12, '#f2c14e');
+  ring(m - 12, m, '#f2c14e');
+  ctx.strokeStyle = 'rgba(43,28,16,0.9)';
+  ctx.lineWidth = 4;
+  [m - rim, m - rim + 12, hub].forEach((r) => { ctx.beginPath(); ctx.arc(m, m, r, 0, Math.PI * 2); ctx.stroke(); });
+  const tex = toTexture(c);
+  tex.anisotropy = 16;
+  return tex;
 }
 
 /** Senkrechte Streifen fürs Zeltdach (Kegel-UV läuft einmal herum → Streifen strahlenförmig). */
@@ -95,18 +150,35 @@ export function stripeTexture(colors = ['#d8303a', '#fff4e0', '#2f6fd6', '#fff4e
   return toTexture(c);
 }
 
-/** Spielfilz auf den Tischen: tiefes Blau mit goldener Zierlinie. */
-export function feltTexture() {
-  const size = 256;
-  const c = canvas(size);
+/**
+ * Spielfilz auf den Tischen: tiefes Nachtblau (dunkler als die blau-goldenen Kartensockel, die
+ * darauf liegen), leises Rautenmuster, Randschatten und goldene Zierlinie.
+ */
+export function feltTexture(aspect = 1.4) {
+  const w = 512, h = Math.round(512 / Math.min(3, Math.max(0.4, aspect)));
+  const c = canvas(w, h);
   const ctx = c.getContext('2d');
-  const rand = rng(17);
-  ctx.fillStyle = '#1f3f7a';
-  ctx.fillRect(0, 0, size, size);
-  speckle(ctx, size, size, rand, 9000, 0.09);
-  ctx.strokeStyle = 'rgba(242,193,78,0.85)';
+  ctx.fillStyle = '#132a5e';
+  ctx.fillRect(0, 0, w, h);
+  const D = 64;
+  for (let y = -D; y < h + D; y += D / 2) {
+    const row = Math.round(y / (D / 2));
+    for (let x = -D + (row % 2 ? D / 2 : 0); x < w + D; x += D) {
+      ctx.beginPath();
+      ctx.moveTo(x, y - D / 2 + 2); ctx.lineTo(x + D / 2 - 2, y); ctx.lineTo(x, y + D / 2 - 2); ctx.lineTo(x - D / 2 + 2, y);
+      ctx.closePath();
+      ctx.fillStyle = 'rgba(80,130,230,0.08)';
+      ctx.fill();
+    }
+  }
+  const edge = ctx.createRadialGradient(w / 2, h / 2, Math.min(w, h) * 0.3, w / 2, h / 2, Math.max(w, h) * 0.75);
+  edge.addColorStop(0, 'rgba(0,0,0,0)');
+  edge.addColorStop(1, 'rgba(0,4,20,0.45)');
+  ctx.fillStyle = edge;
+  ctx.fillRect(0, 0, w, h);
+  ctx.strokeStyle = 'rgba(242,193,78,0.9)';
   ctx.lineWidth = 3;
-  ctx.strokeRect(10, 10, size - 20, size - 20);
+  ctx.strokeRect(12, 12, w - 24, h - 24);
   return toTexture(c);
 }
 

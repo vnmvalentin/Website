@@ -19,8 +19,9 @@ import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 import { fixLegTwist } from './legTwistFix';
 import { buildRaveClips } from './raveMoves';
 import { classifyCharacter, normalizeLook, buildShoe, SKIN_TONES as LOOK_SKIN } from './avatarParts';
-import { seamFill, hairUnderHat, hatOffset, hatHidesHair, isHairMaterial, charInfo } from './avatarSeams';
-import { DESIGNS, baseChar, designFabric, isSleeveBone, buildDesignExtras, bakeToSurface } from './avatarDesigns';
+import { seamFill, hairUnderHat, hatOffset, hatHidesHair, isHairMaterial, charInfo, headFit, fieldFromObject, hairUnderField } from './avatarSeams';
+import { DESIGNS, baseChar, designFabric, isSleeveBone, buildDesignExtras, bakeToSurface, measure } from './avatarDesigns';
+import { HATS, EXTRAS, buildHat } from './avatarWear';
 
 const isSkinName = (mat) => /^skin/i.test([].concat(mat)[0]?.name || '');
 
@@ -53,6 +54,9 @@ export const COSTUMES = [
   'Witch', 'Wizard', 'Zombie_Male', 'Zombie_Female', 'Goblin_Male', 'Goblin_Female', 'Pirate_Male', 'Pirate_Female',
   'VikingHelmet', 'Knight_Golden_Male', 'Knight_Golden_Female', 'Cow', 'Pug', 'Elf',
 ];
+
+/** Weihnachten: wer keine eigene Figur gebaut hat, bekommt eine Mütze oder ein Geweih (avatarWear.js). */
+export const FESTIVE_HATS = ['santaHat', 'santaHat', 'elfHat', 'santaHat', 'antlers'];
 
 const SKIN_TONES = ['#f3cfb3', '#e8b48f', '#d49a72', '#b97a52', '#8d5a3b', '#62402b', '#f6dcc8', '#c98e66'];
 const EYES = '#221d1c';
@@ -216,7 +220,10 @@ async function assembleLook(look) {
   const bodyChar = baseChar(look.body), legsChar = baseChar(look.legs);
   const design = { body: DESIGNS[look.body] ? look.body : null, legs: DESIGNS[look.legs] ? look.legs : null };
   const want = [['body', bodyChar], ['head', look.head], ['legs', legsChar]];
-  if (look.hat && look.hat !== 'none') want.push(['hat', look.hat]);
+  // selbst gebaute Hüte (avatarWear.js) kommen nicht aus einer Figur-Datei
+  const customHat = HATS[look.hat] ? look.hat : null;
+  const packHat = look.hat && look.hat !== 'none' && !customHat;
+  if (packHat) want.push(['hat', look.hat]);
   const names = [...new Set(want.map(([, n]) => n))];
   const srcs = new Map(await Promise.all(names.map(async (n) => [n, await loadCharacter(n)])));
   const base = srcs.get(bodyChar);
@@ -233,13 +240,26 @@ async function assembleLook(look) {
   const shoes = look.shoes && look.shoes !== 'none';
   // Hut auf die Schädelhöhe des gewählten Kopfs setzen (Hüte sind für ihren eigenen Kopf gebaut)
   let hatDy = 0;
-  if (look.hat !== 'none' && srcs.get(look.hat) && srcs.get(look.head)) {
+  if (packHat && srcs.get(look.hat) && srcs.get(look.head)) {
     // Hut liegt auf dem neuen Kopf so auf wie auf seinem eigenen (Masken wie Mops/Kuh sind kleiner →
     // er sinkt tiefer, statt zu schweben). Der Ritterhelm sitzt immer wie gebaut.
     const hs = srcs.get(look.hat), ds = srcs.get(look.head);
     try { hatDy = hatOffset(look.hat, hs, classified(look.hat, hs), look.head, ds, classified(look.head, ds)); } catch (err) { console.warn('[stream3d] Hut nicht angepasst', err); }
   }
-  const hatSrc = look.hat !== 'none' ? srcs.get(look.hat) : null;
+  const hatSrc = packHat ? srcs.get(look.hat) : null;
+  // Eigener Hut: auf den gewählten Kopf einmessen; seine Unterseite drückt die Haare herunter
+  const headSrc = srcs.get(look.head);
+  let wornHat = null, wornField = null;
+  if (customHat && headSrc) {
+    try {
+      wornHat = buildHat(customHat, (drop) => headFit(look.head, headSrc, classified(look.head, headSrc), drop));
+      if (wornHat?.press) {
+        wornField = fieldFromObject(wornHat.object);
+        // Mützen und Caps: alle Haare über dem Rand kommen unter den Hut
+        if (wornHat.rim) { wornField.floor = wornHat.rim.y; wornField.rim = wornHat.rim; }
+      }
+    } catch (err) { console.warn('[stream3d] Hut nicht gebaut', err); }
+  }
   /** Ein Teil (Dreiecke eines Quell-Meshs) auf das gemeinsame Skelett setzen. */
   const addPart = (name, m, geo, material, inverses = m.skeleton.boneInverses) => {
     const part = new THREE.SkinnedMesh(geo, material);
@@ -280,6 +300,8 @@ async function assembleLook(look) {
       if (region === 'head' && hatSrc && hatHidesHair(look.hat) && isHairMaterial(m.material)) continue;
       if (region === 'head' && hatSrc) {
         geo = hairUnderHat(`${charName}|${m.uuid}`, m, geo.index, look.hat, hatSrc, classified(look.hat, hatSrc), hatDy) || geo;
+      } else if (region === 'head' && wornField) {
+        geo = hairUnderField(`${charName}|${m.uuid}|${customHat}`, m, geo.index, wornField) || geo;
       }
       const inverses = region === 'hat' ? hatInverses(m, hatDy, skullTop(charName, src)?.bone) : m.skeleton.boneInverses;
       const id = design[region];
@@ -347,6 +369,36 @@ async function assembleLook(look) {
       foot.add(shoe);
     }
   }
+  // Eigener Hut und Accessoires starr an ihre Knochen. Gemessen wurde in der Datei des Kopfs bzw. des
+  // Oberteils — die Lage wird deshalb relativ zu DEREN Knochen übernommen.
+  model.updateMatrixWorld(true);
+  const attachRigid = (object, boneName, refSrc) => {
+    const b = bones[boneName];
+    if (!b) return;
+    let ref = null;
+    refSrc?.updateMatrixWorld(true);
+    refSrc?.traverse((o) => { if (o.isBone && o.name === boneName) ref = o; });
+    object.updateMatrix();
+    new THREE.Matrix4().copy((ref || b).matrixWorld).invert().multiply(object.matrix)
+      .decompose(object.position, object.quaternion, object.scale);
+    object.name = 'extra';
+    b.add(object);
+  };
+  if (wornHat) attachRigid(wornHat.object, 'Head', headSrc);
+  const extra = EXTRAS[look.extra];
+  if (extra) {
+    try {
+      const info = charInfo(bodyChar, base, classified(bodyChar, base));
+      let backZ;
+      const ctx = {
+        head: headSrc ? headFit(look.head, headSrc, classified(look.head, headSrc)) : null,
+        axis: info.axis,
+        neckZ: info.axis.Neck?.z ?? 0.03,
+        get backZ() { if (backZ === undefined) backZ = measure(info).backZ; return backZ; },
+      };
+      for (const { bone, object, ref } of extra.build(ctx)) attachRigid(object, bone, ref === 'head' ? headSrc : base);
+    } catch (err) { console.warn('[stream3d] Accessoire nicht gebaut', err); }
+  }
   return model;
 }
 
@@ -356,8 +408,9 @@ async function assembleLook(look) {
  * @param {{ seed: number, popcorn?: boolean, envMap?: THREE.Texture|null, look?: object|null, pool?: string[]|null }} opts
  *   look: selbst gebaute Figur (avatarParts.js) — sonst eine feste Figur aus dem Paket nach seed
  *   pool: Auswahl, aus der die feste Figur kommt (z. B. COSTUMES zu Halloween) — Standard: alle
+ *   festive: eigener Hut (avatarWear.js) für die feste Paket-Figur, z. B. Weihnachtsmütze — eigene Looks bleiben unberührt
  */
-export function buildPersonFigure(kit, { seed, popcorn = false, envMap = null, look = null, pool = null }) {
+export function buildPersonFigure(kit, { seed, popcorn = false, envMap = null, look = null, pool = null, festive = null }) {
   const group = new THREE.Group();
   const chars = pool?.length ? pool : CHARACTERS;
   const charName = chars[seed % chars.length];
@@ -501,7 +554,14 @@ export function buildPersonFigure(kit, { seed, popcorn = false, envMap = null, l
     const seq = ++loadSeq;
     const norm = normalizeLook(lk);
     if (norm) skin = new THREE.Color(LOOK_SKIN[norm.skin]);
-    const job = norm ? assembleLook(norm) : loadCharacter(charName).then((src) => (src ? SkeletonUtils.clone(src) : null));
+    const plain = () => loadCharacter(charName).then((src) => (src ? SkeletonUtils.clone(src) : null));
+    // Feste Figur mit Festtagshut: als Look aus lauter eigenen Teilen (Ritter behalten ihren Helm —
+    // ohne ihn ist der Kopf nur ein Gesichtsausschnitt)
+    const withHat = !norm && festive && HATS[festive] && !/^Knight/.test(charName)
+      ? { hat: festive, head: charName, body: charName, legs: charName, shoes: 'none', extra: 'none' } : null;
+    const job = norm ? assembleLook(norm)
+      : withHat ? assembleLook(withHat).catch(() => null).then((m) => m || plain())
+        : plain();
     job.then((next) => {
       if (disposed || seq !== loadSeq || !next) return;
       attach(next);

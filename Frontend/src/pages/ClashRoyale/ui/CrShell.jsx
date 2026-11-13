@@ -12,6 +12,7 @@ import CrSettingsModal from "./CrSettingsModal";
 import { CrPrefsContext, DEFAULT_BACKGROUND, GFX_PREF_KEYS, backgroundUrl, loadPrefs, savePrefs } from "./crPrefs";
 import { playSound, setSoundVolume } from "./sound";
 import { rememberPick } from "./flyToDeck";
+import { useFontLink } from "../../../components/shell/useFontLink";
 
 // Titelschrift (siehe --font-cr in index.css) — nur hier geladen, der Rest der Website braucht sie nicht.
 const FONT_HREF = "https://fonts.googleapis.com/css2?family=Lilita+One&display=swap";
@@ -25,13 +26,7 @@ export default function CrShell() {
   const [prefs, setPrefs] = useState(loadPrefs);
   const [settingsOpen, setSettingsOpen] = useState(false);
 
-  useEffect(() => {
-    if (document.querySelector(`link[href="${FONT_HREF}"]`)) return;
-    const link = document.createElement("link");
-    link.rel = "stylesheet";
-    link.href = FONT_HREF;
-    document.head.appendChild(link);
-  }, []);
+  useFontLink(FONT_HREF);
 
   useEffect(() => { setSoundVolume(prefs.volume); }, [prefs.volume]);
 

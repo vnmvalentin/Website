@@ -14,6 +14,7 @@ import { CARD_RATIO } from "../modes/cardCrop";
 import { avatarUrl as resolveAvatarUrl } from "../components/avatars";
 import { CR_FONT, CR_FONT_HREF } from "../WinTracker/overlayTheme";
 import { readRotation } from "./deckOverlayOptions";
+import { useFontLink } from "../../../components/shell/useFontLink";
 
 // width / height einer Kartenkachel: der sichtbare Kartenrahmen (4:5), siehe ui/CardFace.jsx —
 // die alten 150/172 stammten von der früheren royaleapi-Bildquelle und schnitten mit cover ab.
@@ -183,13 +184,7 @@ export default function DeckOverlayGrid({ players, viewport, feedKey }) {
   }, [paging, pageCount, rotation.seconds, feedKey]);
 
   // Lilita One — das Overlay läuft ohne CrShell, die die Schrift sonst lädt.
-  useEffect(() => {
-    if (document.querySelector(`link[href="${CR_FONT_HREF}"]`)) return;
-    const link = document.createElement("link");
-    link.rel = "stylesheet";
-    link.href = CR_FONT_HREF;
-    document.head.appendChild(link);
-  }, []);
+  useFontLink(CR_FONT_HREF);
 
   const current = pages[Math.min(page, pageCount - 1)] || [];
   // Beim Blättern immer mit voller Seitengröße rechnen, damit die Karten auf der letzten,

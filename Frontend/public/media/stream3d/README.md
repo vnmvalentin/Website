@@ -32,9 +32,10 @@ Standard-Figuren beider Szenen seit 21.10.2026 (Roboter weiter per `?figuren=rob
 
 ## Auch für Lights Out
 
-`dancer.glb` ist seit 21.10.2026 zugleich die Grundlage der drei Monster in Lights Out
-(`src/pages/LightsOut/monsterModel.js`: ausgedünnt, Glieder verlängert, eigene Köpfe; genutzt werden
-nur die Clips idle/walk/jog). Datei also nicht als „nur Stream“ entfernen oder umbenennen.
+`dancer.glb` ist seit 21.10.2026 zugleich die Grundlage der Monster in Lights Out
+(`src/pages/LightsOut/monsterModel.js`). Seit 12.11.2026 kommen von hier nur noch Skelett und die Clips
+idle/walk/jog — der Körper wird im Spiel neu geformt (`monsterBody.js`); die Puppe selbst sieht man nur noch
+als Mitspieler im Koop. Datei also nicht als „nur Stream“ entfernen oder umbenennen.
 
 ## Halloween-Deko (`halloween/`)
 

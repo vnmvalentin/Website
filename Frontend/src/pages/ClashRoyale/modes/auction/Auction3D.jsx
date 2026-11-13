@@ -32,7 +32,10 @@ import {
 import {
   createPostFX, neutralEnvironment, monotoneSpline, springTo, warmUp, createQualityGovernor, flameMaterial,
 } from '../scene3d/kit';
-import { plankTexture, chunkyStoneTexture, diamondWallTexture, carpetTexture, addOutline } from '../scene3d/crStyle';
+import {
+  plankTexture, chunkyStoneTexture, diamondWallTexture, carpetTexture, addOutline, CR_GRADE,
+  crEase, cardShadowTexture, cardSocketTexture, foldedClothGeometry, goldTrimTexture,
+} from '../scene3d/crStyle';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 import { sparkBurst, ringPulse } from '../../ui/juice';
 import { playSound } from '../../ui/sound';
@@ -168,22 +171,25 @@ const Auction3D = React.forwardRef(function Auction3D(props, ref) {
     const own = (x) => { disposables.push(x); return x; };
 
     const scene = new THREE.Scene();
-    const BG = new THREE.Color(0x14244a);
+    // Hintergrund dunkler und kühler als die Spielobjekte — Tafel und Karten leuchten davor
+    const BG = new THREE.Color(0x0c1633);
     scene.background = BG;
     scene.fog = new THREE.Fog(BG, 18, 40);
     const camera = new THREE.PerspectiveCamera(FOV, 1, 0.15, 60); // near nicht zu klein (Flackern aufliegender Flächen)
-    const post = createPostFX(renderer, scene, camera, { bloom: { strength: 0.22, radius: 0.45, threshold: 1.45 }, vignette: 0.26 });
+    const post = createPostFX(renderer, scene, camera, { bloom: { strength: 0.22, radius: 0.45, threshold: 1.45 }, vignette: 0.26, grade: CR_GRADE });
     const env = neutralEnvironment(renderer);
     scene.environment = env.texture;
     scene.environmentIntensity = 0.35;
 
     // ── Licht: warmes Grundlicht, zwei Scheinwerfer auf die Tafel, Wandleuchten ──
-    scene.add(new THREE.HemisphereLight(0xeaf2ff, 0x2a3a66, 1.8)); // etwas mehr Grundlicht statt greller Scheinwerfer
-    scene.add(new THREE.AmbientLight(0xffffff, 0.4));
+    // Kühles Grundlicht (Schattenseiten blauviolett), warme Scheinwerfer auf die Tafel — der
+    // Warm-Kalt-Kontrast, der in Pyramide und Labyrinth am meisten gebracht hat
+    scene.add(new THREE.HemisphereLight(0xc4d2ff, 0x2a2456, 1.55));
+    scene.add(new THREE.AmbientLight(0xb8c4ff, 0.3));
     const spots = [-1, 1].map((side) => {
       // Gedämpft (Nutzer: Lichter über der Tafel zu hell) — weicher Rand, Ziel unter der Tafelmitte, damit der
       // Kegel nicht oben auf Goldrahmen und Wand ausbrennt
-      const s = new THREE.SpotLight(0xfff1d6, SPOT_I, 22, THREE.MathUtils.degToRad(32), 0.95, 1.6);
+      const s = new THREE.SpotLight(0xffe2b4, SPOT_I, 22, THREE.MathUtils.degToRad(32), 0.95, 1.6);
       s.position.set(side * 3.2, ROOM_H - 0.3, 6.5);
       s.target.position.set(side * 0.8, BOARD_Y - 0.9, 0);
       scene.add(s, s.target);
@@ -191,10 +197,12 @@ const Auction3D = React.forwardRef(function Auction3D(props, ref) {
     });
 
     // ── Raum (Clash-Royale-Stil, alles im Code erzeugt — keine Downloads) ─────────
-    const curtTex = own(curtainTexture());
+    const CURTAIN_FOLDS = 5;
+    const curtTex = own(curtainTexture(CURTAIN_FOLDS));
     const glowTex = own(glowTexture());
     const plankT = own(plankTexture());
-    const stoneT = own(chunkyStoneTexture(1, 1, ['#cdbb9b', '#bfac8c', '#d9c8a9']));
+    // Sockel kühl (graublau statt Sand): Hintergrund, nicht Blickfang
+    const stoneT = own(chunkyStoneTexture(1, 1, ['#8d92b6', '#7f84a9', '#9a9fc2']));
     const royalT = own(diamondWallTexture());
     const carpetT = own(carpetTexture());
     // Material mit eigener Wiederholung je Fläche (Textur geteilt) — so bleibt das Muster überall
@@ -213,12 +221,17 @@ const Auction3D = React.forwardRef(function Auction3D(props, ref) {
     // Fläche und überstrahlte als grelles Licht über der Tafel
     const goldMat = own(new THREE.MeshStandardMaterial({ color: 0xf2b632, roughness: 0.45, metalness: 0.7, envMapIntensity: 0.55 }));
     // Tafelrahmen + Goldleiste der Blende liegen direkt im Bild: fast ohne Spiegelung, sonst Lichtfleck oben
-    const frameGoldMat = own(new THREE.MeshStandardMaterial({ color: 0xe0a830, roughness: 0.6, metalness: 0.35, envMapIntensity: 0.25 }));
-    const curtMat = own(new THREE.MeshStandardMaterial({ map: curtTex, roughness: 0.8, side: THREE.DoubleSide }));
+    // Gemaltes Gold (Prägeverlauf quer zur Leiste) — frontal beleuchtet wirkte einfarbiges Gold flach
+    const frameGoldMat = own(new THREE.MeshStandardMaterial({ map: own(goldTrimTexture()), roughness: 0.55, metalness: 0.25, envMapIntensity: 0.2 }));
+    // Innere Stufe des Tafelrahmens: dunkleres Altgold, damit die Kante zur Samtfläche sichtbar wird
+    const frameLipMat = own(new THREE.MeshStandardMaterial({ color: 0x9c6a1c, roughness: 0.55, metalness: 0.3, envMapIntensity: 0.25 }));
+    const gemGeo = own(new THREE.SphereGeometry(0.1, 20, 14));
+    const gemMat = own(new THREE.MeshStandardMaterial({ color: 0x2f6ad0, roughness: 0.25, metalness: 0.1, emissive: 0x0b2a6a, emissiveIntensity: 0.4 }));
+    const curtMat = own(new THREE.MeshStandardMaterial({ map: curtTex, roughness: 0.72, side: THREE.DoubleSide }));
     const ceilMat = tiledMat(plankT, ROOM_W / 2.2, ROOM_D / 2.2, { color: 0x8f6a4e });
 
     // Gemeinsame Materialien — beim Umbau der Tafel NICHT freigeben (das macht das Aufräumen am Ende)
-    const SHARED = new Set([goldMat, frameGoldMat, curtMat, woodMat, darkWoodMat]);
+    const SHARED = new Set([goldMat, frameGoldMat, frameLipMat, gemMat, curtMat, woodMat, darkWoodMat]);
     const plane = (w, h, mat) => new THREE.Mesh(own(new THREE.PlaneGeometry(w, h)), mat);
     const box = (w, h, d, mat) => new THREE.Mesh(own(new THREE.BoxGeometry(w, h, d)), mat);
     const rbox = (w, h, d, mat, r = 0.05) => new THREE.Mesh(own(new RoundedBoxGeometry(w, h, d, 2, r)), mat);
@@ -237,7 +250,8 @@ const Auction3D = React.forwardRef(function Auction3D(props, ref) {
         g.add(lo, rail);
       }
       const up0 = Math.max(from, WAIN_H);
-      const up = plane(w, to - up0, tiledMat(royalT, w / 2.2, (to - up0) / 2.2, { side: THREE.DoubleSide }));
+      // Rautenwand abgedunkelt: sie ist Hintergrund — vorher gleich hell wie Tafel und Vorhänge (ein Einheitsblau)
+      const up = plane(w, to - up0, tiledMat(royalT, w / 2.2, (to - up0) / 2.2, { side: THREE.DoubleSide, color: 0x7682bd }));
       up.position.y = up0 + (to - up0) / 2;
       const cornice = box(w, 0.24, 0.18, darkWoodMat);
       cornice.position.set(0, ROOM_H - 0.12, 0.08);
@@ -287,8 +301,8 @@ const Auction3D = React.forwardRef(function Auction3D(props, ref) {
     // Wimpel mit Krone zwischen den Pfeilern (links nicht bei z≈6 — dort hängt der Zauberspiegel)
     [[-1, 11.3, '#d93a3a'], [-1, 16.3, '#2f7bea'], [1, 5.9, '#2f7bea'], [1, 11.3, '#d93a3a'], [1, 16.3, '#2f7bea']].forEach(([side, z, color]) => {
       const t = own(bannerTexture(color, crownFor(color)));
-      const m = new THREE.Mesh(own(new THREE.PlaneGeometry(1.0, 2.05)), own(new THREE.MeshStandardMaterial({ map: t, transparent: true, alphaTest: 0.1, roughness: 0.85, side: THREE.DoubleSide })));
-      m.position.set(side * (ROOM_W / 2 - 0.06), 3.0, z);
+      const m = new THREE.Mesh(own(foldedClothGeometry(1.0, 2.05, { folds: 2, depth: 0.035, segX: 32 })), own(new THREE.MeshStandardMaterial({ map: t, transparent: true, alphaTest: 0.1, roughness: 0.85, side: THREE.DoubleSide })));
+      m.position.set(side * (ROOM_W / 2 - 0.11), 3.0, z); // Falten ragen ±5 cm — nicht in die Wand
       m.rotation.y = side < 0 ? Math.PI / 2 : -Math.PI / 2;
       const rod = new THREE.Mesh(own(new THREE.CylinderGeometry(0.04, 0.04, 1.2, 10)), goldMat);
       rod.rotation.x = Math.PI / 2;
@@ -432,42 +446,70 @@ const Auction3D = React.forwardRef(function Auction3D(props, ref) {
         ch.material?.dispose();
       });
       boardTex?.dispose();
-      boardTex = boardTexture(title);
       const { width, height } = boardDims;
-      // Ohne Schriftzug: Tafel nur so hoch wie die Kartenreihen (vorher +0,55 für „AUKTION“ mit Kronen)
+      boardTex = boardTexture(title, width / height);
+      // Ohne Schriftzug: Tafel nur so hoch wie die Kartenreihen (vorher +0,55 für „AUKTION“ mit Kronen).
+      // Samtfläche liegt VERTIEFT im Rahmen (z 0,04 statt bündig) — Lichtfleck und Randschatten sind
+      // eingemalt, denn beleuchtet brannte die Tafel unter den Scheinwerfern aus
       const felt = new THREE.Mesh(new THREE.PlaneGeometry(width, height),
-        // unbeleuchtet: der goldene Schriftzug strahlte unter den Scheinwerfern über
         new THREE.MeshBasicMaterial({ map: boardTex, toneMapped: false }));
-      felt.position.set(0, BOARD_Y - 0.075, 0.1);
+      felt.position.set(0, BOARD_Y - 0.075, 0.04);
       boardGroup.add(felt);
-      const t = 0.14;
-      const frame = [
-        [width + t * 2, t, 0, height / 2 - 0.075 + t / 2],
-        [width + t * 2, t, 0, -height / 2 - 0.075 - t / 2],
-        [t, height + t * 2, -width / 2 - t / 2, -0.075],
-        [t, height + t * 2, width / 2 + t / 2, -0.075],
+      // Plastischer Goldrahmen: dicke, abgerundete Leisten mit Kontur, innen eine zweite, dunklere
+      // Stufe (Falz) — die Kanten fangen das Scheinwerferlicht, so bekommt die Tafel Tiefe
+      const t = 0.24, lip = 0.07, cy = BOARD_Y - 0.075;
+      // [Länge, x, y, senkrecht] — senkrechte Leisten liegend bauen und drehen (Goldverlauf quer)
+      const bars = [
+        [width + t * 2, 0, height / 2 + t / 2, false],
+        [width + t * 2, 0, -height / 2 - t / 2, false],
+        [height, -width / 2 - t / 2, 0, true],
+        [height, width / 2 + t / 2, 0, true],
       ];
-      frame.forEach(([w, h, x, y]) => {
-        const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, 0.12), frameGoldMat);
-        m.position.set(x, BOARD_Y + y, 0.13);
+      bars.forEach(([len, x, y, vertical]) => {
+        const m = new THREE.Mesh(new RoundedBoxGeometry(len, t, 0.22, 3, 0.07), frameGoldMat);
+        m.position.set(x, cy + y, 0.13);
+        if (vertical) m.rotation.z = Math.PI / 2;
+        addOutline(m, 0.018);
         boardGroup.add(m);
       });
-      // Vorhänge links und rechts der Tafel, oben eine Blende
+      [
+        [width, lip, 0, height / 2 - lip / 2],
+        [width, lip, 0, -height / 2 + lip / 2],
+        [lip, height - lip * 2, -width / 2 + lip / 2, 0],
+        [lip, height - lip * 2, width / 2 - lip / 2, 0],
+      ].forEach(([w, h, x, y]) => {
+        const m = new THREE.Mesh(new RoundedBoxGeometry(w, h, 0.08, 2, 0.025), frameLipMat);
+        m.position.set(x, cy + y, 0.07);
+        boardGroup.add(m);
+      });
+      // Eckstücke: etwas größere Goldblöcke mit blauem Stein (Blau+Gold wie die Kartenfächer)
+      [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(([sx, sy]) => {
+        const corner = new THREE.Mesh(new RoundedBoxGeometry(0.42, 0.42, 0.28, 3, 0.09), frameGoldMat);
+        corner.position.set(sx * (width / 2 + t / 2), cy + sy * (height / 2 + t / 2), 0.15);
+        addOutline(corner, 0.018);
+        const gem = new THREE.Mesh(gemGeo, gemMat);
+        gem.scale.z = 0.55;
+        gem.position.set(0, 0, 0.14);
+        corner.add(gem);
+        boardGroup.add(corner);
+      });
+      // Vorhänge links und rechts der Tafel in echten Falten, oben eine gefaltete Blende
       [-1, 1].forEach((side) => {
-        const cur = new THREE.Mesh(new THREE.PlaneGeometry(1.7, ROOM_H - 0.2), curtMat);
+        const cur = new THREE.Mesh(foldedClothGeometry(1.7, ROOM_H - 0.2, { folds: CURTAIN_FOLDS, depth: 0.075 }), curtMat);
         cur.position.set(side * (width / 2 + 1.25), (ROOM_H - 0.2) / 2, 0.45);
         cur.rotation.y = -side * 0.12;
         boardGroup.add(cur);
       });
-      const valance = new THREE.Mesh(new THREE.BoxGeometry(width + 4.6, 0.55, 0.2), curtMat);
-      valance.position.set(0, ROOM_H - 0.45, 0.5);
-      const valanceTrim = new THREE.Mesh(new THREE.BoxGeometry(width + 4.7, 0.09, 0.24), frameGoldMat);
-      valanceTrim.position.set(0, ROOM_H - 0.74, 0.5);
+      const valW = width + 4.6;
+      const valance = new THREE.Mesh(foldedClothGeometry(valW, 0.62, { folds: Math.round(valW / 0.55), depth: 0.05, segX: 160, segY: 2, sway: 0.6 }), curtMat);
+      valance.position.set(0, ROOM_H - 0.45, 0.6);
+      const valanceTrim = new THREE.Mesh(new RoundedBoxGeometry(valW + 0.1, 0.1, 0.2, 2, 0.04), frameGoldMat);
+      valanceTrim.position.set(0, ROOM_H - 0.78, 0.6);
       boardGroup.add(valance, valanceTrim);
       // Wimpel mit Krone links (rot) und rechts (blau) an der Wand — wie die Banner in der Arena
       [[-1, '#d93a3a'], [1, '#2f7bea']].forEach(([side, color]) => {
         const tex = bannerTexture(color, crownFor(color));
-        const m = new THREE.Mesh(new THREE.PlaneGeometry(0.95, 1.95), new THREE.MeshStandardMaterial({ map: tex, transparent: true, alphaTest: 0.1, roughness: 0.85, side: THREE.DoubleSide }));
+        const m = new THREE.Mesh(foldedClothGeometry(0.95, 1.95, { folds: 2, depth: 0.035, segX: 32 }), new THREE.MeshStandardMaterial({ map: tex, transparent: true, alphaTest: 0.1, roughness: 0.85, side: THREE.DoubleSide }));
         m.userData.ownMap = true;
         m.position.set(side * (width / 2 + 1.05), 3.25, 0.7); // vor dem Vorhang
         const rod = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 1.15, 10), goldMat);
@@ -476,9 +518,10 @@ const Auction3D = React.forwardRef(function Auction3D(props, ref) {
         boardGroup.add(m, rod);
       });
       // Rednerpult vor der Tafel
-      const podium = new THREE.Mesh(new THREE.BoxGeometry(1.1, 1.15, 0.6), woodMat);
+      const podium = new THREE.Mesh(new RoundedBoxGeometry(1.1, 1.15, 0.6, 2, 0.06), woodMat);
       podium.position.set(width / 2 + 0.25, 0.575, 1.4);
-      const podiumTop = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.08, 0.7), goldMat);
+      addOutline(podium, 0.018);
+      const podiumTop = new THREE.Mesh(new RoundedBoxGeometry(1.2, 0.09, 0.7, 2, 0.035), goldMat);
       podiumTop.position.set(width / 2 + 0.25, 1.19, 1.4);
       boardGroup.add(podium, podiumTop);
       // Elixier-Hammer auf dem Pult
@@ -565,6 +608,14 @@ const Auction3D = React.forwardRef(function Auction3D(props, ref) {
     // ── Karten ───────────────────────────────────────────────────────────────
     const backTex = own(cardBackTexture());
     const ringTex = own(frameRingTexture());
+    // Jede Karte hängt auf einem eigenen blau-goldenen Sockel (bleibt an der Tafel, wenn die Karte
+    // nach vorne fliegt) und wirft einen weichen Schatten darauf — vorher klebten die Karten flach
+    // auf der Fläche
+    const SOCKET_W = CARD_H * 0.84 + 0.2, SOCKET_H = CARD_H + 0.2;
+    const socketGeo = own(new RoundedBoxGeometry(SOCKET_W, SOCKET_H, 0.06, 2, 0.03));
+    const socketMat = own(new THREE.MeshStandardMaterial({ map: own(cardSocketTexture()), roughness: 0.5, metalness: 0.15, envMapIntensity: 0.3 }));
+    const shadowGeo = own(new THREE.PlaneGeometry(1, 1));
+    const shadowTex = own(cardShadowTexture());
     const texCache = new Map();
     const cardTex = (card) => {
       const key = card.isPig ? 'pig' : card.id;
@@ -604,7 +655,8 @@ const Auction3D = React.forwardRef(function Auction3D(props, ref) {
     let cardsRound = null;
     const clearCards = () => {
       cardObjs.forEach((o) => {
-        scene.remove(o.group);
+        scene.remove(o.group, o.socket, o.shadow);
+        o.shadow.material.dispose();
         o.group.traverse((m) => { if (m.isMesh) { m.geometry.dispose(); m.material.dispose(); } });
         o.stampTex?.dispose();
         o.badgeTex?.dispose();
@@ -646,7 +698,13 @@ const Auction3D = React.forwardRef(function Auction3D(props, ref) {
       group.add(frame, front, back, plaqueMesh, stamp, badge, youBand);
       group.position.set(slot.x, slot.y, 0.22);
       scene.add(group);
+      const socket = new THREE.Mesh(socketGeo, socketMat);
+      socket.raycast = () => {};
+      const shadow = new THREE.Mesh(shadowGeo, new THREE.MeshBasicMaterial({ map: shadowTex, color: 0x000000, transparent: true, opacity: 0, depthWrite: false, toneMapped: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -4 }));
+      shadow.raycast = () => {};
+      scene.add(socket, shadow);
       return {
+        socket, shadow,
         group, front, frontMat, frame, frameMat, plaqueMesh, plaqueMat, stamp, stampMat, stampTex: null,
         badge, badgeMat, badgeTex: null, youMat,
         card, slot, idx, w, h, dealAt, flipAt: null, pendingCard: null,
@@ -944,7 +1002,17 @@ const Auction3D = React.forwardRef(function Auction3D(props, ref) {
         const dimT = st === 'locked' && rt == null ? 0.35 : waiting ? 0.42 : 1;
         o.dim += (dimT - o.dim) * kk;
         basePos.set(o.slot.x, y + o.hover * 0.06, z + o.hover * 0.18);
-        let scale = o.base * (1 + o.hover * 0.06);
+        // Kurzes Anfedern beim Ankommen an der Tafel (gleiche Kurve wie in allen CR-Szenen)
+        const landT = off ? 1 : (now - o.dealAt - DEAL_S * 1000) / 600;
+        let scale = o.base * (1 + o.hover * 0.06) * (1 + crEase.land(landT));
+        // Sockel bleibt an der Tafel, der Schatten liegt darauf: je weiter die Karte davor schwebt
+        // (Austeilen, Hover), desto weiter versetzt und blasser; beim Flug nach vorne weg
+        o.socket.position.set(o.slot.x, o.slot.y, 0.15);
+        o.socket.scale.set(o.base, o.base, 1);
+        const away = (z - 0.22) + o.hover * 0.18;
+        o.shadow.position.set(o.slot.x + (0.06 + away * 0.25) * o.base, y - (0.1 + away * 0.3) * o.base, 0.186);
+        o.shadow.scale.set(o.w * 1.38 * scale * Math.max(0.05, Math.abs(Math.cos(rotY))), o.h * 1.38 * scale, 1);
+        o.shadow.material.opacity = 0.62 * o.vis * clamp01(1 - away / 1.2) * (1 - clamp01(o.lift * 2.5));
         if (o.lift > 0.001) {
           const e = easeInOut(clamp01(o.lift));
           const frontScale = frontSpot(frontPos);

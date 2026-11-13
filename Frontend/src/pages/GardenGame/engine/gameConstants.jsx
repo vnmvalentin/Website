@@ -12,7 +12,7 @@ import { Info } from 'lucide-react';
 import {
     MAP_CONFIG, TILE_SIZE, STEIN_REIHEN, STEIN_WEG_REIHEN, istWegReihe, istSteinfeldWegRow,
 } from './MapConfig';
-import { SEED_CATALOGUE, getPlantVisuals, ARCHETYPE_LABELS, getPlantArchetypeKey } from './PlantSystem';
+import { SEED_CATALOGUE, getPlantVisuals, ARCHETYPE_LABELS, getPlantArchetypeKey, eigenesSamenBild } from './PlantSystem';
 import { PET_ABILITY_TYPES } from './PetSystem';
 import { partyTitelIndex, istSaisonSorte, SAISON_ERLOES } from './Tageszeit';
 import { DEKO_KATALOG } from '../ui/deko';
@@ -49,12 +49,16 @@ const COLLISION_RADIUS_BY_AREA_TYPE = {
     deco: 130,
     market: 130,
     petMarket: 115,
-    // 3×3-Kachel-Gebäude (192×192) — etwas mehr als der halbe Bildradius, damit
+    // 4×4-Kachel-Gebäude (256×256, seit 06.11.) — etwas mehr als der halbe Bildradius, damit
     // man nicht bis an die Wand heranläuft.
-    shed: 110,
+    shed: 145,
     // Feedback 30.08.: Missionsbrett, 2×2-Kachel-Gebäude (128×128) — dieselbe
     // Marge wie beim Schuppen oben (etwas mehr als der halbe Bildradius).
     questBoard: 75,
+    goldShop: 130,
+    // 05.11.: eigene Stände statt Reiter am Missionsbrett
+    haendler: 130,
+    erntefest: 130,
 };
 // Muss zu START_GOLD in Backend/routes/gardenGameRoutes.js passen — der Browser
 // zeigt den Wert an, bevor der Server das erste Mal antwortet.
@@ -71,31 +75,23 @@ const giesskanneMinuten = (stufe) =>
     GIESSKANNE_MINUTEN[Math.max(0, Math.min(GIESSKANNE_MINUTEN.length - 1, Math.floor(Number(stufe) || 0)))];
 
 /**
- * Standorte der Marktwagen auf dem Kiesweg, als Versatz zur Weltmitte.
- *
- * WARUM ALS KONSTANTEN: Die Grundstücksschilder stehen bei ±1024 und ±3072 von der
- * Mitte (Grundstücksbreite 1792 + Abstand 256). Die Wagen werden NACH den
- * Grundstücken gezeichnet und decken deshalb alles ab, was darunter liegt — der
- * Samen-Shop stand bei −920 und damit 104 px neben dem Schild von Feld 2, das
- * dadurch unlesbar war (unten dasselbe mit dem Eier-Shop und Feld 6).
- *
- * Alle Wagen bleiben jetzt innerhalb ±800, also mindestens 220 px von jedem
- * Schild entfernt. Die Werte standen vorher doppelt im Code (Aufbau und
- * updateAreaPositions) und konnten auseinanderlaufen.
+ * Stände auf dem Dorfplatz. Wo sie stehen, legt die Weltkarte fest
+ * (STANDORTE_KACHEL in engine/MapConfig.js, als layout.standorte) — diese Liste
+ * sagt nur, WELCHE Bereiche dort aufgestellt werden. Der Schuppen gehört nicht
+ * dazu, er steht auf dem eigenen Grundstück.
  */
-const WAGEN_VERSATZ_X = {
-    seedShop: -700,
-    toolShop: -240,
-    eggShop: -700,
-    decoShop: -240,
-    market: 300,
-    petMarket: 760,
-    // Missionsbrett (Feedback 31.08.): auf dem Kiesweg wie Markt/Tier-Verkauf
-    // (siehe yWagen unten, gleiche Zeile "l.centerY"), aber links von der ganzen
-    // Shop-Gruppe statt rechts daneben — deutlicher Abstand zu seedShop/eggShop
-    // (-700), die selbst schon 290px breit sind.
-    questBoard: -1100,
-};
+// "angeln" (06.11.): Angelstelle am Ende des Stegs — ohne Gebäude, nur ein Ziel für E
+const HUB_STAENDE = ["seedShop", "toolShop", "eggShop", "decoShop", "market", "petMarket", "questBoard", "goldShop", "haendler", "erntefest", "angeln"];
+/** Setzt die Stände an ihre Plätze aus der Weltkarte. Aufbau UND Weltwechsel rufen das. */
+function stelleStaendeAuf(areas, layout) {
+    for (const art of HUB_STAENDE) {
+        const ort = layout?.standorte?.[art];
+        if (!ort || !areas[art]) continue;
+        areas[art].x = ort.x;
+        areas[art].y = ort.y;
+        areas[art].image = AREA_IMAGES[art];
+    }
+}
 const INCUBATOR_UNLOCK_COSTS = [50000, 500000, 5000000, 50000000]; // slots 2–5
 const INTERACT_DIST = 180;
 // Frühes Abbiegen (Feedback 28.08.): ab diesem Anteil der Sprungstrecke darf
@@ -240,7 +236,8 @@ const PET_SLOTS = 3;
 // Kachel-Fußabdruck des Schuppens — war 2×2, Feedback 30.08.: "sieht ziemlich
 // klein aus für ein Gebäude", jetzt 3×3. Eigene Konstante statt einer
 // verstreuten Zahl, falls er später noch einmal wächst oder schrumpft.
-const SCHUPPEN_KACHELN = 3;
+// 06.11.: 4 statt 3 — neben den Ständen auf dem Dorfplatz wirkte das Haus zu klein.
+const SCHUPPEN_KACHELN = 4;
 
 function berechneGebaeudePositionen(slot, versatz) {
     const drawY = slot.isTopRow ? slot.anchorY - MAP_CONFIG.territoryHeight : slot.anchorY;
@@ -254,7 +251,8 @@ function berechneGebaeudePositionen(slot, versatz) {
     // des Grundstücks, bei der unteren die Oberkante. Der Standardplatz gehört in
     // beiden Fällen an dieses Ende, denn von dort kommt man auf sein Grundstück.
     const zumWeg = slot.isTopRow ? -1 : 1;
-    const standardY = slot.anchorY + zumWeg * 120;
+    // So weit vom Weg weg, dass der ganze Fußabdruck (SCHUPPEN_KACHELN) im Grundstück bleibt
+    const standardY = slot.anchorY + zumWeg * (SCHUPPEN_KACHELN * TILE_SIZE / 2 + 22);
 
     const schuppenPx = SCHUPPEN_KACHELN * TILE_SIZE;
     if (!versatz?.shed || !Number.isFinite(versatz.shed.tx) || !Number.isFinite(versatz.shed.ty)) {
@@ -310,15 +308,7 @@ const CHAT_FARBEN = [
     { id: "rosa", hex: "#f472b6" },
 ];
 
-// Chat-Emoji-Feld (Feedback 01.09.) — eine kleine kuratierte Auswahl statt einer
-// vollen Emoji-Bibliothek: reicht für ein Spiel-Weltchat, ohne eine neue
-// Abhängigkeit reinzuziehen.
-const CHAT_EMOJIS = [
-    "😀", "😂", "😍", "😎", "🤔", "😢", "😡", "🥳",
-    "👍", "👎", "❤️", "🔥", "🎉", "✨", "💀", "👀",
-    "🌱", "🌻", "🍅", "🥕", "🐔", "🐷", "☀️", "🌧️",
-    "💰", "🏆", "⚔️", "🎯",
-];
+// Chat-Emojis: seit 07.11. eigene Pixelbilder in ui/chatEmojis.js.
 
 // So viele Klicks pro Feld dürfen sich stapeln, während eine Ernte unterwegs ist.
 // Genug für die größte Staude (8 Fruchtstände); alles darüber ist Gehämmer und
@@ -393,17 +383,17 @@ function sortiere(liste, optionen, key) {
 function SortierLeiste({ wert, setzen, optionen }) {
     return (
         <div className="flex flex-wrap items-center gap-1 mb-2">
-            <span className="text-[10px] uppercase tracking-wider text-slate-600 mr-1">Sortierung</span>
+            <span className="mr-1 text-[10px] font-bold uppercase tracking-wider text-[#eef0d8]/80">Sortierung</span>
             {optionen.map((o) => (
                 <button
                     key={o.key}
                     type="button"
                     onClick={() => setzen(o.key)}
-                    className={`px-2 py-1 rounded-xl border text-[10px] font-medium transition-colors ${
-                        wert === o.key
-                            ? "border-violet-600 bg-violet-600/20 text-violet-200"
-                            : "border-slate-800 text-slate-400 hover:text-white hover:bg-slate-800"
+                    // Holzknöpfe wie die Reiter (06.11.)
+                    className={`border-2 px-2 py-0.5 text-[10px] font-bold ${
+                        wert === o.key ? "translate-y-px bg-[#fff3c4] text-[#3b2516]" : "bg-[#8a5a32] text-[#f3e3c3] hover:bg-[#9c6a3c]"
                     }`}
+                    style={{ borderColor: "#3b2516", boxShadow: wert === o.key ? "0 1px 0 0 #3b2516" : "0 2px 0 0 #3b2516" }}
                 >
                     {o.label}
                 </button>
@@ -447,6 +437,11 @@ const AREA_IMAGES = {
     // (_drawAreaBuilding zeichnet ohne Bild einen Farbfleck mit Emoji, siehe
     // Renderer.js).
     questBoard: "/garden-assets/world/quest_board.png",
+    // 11.11.: ein Haus mit Tür statt eines offenen Stands — man geht hinein
+    // (tools/goldShopBild.mjs macht es aus world/shed.png; Tür in engine/hausTuer.js).
+    goldShop: "/garden-assets/world/gold_shop.png",
+    haendler: "/garden-assets/world/haendler.png",
+    erntefest: "/garden-assets/world/erntefest.png",
     // v2 (Feedback 29.08.): Kiste, Vitrine und Mülleimer standen als DREI eigene
     // Gebäude auf dem Grundstück (Inkubator kam schon vorher weg, siehe HUD-
     // Aufräumung) — jetzt EIN Schuppen (2×2 Kacheln), der Auswahl per E-Taste
@@ -458,13 +453,13 @@ const GEBAEUDE_NAMEN = {
     shed: "Schuppen",
 };
 /**
- * Was von einem FREMDEN Grundstück gezeichnet wird. Nur die Vitrine ist anlaufbar —
- * sie ist zum Herzeigen da — und erscheint deshalb (als Schuppen) nur, wenn der
- * Nachbar überhaupt eine Vitrine besitzt. Kiste und Mülleimer gehen niemanden
- * außer dem Besitzer etwas an und bekommen deshalb keinen eigenen Eintrag.
+ * Was von einem FREMDEN Grundstück gezeichnet wird: das Haus des Nachbarn. Seit 11.11.
+ * steht es bei jedem und lässt sich betreten (ui/HausInnen.jsx als Gast) — drinnen ist
+ * nur die Vitrine zum Ansehen da. Kiste, Mülleimer und Inkubator gehen niemanden außer
+ * dem Besitzer etwas an und lassen sich als Gast nicht öffnen.
  */
 const FREMDE_GEBAEUDE = [
-    { key: "vitrine", type: "fremdeVitrine", name: "Vitrine", anlaufbar: true },
+    { key: "haus", type: "fremdesHaus", name: "Haus", anlaufbar: true },
 ];
 const TOOL_IMAGE_BY_KEY = {
     pickaxe: "/garden-assets/tools/spitzhacke.png",
@@ -481,24 +476,18 @@ const TOOL_IMAGE_BY_ID = {
     plant_pot: TOOL_IMAGE_BY_KEY.pot,
     watering_can: TOOL_IMAGE_BY_KEY.watering,
     backpack_upgrade: TOOL_IMAGE_BY_KEY.backpack,
-    // Im Shop dasselbe Bild wie später auf dem Grundstück — man kauft sichtbar
-    // das, was danach dort steht, statt eines Ersatz-Emojis. Kiste und Vitrine
-    // stehen seit dem Schuppen-Umbau nicht mehr einzeln auf dem Feld, zeigen im
-    // Shop aber weiterhin den Schuppen, der sie dann beherbergt.
-    chest: AREA_IMAGES.shed,
-    vitrine: AREA_IMAGES.shed,
+    // 06.11.: eigene Pixelbilder (tools/pixelDeko.mjs) — wie die Möbel im Haus, wo beide stehen
+    chest: "/garden-assets/tools/kiste.png",
+    vitrine: "/garden-assets/tools/vitrine.png",
+    // Angeln (06.11., tools/pixelSymbole.mjs)
+    angel: "/garden-assets/icons/hud/angel_pixel.png",
+    profiangel: "/garden-assets/icons/laden/profiangel.png",
+    koeder_wurm: "/garden-assets/icons/laden/wurm.png",
+    koeder_teig: "/garden-assets/icons/laden/teig.png",
+    koeder_leucht: "/garden-assets/icons/laden/leucht.png",
 };
-const TERRAIN_ASSET_IMAGES = [
-    "/garden-assets/structure/gras1.png",
-    "/garden-assets/structure/gras2.png",
-    "/garden-assets/structure/hohes_gras1.png",
-    "/garden-assets/structure/hohes_gras2.png",
-    "/garden-assets/structure/kiesweg1.png",
-    "/garden-assets/structure/kiesweg2.png",
-    "/garden-assets/structure/acker.png",
-    "/garden-assets/structure/stein.png",
-    "/garden-assets/structure/wood.png",
-];
+// Boden wird seit 05.11. im Code gezeichnet (engine/pixelBoden.js) — nichts vorzuladen.
+const TERRAIN_ASSET_IMAGES = [];
 const PET_IMAGE_BY_TYPE = {
     Huhn: "/garden-assets/animals/huhn.png",
     Ente: "/garden-assets/animals/ente.png",
@@ -945,10 +934,11 @@ function withVisuals(item) {
         image: item.image || item.seedImage || item.seedShopImage || item.harvestImage || visuals.seedImage,
         seedImage: item.seedImage || item.seedShopImage || visuals.seedImage,
         seedShopImage: item.seedShopImage || visuals.seedShopImage,
-        plantedSeedImage: item.plantedSeedImage || visuals.plantedSeedImage,
+        plantedSeedImage: eigenesSamenBild(item.plantedSeedImage, visuals.plantedSeedImage),
         plantedSeedFallbackImage: item.plantedSeedFallbackImage || visuals.plantedSeedFallbackImage,
         growthImage: item.growthImage || visuals.growthImage,
-        structureImage: item.structureImage || visuals.structureImage,
+        // Immer aus der Wuchsform: gespeicherte Altpfade (plants/<id>/structure.png) gibt es nicht mehr.
+        structureImage: visuals.structureImage,
         fruitImage: item.fruitImage || visuals.fruitImage,
         harvestImage: item.harvestImage || visuals.harvestImage,
     };
@@ -1149,5 +1139,5 @@ const ShopSeedCard = memo(function ShopSeedCard({ seed, onBuy, onBuyAll, canAffo
 
 
 export {
-    TwitchGlyph, COLLISION_RADIUS_BY_AREA_TYPE, START_GOLD, GIESSKANNE_MINUTEN, GIESSKANNE_MAX_ANTEIL, giesskanneMinuten, WAGEN_VERSATZ_X, INCUBATOR_UNLOCK_COSTS, INTERACT_DIST, FRUEHES_ABBIEGEN_AB, SHOP_ROTATION_MS, TOOL_EGG_ROTATION_MS, TARGET_FPS, MAX_PLOT_EXPANSIONS, ACKERRASTER_MARKE, MUSIK_BASIS, THEME_TRACKS, THEME_STANDARD, PARTY_TRACKS, partyTrack, themeTrack, FARM_SEO, WORLD_BOOT_MIN_MS, WORLD_SLOTS, GARTEN_ADMIN_ID, SHOTGUN_LAUTSTAERKE, SHOTGUN_HAND_ITEM, WORLD_ZOOM, ZOOM_MIN, ZOOM_MAX, ZOOM_SCHRITT, KISTE_MAX, VITRINE_MAX, PET_SLOTS, SCHUPPEN_KACHELN, berechneGebaeudePositionen, normalizeGebaeudeVersatz, MAILBOX_INTERACT_DIST, CHAT_MAX_LEN, CHAT_FARBEN, CHAT_EMOJIS, ERNTE_WARTESCHLANGE_MAX, RARITAETS_RANG, nachText, KATALOG_NACH_ID, zeitBisErsteErnte, SHOP_SORTIERUNGEN, INVENTAR_SORTIERUNGEN, sortiere, SortierLeiste, DEFAULT_TOOL_INVENTORY, BASE_DIRT_COLS, BASE_DIRT_ROWS, AREA_IMAGES, GEBAEUDE_NAMEN, FREMDE_GEBAEUDE, TOOL_IMAGE_BY_KEY, TOOL_IMAGE_BY_ID, TERRAIN_ASSET_IMAGES, PET_IMAGE_BY_TYPE, WEATHER_BY_ROLL, DEFAULT_RENDER_PROFILE, RENDER_QUALITY_PRESETS, EGG_SHOP_CATALOGUE, DECO_SHOP_ITEMS, WARDROBE_SKINS, PET_EMOJI_BY_TYPE, getPetEmoji, getToolImage, getPetSpriteImage, hashToUnit, rollWeatherFromRotation, getPickaxePrice, STEINFELDER_GESAMT, buildPetPreviewImage, normalizeToolInventory, hatTooltip, wachstumBeschleunigen, freiesAckerfeld, TAB_ID, GERAET_ID, BACKPACK_MAX_LEVEL, BUY_ALL_WERKZEUGE, getBackpackUpgradePrice, normalizePlotUnlockedCells, unlockedCellsFromLegacyExpansions, resolvePlotUnlockedCells, rollPetSpecialType, rollHatchResult, RARITY_COLORS, RarityBadge, withVisuals, hydratePet, hydratePets, hydrateSeed, hydrateSeeds, collectVisualAssetPaths, SeedFacts, ShopSeedCard
+    TwitchGlyph, COLLISION_RADIUS_BY_AREA_TYPE, START_GOLD, GIESSKANNE_MINUTEN, GIESSKANNE_MAX_ANTEIL, giesskanneMinuten, HUB_STAENDE, stelleStaendeAuf, INCUBATOR_UNLOCK_COSTS, INTERACT_DIST, FRUEHES_ABBIEGEN_AB, SHOP_ROTATION_MS, TOOL_EGG_ROTATION_MS, TARGET_FPS, MAX_PLOT_EXPANSIONS, ACKERRASTER_MARKE, MUSIK_BASIS, THEME_TRACKS, THEME_STANDARD, PARTY_TRACKS, partyTrack, themeTrack, FARM_SEO, WORLD_BOOT_MIN_MS, WORLD_SLOTS, GARTEN_ADMIN_ID, SHOTGUN_LAUTSTAERKE, SHOTGUN_HAND_ITEM, WORLD_ZOOM, ZOOM_MIN, ZOOM_MAX, ZOOM_SCHRITT, KISTE_MAX, VITRINE_MAX, PET_SLOTS, SCHUPPEN_KACHELN, berechneGebaeudePositionen, normalizeGebaeudeVersatz, MAILBOX_INTERACT_DIST, CHAT_MAX_LEN, CHAT_FARBEN, ERNTE_WARTESCHLANGE_MAX, RARITAETS_RANG, nachText, KATALOG_NACH_ID, zeitBisErsteErnte, SHOP_SORTIERUNGEN, INVENTAR_SORTIERUNGEN, sortiere, SortierLeiste, DEFAULT_TOOL_INVENTORY, BASE_DIRT_COLS, BASE_DIRT_ROWS, AREA_IMAGES, GEBAEUDE_NAMEN, FREMDE_GEBAEUDE, TOOL_IMAGE_BY_KEY, TOOL_IMAGE_BY_ID, TERRAIN_ASSET_IMAGES, PET_IMAGE_BY_TYPE, WEATHER_BY_ROLL, DEFAULT_RENDER_PROFILE, RENDER_QUALITY_PRESETS, EGG_SHOP_CATALOGUE, DECO_SHOP_ITEMS, WARDROBE_SKINS, PET_EMOJI_BY_TYPE, getPetEmoji, getToolImage, getPetSpriteImage, hashToUnit, rollWeatherFromRotation, getPickaxePrice, STEINFELDER_GESAMT, buildPetPreviewImage, normalizeToolInventory, hatTooltip, wachstumBeschleunigen, freiesAckerfeld, TAB_ID, GERAET_ID, BACKPACK_MAX_LEVEL, BUY_ALL_WERKZEUGE, getBackpackUpgradePrice, normalizePlotUnlockedCells, unlockedCellsFromLegacyExpansions, resolvePlotUnlockedCells, rollPetSpecialType, rollHatchResult, RARITY_COLORS, RarityBadge, withVisuals, hydratePet, hydratePets, hydrateSeed, hydrateSeeds, collectVisualAssetPaths, SeedFacts, ShopSeedCard
 };

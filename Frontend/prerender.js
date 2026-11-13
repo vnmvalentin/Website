@@ -22,6 +22,7 @@ const routesToPrerender = [
   '/clash/zoom',
   '/clash/pixel',
   '/clash/wordle',
+  '/clash/farbe',
   '/clash/viewer-games',
   '/tools',
   '/contact',

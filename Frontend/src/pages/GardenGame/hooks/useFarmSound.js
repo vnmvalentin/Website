@@ -6,12 +6,12 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { partyTrack, themeTrack } from "../engine/gameConstants";
 
 
-const ERNTE_TON_URL = "/garden-assets/sounds/harvest.mp3";
+const KETTEN_TOENE = { harvest: "/garden-assets/sounds/harvest.mp3", plant: "/garden-assets/sounds/plant.mp3" };
+const KETTE_MIN_ABSTAND_MS = 55;
 // Wer innerhalb dieser Zeit erneut erntet, setzt die Kette fort (Tonhöhe steigt).
 const ERNTE_KETTE_MS = 900;
 // Dur-Pentatonik über zwei Oktaven: klingt in jeder Länge melodisch, nie schief.
 const ERNTE_KETTE_HALBTOENE = [0, 2, 4, 7, 9, 12, 14, 16, 19, 21, 24];
-const ERNTE_TON_MAX_GLEICHZEITIG = 6;
 
 export default function useFarmSound({ showLobbyScreen, tagesInfo, themeId }) {
     const [effectVolume, setEffectVolume] = useState(() => {
@@ -70,6 +70,7 @@ export default function useFarmSound({ showLobbyScreen, tagesInfo, themeId }) {
 
     const soundsRef = useRef(null); // lazy nach erster Nutzer-Interaktion (Autoplay-Policy)
     const audioUnlockedRef = useRef(false);
+    const ernteTonStartenRef = useRef(null);
 
     const ensureGardenSounds = useCallback(() => {
         if (soundsRef.current || typeof window === "undefined") return;
@@ -100,6 +101,10 @@ export default function useFarmSound({ showLobbyScreen, tagesInfo, themeId }) {
     useEffect(() => {
         const unlock = () => {
             ensureGardenSounds();
+            // Die Audio-Engine für den Ernte-Ton gleich hier starten: Browser lassen sie
+            // nur aus einem Klick/Tastendruck heraus laufen. Entstand sie erst beim
+            // Drüberziehen (pointermove), blieb sie stumm geschaltet (06.11.).
+            ernteTonStartenRef.current?.();
         };
         window.addEventListener("pointerdown", unlock, { passive: true });
         window.addEventListener("keydown", unlock, { passive: true });
@@ -137,51 +142,74 @@ export default function useFarmSound({ showLobbyScreen, tagesInfo, themeId }) {
      * Quelle (sie überlagern sich), und wer schnell hintereinander erntet, hört die
      * Tonhöhe auf einer Pentatonik steigen. Ohne WebAudio greift der alte Weg.
      */
-    const ernteTonRef = useRef({ ctx: null, puffer: null, laedt: false, aktiv: [], stufe: 0, zuletzt: 0 });
-    const spieleErnteTon = useCallback((lautstaerke = 0.45) => {
-        if (!audioUnlockedRef.current) return;
+    // 06.11. (Feedback „Sound überlappt, Steigerung nur bei Multi“): steigende Kette nur
+    // beim Shift-Ziehen über mehrere Zellen; ein einzelner Klick spielt immer den Grundton.
+    // Pflanzen nutzt dieselbe Technik mit eigenem Ton. Ein neuer Kettenton blendet den
+    // vorigen kurz aus, statt dass sich ein Dutzend Töne zu einem Brei stapeln.
+    const ernteTonRef = useRef({ ctx: null, puffer: {}, laedt: {}, aktiv: [], stufe: {}, zuletzt: {} });
+    const ladeTon = (t, art) => {
+        if (!t.ctx || t.puffer[art] || t.laedt[art]) return;
+        t.laedt[art] = true;
+        fetch(KETTEN_TOENE[art])
+            .then((res) => res.arrayBuffer())
+            .then((b) => t.ctx.decodeAudioData(b))
+            .then((p) => { t.puffer[art] = p; })
+            .catch(() => { t.laedt[art] = false; });
+    };
+    // Engine anlegen/fortsetzen und Töne laden — aus dem Klick heraus (siehe unlock oben)
+    ernteTonStartenRef.current = () => {
         const t = ernteTonRef.current;
-        const jetzt = performance.now();
-        t.stufe = jetzt - t.zuletzt < ERNTE_KETTE_MS ? Math.min(t.stufe + 1, ERNTE_KETTE_HALBTOENE.length - 1) : 0;
-        t.zuletzt = jetzt;
         if (!t.ctx) {
             const Ctx = typeof window !== "undefined" ? (window.AudioContext || window.webkitAudioContext) : null;
             try { t.ctx = Ctx ? new Ctx() : null; } catch { t.ctx = null; }
         }
-        if (!t.ctx || !t.puffer) {
-            // Puffer einmalig laden; bis er da ist (oder ohne WebAudio) der alte Weg.
-            if (t.ctx && !t.laedt) {
-                t.laedt = true;
-                fetch(ERNTE_TON_URL)
-                    .then((r) => r.arrayBuffer())
-                    .then((b) => t.ctx.decodeAudioData(b))
-                    .then((p) => { t.puffer = p; })
-                    .catch(() => { t.ctx = null; });
-            }
-            playSound("harvest", lautstaerke);
+        if (t.ctx && t.ctx.state === "suspended") t.ctx.resume().catch(() => {});
+        for (const art of Object.keys(KETTEN_TOENE)) ladeTon(t, art);
+    };
+    const spieleKettenTon = useCallback((art, lautstaerke, kette) => {
+        if (!audioUnlockedRef.current) return;
+        const t = ernteTonRef.current;
+        const jetzt = performance.now();
+        const zuletzt = t.zuletzt[art] || 0;
+        // Beim Ziehen höchstens alle 55 ms ein Ton — schneller verschwimmt es nur
+        if (kette && jetzt - zuletzt < KETTE_MIN_ABSTAND_MS) return;
+        t.stufe[art] = kette && jetzt - zuletzt < ERNTE_KETTE_MS
+            ? Math.min((t.stufe[art] || 0) + 1, ERNTE_KETTE_HALBTOENE.length - 1)
+            : 0;
+        t.zuletzt[art] = jetzt;
+        if (!t.ctx) ernteTonStartenRef.current?.();
+        if (!t.ctx || !t.puffer[art] || t.ctx.state !== "running") {
+            if (t.ctx) { ladeTon(t, art); if (t.ctx.state !== "running") t.ctx.resume().catch(() => {}); }
+            playSound(art, lautstaerke);
             return;
         }
-        if (t.ctx.state === "suspended") t.ctx.resume().catch(() => {});
-        const quelle = t.ctx.createBufferSource();
-        quelle.buffer = t.puffer;
-        quelle.playbackRate.value = Math.pow(2, ERNTE_KETTE_HALBTOENE[t.stufe] / 12);
-        const gain = t.ctx.createGain();
-        gain.gain.value = effectVolumeRef.current * lautstaerke;
-        quelle.connect(gain).connect(t.ctx.destination);
-        quelle.onended = () => { t.aktiv = t.aktiv.filter((q) => q !== quelle); };
-        t.aktiv.push(quelle);
-        // Deckel: ein Zug über ein volles Feld soll nicht zu einem lauten Brei anschwellen.
-        while (t.aktiv.length > ERNTE_TON_MAX_GLEICHZEITIG) {
-            const alt = t.aktiv.shift();
-            try { alt.stop(); } catch { /* schon zu Ende */ }
+        const ctx = t.ctx;
+        // Laufende Töne derselben Art sanft ausblenden
+        for (const alt of t.aktiv) {
+            if (alt.art !== art) continue;
+            try {
+                alt.gain.gain.setTargetAtTime(0, ctx.currentTime, 0.03);
+                alt.quelle.stop(ctx.currentTime + 0.12);
+            } catch { /* schon zu Ende */ }
         }
+        const quelle = ctx.createBufferSource();
+        quelle.buffer = t.puffer[art];
+        quelle.playbackRate.value = Math.pow(2, ERNTE_KETTE_HALBTOENE[t.stufe[art]] / 12);
+        const gain = ctx.createGain();
+        gain.gain.value = effectVolumeRef.current * lautstaerke;
+        quelle.connect(gain).connect(ctx.destination);
+        const eintrag = { art, quelle, gain };
+        quelle.onended = () => { t.aktiv = t.aktiv.filter((e) => e !== eintrag); };
+        t.aktiv.push(eintrag);
         quelle.start();
     }, [playSound]);
+    const spieleErnteTon = useCallback((lautstaerke = 0.45, kette = false) => spieleKettenTon("harvest", lautstaerke, kette), [spieleKettenTon]);
+    const spielePflanzTon = useCallback((lautstaerke = 0.5, kette = false) => spieleKettenTon("plant", lautstaerke, kette), [spieleKettenTon]);
 
     useEffect(() => () => {
         const ctx = ernteTonRef.current.ctx;
         if (ctx) ctx.close().catch(() => {});
     }, []);
 
-    return { effectVolume, setEffectVolume, musicVolume, setMusicVolume, laufenderPartyTitel, playSound, spieleErnteTon };
+    return { effectVolume, setEffectVolume, musicVolume, setMusicVolume, laufenderPartyTitel, playSound, spieleErnteTon, spielePflanzTon };
 }

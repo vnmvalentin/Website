@@ -14,6 +14,8 @@
 // platzierten Tieren. Deshalb lohnen sich drei VERSCHIEDENE Tiere und nicht drei
 // gleiche.
 
+import { SEED_CATALOGUE } from "./PlantSystem";
+
 export const PET_SELL_PRICES = {
     COMMON: 50000,
     UNCOMMON: 500000,
@@ -75,29 +77,51 @@ export const PET_ABILITY_TYPES = ["goldfinder", "seedfinder", "harvester", "fors
  * Spiegel von ERNTEHELFER_EXTRA in Backend/garden/core/pets.js — gerechnet wird
  * dort, in harvestCell.
  */
-export const ERNTEHELFER_EXTRA = 0.05;   // je Stufe → L5 = 25 %
+export const ERNTEHELFER_EXTRA = 0.06;   // je Stufe → L5 = 30 %
 
 /**
  * Der Gärtner (Kennung "seedfinder").
  * Spiegel von GAERTNER_* in Backend/garden/core/pets.js — gerechnet wird dort.
  */
 export const GAERTNER_NACHWUCHS = 0.12;   // je Stufe → L5 = 60 %
-export const GAERTNER_WURZELWERK = 0.06;  // je Stufe → L5 = 30 %
+export const GAERTNER_WURZELWERK = 0.08;  // je Stufe → L5 = 40 %
 
 /**
  * Forscher/Kaufmann (v2, Punkt 9). Spiegel von FORSCHER_XP_PRO_STUFE /
  * KAUFMANN_VERKAUF_PRO_STUFE in Backend/garden/core/pets.js — gerechnet wird
  * dort (forscherBoost/kaufmannBoost in economy.js), hier nur für die Anzeige.
  */
-export const FORSCHER_XP_PRO_STUFE = 0.08;      // je Stufe → L5 = +40 % XP
-export const KAUFMANN_VERKAUF_PRO_STUFE = 0.03; // je Stufe → L5 = +15 % Verkaufspreis
+export const FORSCHER_XP_PRO_STUFE = 0.10;      // je Stufe → L5 = +50 % XP
+export const KAUFMANN_VERKAUF_PRO_STUFE = 0.04; // je Stufe → L5 = +20 % Verkaufspreis
 
 /** Höchste Stufe einer Fähigkeit unter den platzierten Tieren eines Grundstücks. */
+/**
+ * Hunger (06.11., Backend core/pets.js sattBisVon): petId -> satt bis (ms). Ein
+ * verhungertes Tier arbeitet nicht, bis es einen Fisch bekommt. Kennt der Browser ein
+ * Tier noch nicht, gilt es als satt — der Server gibt ihm beim nächsten Schritt sein
+ * Startfutter und meldet die Zeit zurück. Gesetzt aus GameContainer.
+ */
+let tierFutter = {};
+export function setzeTierFutter(karte) { tierFutter = karte && typeof karte === "object" ? karte : {}; }
+export function istSatt(pet, now = Date.now()) {
+    const wert = tierFutter[String(pet?.id || pet?.instanceId || "")];
+    if (wert === undefined) return true;
+    return Number(wert) > now;
+}
+/** Verhungerte eigene Tiere — für Warnzeichen und „Alle füttern“. */
+export function hungrigeTiere(liste, now = Date.now()) {
+    return (Array.isArray(liste) ? liste : []).filter((p) => p && !istSatt(p, now));
+}
+export function sattBis(pet) {
+    return Number(tierFutter[String(pet?.id || pet?.instanceId || "")]) || 0;
+}
+
 export function besteStufe(petPlacements, typ, slotIndex = null) {
     let beste = 0;
     for (const p of Array.isArray(petPlacements) ? petPlacements : []) {
         if (p?.ability?.type !== typ) continue;
         if (slotIndex !== null && p.slotIndex !== slotIndex) continue;
+        if (!istSatt(p)) continue;
         beste = Math.max(beste, clampLevel(p.ability.level));
     }
     return beste;
@@ -121,7 +145,7 @@ export function getKaufmannStufe(petPlacements, slotIndex = null) {
 
 /** Extraernte-Chance des Erntehelfers — nur für die Anzeige. */
 export function getErntehelferExtra(stufe, zuechterWirkung = 0) {
-    return Math.max(0, Math.min(5, Math.floor(Number(stufe) || 0)))
+    return Math.max(0, Math.min(5, Number(stufe) || 0))
         * ERNTEHELFER_EXTRA * tierVerstaerkung(zuechterWirkung);
 }
 
@@ -149,6 +173,40 @@ export function getPetTickMs(maxLevel) {
 
 export function getGoldfinderRange(level) {
     return GOLDFINDER_RANGES[clampLevel(level)] || GOLDFINDER_RANGES[1];
+}
+
+/**
+ * Goldfinder wächst mit dem Acker (07.11.) — Spiegel von getGoldfinderFund /
+ * GOLDFINDER_ACKER_ANTEIL in Backend/garden/core/pets.js und stundenErtrag in
+ * core/angeln.js. Nur für die Anzeige; gewürfelt wird auf dem Server.
+ */
+// Der Katalogwert ist 10–30× kleiner als der echte Verdienst je Spielstunde (Größe, Vielfalt,
+// Fähigkeiten, Wetter, Offline-Wachstum; Simulator 07.11.) → Stufe 5 ≈ 3–6 % des Einkommens.
+const GOLDFINDER_ACKER_ANTEIL = { 1: 0.08, 2: 0.16, 3: 0.28, 4: 0.42, 5: 0.6 };
+const KATALOG_ERTRAG = new Map(SEED_CATALOGUE.map((s) => [s.id, s]));
+export function ackerStundenErtrag(plotPlants) {
+    let summe = 0;
+    for (const pflanze of Object.values(plotPlants || {})) {
+        const p = KATALOG_ERTRAG.get(pflanze?.seedId);
+        if (!p) continue;
+        if (pflanze.singleUse === false) {
+            const frucht = ((Number(p.fruitSellMin) || 0) + (Number(p.fruitSellMax) || 0)) / 2;
+            const zyklusH = Math.max(1 / 60, (Number(p.fruitCycleSec) || 3600) / 3600);
+            summe += (frucht * Math.max(1, Number(p.maxFruits) || 1)) / zyklusH;
+        } else {
+            const ernte = ((Number(p.sellMin) || 0) + (Number(p.sellMax) || 0)) / 2;
+            const wachsH = Math.max(1 / 60, ((Number(p.growMinSec) || 600) + (Number(p.growMaxSec) || 600)) / 2 / 3600);
+            summe += ernte / wachsH;
+        }
+    }
+    return summe;
+}
+export function getGoldfinderFund(level, ackerStunde) {
+    const stufe = clampLevel(level);
+    const [min, max] = getGoldfinderRange(stufe);
+    const fundeJeStunde = (3600000 / getPetTickMs(stufe)) * PET_PROC_CHANCE;
+    const mitte = (GOLDFINDER_ACKER_ANTEIL[stufe] * Math.max(0, Number(ackerStunde) || 0)) / fundeJeStunde;
+    return [Math.max(min, Math.floor(mitte * 0.5)), Math.max(max, Math.floor(mitte * 1.5))];
 }
 
 /**

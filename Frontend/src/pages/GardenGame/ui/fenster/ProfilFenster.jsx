@@ -2,13 +2,14 @@
 // Profil, Einstellungen und Neuerungen — die Fenster rund um den eigenen Account.
 // Reine Anzeige — Zustand und Aktionen kommen aus GameContainer.jsx.
 import React from "react";
-import { GardenModal } from "../gardenUi";
 import { HudIcon } from "../gameIcons";
 import { formatGold } from "../gardenTokens";
 import { SEED_CATALOGUE } from "../../engine/PlantSystem";
 import { THEME_TRACKS, RENDER_QUALITY_PRESETS } from "../../engine/gameConstants";
 import { CHANGELOG_ENTRIES } from "../../data/changelogEntries";
 import { sterneText, hatKosmetik, TITEL } from "../prestige";
+import { versionedAsset } from "../../engine/assetVersion";
+import { StandFenster } from "../laden/Marktstand";
 
 /** Eine Logbuch-Seite ist komplett — muss zu logbuchVollstaendig (Backend core/economy.js) passen. */
 function logbuchKomplett(e) {
@@ -17,9 +18,42 @@ function logbuchKomplett(e) {
     return e.min === 1 && e.max === 50 && ["Golden", "Rainbow", "wet", "frozen", "charged", "moonlit"].every((x) => f.has(x));
 }
 
+/**
+ * Profil als Steckbrief (06.11.): Holzrahmen, links das Bild der Katze auf einem kleinen
+ * Stück Wiese, rechts Name, Level, Sterne und Kennzahlen als Schilder, darunter die
+ * Sammlung und große Bildknöpfe zu Fähigkeiten und Logbuch. Die Umkleide steht seit
+ * 06.11. als Kleiderschrank im Haus (ui/HausInnen.jsx) und ist hier raus.
+ */
+const HOLZ_P = "#3b2516";
+function ProfilSchild({ bild, label, wert, hell = "#f3e3c3" }) {
+    return (
+        <div className="flex items-center gap-2 border-[3px] px-2 py-1.5" style={{ borderColor: HOLZ_P, background: hell, boxShadow: `0 3px 0 0 ${HOLZ_P}` }}>
+            {bild}
+            <span className="min-w-0 flex-1">
+                <span className="block text-[10px] font-bold uppercase tracking-wider text-[#8a5a32]">{label}</span>
+                <span className="block truncate text-sm font-bold tabular-nums text-[#3b2516]">{wert}</span>
+            </span>
+        </div>
+    );
+}
+function GrosserKnopf({ bild, titel, text, onClick, marke }) {
+    return (
+        <button type="button" onClick={onClick}
+            className="group relative flex items-center gap-3 border-[3px] p-2.5 text-left transition-transform duration-100 hover:-translate-y-1"
+            style={{ borderColor: HOLZ_P, background: "#fff3c4", boxShadow: `0 4px 0 0 ${HOLZ_P}` }}>
+            <img src={versionedAsset(bild)} alt="" draggable={false} className="h-14 w-14 shrink-0 object-contain transition-transform duration-150 group-hover:-rotate-6" style={{ imageRendering: "pixelated" }} />
+            <span className="min-w-0">
+                <span className="block text-base font-bold text-[#3b2516]">{titel}</span>
+                <span className="block text-[11px] text-[#6e4426]">{text}</span>
+            </span>
+            {marke}
+        </button>
+    );
+}
+
 export function ProfilFenster({
     setProfilOffen, playerAppearance, localPlayerNameRef, skillStand, gold, goldGesamt,
-    setSkillsOffen, setWardrobeOpen, setLogbuchOpen, logbuch, wettbewerbSiege = [],
+    setSkillsOffen, setLogbuchOpen, logbuch, wettbewerbSiege = [],
     prestigeStand = null, setNeueSaatOffen, zuchtbuch = {}, goldShopDaten = null,
 }) {
     const sterne = prestigeStand?.sterne || 0;
@@ -34,160 +68,192 @@ export function ProfilFenster({
         { label: "Kreuzungen entdeckt", wert: kreuzungenGefunden, max: kreuzungen.length },
         ...(saisonSchilder.length ? [{ label: "Jahreszeiten-Namensschilder", wert: saisonSchilder.filter((e) => e.gekauft).length, max: saisonSchilder.length }] : []),
     ];
+    const xpAnteil = (skillStand?.xpFuersNaechste || 0) > 0
+        ? Math.min(1, Math.max(0, (skillStand.xpDiesesLevel || 0) / skillStand.xpFuersNaechste)) : 1;
+    const MEDAILLE = { 1: "#ffd84a", 2: "#c8ccd4", 3: "#c8864a" };
     return (
-        <GardenModal
-            title="Profil"
+        <StandFenster
+            titel="Profil"
+            untertitel="Dein Steckbrief"
+            markise={false}
+            breite="max-w-3xl"
+            bild={playerAppearance.skin}
             onClose={() => setProfilOffen(false)}
-            breite="klein"
         >
-            <div className="flex flex-col gap-4">
-                <div className="flex items-center gap-4">
-                    <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-2xl border border-slate-700 bg-slate-950">
-                        <img
-                            src={playerAppearance.skin}
-                            alt=""
-                            draggable={false}
-                            className="h-16 w-16 object-contain"
-                        />
+            <div className="mt-2 grid gap-4 md:grid-cols-[13rem_1fr]">
+                {/* Bild der Katze auf einem Stück Wiese */}
+                <div className="flex flex-col items-stretch">
+                    <div className="relative flex h-52 items-end justify-center border-[4px]" style={{ borderColor: HOLZ_P, background: "linear-gradient(#9fd3e6 0 70%, #7fb35a 70% 100%)", boxShadow: `0 4px 0 0 ${HOLZ_P}` }}>
+                        <img src={playerAppearance.skin} alt="" draggable={false} className="mb-3 h-40 w-40 object-contain" style={{ imageRendering: "pixelated" }} />
+                        {sterne > 0 && (
+                            <span className="absolute left-1 top-1 border-2 bg-[#fff3c4] px-1 text-sm font-bold tracking-widest text-[#c88a14]" style={{ borderColor: HOLZ_P }}>{"★".repeat(sterne)}</span>
+                        )}
                     </div>
-                    <div className="min-w-0 flex-1">
-                        <div className="text-lg font-semibold text-white truncate">
-                            {localPlayerNameRef.current || "Du"}
-                        </div>
-                        <div className="text-sm text-slate-400">
-                            Level {skillStand?.level || 1}
-                            {sterne > 0 && <span className="ml-2 text-amber-300">{"★".repeat(sterne)}</span>}
-                        </div>
-                        {hatKosmetik(sterne, "titel") && <div className="text-xs font-semibold text-amber-300">{TITEL}</div>}
+                    <div className="-mt-1 border-[3px] px-2 py-1.5 text-center" style={{ borderColor: HOLZ_P, background: "#f3e3c3" }}>
+                        <div className="truncate text-lg font-bold text-[#3b2516]">{localPlayerNameRef.current || "Du"}</div>
+                        {hatKosmetik(sterne, "titel") && <div className="text-[11px] font-bold text-[#c88a14]">{TITEL}</div>}
                     </div>
                 </div>
 
-                <div>
-                    <div className="flex items-center justify-between text-xs text-slate-500 mb-1.5">
-                        <span>XP</span>
-                        <span className="tabular-nums">
-                            {(skillStand?.xpFuersNaechste || 0) > 0
-                                ? `${(skillStand?.xpDiesesLevel || 0).toLocaleString("de-DE")} / ${skillStand.xpFuersNaechste.toLocaleString("de-DE")}`
-                                : "Höchstlevel"}
-                        </span>
+                <div className="flex flex-col gap-3">
+                    {/* Level mit Erfahrungsbalken */}
+                    <div className="border-[3px] p-2.5" style={{ borderColor: HOLZ_P, background: "#f3e3c3", boxShadow: `0 3px 0 0 ${HOLZ_P}` }}>
+                        <div className="mb-1.5 flex items-baseline justify-between gap-2">
+                            <span className="border-2 bg-[#8a5ac8] px-2 py-0.5 text-sm font-bold text-white" style={{ borderColor: HOLZ_P }}>Level {skillStand?.level || 1}</span>
+                            <span className="text-[11px] font-bold tabular-nums text-[#6e4426]">
+                                {(skillStand?.xpFuersNaechste || 0) > 0
+                                    ? `${(skillStand?.xpDiesesLevel || 0).toLocaleString("de-DE")} / ${skillStand.xpFuersNaechste.toLocaleString("de-DE")} XP`
+                                    : "Höchstlevel"}
+                            </span>
+                        </div>
+                        <div className="h-3.5 w-full border-2" style={{ borderColor: HOLZ_P, background: "#c9b48a" }}>
+                            <div className="h-full" style={{ width: `${xpAnteil * 100}%`, background: "#9a68d8", boxShadow: "inset 0 2px 0 0 rgba(255,255,255,0.35)" }} />
+                        </div>
                     </div>
-                    <div className="h-2 w-full overflow-hidden rounded-xl bg-slate-800">
-                        <div
-                            className="h-full bg-violet-500"
-                            style={{
-                                width: `${Math.min(100, Math.max(0,
-                                    (skillStand?.xpFuersNaechste || 0) > 0
-                                        ? ((skillStand.xpDiesesLevel || 0) / skillStand.xpFuersNaechste) * 100
-                                        : 100)) }%`,
-                            }}
-                        />
-                    </div>
-                </div>
 
-                <div className="flex flex-col gap-2 rounded-xl border border-slate-800 bg-slate-950/60 px-3 py-2.5">
-                    <div className="flex items-center justify-between">
-                        <span className="flex items-center gap-1.5 text-xs text-slate-400">
-                            <HudIcon.gold size={13} className="shrink-0" /> Gold
-                        </span>
-                        <span className="text-sm font-semibold tabular-nums text-amber-400">{formatGold(gold)}</span>
+                    <div className="grid grid-cols-2 gap-2">
+                        <ProfilSchild bild={<HudIcon.gold size={22} />} label="Gold" wert={formatGold(gold)} hell="#ffe066" />
+                        <ProfilSchild bild={<HudIcon.goldLifetime size={22} />} label="Gesamt gesammelt" wert={formatGold(goldGesamt)} />
                     </div>
-                    <div className="flex items-center justify-between">
-                        <span className="flex items-center gap-1.5 text-xs text-slate-400">
-                            <HudIcon.goldLifetime size={13} className="shrink-0" /> Gesamt gesammelt
-                        </span>
-                        <span className="text-sm font-medium tabular-nums text-amber-400/70">{formatGold(goldGesamt)}</span>
-                    </div>
-                    {/* Abzeichen aus dem Wochenwettbewerb (Backend world/wettbewerb.js). */}
+
+                    {/* Abzeichen aus dem Wochenwettbewerb (Backend world/wettbewerb.js) */}
                     {wettbewerbSiege.length > 0 && (
-                        <div className="flex items-center justify-between gap-2">
-                            <span className="flex items-center gap-1.5 text-xs text-slate-400">
-                                <HudIcon.level size={13} className="shrink-0" /> Wochenwettbewerb
-                            </span>
-                            <span className="flex flex-wrap justify-end gap-1">
-                                {[1, 2, 3].map((p) => {
-                                    const n = wettbewerbSiege.filter((s) => s.platz === p).length;
-                                    return n ? (
-                                        <span key={p} className="rounded-md border border-amber-700/60 px-1.5 py-px text-[11px] font-semibold text-amber-200">
-                                            {n}× Platz {p}
-                                        </span>
-                                    ) : null;
-                                })}
-                            </span>
+                        <div className="flex flex-wrap items-center gap-2">
+                            <span className="text-[11px] font-bold uppercase tracking-wider text-[#e8d7a8]">Wochenwettbewerb</span>
+                            {[1, 2, 3].map((p) => {
+                                const n = wettbewerbSiege.filter((sg) => sg.platz === p).length;
+                                return n ? (
+                                    <span key={p} className="flex items-center gap-1 border-2 px-1.5 py-0.5 text-[11px] font-bold text-[#3b2516]" style={{ borderColor: HOLZ_P, background: MEDAILLE[p] }}>
+                                        {n}× Platz {p}
+                                    </span>
+                                ) : null;
+                            })}
                         </div>
                     )}
-                </div>
 
-                {/* Sammelziele — Fortschritt quer durch alle Sammlungen. */}
-                <div className="flex flex-col gap-1.5 rounded-xl border border-slate-800 bg-slate-950/60 px-3 py-2.5">
-                    <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">Sammlung</div>
-                    {sammlung.map((z) => (
-                        <div key={z.label}>
-                            <div className="mb-0.5 flex justify-between text-xs">
-                                <span className={z.wert >= z.max ? "text-emerald-300" : "text-slate-300"}>{z.label}</span>
-                                <span className="tabular-nums text-slate-400">{z.wert} / {z.max}</span>
-                            </div>
-                            <div className="h-1 w-full overflow-hidden rounded bg-slate-800">
-                                <div className={z.wert >= z.max ? "h-full bg-emerald-500" : "h-full bg-amber-500"} style={{ width: `${Math.min(100, (z.wert / Math.max(1, z.max)) * 100)}%` }} />
-                            </div>
+                    {/* Sammelziele */}
+                    <div className="border-[3px] p-2.5" style={{ borderColor: HOLZ_P, background: "#f3e3c3", boxShadow: `0 3px 0 0 ${HOLZ_P}` }}>
+                        <div className="mb-1.5 text-[10px] font-bold uppercase tracking-wider text-[#8a5a32]">Sammlung</div>
+                        <div className="flex flex-col gap-2">
+                            {sammlung.map((z) => (
+                                <div key={z.label}>
+                                    <div className="mb-0.5 flex justify-between text-xs">
+                                        <span className="font-bold text-[#3b2516]">{z.label}</span>
+                                        <span className="font-bold tabular-nums text-[#6e4426]">{z.wert} / {z.max}</span>
+                                    </div>
+                                    <div className="h-2.5 w-full border-2" style={{ borderColor: HOLZ_P, background: "#c9b48a" }}>
+                                        <div className="h-full" style={{ width: `${Math.min(100, (z.wert / Math.max(1, z.max)) * 100)}%`, background: z.wert >= z.max ? "#5faa45" : "#e0a82a" }} />
+                                    </div>
+                                </div>
+                            ))}
                         </div>
-                    ))}
-                </div>
-
-                {/* „Neue Saat" (Backend core/prestige.js) — eigenes Fenster. */}
-                {setNeueSaatOffen && (
-                    <button
-                        type="button"
-                        onClick={() => { setProfilOffen(false); setNeueSaatOffen(true); }}
-                        className={`flex items-center justify-between gap-3 rounded-xl border px-3 py-2.5 text-left transition-colors hover:bg-slate-800/70 ${prestigeStand?.bereit ? "border-amber-600 text-amber-200" : "border-slate-800 text-slate-300 hover:border-slate-600"}`}
-                    >
-                        <span>
-                            <span className="block text-xs font-semibold">Neue Saat</span>
-                            <span className="block text-[11px] text-slate-400">
-                                {prestigeStand?.voll ? "Alle Sterne gesammelt" : prestigeStand?.bereit ? "Bereit — für immer einen Stern holen" : "Neu anfangen ab Level 100"}
-                            </span>
-                        </span>
-                        <span className="shrink-0 tracking-widest text-amber-300">{sterneText(sterne)}</span>
-                    </button>
-                )}
-
-                <div className="grid grid-cols-3 gap-2">
-                    <button
-                        type="button"
-                        onClick={() => { setProfilOffen(false); setSkillsOffen(true); }}
-                        className="relative flex flex-col items-center gap-1.5 px-2 py-3 rounded-xl border border-slate-800 text-slate-300 transition-colors hover:border-slate-600 hover:bg-slate-800/70 hover:text-white"
-                    >
-                        <HudIcon.level size={18} className="shrink-0" />
-                        <span className="text-xs font-medium">Fähigkeiten</span>
-                        {/* Übernimmt den Hinweis vom entfernten "Level N"-Knopf unten
-                            rechts — ein offener Punkt soll nicht wochenlang unbemerkt
-                            herumliegen. */}
-                        {(skillStand?.punkteOffen || 0) > 0 && (
-                            <span className="absolute -top-1.5 -right-1.5 min-w-[16px] rounded-xl bg-violet-600 px-1 text-[9px] font-semibold tabular-nums text-white">
-                                {skillStand.punkteOffen}
-                            </span>
-                        )}
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => { setProfilOffen(false); setWardrobeOpen(true); }}
-                        className="flex flex-col items-center gap-1.5 px-2 py-3 rounded-xl border border-slate-800 text-slate-300 transition-colors hover:border-slate-600 hover:bg-slate-800/70 hover:text-white"
-                    >
-                        <HudIcon.wardrobe size={18} className="shrink-0" />
-                        <span className="text-xs font-medium">Umkleide</span>
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => { setProfilOffen(false); setLogbuchOpen(true); }}
-                        className="flex flex-col items-center gap-1.5 px-2 py-3 rounded-xl border border-slate-800 text-slate-300 transition-colors hover:border-slate-600 hover:bg-slate-800/70 hover:text-white"
-                    >
-                        <HudIcon.logbuch size={18} className="shrink-0" />
-                        <span className="text-xs font-medium tabular-nums">
-                            Logbuch {Object.keys(logbuch).length}/{SEED_CATALOGUE.length}
-                        </span>
-                    </button>
+                    </div>
                 </div>
             </div>
-        </GardenModal>
+
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                <GrosserKnopf
+                    bild="/garden-assets/icons/hud/faehigkeiten_pixel.png"
+                    titel="Fähigkeiten"
+                    text={(skillStand?.punkteOffen || 0) > 0 ? `${skillStand.punkteOffen} Punkt${skillStand.punkteOffen === 1 ? "" : "e"} zu vergeben!` : "Dein Fähigkeitsbaum"}
+                    onClick={() => { setProfilOffen(false); setSkillsOffen(true); }}
+                    marke={(skillStand?.punkteOffen || 0) > 0 ? (
+                        <span className="absolute -right-2 -top-2 min-w-[22px] animate-pulse border-2 bg-[#8a5ac8] px-1 text-center text-xs font-bold text-white" style={{ borderColor: HOLZ_P }}>{skillStand.punkteOffen}</span>
+                    ) : null}
+                />
+                <GrosserKnopf
+                    bild="/garden-assets/icons/hud/logbuch_pixel.png"
+                    titel="Logbuch"
+                    text={`${Object.keys(logbuch).length} von ${SEED_CATALOGUE.length} Arten geerntet`}
+                    onClick={() => { setProfilOffen(false); setLogbuchOpen(true); }}
+                />
+            </div>
+
+            {/* „Neue Saat" (Backend core/prestige.js) — eigenes Fenster */}
+            {setNeueSaatOffen && (
+                <button
+                    type="button"
+                    onClick={() => { setProfilOffen(false); setNeueSaatOffen(true); }}
+                    className="mt-3 flex w-full items-center justify-between gap-3 border-[3px] px-3 py-2 text-left transition-transform duration-100 hover:-translate-y-0.5"
+                    style={{ borderColor: HOLZ_P, background: prestigeStand?.bereit ? "#ffe066" : "#e8d7a8", boxShadow: `0 3px 0 0 ${HOLZ_P}` }}
+                >
+                    <span>
+                        <span className="block text-sm font-bold text-[#3b2516]">Neue Saat</span>
+                        <span className="block text-[11px] text-[#6e4426]">
+                            {prestigeStand?.voll ? "Alle Sterne gesammelt" : prestigeStand?.bereit ? "Bereit — für immer einen Stern holen" : "Neu anfangen ab Level 100"}
+                        </span>
+                    </span>
+                    <span className="shrink-0 text-lg tracking-widest text-[#c88a14]">{sterneText(sterne)}</span>
+                </button>
+            )}
+        </StandFenster>
+    );
+}
+
+/**
+ * Einstellungen (06.11., Wunsch „Einstellungsmenü verbessern statt nur heller Kasten“):
+ * Holzbrett unter dem Zahnrad, jede Gruppe auf einer Pergamentkarte, Pixel-Regler
+ * (Klasse gf-regler in ui/menu/theme.css), Wahlknöpfe wie die Reiter der Läden und
+ * Tastenkappen für die Kürzel.
+ */
+const E_HOLZ = "#3b2516";
+
+function EKarte({ titel, children }) {
+    return (
+        <section className="relative border-[3px] bg-[#f3e3c3] px-3 pb-3 pt-4" style={{ borderColor: E_HOLZ, boxShadow: `0 3px 0 0 ${E_HOLZ}` }}>
+            <span className="absolute -top-3 left-2 border-2 bg-[#fff3c4] px-1.5 text-[10px] font-bold uppercase tracking-wider text-[#6e4426]" style={{ borderColor: E_HOLZ }}>
+                {titel}
+            </span>
+            {children}
+        </section>
+    );
+}
+
+function ERegler({ label, wert, onWert }) {
+    const prozent = Math.round(wert * 100);
+    return (
+        <label className="flex items-center gap-2">
+            <span className="w-14 shrink-0 text-xs font-bold text-[#3b2516]">{label}</span>
+            <input
+                type="range" min="0" max="1" step="0.05" value={wert}
+                onChange={(e) => onWert(parseFloat(e.target.value))}
+                onMouseUp={(e) => e.currentTarget.blur()}
+                onTouchEnd={(e) => e.currentTarget.blur()}
+                className="gf-regler min-w-0 flex-1"
+                style={{ "--wert": `${prozent}%` }}
+                aria-label={label}
+            />
+            <span className="w-9 shrink-0 text-right text-xs font-bold tabular-nums text-[#6e4426]">{prozent}%</span>
+        </label>
+    );
+}
+
+function EWahl({ optionen, aktiv, onWahl }) {
+    return (
+        <div className="flex gap-1.5">
+            {optionen.map(([wert, label]) => {
+                const an = aktiv === wert;
+                return (
+                    <button key={String(wert)} type="button"
+                        onClick={(e) => { e.currentTarget.blur(); onWahl(wert); }}
+                        className={`flex-1 border-[3px] px-2 py-1 text-[11px] font-bold ${an ? "translate-y-0.5 bg-[#ffd84a] text-[#3b2516]" : "bg-[#8a5a32] text-[#f3e3c3] hover:bg-[#9c6a3c]"}`}
+                        style={{ borderColor: E_HOLZ, boxShadow: an ? `0 1px 0 0 ${E_HOLZ}` : `0 3px 0 0 ${E_HOLZ}` }}>
+                        {label}
+                    </button>
+                );
+            })}
+        </div>
+    );
+}
+
+function EKnopf({ children, onClick, symbol }) {
+    return (
+        <button type="button" onClick={onClick}
+            className="flex w-full items-center gap-2 border-[3px] bg-[#f3e3c3] px-3 py-1.5 text-left text-xs font-bold text-[#3b2516] hover:bg-[#fff3c4] active:translate-y-0.5"
+            style={{ borderColor: E_HOLZ, boxShadow: `0 3px 0 0 ${E_HOLZ}` }}>
+            {symbol}
+            {children}
+        </button>
     );
 }
 
@@ -195,146 +261,111 @@ export function EinstellungenFenster({
     effectVolume, setEffectVolume, musicVolume, setMusicVolume, tagesInfo, laufenderPartyTitel,
     setThemeId, themeId, setRenderProfile, renderProfileRef, renderProfile, setSettingsOpen,
     setChangelogOpen, flushFarmStateToServer, setShowLobbyScreen,
+    darf3d = false, sparGrafik = false, ansicht3d = false, setAnsicht3d,
 }) {
     return (
-        <div className="absolute top-[68px] left-5 z-50 w-72 max-h-[calc(100vh-6rem)] overflow-y-auto bg-slate-900/95 border-[3px] border-amber-950 rounded-2xl shadow-lg p-2 backdrop-blur-sm flex flex-col gap-1">
-
-            {/* --- AUDIO --- */}
-            <div className="px-3 pt-2 text-[10px] uppercase tracking-wider text-slate-500 font-semibold">
-                Audio
+        <div
+            className="absolute top-[72px] left-5 z-50 flex w-80 max-h-[calc(100vh-6rem)] flex-col border-[3px]"
+            style={{
+                borderColor: "#2b1d12",
+                boxShadow: "0 5px 0 0 #2b1d12",
+                // Holzbretter wie bei den Ständen
+                background: "repeating-linear-gradient(0deg, #8a5a32 0 22px, #7a4e2a 22px 24px)",
+            }}
+        >
+            <div className="flex items-center justify-between gap-2 border-b-[3px] px-3 py-2" style={{ borderColor: "#2b1d12", background: "#6e4426" }}>
+                <span className="border-2 bg-[#f3e3c3] px-2 py-0.5 text-sm font-bold text-[#3b2516]" style={{ borderColor: E_HOLZ }}>Einstellungen</span>
+                <button type="button" aria-label="Schließen" onClick={() => setSettingsOpen(false)}
+                    className="flex h-7 w-7 items-center justify-center border-2 bg-[#f3e3c3] text-sm font-bold text-[#a83a2a] hover:bg-[#fff3c4]"
+                    style={{ borderColor: E_HOLZ, boxShadow: `0 2px 0 0 ${E_HOLZ}` }}>
+                    <HudIcon.close size={14} />
+                </button>
             </div>
-            <div className="px-3 pb-2 space-y-2 mt-1">
-                <div className="flex items-center justify-between gap-2">
-                    <span className="text-xs text-slate-300 w-12">Effekte</span>
-                    <input
-                        type="range" min="0" max="1" step="0.05"
-                        value={effectVolume}
-                        onChange={(e) => setEffectVolume(parseFloat(e.target.value))}
-                        onMouseUp={(e) => e.currentTarget.blur()}
-                        onTouchEnd={(e) => e.currentTarget.blur()}
-                        className="flex-1 h-1.5 bg-slate-700 rounded-2xl appearance-none cursor-pointer accent-cyan-500"
-                    />
-                    <span className="text-xs font-mono text-slate-400 w-8 text-right">{Math.round(effectVolume * 100)}%</span>
-                </div>
-                <div className="flex items-center justify-between gap-2">
-                    <span className="text-xs text-slate-300 w-12">Musik</span>
-                    <input
-                        type="range" min="0" max="1" step="0.05"
-                        value={musicVolume}
-                        onChange={(e) => setMusicVolume(parseFloat(e.target.value))}
-                        onMouseUp={(e) => e.currentTarget.blur()}
-                        onTouchEnd={(e) => e.currentTarget.blur()}
-                        className="flex-1 h-1.5 bg-slate-700 rounded-2xl appearance-none cursor-pointer accent-fuchsia-500"
-                    />
-                    <span className="text-xs font-mono text-slate-400 w-8 text-right">{Math.round(musicVolume * 100)}%</span>
-                </div>
-                {/* Titelwahl. Während der Party läuft der Party-Titel über
-                    dieselbe Spur — deshalb der Hinweis statt einer gesperrten
-                    Auswahl: umstellen darf man weiterhin, es wirkt nur später. */}
-                <div className="pt-1">
-                    <div className="mb-1 flex items-center justify-between">
-                        <span className="text-xs text-slate-300">Titel</span>
-                        {tagesInfo.party && (
-                            <span className="text-[10px] text-fuchsia-300">Party läuft — {laufenderPartyTitel?.name}</span>
-                        )}
+
+            <div className="flex flex-col gap-5 overflow-y-auto px-3 pb-3 pt-5">
+                <EKarte titel="Klang">
+                    <div className="space-y-2.5">
+                        <ERegler label="Effekte" wert={effectVolume} onWert={setEffectVolume} />
+                        <ERegler label="Musik" wert={musicVolume} onWert={setMusicVolume} />
                     </div>
-                    <div className="flex gap-1">
-                        {THEME_TRACKS.map((track) => (
-                            <button
-                                key={track.id}
-                                type="button"
-                                onClick={(e) => { e.currentTarget.blur(); setThemeId(track.id); }}
-                                className={`flex-1 rounded-lg px-2 py-1.5 text-[11px] font-medium transition-colors ${
-                                    themeId === track.id
-                                        ? "bg-violet-600 text-white"
-                                        : "bg-slate-800 text-slate-400 hover:text-white"
-                                }`}
-                            >
-                                {track.name}
-                            </button>
-                        ))}
+                    {/* Während der Party läuft der Party-Titel über dieselbe Spur — umstellen
+                        darf man trotzdem, es wirkt nur danach. */}
+                    <div className="mt-3 mb-1.5 flex items-center justify-between">
+                        <span className="text-xs font-bold text-[#3b2516]">Musiktitel</span>
+                        {tagesInfo.party && <span className="text-[10px] font-bold text-[#a83a6a]">Party: {laufenderPartyTitel?.name}</span>}
                     </div>
-                </div>
-            </div>
+                    <EWahl optionen={THEME_TRACKS.map((t) => [t.id, t.name])} aktiv={themeId} onWahl={setThemeId} />
+                </EKarte>
 
-            {/* --- TRENNLINIE --- */}
-            <div className="h-px bg-slate-700/50 mx-2 my-1" />
-
-            {/* --- RENDER QUALITÄT --- */}
-            <div className="px-3 pt-2 text-[10px] uppercase tracking-wider text-slate-500 font-semibold">
-                Render-Qualität
-            </div>
-            <div className="px-2 pb-2 flex gap-1 mt-1">
-                {["low", "medium", "high"].map((level) => (
-                    <button
-                        key={level}
-                        type="button"
-                        onClick={() => {
+                <EKarte titel="Grafik">
+                    <span className="mb-1.5 block text-xs font-bold text-[#3b2516]">Qualität</span>
+                    <EWahl
+                        optionen={[["low", "Niedrig"], ["medium", "Mittel"], ["high", "Hoch"]]}
+                        aktiv={renderProfile.level}
+                        onWahl={(level) => {
                             const preset = RENDER_QUALITY_PRESETS[level];
                             setRenderProfile(preset);
                             renderProfileRef.current = preset;
                         }}
-                        className={`flex-1 px-2 py-1.5 rounded-xl text-xs font-medium transition-colors ${
-                            renderProfile.level === level
-                                ? "bg-violet-600 text-white"
-                                : "bg-slate-800 text-slate-400 hover:text-white"
-                        }`}
-                    >
-                        {level === "low" ? "Niedrig" : level === "medium" ? "Mittel" : "Hoch"}
-                    </button>
-                ))}
-            </div>
+                    />
+                    {darf3d && (
+                        <>
+                            <span className="mb-1.5 mt-3 block text-xs font-bold text-[#3b2516]">Ansicht</span>
+                            <EWahl optionen={[[false, "Draufsicht"], [true, "2,5D"]]} aktiv={ansicht3d} onWahl={(w) => setAnsicht3d?.(w)} />
+                            {sparGrafik && (
+                                <span className="mt-1.5 block text-[10px] leading-snug text-[#8a5a14]">
+                                    Dein Browser meldet keine Grafikbeschleunigung — 2,5D kann ruckeln.
+                                </span>
+                            )}
+                        </>
+                    )}
+                </EKarte>
 
-            <div className="px-3 pt-2 pb-1 text-[10px] uppercase tracking-wider text-slate-500 font-semibold mt-1 border-t border-slate-800">
-                Tastenkürzel
-            </div>
-            <div className="px-3 pb-3 text-xs text-slate-400 space-y-1.5">
-                {[
-                    ["Markt", "Shift + 1"],
-                    ["Shop-Areal", "Shift + 2"],
-                    ["Eigene Farm", "Shift + 3"],
-                    ["Interagieren", "E / Leertaste"],
-                    ["Werkzeuge", "1 – 4"],
-                    ["Deko-Ansicht", "R"],
-                    ["Inventar", "Tab"],
-                ].map(([label, key]) => (
-                    <div key={label} className="flex justify-between items-center gap-2">
-                        <span>{label}</span>
-                        <kbd className="bg-slate-800 border border-slate-700 text-slate-300 px-1.5 rounded-xl text-[10px]">{key}</kbd>
+                <EKarte titel="Tasten">
+                    <div className="space-y-1.5">
+                        {[
+                            ["Markt", ["Shift", "1"]],
+                            ["Shop-Areal", ["Shift", "2"]],
+                            ["Eigene Farm", ["Shift", "3"]],
+                            ["Benutzen", ["E"]],
+                            ["Werkzeuge", ["1 – 4"]],
+                            ["Deko-Ansicht", ["R"]],
+                            ["Rucksack", ["Tab"]],
+                            ["Mehrere ernten", ["Shift", "Ziehen"]],
+                        ].map(([label, tasten]) => (
+                            <div key={label} className="flex items-center justify-between gap-2 text-xs text-[#3b2516]">
+                                <span>{label}</span>
+                                <span className="flex items-center gap-1">
+                                    {tasten.map((t, i) => (
+                                        <React.Fragment key={t}>
+                                            {i > 0 && <span className="text-[10px] font-bold text-[#8a7a5a]">+</span>}
+                                            <kbd className="min-w-[1.6rem] border-2 bg-[#fffaf0] px-1.5 text-center text-[10px] font-bold text-[#3b2516]"
+                                                style={{ borderColor: E_HOLZ, boxShadow: `0 2px 0 0 ${E_HOLZ}` }}>{t}</kbd>
+                                        </React.Fragment>
+                                    ))}
+                                </span>
+                            </div>
+                        ))}
                     </div>
-                ))}
-            </div>
+                </EKarte>
 
-            {/* v2 (Feedback 29.08.: "Changelog in Settings rein") — stand vorher
-                als eigener Knopf oben links, gebraucht aber nur, wer aktiv
-                nachsehen will, was sich geändert hat — genau die Sorte "hin und
-                wieder", für die die Einstellungen ohnehin schon da sind. */}
-            <button
-                type="button"
-                onClick={() => { setSettingsOpen(false); setChangelogOpen(true); }}
-                className="flex w-full items-center gap-2 text-left px-3 py-2 rounded-xl hover:bg-slate-800 text-xs text-slate-300 hover:text-white transition-colors mt-1 border-t border-slate-800"
-            >
-                <HudIcon.changelog size={13} className="shrink-0" />
-                Changelog
-            </button>
-            <button
-                type="button"
-                onClick={async () => {
-                    await flushFarmStateToServer();
-                    setSettingsOpen(false);
-                    setShowLobbyScreen(true);
-                }}
-                className="w-full text-left px-3 py-2 rounded-xl hover:bg-slate-800 text-xs text-slate-300 hover:text-white transition-colors"
-            >
-                Zurück zum Hauptbildschirm
-            </button>
-            <button
-                type="button"
-                onClick={() => { window.location.href = "https://vnmvalentin.de"; }}
-                className="w-full text-left px-3 py-2 rounded-xl hover:bg-slate-800 text-xs text-slate-300 hover:text-white transition-colors"
-            >
-                Zur Website
-            </button>
+                <div className="flex flex-col gap-2.5">
+                    <EKnopf symbol={<HudIcon.changelog size={14} className="shrink-0" />}
+                        onClick={() => { setSettingsOpen(false); setChangelogOpen(true); }}>
+                        Changelog
+                    </EKnopf>
+                    <EKnopf onClick={async () => {
+                        await flushFarmStateToServer();
+                        setSettingsOpen(false);
+                        setShowLobbyScreen(true);
+                    }}>
+                        Zurück zum Hauptmenü
+                    </EKnopf>
+                    <EKnopf onClick={() => { window.location.href = "https://vnmvalentin.de"; }}>
+                        Zur Website
+                    </EKnopf>
+                </div>
+            </div>
         </div>
     );
 }
@@ -343,9 +374,9 @@ export function NeuerungenFenster({
     setChangelogOpen, offeneChangelogs, setOffeneChangelogs,
 }) {
     return (
-        <GardenModal
-            title="Changelog"
-            subtitle={`Neu in Version ${(CHANGELOG_ENTRIES[0]?.version || "").replace(/^v/, "")}`}
+        <StandFenster markise={false} inhaltHintergrund="#f3e3c3"
+            titel="Changelog"
+            untertitel={`Neu in Version ${(CHANGELOG_ENTRIES[0]?.version || "").replace(/^v/, "")}`}
             onClose={() => setChangelogOpen(false)}
         >
             {/* Die neueste Fassung steht offen und trägt eine Marke, alle älteren
@@ -357,7 +388,7 @@ export function NeuerungenFenster({
                     const neueste = index === 0;
                     const offen = neueste || offeneChangelogs.includes(release.version);
                     return (
-                        <section key={release.version} className={neueste ? "" : "border-t border-slate-800 pt-2"}>
+                        <section key={release.version} className={neueste ? "" : "border-t border-[#3b2516] pt-2"}>
                             <button
                                 type="button"
                                 // Die neueste Fassung lässt sich nicht zuklappen: sie ist
@@ -368,28 +399,28 @@ export function NeuerungenFenster({
                                         ? alt.filter((v) => v !== release.version)
                                         : [...alt, release.version]));
                                 }}
-                                className={`flex w-full items-baseline gap-2 text-left ${neueste ? "cursor-default pb-2 mb-2 border-b border-slate-800" : "py-1"}`}
+                                className={`flex w-full items-baseline gap-2 text-left ${neueste ? "cursor-default pb-2 mb-2 border-b border-[#3b2516]" : "py-1"}`}
                             >
                                 {!neueste ? (
                                     <HudIcon.chevron size={13} className={`shrink-0 self-center transition-transform ${offen ? "" : "-rotate-90"}`} />
                                 ) : null}
-                                <h3 className={`text-sm font-semibold ${neueste ? "text-white" : "text-slate-400"}`}>{release.version}</h3>
+                                <h3 className={`text-sm font-semibold ${neueste ? "text-[#3b2516]" : "text-[#6e4426]"}`}>{release.version}</h3>
                                 {neueste ? (
-                                    <span className="rounded-md border border-violet-500 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-violet-300">
+                                    <span className="rounded-md border border-[#6a40a8] px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-[#6a40a8]">
                                         Neu
                                     </span>
                                 ) : null}
-                                <span className="min-w-0 flex-1 truncate text-xs text-slate-500">{release.title}</span>
+                                <span className="min-w-0 flex-1 truncate text-xs text-[#6e4426]">{release.title}</span>
                             </button>
                             {offen ? release.groups.map((group) => (
                                 <div key={group.heading} className="mb-3">
-                                    <h4 className="text-[11px] uppercase tracking-wider text-slate-500 mb-1.5">
+                                    <h4 className="text-[11px] uppercase tracking-wider text-[#6e4426] mb-1.5">
                                         {group.heading}
                                     </h4>
                                     <ul className="space-y-1">
                                         {group.items.map((item, i) => (
-                                            <li key={i} className="text-xs text-slate-300 leading-relaxed flex gap-2">
-                                                <span className="text-slate-600 select-none">–</span>
+                                            <li key={i} className="text-xs text-[#3b2516] leading-relaxed flex gap-2">
+                                                <span className="text-[#8a7a5a] select-none">–</span>
                                                 <span>{item}</span>
                                             </li>
                                         ))}
@@ -400,6 +431,6 @@ export function NeuerungenFenster({
                     );
                 })}
             </div>
-        </GardenModal>
+        </StandFenster>
     );
 }

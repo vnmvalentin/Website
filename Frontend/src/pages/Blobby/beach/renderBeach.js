@@ -1,7 +1,10 @@
-// Beach 3D — Darstellung des Feldes.
+// Ego-Volleyball — Darstellung des Feldes.
 //
 // Zeichnet nur, was beach/sim.js ausgerechnet hat (über BeachGame.jsx, interpoliert).
 // Koordinaten 1:1 wie in der Simulation: x entlang des Feldes, z quer, y nach oben.
+// Spieler sehen aus den Augen ihres Blobs (der eigene Körper wird nicht gezeichnet), die
+// Blickrichtung kommt direkt von der Maus und nie aus dem Netz — sie darf nicht hängen.
+// Zuschauer bekommen die Übersicht von der Seite.
 // Die Bausteine (Strand, Palmen, Blob-Form, Ball) teilt sich die Datei mit der
 // 3D-Seitenansicht des klassischen Modus (../render3d.js).
 import * as THREE from "three";
@@ -10,14 +13,19 @@ import {
   labelTexture, blobGeometry, makePalm, canvasTexture, powerupTexture,
 } from "../render3d";
 import { SLOT_COLOR } from "../render";
+import { isLowGfx } from "../../../utils/lowGfx";
 import {
   COURTS, NET_TOP, NET_RADIUS, BALL_RADIUS, UPPER_SPHERE, UPPER_RADIUS, LOWER_RADIUS, teamOf, POWERUP_TYPES,
+  ATTACK_ZONE,
 } from "./sim";
 
 const TAU = Math.PI * 2;
+const FOV_EGO = 84;        // weit: der Ball ist oft schräg über einem
+const FOV_WATCH = 58;
+const GLASS_HEIGHT = 520;  // so hoch ist die Bande sichtbar (sie wirkt in jeder Höhe)
 
-// Landepunkt: Ring mit Punkt in der Mitte. Bewusst kräftig — er ist DIE Hilfe, um in 3D
-// die Entfernung zum Ball abzuschätzen.
+// Ring mit Punkt in der Mitte, liegt im Sand genau unter dem Ball. Bewusst kräftig — er ist
+// DIE Hilfe, um in 3D die Entfernung zum Ball abzuschätzen.
 function ringTexture() {
   return canvasTexture(128, 128, (g, w, h) => {
     g.strokeStyle = "rgba(255, 255, 255, 0.95)";
@@ -33,9 +41,10 @@ function ringTexture() {
 }
 
 export function createBeach3D(canvas, { mode }) {
+  const low = isLowGfx();
   let renderer;
   try {
-    renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: "high-performance" });
+    renderer = new THREE.WebGLRenderer({ canvas, antialias: !low, powerPreference: "high-performance" });
   } catch {
     return null;
   }
@@ -51,7 +60,8 @@ export function createBeach3D(canvas, { mode }) {
   const scene = new THREE.Scene();
   scene.background = own(skyTexture());
   scene.fog = new THREE.Fog(0xbfe0ea, 2400, 7500);
-  const camera = new THREE.PerspectiveCamera(58, 16 / 9, 10, 16000);
+  // Nah-Ebene klein: In der Ich-Sicht kommt der Ball bis auf eine Handbreit ans Auge
+  const camera = new THREE.PerspectiveCamera(FOV_WATCH, 16 / 9, 4, 16000);
 
   scene.add(new THREE.HemisphereLight(0xd6ecff, 0xd8b078, 1.6));
   const sun = new THREE.DirectionalLight(0xfff1d6, 2.2);
@@ -112,9 +122,9 @@ export function createBeach3D(canvas, { mode }) {
   addLine(L * 2, 8, 0, W);
   addLine(8, W * 2, -L, 0);
   addLine(8, W * 2, L, 0);
-  // Angriffslinien als Orientierung
-  addLine(5, W * 2, -L / 3, 0);
-  addLine(5, W * 2, L / 3, 0);
+  // Angriffslinien: Davor wird ein Schlag im Sprung zum Schmetterball (sim.js ATTACK_ZONE)
+  addLine(8, W * 2, -L * ATTACK_ZONE, 0);
+  addLine(8, W * 2, L * ATTACK_ZONE, 0);
 
   // Bande: der Ball prallt an den Feldgrenzen ab (wie an den Wänden im Original). Niedrige
   // Bretter machen sichtbar, wo das passiert; darüber ist die Wand unsichtbar.
@@ -129,6 +139,25 @@ export function createBeach3D(canvas, { mode }) {
   addBoard(L * 2 + 16, 8, 0, W + 4);
   addBoard(8, W * 2, -L - 4, 0);
   addBoard(8, W * 2, L + 4, 0);
+  // Darüber eine Scheibe: Aus der Ich-Sicht muss man sehen, woran der Ball abprallt
+  const glassMat = own(new THREE.MeshBasicMaterial({
+    color: 0xd9f1ff, transparent: true, opacity: 0.1, depthWrite: false, side: THREE.DoubleSide,
+  }));
+  const railMat = own(new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.55 }));
+  const addGlass = (len, x, z, turn) => {
+    const pane = new THREE.Mesh(own(new THREE.PlaneGeometry(len, GLASS_HEIGHT - boardH)), glassMat);
+    pane.position.set(x, boardH + (GLASS_HEIGHT - boardH) / 2, z);
+    pane.rotation.y = turn;
+    scene.add(pane);
+    const rail = new THREE.Mesh(own(new THREE.BoxGeometry(len, 5, 5)), railMat);
+    rail.position.set(x, GLASS_HEIGHT, z);
+    rail.rotation.y = turn;
+    scene.add(rail);
+  };
+  addGlass(L * 2, 0, -W - 4, 0);
+  addGlass(L * 2, 0, W + 4, 0);
+  addGlass(W * 2, -L - 4, 0, Math.PI / 2);
+  addGlass(W * 2, L + 4, 0, Math.PI / 2);
 
   // Netz über die ganze Breite: Maschen, weißes Band oben, zwei Pfosten. Die Höhe ändert
   // sich mit den Powerups (Netz hoch/tief) — deshalb Einheitsformen, die in render()
@@ -249,12 +278,16 @@ export function createBeach3D(canvas, { mode }) {
   const spinAxis = new THREE.Vector3();
   const spinQ = new THREE.Quaternion();
 
-  const tmp = new THREE.Vector3();
   const look = new THREE.Vector3();
   const cam = { pos: new THREE.Vector3(), at: new THREE.Vector3(), init: false };
   const goalPos = new THREE.Vector3();
   const goalAt = new THREE.Vector3();
+  const view = new THREE.Vector3();
+  // Wo der Ball im Bild ist: off = außerhalb, (ax, ay) = Richtung dorthin (y nach oben)
+  const ballView = { off: false, ax: 0, ay: 1 };
   let time = 0;
+  let punch = 0;             // kurzer Ruck im Bild nach dem eigenen Schlag (klingt ab)
+  let shownFov = FOV_WATCH;
 
   function setLabel(b, text) {
     if (b.labelText === text) return;
@@ -276,19 +309,23 @@ export function createBeach3D(canvas, { mode }) {
   }
 
   /**
-   * @param {{ ball, blobs, landing }} st  interpolierter Stand: ball {x,y,z,vx,vz},
-   *        blobs {slot: {x,y,z}}, landing {x,z}|null
+   * @param st    interpolierter Stand: ball {x,y,z,vx,vz}, blobs {slot: {x,y,z,s,yaw,pitch}}
+   * @param opts  slots, names, mySlot, dt; look {yaw, pitch} = eigener Blick (nur Spieler),
+   *              punch = true im Bild, in dem der eigene Schlag den Ball getroffen hat
+   * @returns     Lage des Balls im Bild (für den Pfeil am Rand) — dasselbe Objekt jedes Mal
    */
-  function render(st, { slots, names, mySlot, dt = 16 }) {
+  function render(st, { slots, names, mySlot, look: myLook, punch: hitNow, dt = 16 }) {
     time += dt;
     const k = 1 - Math.exp(-dt / 160);
     const active = new Set(slots);
+    const ego = !!(mySlot && myLook && st.blobs[mySlot]);
 
     for (const slot of [1, 2, 3, 4]) {
       const b = blobs[slot];
       const src = st.blobs[slot];
       const on = active.has(slot) && !!src;
-      b.group.visible = on;
+      // Den eigenen Körper sieht man nicht — er stünde sonst vor der Kamera
+      b.group.visible = on && !(ego && slot === mySlot);
       b.shadow.visible = on;
       if (!on) continue;
       b.group.position.set(src.x, src.y, src.z);
@@ -296,21 +333,19 @@ export function createBeach3D(canvas, { mode }) {
       const sc = b.group.scale.x + ((src.s || 1) - b.group.scale.x) * Math.min(1, k * 2);
       b.group.scale.setScalar(sc);
 
-      // Zum Ball drehen (lokal +x ist vorn), gedämpft
-      const target = Math.atan2(-(st.ball.z - src.z), st.ball.x - src.x);
+      // Dorthin drehen, wohin der Spieler schaut (lokal +x ist vorn), gedämpft — man sieht
+      // dem Gegner an, wohin er zielt. Sim-yaw wächst nach +z, die Drehung um y nach -z.
+      const target = -(src.yaw || 0);
       let diff = target - b.yaw;
       while (diff > Math.PI) diff -= TAU;
       while (diff < -Math.PI) diff += TAU;
-      b.yaw += diff * Math.min(1, k * 1.5);
+      b.yaw += diff * Math.min(1, k * 4);
       b.group.rotation.y = b.yaw;
 
-      b.group.updateMatrixWorld();
-      look.set(st.ball.x, st.ball.y, st.ball.z);
-      b.group.worldToLocal(look);
-      for (const { eye, pupil } of b.eyes) {
-        tmp.copy(look).sub(eye.position).normalize().multiplyScalar(5.2);
-        pupil.position.copy(eye.position).add(tmp);
-      }
+      // Pupillen folgen dem Blick nach oben und unten
+      const pitch = src.pitch || 0;
+      look.set(Math.cos(pitch), Math.sin(pitch), 0).multiplyScalar(5.2);
+      for (const { eye, pupil } of b.eyes) pupil.position.copy(eye.position).add(look);
 
       const air = Math.max(0, src.y - 44.5 * sc);
       const s = Math.max(0.35, 1 - air / 420) * sc;
@@ -364,30 +399,58 @@ export function createBeach3D(canvas, { mode }) {
       closing.visible = false;
     }
 
-    // ── Kamera: hinter dem eigenen Blob, Blick übers Netz ──────────────────
-    const me = mySlot ? st.blobs[mySlot] : null;
-    if (me) {
-      const fwd = teamOf(mySlot) === 1 ? 1 : -1;
-      // Seitlich nur gedämpft mitgehen — sonst kippt bei jedem Schritt das ganze Bild.
-      // Weit hinten und hoch, Blick leicht angehoben: Der leichte Ball fliegt bis ~650
-      // hoch und soll dabei im Bild bleiben, ohne dass man den eigenen Blob verliert.
-      goalPos.set(me.x - fwd * 840, 560, me.z * 0.7);
-      goalAt.set(me.x + fwd * 430, 150, me.z * 0.4);
+    // ── Kamera ──────────────────────────────────────────────────────────────
+    if (hitNow) punch = 1;
+    punch *= Math.exp(-dt / 90);
+    let fov = FOV_WATCH;
+    if (ego) {
+      // Aus den Augen des eigenen Blobs. Ort ungedämpft aus dem Spielstand, Blick direkt
+      // von der Maus: Jede Dämpfung hier fühlt sich wie Verzögerung an.
+      const me = st.blobs[mySlot];
+      const sc = me.s || 1;
+      const cp = Math.cos(myLook.pitch);
+      camera.position.set(me.x, me.y + (UPPER_SPHERE + 6) * sc, me.z);
+      cam.at.set(
+        me.x + Math.cos(myLook.yaw) * cp,
+        camera.position.y + Math.sin(myLook.pitch),
+        me.z + Math.sin(myLook.yaw) * cp,
+      );
+      camera.lookAt(cam.at);
+      cam.init = false;
+      fov = FOV_EGO + punch * 5;
     } else {
-      goalPos.set(0, 620, W + 1050);
-      goalAt.set(0, 60, 0);
+      goalPos.set(0, 700, W + 1250);
+      goalAt.set(0, 80, 0);
+      if (!cam.init) { cam.pos.copy(goalPos); cam.at.copy(goalAt); cam.init = true; }
+      cam.pos.lerp(goalPos, k);
+      cam.at.lerp(goalAt, k);
+      camera.position.copy(cam.pos);
+      camera.lookAt(cam.at);
     }
-    if (!cam.init) { cam.pos.copy(goalPos); cam.at.copy(goalAt); cam.init = true; }
-    cam.pos.lerp(goalPos, k);
-    cam.at.lerp(goalAt, k);
-    camera.position.copy(cam.pos);
-    camera.lookAt(cam.at);
+    if (Math.abs(fov - shownFov) > 0.01) {
+      shownFov = fov;
+      camera.fov = fov;
+      camera.updateProjectionMatrix();
+    }
+
+    // Ball im Bild? Im Kameraraum zeigt -z nach vorn, x nach rechts, y nach oben.
+    camera.updateMatrixWorld();
+    view.set(st.ball.x, st.ball.y, st.ball.z).applyMatrix4(camera.matrixWorldInverse);
+    const tanY = Math.tan((camera.fov * Math.PI) / 360);
+    const tanX = tanY * camera.aspect;
+    const inFront = view.z < -1;
+    const nx = inFront ? view.x / (-view.z * tanX) : 0;
+    const ny = inFront ? view.y / (-view.z * tanY) : 0;
+    ballView.off = !inFront || Math.abs(nx) > 0.94 || Math.abs(ny) > 0.94;
+    const al = Math.hypot(view.x, view.y);
+    if (al > 1e-3) { ballView.ax = view.x / al; ballView.ay = view.y / al; }
 
     renderer.render(scene, camera);
+    return ballView;
   }
 
   function setSize(cssW, cssH, dpr) {
-    renderer.setPixelRatio(Math.min(2, dpr || 1));
+    renderer.setPixelRatio(low ? 1 : Math.min(2, dpr || 1));
     renderer.setSize(cssW, cssH, true);
     camera.aspect = cssW / Math.max(1, cssH);
     camera.updateProjectionMatrix();

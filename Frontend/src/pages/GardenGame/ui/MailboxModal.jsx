@@ -14,7 +14,8 @@
 // Der Server rechnet (siehe Backend/garden/world/mail.js); hier wird nur so weit geprüft,
 // dass keine offensichtlich sinnlose Anfrage rausgeht.
 import React, { useMemo, useState } from 'react';
-import { GardenModal, PrimaryButton, RarityLabel, LeerHinweis } from './gardenUi';
+import { StandFenster } from "./laden/Marktstand";
+import { PrimaryButton, RarityLabel, LeerHinweis } from './gardenUi';
 import { HudIcon, TabIcon } from './gameIcons';
 import { ItemIcon, SpecialItemIcon } from './ItemIcon';
 import { beschreibeErnte } from './itemTints';
@@ -63,42 +64,42 @@ function MailEntry({ mail, onClaim, busy }) {
     const pets = fasseZusammen(anhaenge(mail.pets, mail.pet), beschreibeTier);
 
     return (
-        <div className="p-3 rounded-2xl border border-slate-800 bg-slate-900/60">
+        <div className="p-3 rounded-2xl border border-[#3b2516] bg-[#fffaf0]">
             <div className="flex items-center justify-between gap-2 mb-1.5">
-                <span className="text-sm font-medium text-white truncate">{mail.from}</span>
-                <span className="text-[10px] text-slate-500 tabular-nums shrink-0">
+                <span className="text-sm font-medium text-[#3b2516] truncate">{mail.from}</span>
+                <span className="text-[10px] text-[#6e4426] tabular-nums shrink-0">
                     {when.toLocaleDateString("de-DE")} {when.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit" })}
                 </span>
             </div>
             {mail.message ? (
-                <p className="text-xs text-slate-300 leading-relaxed mb-2 break-words whitespace-pre-wrap">{mail.message}</p>
+                <p className="text-xs text-[#3b2516] leading-relaxed mb-2 break-words whitespace-pre-wrap">{mail.message}</p>
             ) : null}
             <div className="flex items-end gap-3">
                 <div className="flex items-center gap-x-3 gap-y-1 flex-wrap min-w-0">
                     {mail.gold > 0 && (
-                        <span className="flex items-center gap-1.5 text-xs text-amber-400 font-semibold tabular-nums">
+                        <span className="flex items-center gap-1.5 text-xs text-[#a87414] font-semibold tabular-nums">
                             <HudIcon.gold size={13} /> {mail.gold.toLocaleString("de-DE")} Gold
                         </span>
                     )}
                     {seeds.map((g) => (
-                        <span key={`s-${g.text}`} className="flex items-center gap-1.5 text-xs text-emerald-400">
+                        <span key={`s-${g.text}`} className="flex items-center gap-1.5 text-xs text-[#2f6b2c]">
                             <ItemIcon item={samenMitBild(g.beispiel)} className="w-5 h-5" emojiClassName="text-sm" />
                             {g.text}
                             <RarityLabel rarity={g.rarity} />
-                            {g.anzahl > 1 && <span className="text-slate-400 tabular-nums">× {g.anzahl}</span>}
+                            {g.anzahl > 1 && <span className="text-[#6e4426] tabular-nums">× {g.anzahl}</span>}
                         </span>
                     ))}
                     {items.map((g) => (
                         <span key={`e-${g.text}`} className="flex items-center gap-1.5 text-xs text-lime-300">
                             <SpecialItemIcon item={hydrateHarvestedItem(g.beispiel)} className="w-5 h-5" emojiClassName="text-sm" />
                             {g.text}
-                            {g.anzahl > 1 && <span className="text-slate-400 tabular-nums">× {g.anzahl}</span>}
+                            {g.anzahl > 1 && <span className="text-[#6e4426] tabular-nums">× {g.anzahl}</span>}
                         </span>
                     ))}
                     {pets.map((g) => (
-                        <span key={`t-${g.text}`} className="flex items-center gap-1.5 text-xs text-sky-300">
+                        <span key={`t-${g.text}`} className="flex items-center gap-1.5 text-xs text-[#2f5a9a]">
                             <TabIcon.pet size={13} /> {g.text}
-                            {g.anzahl > 1 && <span className="text-slate-400 tabular-nums">× {g.anzahl}</span>}
+                            {g.anzahl > 1 && <span className="text-[#6e4426] tabular-nums">× {g.anzahl}</span>}
                         </span>
                     ))}
                 </div>
@@ -141,7 +142,7 @@ function baueGruppen(eintraege, idVon, beschriften, wertSchluessel, bildVon) {
     return [...map.values()];
 }
 
-const STEPPER_KLASSE = "w-6 h-6 flex items-center justify-center rounded border border-slate-700 bg-slate-900 text-slate-300 text-sm leading-none hover:bg-slate-800 hover:text-white disabled:opacity-30 disabled:hover:bg-slate-900 disabled:hover:text-slate-300 disabled:cursor-not-allowed transition-colors";
+const STEPPER_KLASSE = "w-6 h-6 flex items-center justify-center rounded border border-[#3b2516] bg-[#fffaf0] text-[#3b2516] text-sm leading-none hover:bg-[#fff3c4] hover:text-black disabled:opacity-30 disabled:hover:bg-[#fff3c4] disabled:hover:text-black disabled:cursor-not-allowed transition-colors";
 
 function GruppenListe({ label, gruppen, auswahl, setAuswahl, restplaetze, leerText, hinweis }) {
     const gewaehlt = auswahl.length;
@@ -168,14 +169,14 @@ function GruppenListe({ label, gruppen, auswahl, setAuswahl, restplaetze, leerTe
     return (
         <div>
             <div className="flex items-baseline justify-between gap-2 mb-1.5">
-                <label className="block text-[11px] uppercase tracking-wider text-slate-500">
-                    {label} <span className="normal-case tracking-normal text-slate-600">(optional)</span>
+                <label className="block text-[11px] uppercase tracking-wider text-[#6e4426]">
+                    {label} <span className="normal-case tracking-normal text-[#8a7a5a]">(optional)</span>
                 </label>
                 {gewaehlt > 0 && (
                     <button
                         type="button"
                         onClick={() => setAuswahl([])}
-                        className="text-[10px] text-slate-500 hover:text-slate-300 transition-colors"
+                        className="text-[10px] text-[#6e4426] hover:text-black transition-colors"
                     >
                         {gewaehlt} gewählt — zurücksetzen
                     </button>
@@ -183,26 +184,26 @@ function GruppenListe({ label, gruppen, auswahl, setAuswahl, restplaetze, leerTe
             </div>
 
             {gruppen.length === 0 ? (
-                <p className="text-[11px] text-slate-600 px-3 py-2.5 rounded-2xl border border-slate-800 bg-slate-950">
+                <p className="text-[11px] text-[#8a7a5a] px-3 py-2.5 rounded-2xl border border-[#3b2516] bg-[#fffaf0]">
                     {leerText}
                 </p>
             ) : (
-                <div className="max-h-40 overflow-y-auto rounded-2xl border border-slate-700 bg-slate-950 divide-y divide-slate-800" style={{ overscrollBehavior: "contain" }}>
+                <div className="max-h-40 overflow-y-auto rounded-2xl border border-[#3b2516] bg-[#fffaf0] divide-y divide-[#e3cfa8]" style={{ overscrollBehavior: "contain" }}>
                     {gruppen.map((gruppe) => {
                         const anzahl = gruppe.ids.reduce((n, id) => n + (auswahl.includes(id) ? 1 : 0), 0);
                         const voll = anzahl >= gruppe.ids.length || restplaetze <= 0;
                         return (
                             <div
                                 key={gruppe.key}
-                                className={`flex items-center gap-2 px-2.5 py-1.5 ${anzahl > 0 ? "bg-slate-900" : ""}`}
+                                className={`flex items-center gap-2 px-2.5 py-1.5 ${anzahl > 0 ? "bg-[#fffaf0]" : ""}`}
                             >
                                 {gruppe.bild ? (
                                     <SpecialItemIcon item={gruppe.bild} className="w-6 h-6 shrink-0" emojiClassName="text-base" />
                                 ) : null}
-                                <span className="flex-1 min-w-0 text-xs text-slate-200 truncate" title={gruppe.text}>
+                                <span className="flex-1 min-w-0 text-xs text-[#3b2516] truncate" title={gruppe.text}>
                                     {gruppe.text}
                                     {gruppe.ids.length > 1 && (
-                                        <span className="text-slate-600 tabular-nums"> · {gruppe.ids.length} vorhanden</span>
+                                        <span className="text-[#8a7a5a] tabular-nums"> · {gruppe.ids.length} vorhanden</span>
                                     )}
                                 </span>
                                 {gruppe.ids.length > 1 && (
@@ -210,7 +211,7 @@ function GruppenListe({ label, gruppen, auswahl, setAuswahl, restplaetze, leerTe
                                         type="button"
                                         onClick={() => alle(gruppe)}
                                         disabled={voll}
-                                        className="text-[10px] text-slate-500 hover:text-slate-300 disabled:opacity-30 disabled:hover:text-slate-500 transition-colors px-1"
+                                        className="text-[10px] text-[#6e4426] hover:text-black disabled:opacity-30 disabled:hover:text-[#6e4426] transition-colors px-1"
                                     >
                                         alle
                                     </button>
@@ -219,7 +220,7 @@ function GruppenListe({ label, gruppen, auswahl, setAuswahl, restplaetze, leerTe
                                     <button type="button" onClick={() => weniger(gruppe)} disabled={anzahl === 0} className={STEPPER_KLASSE} aria-label={`Weniger ${gruppe.text}`}>
                                         −
                                     </button>
-                                    <span className={`w-6 text-center text-xs tabular-nums ${anzahl > 0 ? "text-white" : "text-slate-600"}`}>
+                                    <span className={`w-6 text-center text-xs tabular-nums ${anzahl > 0 ? "text-[#3b2516]" : "text-[#8a7a5a]"}`}>
                                         {anzahl}
                                     </span>
                                     <button type="button" onClick={() => mehr(gruppe)} disabled={voll} className={STEPPER_KLASSE} aria-label={`Mehr ${gruppe.text}`}>
@@ -231,7 +232,7 @@ function GruppenListe({ label, gruppen, auswahl, setAuswahl, restplaetze, leerTe
                     })}
                 </div>
             )}
-            {hinweis && <p className="text-[10px] text-slate-600 mt-1">{hinweis}</p>}
+            {hinweis && <p className="text-[10px] text-[#8a7a5a] mt-1">{hinweis}</p>}
         </div>
     );
 }
@@ -301,9 +302,9 @@ export default function MailboxModal({
         if (seeds > 0) teile.push(seeds === 1 ? "1 Samen" : `${seeds} Samen`);
 
         return (
-            <GardenModal
-                title="Dein Briefkasten"
-                subtitle={mailbox.length
+            <StandFenster markise={false} inhaltHintergrund="#f3e3c3"
+                titel="Dein Briefkasten"
+                untertitel={mailbox.length
                     ? `${mailbox.length === 1 ? "Eine Sendung wartet" : `${mailbox.length} Sendungen warten`}${teile.length ? ` — insgesamt ${teile.join(" und ")}` : ""}`
                     : "Nichts Neues"}
                 onClose={onClose}
@@ -320,7 +321,7 @@ export default function MailboxModal({
                         ))}
                     </div>
                 )}
-            </GardenModal>
+            </StandFenster>
         );
     }
 
@@ -330,10 +331,10 @@ export default function MailboxModal({
     // niemand.
     const fuss = (
         <div className="space-y-2">
-            {localError && <p className="text-xs text-rose-400">{localError}</p>}
-            <div className="flex items-center justify-between gap-2 text-[11px] text-slate-500 tabular-nums">
+            {localError && <p className="text-xs text-[#a8302a]">{localError}</p>}
+            <div className="flex items-center justify-between gap-2 text-[11px] text-[#6e4426] tabular-nums">
                 <span>{gewaehlt} von {MAX_ANHANG} Gegenständen in dieser Sendung</span>
-                {restplaetze <= 0 && <span className="text-amber-400">Sendung voll</span>}
+                {restplaetze <= 0 && <span className="text-[#a87414]">Sendung voll</span>}
             </div>
             <PrimaryButton onClick={submit} disabled={!canSend} className="w-full py-2.5">
                 <span className="inline-flex items-center gap-2">
@@ -344,16 +345,16 @@ export default function MailboxModal({
     );
 
     return (
-        <GardenModal
-            title={`Briefkasten von ${recipient}`}
-            subtitle="Was du hier hinterlegst, findet nur diese Farm"
+        <StandFenster markise={false} inhaltHintergrund="#f3e3c3"
+            titel={`Briefkasten von ${recipient}`}
+            untertitel="Was du hier hinterlegst, findet nur diese Farm"
             onClose={onClose}
             footer={fuss}
         >
             <div className="space-y-4">
                 <div>
-                    <label className="block text-[11px] uppercase tracking-wider text-slate-500 mb-1.5">
-                        Gold <span className="normal-case tracking-normal text-slate-600">(optional)</span>
+                    <label className="block text-[11px] uppercase tracking-wider text-[#6e4426] mb-1.5">
+                        Gold <span className="normal-case tracking-normal text-[#8a7a5a]">(optional)</span>
                     </label>
                     <input
                         type="number"
@@ -362,29 +363,29 @@ export default function MailboxModal({
                         value={goldInput}
                         onChange={(e) => setGoldInput(e.target.value)}
                         placeholder="0"
-                        className={`w-full px-3 py-2 rounded-2xl bg-slate-950 border text-sm text-white placeholder:text-slate-600 focus:outline-none tabular-nums ${
-                            goldInvalid ? "border-rose-600 focus:border-rose-500" : "border-slate-700 focus:border-violet-500"
+                        className={`w-full px-3 py-2 rounded-2xl bg-[#fffaf0] border text-sm text-[#3b2516] placeholder:text-[#a8967e] focus:outline-none tabular-nums ${
+                            goldInvalid ? "border-rose-600 focus:border-rose-500" : "border-[#3b2516] focus:bg-white"
                         }`}
                     />
                     {goldInvalid && (
-                        <p className="text-[11px] text-rose-400 mt-1">
+                        <p className="text-[11px] text-[#a8302a] mt-1">
                             Nur ganze Zahlen über 0 — negative Beträge sind nicht möglich.
                         </p>
                     )}
                 </div>
 
                 <div>
-                    <label className="block text-[11px] uppercase tracking-wider text-slate-500 mb-1.5">
-                        Nachricht <span className="normal-case tracking-normal text-slate-600">(optional)</span>
+                    <label className="block text-[11px] uppercase tracking-wider text-[#6e4426] mb-1.5">
+                        Nachricht <span className="normal-case tracking-normal text-[#8a7a5a]">(optional)</span>
                     </label>
                     <textarea
                         rows={3}
                         maxLength={MESSAGE_MAX}
                         value={message}
                         onChange={(e) => setMessage(e.target.value)}
-                        className="w-full px-3 py-2 rounded-2xl bg-slate-950 border border-slate-700 text-sm text-white placeholder:text-slate-600 focus:border-violet-500 focus:outline-none resize-none"
+                        className="w-full px-3 py-2 rounded-2xl bg-[#fffaf0] border border-[#3b2516] text-sm text-[#3b2516] placeholder:text-[#a8967e] focus:bg-white focus:outline-none resize-none"
                     />
-                    <div className="text-[10px] text-slate-600 text-right mt-0.5 tabular-nums">
+                    <div className="text-[10px] text-[#8a7a5a] text-right mt-0.5 tabular-nums">
                         {message.length}/{MESSAGE_MAX}
                     </div>
                 </div>
@@ -417,13 +418,13 @@ export default function MailboxModal({
                     hinweis="Nur Tiere aus dem Rucksack. Platzierte musst du erst einsammeln."
                 />
 
-                <p className="text-[10px] text-slate-600 leading-relaxed">
+                <p className="text-[10px] text-[#8a7a5a] leading-relaxed">
                     Gold wird sofort von deinem Konto abgebucht und liegt dort, bis es abgeholt
                     wird. Wert entsteht dabei nicht neu — der Server prüft Betrag und Deckung.
                     Der Empfänger braucht beim Abholen für jeden Samen und jede Frucht einen
                     freien Rucksackplatz.
                 </p>
             </div>
-        </GardenModal>
+        </StandFenster>
     );
 }

@@ -604,7 +604,369 @@
   padding: 0 4px;
 }
 
+/* ── Stil „Modern“ für Abstimmung und Vorhersage ──────────────────────────────
+   Eigene Klassen (stw-c-…) statt Abwandlungen der klassischen — beide Stile
+   bleiben wählbar und dürfen sich nicht gegenseitig verbiegen.               */
+.stw-card.stw-c {
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.45);
+}
+
+.stw-c-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 20px 24px 0;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 22px;
+}
+.stw-c-kicker {
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+.stw-c-meta {
+  color: rgba(255, 255, 255, 0.55);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.stw-c-meta::before { content: "·"; margin-right: 10px; color: rgba(255, 255, 255, 0.3); }
+.stw-c-time {
+  margin-left: auto;
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  transition: color 0.3s ease;
+}
+.stw-c-time.is-urgent { color: #ff8f8f; }
+/* Zustand statt Zeit: "Beendet", "Gesperrt", "Entschieden" */
+.stw-c-time.is-word {
+  font-size: 13px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.stw-c-title {
+  margin: 8px 24px 18px;
+  font-size: 30px;
+  line-height: 1.15;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+.stw-c.is-nohead .stw-c-title { margin-top: 22px; }
+
+/* Zeilen: der Balken IST die Zeile */
+.stw-c-rows { display: flex; flex-direction: column; gap: 8px; padding: 0 24px 26px; }
+.stw-c-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 54px;
+  padding: 0 16px 0 12px;
+  border-radius: min(8px, var(--stw-r, 8px));
+  background: rgba(255, 255, 255, 0.06);
+  overflow: hidden;
+  transition: opacity 0.45s ease, height 0.55s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.stw-c-row > * { position: relative; }
+.stw-c-row > .stw-c-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  opacity: 0.3;
+  transition: width 0.75s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.3s ease;
+}
+.stw-c-row.is-lead > .stw-c-fill { opacity: 0.5; }
+.stw-c-row.is-win > .stw-c-fill { opacity: 0.8; }
+.stw-c-row.is-lose { opacity: 0.42; }
+
+/* Ergebnis-Moment: die Verlierer klappen zu schmalen Zeilen zusammen, der
+   Gewinner wird groß. Alles über Höhe und Schriftgröße derselben Zeilen —
+   nichts verschwindet, man kann das Ergebnis weiter ablesen. */
+.stw-c-row .stw-c-name,
+.stw-c-row .stw-c-pct,
+.stw-c-row .stw-c-key { transition: font-size 0.55s cubic-bezier(0.22, 1, 0.36, 1), width 0.55s ease, height 0.55s ease, color 0.3s ease; }
+.stw-c-row.is-lose { height: 36px; }
+.stw-c-row.is-lose .stw-c-name { font-size: 16px; }
+.stw-c-row.is-lose .stw-c-pct { font-size: 18px; }
+.stw-c-row.is-lose .stw-c-key:not(.is-bar) { width: 22px; height: 22px; font-size: 12px; }
+.stw-c-row.is-lose .stw-c-key.is-bar { height: 20px; }
+.stw-c-row.is-win { height: 78px; }
+.stw-c-row.is-win .stw-c-name { font-size: 29px; }
+.stw-c-row.is-win .stw-c-pct { font-size: 38px; }
+
+/* Führungswechsel: die Zeile blitzt einmal hell auf */
+.stw-c-flash {
+  position: absolute !important;
+  inset: 0;
+  background: #fff;
+  opacity: 0;
+  pointer-events: none;
+  animation: stw-c-flash 0.9s ease-out both;
+}
+.stw-c-side > .stw-c-flash { inset: -8px -10px; border-radius: min(8px, var(--stw-r, 8px)); }
+@keyframes stw-c-flash {
+  0% { opacity: 0.45; }
+  100% { opacity: 0; }
+}
+
+/* Auszahlung nach der Auflösung */
+.stw-c-payout {
+  margin: -8px 24px 26px;
+  padding: 11px 14px;
+  border-radius: min(8px, var(--stw-r, 8px));
+  background: rgba(255, 255, 255, 0.08);
+  font-size: 17px;
+  font-weight: 700;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  animation: stw-c-rise 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@keyframes stw-c-rise {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+
+.stw-c-key {
+  flex: none;
+  width: 30px;
+  height: 30px;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  font-weight: 800;
+  color: #fff;
+}
+/* Vorhersage: keine Nummer zum Abstimmen, nur die Farbe */
+.stw-c-key.is-bar { width: 6px; border-radius: 3px; }
+.stw-c-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 21px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.8);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: color 0.3s ease;
+}
+.stw-c-row.is-lead .stw-c-name,
+.stw-c-row.is-win .stw-c-name { color: #fff; font-weight: 700; }
+.stw-c-sub {
+  flex: none;
+  font-size: 14px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.6);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.stw-c-pct {
+  flex: none;
+  min-width: 62px;
+  text-align: right;
+  font-size: 27px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+.stw-c-pct small,
+.stw-c-side-pct small { font-size: 0.55em; font-weight: 700; margin-left: 2px; color: rgba(255, 255, 255, 0.6); }
+.stw-c-tag {
+  flex: none;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  padding: 4px 8px;
+  border-radius: 4px;
+  background: #fff;
+  color: #101014;
+}
+
+.stw-c-timebar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.06);
+}
+.stw-c-timebar > i {
+  display: block;
+  height: 100%;
+  transform-origin: left center;
+  transition: transform 0.95s linear, background 0.3s ease;
+}
+
+/* Vorhersage mit zwei Optionen: Gegenüberstellung + ein Balken */
+.stw-c-duel { display: flex; gap: 28px; padding: 0 24px; }
+.stw-c-side { position: relative; flex: 1 1 0; min-width: 0; transition: opacity 0.45s ease; }
+.stw-c-side.b { text-align: right; }
+.stw-c-side.is-lose { opacity: 0.4; }
+.stw-c-side-name {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 20px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.88);
+}
+.stw-c-side.b .stw-c-side-name { flex-direction: row-reverse; }
+.stw-c-side-name > i { flex: none; width: 12px; height: 12px; border-radius: 3px; }
+.stw-c-side-name > span:not(.stw-c-tag) {
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.stw-c-side-pct {
+  display: block;
+  margin: 6px 0 5px;
+  font-size: 58px;
+  line-height: 1;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+}
+.stw-c-side-sub {
+  font-size: 14px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.6);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+/* Der Strich markiert die Mitte: liegt die Naht links davon, führt die rechte Seite */
+.stw-c-tug { position: relative; margin: 16px 24px 28px; }
+.stw-c-tug::after {
+  content: "";
+  position: absolute;
+  left: calc(50% - 1px);
+  top: -5px;
+  bottom: -5px;
+  width: 2px;
+  background: rgba(255, 255, 255, 0.55);
+}
+.stw-c-tug-bar { display: flex; gap: 3px; height: 14px; border-radius: 4px; overflow: hidden; }
+.stw-c-tug-bar > i {
+  display: block;
+  flex: 1 1 0;
+  transition: width 0.75s cubic-bezier(0.22, 1, 0.36, 1), filter 0.45s ease, opacity 0.45s ease;
+}
+.stw-c-tug-bar > i:first-child { flex: none; }
+.stw-c-tug-bar > i.is-lose { filter: saturate(0.15); opacity: 0.4; }
+
+/* ── Form „Leiste“: alles in einer Zeile ────────────────────────────────────── */
+.stw-b-line {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  height: 62px;
+  padding: 0 22px 6px;
+}
+.stw-b-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.stw-b-items { flex: none; display: flex; align-items: center; gap: 20px; }
+.stw-b-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.78);
+  transition: opacity 0.45s ease, color 0.3s ease;
+}
+.stw-b-item > span { max-width: 190px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.stw-b-item > b { font-size: 21px; font-weight: 800; color: #fff; font-variant-numeric: tabular-nums; }
+.stw-b-item > b small { font-size: 0.6em; font-weight: 700; margin-left: 1px; color: rgba(255, 255, 255, 0.6); }
+.stw-b-item .stw-c-key { width: 24px; height: 24px; font-size: 13px; font-style: normal; }
+.stw-b-item .stw-c-key.is-bar { width: 6px; }
+.stw-b-item.is-lead,
+.stw-b-item.is-win { color: #fff; font-weight: 700; }
+.stw-b-item.is-lose { opacity: 0.4; }
+.stw-b-more { font-size: 15px; font-weight: 700; color: rgba(255, 255, 255, 0.5); }
+.stw-b .stw-c-time { margin-left: 0; flex: none; }
+.stw-b .stw-c-time.is-word { color: rgba(255, 255, 255, 0.75); }
+.stw-b-share {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  gap: 2px;
+  height: 8px;
+}
+.stw-b-share > i {
+  display: block;
+  flex: none;
+  min-width: 3px;
+  transition: width 0.75s cubic-bezier(0.22, 1, 0.36, 1), filter 0.45s ease, opacity 0.45s ease;
+}
+/* Rundungsreste: das letzte Segment füllt bis zum Rand */
+.stw-b-share > i:last-child { flex: 1 1 0; }
+.stw-b-share > i.is-lose { filter: saturate(0.15); opacity: 0.4; }
+
+/* ── Ziele, Statistik, Raid-Clip im modernen Stil ───────────────────────────
+   Dieselben Bausteine wie klassisch, nur auf die Kopfzeile und die Maße der
+   neuen Karten gezogen: Schilder werden zu schlichten Wörtern, Balken flach. */
+.stw-c .stw-kicker { letter-spacing: 0.16em; }
+.stw-c .stw-chip {
+  padding: 0;
+  background: none;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  color: rgba(255, 255, 255, 0.6);
+}
+.stw-c .stw-chip.live { color: #5bea9a; }
+.stw-c .stw-track,
+.stw-c .stw-fill { border-radius: min(4px, var(--stw-r, 4px)); }
+.stw-c .stw-fill { box-shadow: none; }
+.stw-c .stw-goal { padding: 20px 24px 22px; }
+.stw-c .stw-goal.is-inline { padding: 18px 24px 20px; }
+.stw-c .stw-goal.is-bar { padding: 12px; }
+.stw-c .stw-goal-top { align-items: baseline; }
+.stw-c .stw-goal-pct {
+  font-size: 24px;
+  font-weight: 800;
+  line-height: 22px;
+  letter-spacing: -0.01em;
+  color: #fff;
+}
+.stw-c .stw-goal-count { margin: 8px 0 14px; }
+.stw-c .stw-goal-count b { font-size: 42px; letter-spacing: -0.02em; }
+.stw-c .stw-stats { padding: 20px 24px 22px; }
+.stw-c .stw-stats-head { align-items: baseline; margin-bottom: 14px; }
+.stw-c .stw-raid-head { padding: 18px 24px 14px; }
+
 @media (prefers-reduced-motion: reduce) {
+  .stw-c-flash,
+  .stw-c-payout { animation: none; }
+  .stw-c-row .stw-c-name,
+  .stw-c-row .stw-c-pct,
+  .stw-c-row .stw-c-key,
+  .stw-b-item,
+  .stw-b-share > i,
+  .stw-c-fill,
+  .stw-c-row,
+  .stw-c-side,
+  .stw-c-tug-bar > i,
+  .stw-c-timebar > i,
   .stw-widget-inner,
   .stw-fill,
   .stw-side,

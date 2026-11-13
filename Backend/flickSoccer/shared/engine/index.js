@@ -6,3 +6,4 @@ export * from './match.js';
 export * from './skins.js';
 export * from './fields.js';
 export * from './powerups.js';
+export * from './events.js';

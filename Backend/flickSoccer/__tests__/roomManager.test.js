@@ -126,7 +126,7 @@ test('Nach dem Abpfiff: Aufstellung ändern, Revanche-Wunsch sichtbar, Revanche 
   assert.deepEqual(room.match.formations, ['V', '2-2']);
 });
 
-test('Feld und Chaos: Einstellungen des Hosts gelten fürs Spiel; der Schuss trägt sein Power-up', async () => {
+test('Feld und Chaos: Einstellungen des Hosts gelten fürs Spiel; der Schuss trägt seine Karte; eigene Aufstellungen werden geprüft', async () => {
   const { engine, m, c, room } = await setup({ goalsToWin: 3, turnSeconds: 10, field: 'halle', chaos: true });
   m.join('B', { code: c.code, name: 'Bob', token: 'tokenBBBB' });
   assert.equal(m.setSettings('B', { settings: { field: 'kaefig' } }).ok, false, 'nur der Host');
@@ -137,11 +137,26 @@ test('Feld und Chaos: Einstellungen des Hosts gelten fürs Spiel; der Schuss tr�
   m.setReady('B', { ready: true });
   assert.equal(room.match.state.field, 'halle');
   assert.ok(room.match.chaos && Number.isFinite(room.match.chaos.seed));
-  const expected = engine.currentPowerup(room.match);
-  assert.ok(engine.POWERUP_IDS.includes(expected));
-  assert.equal(m.shoot('A', { piece: 3, sx: 0.2, sy: 0.1 }).ok, true);
-  assert.equal(room.lastShot.power, expected);
+  const hand = engine.chaosHand(room.match, 0);
+  assert.equal(hand.length, 3);
+  const card = hand.find((id) => id !== 'doppel');
+  assert.equal(m.shoot('A', { piece: 3, sx: 0.2, sy: 0.1, power: card }).ok, true);
+  assert.equal(room.lastShot.power, card);
   assert.equal(room.lastShot.start.field, 'halle');
+  assert.ok(!engine.chaosHand(room.match, 0).includes(card), 'gespielte Karte ist ersetzt');
+  // eine Karte, die Bob nicht hält, zählt nicht — der Schuss gilt trotzdem
+  const notBobs = engine.POWERUP_IDS.find((id) => !engine.chaosHand(room.match, 1).includes(id));
+  assert.equal(m.shoot('B', { piece: 8, sx: -0.2, sy: 0.1, power: notBobs }).ok, true);
+  assert.equal(room.lastShot.power, null);
+
+  // eigene Aufstellung: gültige wird übernommen, ungültige abgelehnt
+  const own = await setup();
+  const good = engine.encodeCustom([[0.05, 0.5], [0.2, 0.2], [0.2, 0.8], [0.3, 0.5], [0.36, 0.2]]);
+  const bad = engine.encodeCustom([[0.7, 0.5], [0.2, 0.2], [0.2, 0.8], [0.3, 0.5], [0.36, 0.2]]);
+  assert.equal(own.m.setFormation('A', { formation: good }).ok, true);
+  assert.equal(own.room.seats[0].formation, good);
+  assert.equal(own.m.setFormation('A', { formation: bad }).ok, false);
+  assert.equal(own.room.seats[0].formation, good);
 });
 
 test('Emotes: nur bekannte, gedrosselt, an alle im Raum', async () => {

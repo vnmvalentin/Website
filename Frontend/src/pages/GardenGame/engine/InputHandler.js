@@ -61,6 +61,13 @@ export default class InputHandler {
         window.addEventListener("keyup", this._onKeyUp);
         window.addEventListener("blur", this._onBlur);
         window.addEventListener("focusin", this._onFocusIn);
+        // Rechtsklick: das Kontextmenü verschluckt das Loslassen der Lauftaste — die
+        // Figur lief dann endlos weiter. Kein Menü im Spiel, und alle Tasten los.
+        this._onContextMenu = (e) => {
+            if (!schreibtGerade(e)) e.preventDefault();
+            this._onBlur();
+        };
+        window.addEventListener("contextmenu", this._onContextMenu);
     }
 
     destroy() {
@@ -69,6 +76,8 @@ export default class InputHandler {
             window.removeEventListener("keyup", this._onKeyUp);
             window.removeEventListener("blur", this._onBlur);
             window.removeEventListener("focusin", this._onFocusIn);
+            window.removeEventListener("contextmenu", this._onContextMenu);
+            this._onContextMenu = null;
             this._onKeyDown = null;
             this._onKeyUp = null;
             this._onBlur = null;

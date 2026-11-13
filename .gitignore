@@ -64,6 +64,10 @@ Backend/data/seedrunners.db-wal
 Backend/clashRoyale/data/cr_tournaments.db
 Backend/clashRoyale/data/cr_tournaments.db-shm
 Backend/clashRoyale/data/cr_tournaments.db-wal
+# Turniere von Flick Soccer (flickSoccer/tournamentStore.js) — enthält die Token der angemeldeten Spieler
+Backend/data/flick_tournaments.db
+Backend/data/flick_tournaments.db-shm
+Backend/data/flick_tournaments.db-wal
 # Lobby-Zwischenstand für Backend-Neustarts (core/lobbyPersistence.js) — reine Laufzeitdaten mit
 # Twitch-IDs, darf nie per Deploy über den Stand des Servers gelegt werden
 Backend/clashRoyale/data/cr_lobbies.db

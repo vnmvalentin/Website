@@ -35,6 +35,7 @@ import { createBeatClock, cachedLook, requestLook, forgetLook } from './sceneLin
 import { propMaterials, buildSpeakerTower, buildDjBooth, buildFogMachine, buildMovingHead, buildFlameUnit } from './partyProps';
 import { createDj } from './partyDj';
 import { createHalloweenDecor } from './halloweenDecor';
+import { createChristmasDecor } from './christmasDecor';
 
 const BPM = 124;
 const HX = 13;                  // Halle x ±13
@@ -71,7 +72,21 @@ const HALLOWEEN_PALETTES = [
   ['#9dff00', '#ff6a00'],
   ['#ff2a2a', '#6a00ff'],
 ];
-const PATTERNS = ['sweep', 'fan', 'circle', 'cross'];
+/** Weihnachten: Rot und Tannengrün, Gold, dazwischen Eisblau. */
+const CHRISTMAS_PALETTES = [
+  ['#ff2a3a', '#1fdc6b'],
+  ['#ffc73a', '#ff2a3a'],
+  ['#7fd4ff', '#ffffff'],
+  ['#1fdc6b', '#ffc73a'],
+  ['#ff3a6a', '#8fe0ff'],
+  ['#ffffff', '#ff2a3a'],
+];
+const THEME_PALETTES = { party: PALETTES, halloween: HALLOWEEN_PALETTES, christmas: CHRISTMAS_PALETTES };
+// chase: nur jeder dritte Scheinwerfer leuchtet, das Licht läuft im Takt weiter; burst: alle auf die
+// Mitte und im Zwei-Schläge-Rhythmus nach außen
+const PATTERNS = ['sweep', 'fan', 'circle', 'cross', 'chase', 'burst'];
+/** Funkenfontänen an der Bühnenkante (x). */
+const SPARK_X = [-9.6, -4.8, 4.8, 9.6];
 
 const v = (x, y, z) => new THREE.Vector3(x, y, z);
 
@@ -127,10 +142,11 @@ export function createPartyScene(canvas, overlay, { getInfo, forceHype = false, 
     hypeMode: forceHype ? 'on' : 'auto',
     hypeDancers: FULL_DANCERS,
     hypeMsgs: FULL_MSGS,
-    effects: { confetti: true, fire: true, strobe: true, fog: true },
+    effects: { confetti: true, fire: true, strobe: true, fog: true, lasers: true, sparks: true },
+    groupDance: true,          // ab und zu tanzen alle denselben Schritt
     reactive: true,
     sensitivity: 1,
-    theme: 'party',            // party | halloween
+    theme: 'party',            // party | halloween | christmas
     dj: true,                  // Streamer hinter dem Pult
   };
   const clock = createBeatClock(BPM);
@@ -381,6 +397,24 @@ export function createPartyScene(canvas, overlay, { getInfo, forceHype = false, 
     heads.push({ p, pivot, mat, lens, light, i, front: p.z > 0, rig });
   });
 
+  // ── Laser: drei Fächer aus dünnen Strahlen (Traversentürme und Mitte), enden auf der Tanzfläche ──
+  const LASER_N = 9;
+  const laserSrc = [v(-9.7, 6.2, -7.7), v(0, TRUSS_Y - 0.55, -7.7), v(9.7, 6.2, -7.7)];
+  const lasers = add(new THREE.InstancedMesh(
+    new THREE.CylinderGeometry(0.012, 0.03, 1, 5, 1, true).translate(0, 0.5, 0).rotateX(Math.PI / 2),
+    new THREE.MeshBasicMaterial({ transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false, fog: false }),
+    laserSrc.length * LASER_N,
+  ));
+  lasers.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+  lasers.frustumCulled = false;
+  lasers.visible = false;
+  for (let i = 0; i < laserSrc.length * LASER_N; i++) lasers.setColorAt(i, new THREE.Color('#000'));
+  const laserArm = new THREE.Object3D();
+  const laserAim = new THREE.Vector3();
+  const laserCol = new THREE.Color();
+  let laserUntil = 0;
+  let laserLevel = 0;
+
   // ── Nebel und Feuer (Partikel) ──
   const smokeTex = smokeTexture();
   const flameTex = flameTexture();
@@ -391,7 +425,7 @@ export function createPartyScene(canvas, overlay, { getInfo, forceHype = false, 
     return { s, vel: new THREE.Vector3(), life: 0, max: 1, size0: 1, size1: 2, op: 0.5, kind: '', rot: 0 };
   });
   const smokePool = makePool(380, smokeTex, THREE.NormalBlending);
-  const flamePool = makePool(360, flameTex, THREE.AdditiveBlending);
+  const flamePool = makePool(560, flameTex, THREE.AdditiveBlending);
   const spawn = (pool, init) => {
     const p = pool.find((q) => q.life <= 0);
     if (!p) return;
@@ -421,7 +455,7 @@ export function createPartyScene(canvas, overlay, { getInfo, forceHype = false, 
   };
   const co2Nozzles = [-6, 6];
 
-  let co2Until = 0, fogUntil = 0;
+  let co2Until = 0, fogUntil = 0, sparkUntil = 0;
   const r = Math.random;
   // Partikel pro Sekunde mit Bruchteil-Zähler — unabhängig von der Bildrate
   const acc = {};
@@ -469,6 +503,19 @@ export function createPartyScene(canvas, overlay, { getInfo, forceHype = false, 
         }
       }
     }
+    // Funkenfontänen (Kaltfunken): goldene Funken steigen auf und fallen im Bogen zurück
+    if (t < sparkUntil) {
+      for (const x of SPARK_X) {
+        for (let k = count('spark' + x, 55, dt); k > 0; k--) {
+          spawn(flamePool, (p) => {
+            p.s.position.set(x + (r() - 0.5) * 0.1, STAGE_H + 0.15, STAGE_Z - 0.2);
+            p.vel.set((r() - 0.5) * 1.6, 7 + r() * 3.5, (r() - 0.5) * 1.6);
+            p.life = p.max = 0.7 + r() * 0.45;
+            p.size0 = 0.2; p.size1 = 0.07; p.op = 1; p.kind = 'spark'; p.rot = 0;
+          });
+        }
+      }
+    }
     // Flammensäulen
     for (const n of nozzles) {
       if (t < n.from || t >= n.until) continue;
@@ -492,11 +539,16 @@ export function createPartyScene(canvas, overlay, { getInfo, forceHype = false, 
       if (p.kind === 'co2') { p.vel.multiplyScalar(Math.exp(-dt * 2.2)); p.vel.y -= dt * 0.5; }
       if (p.kind === 'jet') { p.vel.multiplyScalar(Math.exp(-dt * 1.1)); p.vel.y += dt * 0.12; }
       if (p.kind === 'fire') p.vel.multiplyScalar(Math.exp(-dt * 1.2));
+      if (p.kind === 'spark') p.vel.y -= dt * 11;
       p.s.position.addScaledVector(p.vel, dt);
       const size = lerp(p.size0, p.size1, Math.sqrt(age));
       p.s.scale.set(size, size, 1);
       p.s.material.rotation += p.rot * dt;
-      if (p.kind === 'fire') {
+      if (p.kind === 'spark') {
+        // weißgold, über 1 hinaus → Lichthof
+        p.s.material.color.setRGB(2.2, 1.7 - age * 0.6, 0.8 - age * 0.5);
+        p.s.material.opacity = (1 - age * age) * p.op;
+      } else if (p.kind === 'fire') {
         // weiß-gelb → orange → dunkelrot
         if (age < 0.25) fireCol.setRGB(1, 0.95 - age, 0.6 - age * 2);
         else fireCol.setRGB(1, Math.max(0.15, 0.7 - age * 0.8), 0.05);
@@ -614,23 +666,32 @@ export function createPartyScene(canvas, overlay, { getInfo, forceHype = false, 
 
   const dancers = createDancers(scene, overlay, FLOOR, DOOR, {
     envMap: envTex, bpm: BPM, figures, floorTop: 0.06, getLook: cachedLook,
-    getCostumes: () => cfg.theme === 'halloween',
+    getCostumes: () => cfg.theme,
   });
 
-  // ── Halloween (erst beim ersten Einschalten geladen) ──
-  let spooky = null;
+  // ── Themen-Deko: Halloween und Weihnachten (jeweils erst beim ersten Einschalten gebaut) ──
+  const decor = { halloween: null, christmas: null };
+  const makeDecor = {
+    halloween: () => createHalloweenDecor(scene, { flameTex }),
+    christmas: () => createChristmasDecor(scene, { flameTex, envMap: envTex }),
+  };
   const setTheme = (theme) => {
-    cfg.theme = theme === 'halloween' ? 'halloween' : 'party';
-    const on = cfg.theme === 'halloween';
-    if (on && !spooky) {
-      spooky = createHalloweenDecor(scene, { flameTex });
-      spooky.ready.then(() => {
-        if (disposed) return;
-        spooky.setVisible(cfg.theme === 'halloween');
-        // Shader jetzt übersetzen, nicht im ersten sichtbaren Bild (sonst ruckelt es einmal)
-        renderer.compile(scene, camera);
-      });
-    } else spooky?.setVisible(on);
+    cfg.theme = makeDecor[theme] ? theme : 'party';
+    for (const name of Object.keys(decor)) {
+      const on = cfg.theme === name;
+      if (on && !decor[name]) {
+        const d = makeDecor[name]();
+        decor[name] = d;
+        d.ready.then(() => {
+          if (disposed) return;
+          d.setVisible(cfg.theme === name);
+          // Shader jetzt übersetzen, nicht im ersten sichtbaren Bild (sonst ruckelt es einmal)
+          renderer.compile(scene, camera);
+        });
+      } else decor[name]?.setVisible(on);
+    }
+    // Weihnachten: auch der Streamer am Pult trägt eine Mütze (eigene Figur geht vor)
+    djFig.setFestive(cfg.theme === 'christmas' ? 'santaHat' : null);
   };
 
   // ── Kamera ──
@@ -655,11 +716,19 @@ export function createPartyScene(canvas, overlay, { getInfo, forceHype = false, 
   let hype = false;
   let nextFire = 9, nextFog = 6, nextCo2 = 15, nextStageFog = 3;
   let fogSide = 0;
+  // Musik: kurzer gegen langen Bass-Mittelwert → leise Stelle (Breakdown) erkennen
+  let bassFast = 0, bassSlow = 0, quietFor = 0, calm = false, calmFor = 0;
+  let punch = 0;                 // Kamera-Ruck beim Drop (Bildwinkel)
+  const BASE_FOV = camera.fov;
 
-  /** Der große Moment: Konfettikanonen, Konfettiregen, Feuer-Lauflicht, CO2, Strobo. */
+  /** Der große Moment: Konfettikanonen, Konfettiregen, Feuer-Lauflicht, CO2, Strobo, Funken, Laser — und alle tanzen gemeinsam. */
   const drop = (t) => {
     cannon(-7.4, 170);
     cannon(7.4, 170);
+    if (cfg.effects.sparks !== false) sparkUntil = t + 2.6;
+    laserUntil = t + 60 / clock.bpm * 16;
+    punch = 1;
+    dancers.together(8, 'wild');
     if (cfg.effects.confetti) rainUntil = t + 3.5;
     fire('chaseR', t, 0.5);
     fire('chaseL', t + 0.9, 0.5);
@@ -692,7 +761,7 @@ export function createPartyScene(canvas, overlay, { getInfo, forceHype = false, 
     // Lichtstimmung: normal alle 16 Schläge neu, beim Ausrasten alle 4
     const palLen = hype ? 4 : 16;
     const palIdx = Math.floor(beat / palLen);
-    const palettes = cfg.theme === 'halloween' ? HALLOWEEN_PALETTES : PALETTES;
+    const palettes = THEME_PALETTES[cfg.theme] || PALETTES;
     const pal = palettes[palIdx % palettes.length];
     const pattern = PATTERNS[palIdx % PATTERNS.length];
     let kick = Math.max(0, 1 - (beat % 1) * 2.5);             // kurzer Impuls auf jedem Schlag
@@ -702,7 +771,31 @@ export function createPartyScene(canvas, overlay, { getInfo, forceHype = false, 
       const b = Math.min(1, Math.pow(audio.bass, 1.6) * cfg.sensitivity);
       bassEnv = b > bassEnv ? b : bassEnv + (b - bassEnv) * clamp01(dt * 10);
       kick = Math.max(kick * 0.35, bassEnv);
-    } else bassEnv = 0;
+      // Leise Stelle: der Bass der letzten ~1,5 s liegt weit unter dem der letzten ~20 s. Dann tanzen
+      // alle ruhig; setzt der Bass wieder ein, gibt es einen gemeinsamen Tanz (wie beim Drop).
+      bassFast += (audio.bass - bassFast) * clamp01(dt / 1.5);
+      bassSlow += (audio.bass - bassSlow) * clamp01(dt / 20);
+      const quiet = bassSlow > 0.08 && bassFast < bassSlow * 0.35;
+      quietFor = quiet ? quietFor + dt : 0;
+      if (!calm && quietFor > 3) { calm = true; calmFor = 0; dancers.setCalm(true); }
+      else if (calm) {
+        calmFor += dt;
+        if (bassSlow < 0.05 || bassFast > bassSlow * 0.8) {
+          calm = false;
+          dancers.setCalm(false);
+          if (calmFor > 6 && bassSlow >= 0.05) {
+            dancers.together(8, 'wild');
+            fire('all', t, 0.6);
+            laserUntil = t + 60 / clock.bpm * 16;
+            punch = 0.6;
+          }
+        }
+      }
+    } else {
+      bassEnv = 0;
+      if (calm) { calm = false; dancers.setCalm(false); }
+      quietFor = 0;
+    }
     // Farben weich überblenden (letzter Schlag vor dem Wechsel)
     const blend = hype ? 0 : clamp01((beat % palLen) - (palLen - 1));
     const next = palettes[(palIdx + 1) % palettes.length];
@@ -722,6 +815,10 @@ export function createPartyScene(canvas, overlay, { getInfo, forceHype = false, 
       camera.position.add(shakeOff);
     }
     camera.lookAt(camLook);
+    // Beim Drop zieht das Bild kurz an (engerer Bildwinkel), im Ausraster pumpt es leicht im Bass
+    punch *= Math.exp(-dt * 2.2);
+    const fov = BASE_FOV - 5 * punch - (hype ? 0.5 * kick : 0);
+    if (Math.abs(fov - camera.fov) > 0.01) { camera.fov = fov; camera.updateProjectionMatrix(); }
 
     // Effekte — und einmal groß, wenn der Countdown abläuft
     const info = getInfo();
@@ -734,8 +831,15 @@ export function createPartyScene(canvas, overlay, { getInfo, forceHype = false, 
       if (crossedBeats(16) && !crossedBeats(32) && cfg.effects.fog) {
         for (const fm of fogMachines) { fm.from = t; fm.until = t + 2.2; }
         co2Until = t + 1.2;
+        if (cfg.effects.sparks !== false) sparkUntil = t + 1.6;
       }
     } else {
+      // Zwischendurch ein gemeinsamer Tanz: alle im selben Schritt, acht Schläge lang
+      // … und seltener eine Polonaise quer über die Fläche
+      if (cfg.groupDance && !calm && !dancers.polonaiseOn && crossedBeats(64) && dancers.count() >= 3) {
+        if (dancers.count() >= 6 && Math.floor(beat / 64) % 3 === 2 && r() < 0.7) dancers.polonaise(48);
+        else if (r() < 0.6) dancers.together(8, 'mid');
+      }
       // Zeitplan nach festen Zeitpunkten (nicht nach dt — das ist gedeckelt und überspringt lange Bilder)
       if (t >= nextFire) {
         fire(FIRE_NAMES[Math.floor(r() * FIRE_NAMES.length)], t, 0.9 + r() * 0.5);
@@ -812,6 +916,16 @@ export function createPartyScene(canvas, overlay, { getInfo, forceHype = false, 
           x = h.p.x * 0.6 + Math.cos(ph * 2 + k) * 3;
           z = (h.front ? -1.5 : 0.5) + Math.sin(ph * 2 + k) * 3;
           break;
+        case 'chase':
+          x = h.p.x * 0.9 + Math.sin(ph + k) * 1.5;
+          z = h.front ? -2.5 : 2.5;
+          break;
+        case 'burst': {
+          const out = (beat % 2) / 2;
+          x = h.p.x * (0.12 + 1.25 * out);
+          z = (h.front ? -1 : 1) * (0.4 + 3 * out);
+          break;
+        }
         default: // cross
           x = (odd ? 1 : -1) * Math.sin(ph) * 8;
           z = h.front ? -3 : 1.5;
@@ -819,14 +933,46 @@ export function createPartyScene(canvas, overlay, { getInfo, forceHype = false, 
       aim.set(x, 0, z);
       h.pivot.lookAt(aim);
       h.rig.aim(aim);
+      // chase: das Licht läuft von Scheinwerfer zu Scheinwerfer, die anderen glimmen nur
+      const dim = pattern === 'chase' && !flash ? ((h.i + Math.floor(beat)) % 3 === 0 ? 1.15 : 0.1) : 1;
       const c = flash ? tint.set('#ffffff') : odd ? colB : colA;
       h.mat.uniforms.uColor.value.copy(c);
-      h.mat.uniforms.uOpacity.value = (0.55 + 0.25 * kick) * (1 + 0.35 * mood);
-      h.lens.material.color.copy(c).lerp(tileCol.set('#ffffff'), 0.5);
+      h.mat.uniforms.uOpacity.value = (0.55 + 0.25 * kick) * (1 + 0.35 * mood) * dim;
+      h.lens.material.color.copy(c).lerp(tileCol.set('#ffffff'), 0.5).multiplyScalar(Math.min(1, dim + 0.25));
       if (h.light) {
         h.light.color.copy(c);
-        h.light.intensity = (140 + 60 * kick) * (1 + 0.5 * mood);
+        h.light.intensity = (140 + 60 * kick) * (1 + 0.5 * mood) * dim;
         h.light.target.position.copy(aim);
+      }
+    }
+
+    // Laser: an beim Drop, im Ausraster und in jeder dritten Lichtstimmung; weich ein- und ausblenden
+    {
+      const want = cfg.effects.lasers !== false && (hype || t < laserUntil || palIdx % 3 === 2) ? 1 : 0;
+      laserLevel += (want - laserLevel) * clamp01(dt * 4);
+      lasers.visible = laserLevel > 0.02;
+      if (lasers.visible) {
+        const spread = 0.35 + 1.1 * (0.5 + 0.5 * Math.sin(beat * Math.PI / 4));
+        const mid = (LASER_N - 1) / 2;
+        laserSrc.forEach((src, e) => {
+          // Zielpunkt des Fächers wandert über die Tanzfläche; die Seiten fächern längs, die Mitte quer
+          const cx = Math.sin(beat * Math.PI / 8 + e * 2.1) * 4.5 - src.x * 0.25;
+          const cz = 0.5 + Math.cos(beat * Math.PI / 6 + e) * 3;
+          // bleiben auch im Blitzlicht farbig — weiß überstrahlten sie die ganze Tanzfläche
+          laserCol.copy(e === 1 ? colA : colB).multiplyScalar((1.1 + 0.7 * kick) * laserLevel);
+          for (let k = 0; k < LASER_N; k++) {
+            const off = (k - mid) * spread;
+            laserAim.set(cx + (e === 1 ? off : 0), 0.05, cz + (e === 1 ? 0 : off));
+            laserArm.position.copy(src);
+            laserArm.lookAt(laserAim);
+            laserArm.scale.set(1, 1, src.distanceTo(laserAim));
+            laserArm.updateMatrix();
+            lasers.setMatrixAt(e * LASER_N + k, laserArm.matrix);
+            lasers.setColorAt(e * LASER_N + k, laserCol);
+          }
+        });
+        lasers.instanceMatrix.needsUpdate = true;
+        lasers.instanceColor.needsUpdate = true;
       }
     }
 
@@ -882,7 +1028,7 @@ export function createPartyScene(canvas, overlay, { getInfo, forceHype = false, 
 
     dancers.update(beat, kick, dt, camera, viewW, viewH);
     djFig.update(beat, dt, camera, viewW, viewH);
-    spooky?.update(t, dt, beat, kick);
+    for (const d of Object.values(decor)) d?.update(t, dt, beat, kick);
   };
 
   // Erst starten, wenn Fototexturen und Figur-Datei da sind; dann alles vorab auf die Grafikkarte
@@ -917,6 +1063,7 @@ export function createPartyScene(canvas, overlay, { getInfo, forceHype = false, 
       cfg.hypeDancers = st.hypeDancers;
       cfg.hypeMsgs = st.hypeMsgs;
       cfg.effects = { ...st.effects };
+      cfg.groupDance = st.groupDance !== false;
       cfg.reactive = !!st.music?.reactive;
       cfg.sensitivity = st.music?.sensitivity ?? 1;
       clock.setManualBpm(st.bpm);
@@ -932,6 +1079,7 @@ export function createPartyScene(canvas, overlay, { getInfo, forceHype = false, 
       if (type === 'drop') drop(prevT);
       else if (type === 'fire') { fire('all', prevT, 1.2); }
       else if (type === 'clearFloor') dancers.clearFloor();
+      else if (type === 'polonaise') dancers.polonaise(48);
     },
     /** Musik-Rahmen aus der YTMusicApp (createMusicFeed). */
     music(m) { audio = m; audioAt = performance.now(); clock.music(m); },
@@ -949,7 +1097,7 @@ export function createPartyScene(canvas, overlay, { getInfo, forceHype = false, 
       disposed = true;
       dancers.dispose();
       djFig.dispose();
-      spooky?.dispose();
+      for (const d of Object.values(decor)) d?.dispose();
       envTex.dispose();
       pmrem.dispose();
       assets.dispose();

@@ -7,6 +7,8 @@ import SEO from "../components/SEO";
 import AboPanel from "../components/AboPanel";
 import { PREMIUM_PRICE } from "../utils/billingApi";
 import { salesVisible } from "../config/legal";
+import { TwitchGlyph, DiscordGlyph } from "../components/BrandGlyphs";
+import { Page, PageHeader, Card, Section, Button, Input, Segmented, TwitchLoginButton } from "../components/ui";
 import {
   ShieldCheck,
   Link2,
@@ -21,7 +23,7 @@ import {
   Globe,
 } from "lucide-react";
 
-const STREAMER_ID = "160224748";
+import { STREAMER_ID } from "../config/owner";
 const LANG_STORAGE_KEY = "site_lang";
 
 // Nur DE/EN — WinTracker-Login läuft über diese Seite, englischsprachige Zuschauer müssen
@@ -139,22 +141,6 @@ function readLang() {
   }
 }
 
-function TwitchGlyph({ className }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden="true">
-      <path d="M11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714zM6 0 1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.286 12V0zm14.571 11.143-3.428 3.428h-3.429l-3 3v-3H6.857V1.714h13.714Z" />
-    </svg>
-  );
-}
-
-function DiscordGlyph({ className }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden="true">
-      <path d="M20.317 4.37a19.79 19.79 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.331c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z" />
-    </svg>
-  );
-}
-
 // Schalter fürs öffentliche Profil. Name und Bild schickt der Browser mit — der Server kennt sonst nur ID und Login.
 function PublicProfileSection({ user, t }) {
   const [state, setState] = useState({ loading: true, enabled: false, login: "", busy: false, error: false });
@@ -188,32 +174,23 @@ function PublicProfileSection({ user, t }) {
 
   const login = state.login || String(user.login || "").toLowerCase();
   return (
-    <section className="panel p-6 lg:col-span-2">
-      <h2 className="font-display text-lg font-bold text-white mb-1 flex items-center gap-2">
-        <Globe size={18} className="text-violet-300" /> {t.publicTitle}
-      </h2>
-      <p className="text-xs text-white/40 mb-5 max-w-2xl">{t.publicHint}</p>
+    <Section className="lg:col-span-2" icon={Globe} title={t.publicTitle} description={t.publicHint}>
       <div className="flex flex-wrap items-center gap-3">
         <span className={`text-sm font-semibold ${state.enabled ? "text-emerald-300" : "text-white/45"}`}>
           {state.loading ? "…" : state.enabled ? t.publicOn : t.publicOff}
         </span>
-        <button
-          type="button"
-          onClick={toggle}
-          disabled={state.loading || state.busy}
-          className="px-4 py-2 rounded-lg text-sm font-semibold border border-white/15 text-white/80 hover:text-white hover:border-white/30 disabled:opacity-50 transition-colors"
-        >
+        <Button variant="secondary" onClick={toggle} disabled={state.loading || state.busy}>
           {state.enabled ? t.publicDisable : t.publicEnable}
-        </button>
+        </Button>
         {state.enabled && (
-          <Link to={`/u/${login}`} className="inline-flex items-center gap-1.5 text-sm font-semibold text-violet-300 hover:text-violet-200">
+          <Link to={`/u/${login}`} className="inline-flex items-center gap-1.5 text-sm font-semibold text-accent-soft hover:text-white">
             {t.publicOpen} <ArrowRight size={14} />
           </Link>
         )}
         {state.enabled && <span className="text-xs text-white/35">vnmvalentin.de/u/{login}</span>}
         {state.error && <span className="text-xs text-red-300">{t.publicError}</span>}
       </div>
-    </section>
+    </Section>
   );
 }
 
@@ -317,76 +294,49 @@ export default function Profile() {
   };
 
   const langToggle = (
-    <div className="flex items-center rounded-lg bg-black/25 border border-white/10 p-0.5 shrink-0">
-      {["de", "en"].map((l) => (
-        <button
-          key={l}
-          onClick={() => changeLang(l)}
-          aria-pressed={lang === l}
-          className={`px-2.5 py-1 rounded-md text-xs font-semibold uppercase transition-colors ${
-            lang === l ? "bg-violet-600 text-white" : "text-white/40 hover:text-white/70"
-          }`}
-        >
-          {l}
-        </button>
-      ))}
-    </div>
+    <Segmented size="sm" label="Sprache / Language" value={lang} onChange={changeLang}
+      options={[{ value: "de", label: "DE" }, { value: "en", label: "EN" }]} />
   );
 
   if (!user) {
     return (
-      <div className="page-fade flex flex-col items-center justify-center min-h-[60vh] gap-6 text-center px-4">
+      <Page width="narrow" className="flex flex-col items-center justify-center min-h-[60vh]">
         <SEO title={t.metaTitle} description={t.metaDescription} path="/profile" lang={lang} />
-        <div className="panel p-10 max-w-md w-full flex flex-col items-center gap-5 relative">
+        <Card className="p-10 max-w-md w-full flex flex-col items-center gap-5 relative text-center">
           <div className="absolute top-4 right-4">{langToggle}</div>
-          <span className="flex items-center justify-center w-14 h-14 rounded-2xl bg-violet-500/10 border border-violet-400/20 text-violet-300">
-            <ShieldCheck size={26} />
+          <span className="flex items-center justify-center w-12 h-12 rounded-lg bg-accent/10 border border-accent/25 text-accent-soft">
+            <ShieldCheck size={22} />
           </span>
           <div>
-            <h1 className="font-display text-2xl font-bold text-white mb-2">{t.loggedOutTitle}</h1>
-            <p className="text-sm text-white/50">{t.loggedOutHint}</p>
+            <h1 className="font-display text-2xl font-bold tracking-tight text-white mb-2">{t.loggedOutTitle}</h1>
+            <p className="text-sm text-white/55">{t.loggedOutHint}</p>
           </div>
-          <button
-            onClick={() => login(false)}
-            className="flex items-center gap-2 bg-[#9146FF] hover:bg-[#7c3aed] text-white px-5 py-2.5 rounded-lg text-sm font-semibold transition-colors"
-          >
-            <TwitchGlyph className="w-4 h-4" /> {t.loginBtn}
-          </button>
-        </div>
-      </div>
+          <TwitchLoginButton>{t.loginBtn}</TwitchLoginButton>
+        </Card>
+      </Page>
     );
   }
 
   return (
-    <div className="page-fade w-full max-w-5xl mx-auto px-2 md:px-4 py-8 md:py-12">
+    <Page width="default" className="py-4 md:py-8">
       <SEO title={t.metaTitle} description={t.metaDescription} path="/profile" lang={lang} />
 
-      {/* Kopf */}
-      <div className="flex items-center gap-5 mb-10">
-        <img src={user.profileImageUrl} alt="" className="w-20 h-20 rounded-2xl object-cover border border-white/10" />
-        <div className="min-w-0 flex-1">
-          <h1 className="font-display text-3xl md:text-4xl font-bold text-white tracking-tight truncate">{user.displayName}</h1>
-          <p className="text-sm text-white/40 mt-1 flex items-center gap-1.5">
-            <TwitchGlyph className="w-3.5 h-3.5 text-[#9146FF]" /> @{user.login}
-          </p>
-        </div>
-        {langToggle}
-      </div>
+      <PageHeader
+        media={<img src={user.profileImageUrl} alt="" className="w-20 h-20 rounded-lg object-cover border border-line" />}
+        title={user.displayName}
+        description={<span className="flex items-center gap-1.5"><TwitchGlyph size={14} className="text-twitch" /> @{user.login}</span>}
+        actions={langToggle}
+      />
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
 
         {/* ===== Verknüpfungen ===== */}
-        <section className="panel p-6">
-          <h2 className="font-display text-lg font-bold text-white mb-1 flex items-center gap-2">
-            <Link2 size={18} className="text-violet-300" /> {t.linksTitle}
-          </h2>
-          <p className="text-xs text-white/40 mb-5">{t.linksHint}</p>
-
+        <Section icon={Link2} title={t.linksTitle} description={t.linksHint}>
           <div className="space-y-3">
             {/* Twitch */}
-            <div className="flex items-center gap-4 rounded-xl bg-black/25 border border-white/10 p-4">
-              <span className="flex items-center justify-center w-11 h-11 rounded-lg bg-[#9146FF]/15 border border-[#9146FF]/30 text-[#a970ff] shrink-0">
-                <TwitchGlyph className="w-5 h-5" />
+            <div className="flex items-center gap-4 rounded-lg bg-black/25 border border-line p-4">
+              <span className="flex items-center justify-center w-11 h-11 rounded-lg bg-twitch/15 border border-twitch/30 text-[#a970ff] shrink-0">
+                <TwitchGlyph size={20} />
               </span>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-semibold text-white truncate">{t.twitch}</p>
@@ -398,12 +348,12 @@ export default function Profile() {
             </div>
 
             {/* Discord */}
-            <div className="flex items-center gap-4 rounded-xl bg-black/25 border border-white/10 p-4">
-              <span className="flex items-center justify-center w-11 h-11 rounded-lg bg-[#5865F2]/15 border border-[#5865F2]/30 text-[#7984f5] shrink-0 overflow-hidden">
+            <div className="flex items-center gap-4 rounded-lg bg-black/25 border border-line p-4">
+              <span className="flex items-center justify-center w-11 h-11 rounded-lg bg-discord/15 border border-discord/30 text-[#7984f5] shrink-0 overflow-hidden">
                 {discordStatus.linked && discordStatus.user?.avatar ? (
                   <img src={discordStatus.user.avatar} alt="" className="w-full h-full object-cover" />
                 ) : (
-                  <DiscordGlyph className="w-5 h-5" />
+                  <DiscordGlyph size={20} />
                 )}
               </span>
               <div className="flex-1 min-w-0">
@@ -418,21 +368,13 @@ export default function Profile() {
               </div>
               {!discordStatus.loading && (
                 discordStatus.linked ? (
-                  <button
-                    onClick={unlinkDiscord}
-                    disabled={discordBusy}
-                    className="flex items-center gap-1.5 text-xs font-semibold text-white/60 hover:text-red-300 bg-white/5 hover:bg-red-500/10 border border-white/10 hover:border-red-500/30 px-2.5 py-1 rounded-lg transition-colors shrink-0 disabled:opacity-50"
-                  >
-                    <Unlink size={12} /> {t.unlinkBtn}
-                  </button>
+                  <Button variant="secondary" size="sm" icon={Unlink} onClick={unlinkDiscord} disabled={discordBusy} className="shrink-0">
+                    {t.unlinkBtn}
+                  </Button>
                 ) : (
-                  <button
-                    onClick={linkDiscord}
-                    disabled={discordBusy}
-                    className="flex items-center gap-1.5 text-xs font-semibold text-white bg-[#5865F2] hover:bg-[#4752c4] px-3 py-1.5 rounded-lg transition-colors shrink-0 disabled:opacity-50"
-                  >
-                    <Link2 size={12} /> {t.linkBtn}
-                  </button>
+                  <Button variant="discord" size="sm" icon={Link2} onClick={linkDiscord} disabled={discordBusy} className="shrink-0">
+                    {t.linkBtn}
+                  </Button>
                 )
               )}
             </div>
@@ -443,61 +385,49 @@ export default function Profile() {
               </p>
             )}
           </div>
-        </section>
+        </Section>
 
         {/* ===== Code einlösen ===== */}
-        <section className="panel p-6">
-          <h2 className="font-display text-lg font-bold text-white mb-1 flex items-center gap-2">
-            <Ticket size={18} className="text-violet-300" /> {t.redeemTitle}
-          </h2>
-          <p className="text-xs text-white/40 mb-5">{t.redeemHint}</p>
-
+        <Section icon={Ticket} title={t.redeemTitle} description={t.redeemHint}>
           <div className="flex gap-2">
-            <input
+            <Input
               type="text"
               value={promoCode}
               onChange={(e) => { setPromoCode(e.target.value); setPromoMsg(null); }}
               onKeyDown={(e) => { if (e.key === "Enter") handleRedeem(); }}
               placeholder={t.redeemPlaceholder}
-              className="flex-1 bg-black/40 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white font-mono focus:border-violet-500 outline-none transition-colors"
+              aria-label={t.redeemTitle}
+              className="flex-1 font-mono"
             />
-            <button
-              onClick={handleRedeem}
-              disabled={!promoCode.trim() || promoBusy}
-              className="px-5 bg-violet-600 hover:bg-violet-500 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-lg text-sm font-semibold transition-colors"
-            >
-              {promoBusy ? t.redeemBusy : t.redeemBtn}
-            </button>
+            <Button onClick={handleRedeem} disabled={!promoCode.trim()} loading={promoBusy} loadingText={t.redeemBusy} className="shrink-0">
+              {t.redeemBtn}
+            </Button>
           </div>
           {promoMsg && (
-            <p className={`text-xs mt-3 ${promoMsg.ok ? "text-emerald-400" : "text-red-400"}`}>{promoMsg.text}</p>
+            <p role="status" className={`text-xs mt-3 ${promoMsg.ok ? "text-emerald-400" : "text-red-400"}`}>{promoMsg.text}</p>
           )}
-        </section>
+        </Section>
 
         {/* ===== Premium-Abo: Stand, abschließen, verwalten, kündigen =====
             Erst sichtbar, wenn verkauft werden darf (config/legal.js) */}
         {salesVisible() && (
-          <section className="panel p-6 lg:col-span-2">
-            <h2 className="font-display text-lg font-bold text-white mb-1 flex items-center gap-2">
-              <Sparkles size={18} className="text-violet-300" /> {t.aboTitle}
-            </h2>
-            <p className="text-xs text-white/40 mb-5">{t.aboHint(PREMIUM_PRICE)}</p>
+          <Section className="lg:col-span-2" icon={Sparkles} title={t.aboTitle} description={t.aboHint(PREMIUM_PRICE)}>
             <AboPanel returnPath="/profile" lang={lang} />
-          </section>
+          </Section>
         )}
 
         {/* ===== Öffentliches Profil (/u/<login>, opt-in) ===== */}
         <PublicProfileSection user={user} t={t} />
 
         {/* ===== Konto ===== */}
-        <section className="panel p-6 lg:col-span-2">
-          <h2 className="font-display text-lg font-bold text-white mb-5">{t.accountTitle}</h2>
+        <Section className="lg:col-span-2" title={t.accountTitle}>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             <button
+              type="button"
               onClick={() => login(true)}
-              className="group flex items-center gap-3 rounded-xl bg-black/25 border border-white/10 hover:border-white/20 hover:bg-white/5 p-4 text-left transition-colors"
+              className="group flex items-center gap-3 rounded-lg bg-black/25 border border-line hover:border-white/20 hover:bg-white/5 p-4 text-left transition-colors"
             >
-              <RefreshCw size={18} className="text-white/40 group-hover:text-violet-300 transition-colors shrink-0" />
+              <RefreshCw size={18} className="text-white/40 group-hover:text-accent-soft transition-colors shrink-0" />
               <span>
                 <span className="block text-sm font-semibold text-white">{t.switchAccount}</span>
                 <span className="block text-xs text-white/40 mt-0.5">{t.switchAccountHint}</span>
@@ -507,7 +437,7 @@ export default function Profile() {
             {isAdmin && (
               <Link
                 to="/admin"
-                className="group flex items-center gap-3 rounded-xl bg-red-500/5 border border-red-500/20 hover:border-red-500/40 hover:bg-red-500/10 p-4 transition-colors"
+                className="group flex items-center gap-3 rounded-lg bg-red-500/5 border border-red-500/20 hover:border-red-500/40 hover:bg-red-500/10 p-4 transition-colors"
               >
                 <ShieldCheck size={18} className="text-red-400 shrink-0" />
                 <span className="flex-1">
@@ -519,8 +449,9 @@ export default function Profile() {
             )}
 
             <button
+              type="button"
               onClick={handleLogout}
-              className="group flex items-center gap-3 rounded-xl bg-black/25 border border-white/10 hover:border-white/20 hover:bg-white/5 p-4 text-left transition-colors"
+              className="group flex items-center gap-3 rounded-lg bg-black/25 border border-line hover:border-white/20 hover:bg-white/5 p-4 text-left transition-colors"
             >
               <LogOut size={18} className="text-white/40 group-hover:text-white transition-colors shrink-0" />
               <span>
@@ -529,8 +460,8 @@ export default function Profile() {
               </span>
             </button>
           </div>
-        </section>
+        </Section>
       </div>
-    </div>
+    </Page>
   );
 }

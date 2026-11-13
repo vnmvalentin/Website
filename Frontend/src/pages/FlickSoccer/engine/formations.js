@@ -3,8 +3,13 @@
 // gespiegelt. Alle Plätze liegen außerhalb des Mittelkreises, damit der Anstoß frei ist (engine.test.js prüft das).
 // `code` ist die Kurzform für die Anzeige; die Schlüssel sind gespeicherte IDs (Browser-Einstellungen, Online-Räume) —
 // nie umbenennen, nur neue hinzufügen.
+//
+// Eigene Aufstellungen sind ebenfalls nur eine Zeichenkette: "c:" + fünfmal (x, y) in Tausendsteln, je drei Ziffern.
+// So passen sie überall hin, wo sonst eine ID steht (Einstellungen, Online-Protokoll), und der Server prüft sie mit
+// derselben Funktion wie der Editor (customProblem).
 
-import { FIELD } from './constants.js';
+import { FIELD, PIECE, TEAM_SIZE } from './constants.js';
+import { FIELDS, FIELD_IDS } from './fields.js';
 
 export const FORMATIONS = Object.freeze({
   '2-2': {
@@ -72,14 +77,102 @@ export const FORMATIONS = Object.freeze({
 export const FORMATION_IDS = Object.freeze(Object.keys(FORMATIONS));
 export const DEFAULT_FORMATION = '2-2';
 
+// ── Eigene Aufstellungen ──────────────────────────────────────────────────────────────────
+
+const CUSTOM_RE = /^c:\d{30}$/;
+const CUSTOM_INFO = Object.freeze({ name: 'Eigene', code: 'Eigen', hint: 'Deine eigene Aufstellung' });
+
+/** [[fx, fy] × 5] (Anteile 0…1) → Zeichenkette. Rundet auf Tausendstel. */
+export function encodeCustom(spots) {
+  const part = (v) => String(Math.max(0, Math.min(999, Math.round(v * 1000)))).padStart(3, '0');
+  return `c:${spots.map(([fx, fy]) => part(fx) + part(fy)).join('')}`;
+}
+
+/** Zeichenkette → [[fx, fy] × 5] oder null, wenn sie nicht das Format einer eigenen Aufstellung hat. */
+export function parseCustom(id) {
+  if (typeof id !== 'string' || !CUSTOM_RE.test(id)) return null;
+  const spots = [];
+  for (let i = 0; i < TEAM_SIZE; i++) {
+    spots.push([Number(id.slice(2 + i * 6, 5 + i * 6)) / 1000, Number(id.slice(5 + i * 6, 8 + i * 6)) / 1000]);
+  }
+  return spots;
+}
+
+function segmentDistance(px, py, w) {
+  const ex = w[2] - w[0];
+  const ey = w[3] - w[1];
+  let t = ((px - w[0]) * ex + (py - w[1]) * ey) / (ex * ex + ey * ey);
+  if (t < 0) t = 0;
+  else if (t > 1) t = 1;
+  const dx = px - (w[0] + ex * t);
+  const dy = py - (w[1] + ey * t);
+  return Math.sqrt(dx * dx + dy * dy);
+}
+
+/**
+ * Prüft fünf Plätze (für das linke Team) auf JEDEM Feld: eigene Hälfte, frei von Banden, Mittelkreis, Hindernissen,
+ * Portalen und voneinander. Liefert null, wenn alles passt, sonst { index, reason, field } zum ersten Problem —
+ * index ist die betroffene Scheibe.
+ */
+export function customProblem(spots) {
+  if (!Array.isArray(spots) || spots.length !== TEAM_SIZE) return { index: 0, reason: 'Es müssen genau fünf Scheiben sein', field: null };
+  const R = PIECE.R;
+  for (const fid of FIELD_IDS) {
+    const f = FIELDS[fid];
+    const pts = spots.map(([fx, fy]) => ({ x: fx * f.W, y: fy * f.H }));
+    for (let i = 0; i < pts.length; i++) {
+      const p = pts[i];
+      const bad = (reason) => ({ index: i, reason, field: fid });
+      if (!(p.x - R >= 2)) return bad('Zu nah am eigenen Tor');
+      if (!(p.x + R <= f.W / 2 - 2)) return bad('Nur in der eigenen Hälfte');
+      if (!(p.y - R >= 2 && p.y + R <= f.H - 2)) return bad('Zu nah an der Bande');
+      const dc = Math.sqrt((p.x - f.W / 2) * (p.x - f.W / 2) + (p.y - f.H / 2) * (p.y - f.H / 2));
+      if (!(dc > f.CENTER_R + R + 2)) return bad('Der Mittelkreis bleibt frei');
+      for (const w of f.walls) if (segmentDistance(p.x, p.y, w) < R + 1) return bad(`Zu nah an der Bande (Feld ${f.name})`);
+      for (const b of f.bumpers) {
+        if (Math.sqrt((p.x - b.x) * (p.x - b.x) + (p.y - b.y) * (p.y - b.y)) <= b.r + R + 4) return bad(`Dort steht ein Hindernis (Feld ${f.name})`);
+      }
+      for (const q of f.portals) {
+        if (Math.sqrt((p.x - q.x) * (p.x - q.x) + (p.y - q.y) * (p.y - q.y)) <= q.r + R + 4) return bad(`Dort liegt ein Portal (Feld ${f.name})`);
+      }
+      for (let j = 0; j < i; j++) {
+        const d = Math.sqrt((p.x - pts[j].x) * (p.x - pts[j].x) + (p.y - pts[j].y) * (p.y - pts[j].y));
+        if (d <= 2 * R + 4) return bad(fid === 'standard' ? 'Scheiben brauchen etwas Abstand' : `Scheiben zu dicht (Feld ${f.name})`);
+      }
+    }
+  }
+  return null;
+}
+
+// Ergebnis je Zeichenkette merken — isFormation läuft bei jedem Neuzeichnen
+const customCache = new Map();
+
+/** Ist `id` eine gültige eigene Aufstellung? */
+export function isCustomFormation(id) {
+  if (typeof id !== 'string' || !id.startsWith('c:')) return false;
+  let ok = customCache.get(id);
+  if (ok === undefined) {
+    const spots = parseCustom(id);
+    ok = !!spots && customProblem(spots) === null;
+    if (customCache.size > 200) customCache.clear();
+    customCache.set(id, ok);
+  }
+  return ok;
+}
+
 export function isFormation(id) {
-  return typeof id === 'string' && Object.prototype.hasOwnProperty.call(FORMATIONS, id);
+  return typeof id === 'string' && (Object.prototype.hasOwnProperty.call(FORMATIONS, id) || isCustomFormation(id));
+}
+
+/** Name, Kurzform, Hinweis und Plätze einer Aufstellung (auch einer eigenen); unbekannt → Klassisch. */
+export function formationInfo(id) {
+  if (isCustomFormation(id)) return { ...CUSTOM_INFO, spots: parseCustom(id), custom: true };
+  return FORMATIONS[Object.prototype.hasOwnProperty.call(FORMATIONS, id) ? id : DEFAULT_FORMATION];
 }
 
 /** Feld-Koordinaten der fünf Scheiben eines Teams (0 = links, 1 = rechts); field = Geometrie aus fields.js. */
 export function formationSpots(id, team, field = FIELD) {
-  const f = FORMATIONS[isFormation(id) ? id : DEFAULT_FORMATION];
-  return f.spots.map(([fx, fy]) => {
+  return formationInfo(id).spots.map(([fx, fy]) => {
     const x = fx * field.W;
     return { x: team === 0 ? x : field.W - x, y: fy * field.H, team };
   });

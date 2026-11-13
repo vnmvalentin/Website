@@ -14,7 +14,7 @@ import TournamentCreatorsPanel from "./ClashRoyale/tournament/TournamentCreators
 import AnalyticsPanel from "./Admin/AnalyticsPanel.jsx";
 
 // DEINE ID
-const STREAMER_ID = "160224748";
+import { STREAMER_ID } from "../config/owner";
 
 // Credits gibt es auf der Website nicht mehr (Oktober 2026): kein Casino-Reiter, keine Credit-Spalte, Promo-Codes
 // schalten nur noch adVentures-Kits frei.
@@ -67,7 +67,7 @@ function GardenSubNav({ aktiv, onWechsel }) {
         return (
           <button key={sub.id} onClick={() => onWechsel(sub.id)}
             className={`flex items-center gap-2 px-4 py-2.5 text-sm font-bold transition-colors border-b-2 ${
-              active ? "border-violet-400 text-white bg-white/[0.03]" : "border-transparent text-white/40 hover:text-white/70"
+              active ? "border-accent-soft text-white bg-white/[0.03]" : "border-transparent text-white/40 hover:text-white/70"
             }`}>
             <SubIcon size={14} />
             {sub.label}
@@ -319,7 +319,7 @@ export default function AdminDashboard() {
       // BESUCHER TAB — holt sich seine Daten selbst und steht deshalb vor den Prüfungen auf `data`
       if (activeTab === "analytics") return <AnalyticsPanel />;
 
-      if (fetchLoading) return <div className="p-8 text-center animate-pulse text-violet-300 font-semibold">Lade Daten aus der Datenbank...</div>;
+      if (fetchLoading) return <div className="p-8 text-center animate-pulse text-accent-soft font-semibold">Lade Daten aus der Datenbank...</div>;
 
       if (!data && activeTab === "overview") return <div className="p-8 text-center text-red-400">Keine Statistik-Daten empfangen. (Backend prüfen)</div>;
 
@@ -335,7 +335,7 @@ export default function AdminDashboard() {
       // --- BROADCAST TAB ---
       if (activeTab === "broadcast") {
           return (
-              <div className="panel p-6 border-red-500/20">
+              <div className="rounded-lg border border-line bg-surface/80 p-6 border-red-500/20">
                   <h2 className="font-display text-xl font-bold text-red-400 flex items-center gap-3 mb-2">
                       <Radio size={22} /> System Broadcast
                   </h2>
@@ -350,7 +350,7 @@ export default function AdminDashboard() {
                               value={bcMessage}
                               onChange={(e) => setBcMessage(e.target.value)}
                               placeholder="z.B. Website wird in 5 Minuten für ein Update kurz neugestartet!"
-                              className="w-full bg-black/40 border border-white/10 rounded-lg p-4 text-white placeholder:text-white/25 focus:border-red-500/50 outline-none resize-none h-24 transition-colors"
+                              className="w-full bg-black/30 border border-line rounded-lg p-4 text-white placeholder:text-white/25 focus:border-red-500/50 outline-none resize-none h-24 transition-colors"
                           />
                       </div>
 
@@ -362,7 +362,7 @@ export default function AdminDashboard() {
                                   value={bcDuration}
                                   onChange={(e) => setBcDuration(Number(e.target.value))}
                                   min="1"
-                                  className="w-full bg-black/40 border border-white/10 rounded-lg p-3 text-white focus:border-red-500/50 outline-none transition-colors"
+                                  className="w-full bg-black/30 border border-line rounded-lg p-3 text-white focus:border-red-500/50 outline-none transition-colors"
                               />
                           </div>
                           <div>
@@ -370,7 +370,7 @@ export default function AdminDashboard() {
                               <select
                                   value={bcType}
                                   onChange={(e) => setBcType(e.target.value)}
-                                  className="w-full bg-black/40 border border-white/10 rounded-lg p-3 text-white focus:border-red-500/50 outline-none appearance-none transition-colors"
+                                  className="w-full bg-black/30 border border-line rounded-lg p-3 text-white focus:border-red-500/50 outline-none appearance-none transition-colors"
                               >
                                   <option value="warning">Warnung (Rot)</option>
                                   <option value="info">Info (Violett)</option>
@@ -396,7 +396,7 @@ export default function AdminDashboard() {
 
           const statCards = [
               { label: "Farm gerade online", value: data.gardenOnline, accent: "text-emerald-400", border: "border-emerald-500/20" },
-              { label: "Farm-Welten aktiv", value: data.gardenWorlds, accent: "text-violet-300", border: "border-violet-500/20" },
+              { label: "Farm-Welten aktiv", value: data.gardenWorlds, accent: "text-accent-soft", border: "border-accent/20" },
               { label: "adVentures Spieler", value: data.advPlayers, accent: "text-sky-400", border: "border-sky-500/20" },
           ];
           const miniCards = [
@@ -409,14 +409,14 @@ export default function AdminDashboard() {
           return (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
                   {statCards.map(c => (
-                      <div key={c.label} className={`panel p-6 ${c.border}`}>
+                      <div key={c.label} className={`rounded-lg border border-line bg-surface/80 p-6 ${c.border}`}>
                           <div className={`${c.accent} text-xs font-bold uppercase tracking-wider mb-2`}>{c.label}</div>
                           <div className="text-4xl font-bold text-white">{c.value}</div>
                       </div>
                   ))}
 
                   {miniCards.map(c => (
-                      <div key={c.label} className="panel p-6">
+                      <div key={c.label} className="rounded-lg border border-line bg-surface/80 p-6">
                           <div className="text-white/40 text-xs font-bold uppercase tracking-wider mb-2">{c.label}</div>
                           <div className="text-3xl font-bold text-white">{c.value}</div>
                       </div>
@@ -430,20 +430,20 @@ export default function AdminDashboard() {
           return (
               <div className="space-y-6">
                   {/* ERSTELLEN FORMULAR */}
-                  <div className="panel p-5 flex flex-wrap gap-4 items-end">
+                  <div className="rounded-lg border border-line bg-surface/80 p-5 flex flex-wrap gap-4 items-end">
                       <div>
                           <label className="text-xs text-white/40 font-bold uppercase tracking-wider block mb-1.5">Code (leer = auto)</label>
-                          <input className="block bg-black/40 border border-white/10 rounded-lg px-3 py-2 w-32 text-white focus:border-violet-500 outline-none transition-colors" value={newCode.code} onChange={e=>setNewCode({...newCode, code: e.target.value})} placeholder="AUTO" />
+                          <input className="block bg-black/30 border border-line rounded-lg px-3 py-2 w-32 text-white focus:border-accent outline-none transition-colors" value={newCode.code} onChange={e=>setNewCode({...newCode, code: e.target.value})} placeholder="AUTO" />
                       </div>
                       <div>
                           <label className="text-xs text-white/40 font-bold uppercase tracking-wider block mb-1.5">Typ</label>
-                          <select className="block bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-white focus:border-violet-500 outline-none transition-colors" value={newCode.type} onChange={e=>setNewCode({...newCode, type: e.target.value})}>
+                          <select className="block bg-black/30 border border-line rounded-lg px-3 py-2 text-white focus:border-accent outline-none transition-colors" value={newCode.type} onChange={e=>setNewCode({...newCode, type: e.target.value})}>
                               <option value="skin">Skin</option>
                           </select>
                       </div>
                       <div>
                           <label className="text-xs text-white/40 font-bold uppercase tracking-wider block mb-1.5">Wert/SkinID</label>
-                          <input className="block bg-black/40 border border-white/10 rounded-lg px-3 py-2 w-24 text-white focus:border-violet-500 outline-none transition-colors" value={newCode.value} onChange={e=>setNewCode({...newCode, value: e.target.value})} />
+                          <input className="block bg-black/30 border border-line rounded-lg px-3 py-2 w-24 text-white focus:border-accent outline-none transition-colors" value={newCode.value} onChange={e=>setNewCode({...newCode, value: e.target.value})} />
                       </div>
 
                       {/* ANZAHL & UNBEGRENZT */}
@@ -451,10 +451,10 @@ export default function AdminDashboard() {
                           {!isUnlimited ? (
                               <div>
                                   <label className="text-xs text-white/40 font-bold uppercase tracking-wider block mb-1.5">Anzahl</label>
-                                  <input type="number" className="block bg-black/40 border border-white/10 rounded-lg px-3 py-2 w-20 text-white focus:border-violet-500 outline-none transition-colors" value={newCode.maxUses} onChange={e=>setNewCode({...newCode, maxUses: e.target.value})} />
+                                  <input type="number" className="block bg-black/30 border border-line rounded-lg px-3 py-2 w-20 text-white focus:border-accent outline-none transition-colors" value={newCode.maxUses} onChange={e=>setNewCode({...newCode, maxUses: e.target.value})} />
                               </div>
                           ) : (
-                             <div className="h-[42px] flex items-center px-2 text-violet-300">
+                             <div className="h-[42px] flex items-center px-2 text-accent-soft">
                                  <InfinityIcon size={22} />
                              </div>
                           )}
@@ -469,13 +469,13 @@ export default function AdminDashboard() {
                           <label className="text-xs text-white/40 font-bold uppercase tracking-wider block mb-1.5">Ablauf (Optional)</label>
                           <input
                               type="datetime-local"
-                              className="block bg-black/40 border border-white/10 rounded-lg px-3 py-2 text-xs text-white focus:border-violet-500 outline-none transition-colors"
+                              className="block bg-black/30 border border-line rounded-lg px-3 py-2 text-xs text-white focus:border-accent outline-none transition-colors"
                               value={newCode.expiresAt}
                               onChange={e=>setNewCode({...newCode, expiresAt: e.target.value})}
                           />
                       </div>
 
-                      <button onClick={createCode} className="flex items-center gap-1.5 bg-violet-600 hover:bg-violet-500 text-white px-4 py-2.5 rounded-lg font-semibold text-sm transition-colors">
+                      <button onClick={createCode} className="flex items-center gap-1.5 bg-accent hover:bg-accent-hover text-white px-4 py-2.5 rounded-lg font-semibold text-sm transition-colors">
                           <Plus size={15} /> Erstellen
                       </button>
                   </div>
@@ -488,7 +488,7 @@ export default function AdminDashboard() {
                           placeholder="Code suchen..."
                           value={search}
                           onChange={e => setSearch(e.target.value)}
-                          className="w-full bg-black/40 border border-white/10 rounded-lg pl-10 pr-4 py-2.5 text-sm text-white focus:border-violet-500 outline-none transition-colors"
+                          className="w-full bg-black/30 border border-line rounded-lg pl-10 pr-4 py-2.5 text-sm text-white focus:border-accent outline-none transition-colors"
                       />
                   </div>
 
@@ -500,7 +500,7 @@ export default function AdminDashboard() {
                           const usedCount = info.usedBy?.length || 0;
 
                           return (
-                              <div key={code} className={`panel p-4 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 ${isExpired ? 'opacity-50' : ''}`}>
+                              <div key={code} className={`rounded-lg border border-line bg-surface/80 p-4 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 ${isExpired ? 'opacity-50' : ''}`}>
                                   <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
                                       <div className="min-w-[100px]">
                                           <span className="font-mono text-amber-400 font-bold text-lg">{code}</span>
@@ -537,7 +537,7 @@ export default function AdminDashboard() {
       // 2. ADVENTURES
       if (activeTab === "adventures") {
           return (
-              <div className="panel overflow-hidden">
+              <div className="rounded-lg border border-line bg-surface/80 overflow-hidden">
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-sm">
                       <thead className="bg-black/25 text-[10px] uppercase tracking-wider text-white/40">
@@ -560,7 +560,7 @@ export default function AdminDashboard() {
                                           type="number"
                                           defaultValue={u.highScore}
                                           onBlur={(e) => updateUser(id, { highScore: e.target.value })}
-                                          className="w-20 bg-black/30 border border-white/10 rounded-lg px-2 py-1.5 text-white focus:border-violet-500 outline-none transition-colors"
+                                          className="w-20 bg-black/30 border border-white/10 rounded-lg px-2 py-1.5 text-white focus:border-accent outline-none transition-colors"
                                       />
                                   </td>
                                   <td className="p-3 max-w-xs truncate text-xs text-white/40">
@@ -570,7 +570,7 @@ export default function AdminDashboard() {
                                               const newSkins = prompt("Skins (kommagetrennt):", u.skins?.join(","));
                                               if(newSkins !== null) updateUser(id, { skins: newSkins.split(",").map(s=>s.trim()) });
                                           }}
-                                          className="ml-2 text-violet-300 hover:text-violet-200 inline-flex align-middle"
+                                          className="ml-2 text-accent-soft hover:text-white inline-flex align-middle"
                                       ><Pencil size={12} /></button>
                                   </td>
                                   {/* seit dem Umbau (Okt. 2026) keine Slots mehr: Fortschritt = Account-XP */}
@@ -607,20 +607,20 @@ export default function AdminDashboard() {
               <div>
                   {isWc && (
                       <div className="flex gap-3 mb-5 flex-wrap items-center">
-                          <div className="panel px-4 py-2.5 flex items-center gap-2">
+                          <div className="rounded-lg border border-line bg-surface/80 px-4 py-2.5 flex items-center gap-2">
                               <span className="text-white/40 text-[10px] uppercase font-bold tracking-wider">Overlays</span>
                               <span className="text-lg font-bold text-white">{list.length}</span>
                           </div>
-                          <div className="panel px-4 py-2.5 flex items-center gap-2">
+                          <div className="rounded-lg border border-line bg-surface/80 px-4 py-2.5 flex items-center gap-2">
                               <span className="text-white/40 text-[10px] uppercase font-bold tracking-wider">Follower gesamt</span>
-                              <span className="text-lg font-bold text-violet-300">
+                              <span className="text-lg font-bold text-accent-soft">
                                   {knownFollowers.reduce((s, n) => s + n, 0).toLocaleString("de-DE")}
                               </span>
                           </div>
                           <button
                               onClick={() => fetchWcFollowers(true)}
                               disabled={wcFollowersLoading}
-                              className="ml-auto flex items-center gap-1.5 px-4 py-2.5 bg-violet-600 hover:bg-violet-500 disabled:bg-white/5 disabled:text-white/30 text-white rounded-lg text-sm font-semibold transition-colors"
+                              className="ml-auto flex items-center gap-1.5 px-4 py-2.5 bg-accent hover:bg-accent-hover disabled:bg-white/5 disabled:text-white/30 text-white rounded-lg text-sm font-semibold transition-colors"
                           >
                               <RefreshCw size={14} /> {wcFollowersLoading ? "Lädt Follower..." : "Follower aktualisieren"}
                           </button>
@@ -637,7 +637,7 @@ export default function AdminDashboard() {
                        const followers = wcFollowers[String(item?.userId || id)];
 
                        return (
-                           <div key={id} className="panel p-4">
+                           <div key={id} className="rounded-lg border border-line bg-surface/80 p-4">
                                <h3 className="font-bold text-white mb-1.5">
                                    {item.title || item.theme?.name || "Unbenannt"}
                                </h3>
@@ -648,7 +648,7 @@ export default function AdminDashboard() {
                                        href={`https://twitch.tv/${displayName}`}
                                        target="_blank"
                                        rel="noopener noreferrer"
-                                       className="text-violet-300 font-semibold bg-violet-500/10 border border-violet-400/20 px-2 py-0.5 rounded-md hover:bg-violet-500 hover:text-white hover:border-violet-500 transition-colors flex items-center gap-1"
+                                       className="text-accent-soft font-semibold bg-accent/10 border border-accent/25 px-2 py-0.5 rounded-md hover:bg-accent-hover hover:text-white hover:border-accent transition-colors flex items-center gap-1"
                                        title={`Gehe zu twitch.tv/${displayName}`}
                                    >
                                        {displayName}
@@ -722,11 +722,11 @@ export default function AdminDashboard() {
                   <div>
                       <GardenSubNav aktiv={gardenSubTab} onWechsel={setGardenSubTab} />
                       <div className="flex gap-3 mb-5 flex-wrap items-center">
-                          <div className="panel px-4 py-2.5 flex items-center gap-2">
+                          <div className="rounded-lg border border-line bg-surface/80 px-4 py-2.5 flex items-center gap-2">
                               <span className="text-white/40 text-[10px] uppercase font-bold tracking-wider">Online</span>
                               <span className="text-lg font-bold text-emerald-400">{online}</span>
                           </div>
-                          <div className="panel px-4 py-2.5 flex items-center gap-2">
+                          <div className="rounded-lg border border-line bg-surface/80 px-4 py-2.5 flex items-center gap-2">
                               <span className="text-white/40 text-[10px] uppercase font-bold tracking-wider">Welten</span>
                               <span className="text-lg font-bold text-white">{gardenWorlds.length}</span>
                           </div>
@@ -735,16 +735,16 @@ export default function AdminDashboard() {
                                   ? `Stand ${new Date(gardenWorldsAt).toLocaleTimeString("de-DE")} · aktualisiert sich alle 5 s`
                                   : "Lädt..."}
                           </span>
-                          <button onClick={fetchGardenWorlds} className="ml-auto flex items-center gap-1.5 px-4 py-2.5 bg-violet-600 hover:bg-violet-500 text-white rounded-lg text-sm font-semibold transition-colors">
+                          <button onClick={fetchGardenWorlds} className="ml-auto flex items-center gap-1.5 px-4 py-2.5 bg-accent hover:bg-accent-hover text-white rounded-lg text-sm font-semibold transition-colors">
                               <RefreshCw size={14} /> Jetzt aktualisieren
                           </button>
                       </div>
 
                       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                           {welten.map(w => (
-                              <div key={w.code} className="panel p-4">
+                              <div key={w.code} className="rounded-lg border border-line bg-surface/80 p-4">
                                   <div className="flex items-center justify-between mb-3">
-                                      <span className="font-mono text-lg font-bold text-violet-300 flex items-center gap-2">
+                                      <span className="font-mono text-lg font-bold text-accent-soft flex items-center gap-2">
                                           {w.isPublic ? <Globe size={15} className="text-white/40" /> : <Lock size={15} className="text-white/40" />}
                                           {w.code}
                                       </span>
@@ -788,7 +788,7 @@ export default function AdminDashboard() {
                       {gardenDetail && (
                           <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4"
                                onClick={() => setGardenDetail(null)}>
-                              <div className="w-full max-w-5xl max-h-[88vh] flex flex-col bg-slate-900 border border-slate-700 rounded-md p-4"
+                              <div role="dialog" aria-modal="true" aria-label="Farm bearbeiten" className="w-full max-w-5xl max-h-[88vh] flex flex-col bg-surface-raised border border-line rounded-lg p-4"
                                    onClick={(e) => e.stopPropagation()}>
                                   <GardenAdminPanel
                                       userId={gardenDetail.userId}
@@ -806,19 +806,19 @@ export default function AdminDashboard() {
               <div>
                   <GardenSubNav aktiv={gardenSubTab} onWechsel={setGardenSubTab} />
                   <div className="flex gap-3 mb-5 flex-wrap items-center">
-                      <div className="panel px-4 py-2.5 flex items-center gap-2">
+                      <div className="rounded-lg border border-line bg-surface/80 px-4 py-2.5 flex items-center gap-2">
                           <span className="text-white/40 text-[10px] uppercase font-bold tracking-wider">Spieler</span>
                           <span className="text-lg font-bold text-white">{gardenUsers.length}</span>
                       </div>
-                      <div className="panel px-4 py-2.5 flex items-center gap-2">
+                      <div className="rounded-lg border border-line bg-surface/80 px-4 py-2.5 flex items-center gap-2">
                           <span className="text-white/40 text-[10px] uppercase font-bold tracking-wider">Gold gesamt</span>
                           <span className="text-lg font-bold text-amber-400">{gardenUsers.reduce((s, u) => s + u.gold, 0).toLocaleString("de-DE")}</span>
                       </div>
-                      <button onClick={() => fetchData("garden")} className="ml-auto flex items-center gap-1.5 px-4 py-2.5 bg-violet-600 hover:bg-violet-500 text-white rounded-lg text-sm font-semibold transition-colors">
+                      <button onClick={() => fetchData("garden")} className="ml-auto flex items-center gap-1.5 px-4 py-2.5 bg-accent hover:bg-accent-hover text-white rounded-lg text-sm font-semibold transition-colors">
                           <RefreshCw size={14} /> Aktualisieren
                       </button>
                   </div>
-                  <div className="panel overflow-hidden">
+                  <div className="rounded-lg border border-line bg-surface/80 overflow-hidden">
                     <div className="overflow-x-auto">
                       <table className="w-full text-sm text-left">
                           <thead className="bg-black/25 text-[10px] uppercase tracking-wider text-white/40">
@@ -854,7 +854,7 @@ export default function AdminDashboard() {
                                           {gardenEditId === u.userId ? (
                                               <div className="flex gap-1.5 items-center">
                                                   <input autoFocus type="number" value={gardenEditGold} onChange={e => setGardenEditGold(e.target.value)} placeholder="Wert"
-                                                      className="w-24 bg-black/40 border border-white/10 rounded-lg px-2 py-1 text-white text-xs focus:border-violet-500 outline-none transition-colors" />
+                                                      className="w-24 bg-black/30 border border-line rounded-lg px-2 py-1 text-white text-xs focus:border-accent outline-none transition-colors" />
                                                   <button onClick={() => saveGold(u.userId, gardenEditGold)} className="text-emerald-300 font-bold bg-emerald-500/10 hover:bg-emerald-500/20 px-2 py-1 rounded-md text-xs transition-colors">SET</button>
                                                   <button onClick={() => saveGold(u.userId, Number(u.gold) + Number(gardenEditGold))} className="text-blue-300 font-bold bg-blue-500/10 hover:bg-blue-500/20 px-2 py-1 rounded-md text-xs transition-colors">ADD</button>
                                                   <button onClick={() => setGardenEditId(null)} className="text-white/40 bg-white/5 hover:text-white hover:bg-white/10 px-2 py-1 rounded-md text-xs transition-colors">X</button>
@@ -894,7 +894,7 @@ export default function AdminDashboard() {
                   {gardenDetail && (
                       <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4"
                            onClick={() => setGardenDetail(null)}>
-                          <div className="w-full max-w-5xl max-h-[88vh] flex flex-col bg-slate-900 border border-slate-700 rounded-md p-4"
+                          <div role="dialog" aria-modal="true" aria-label="Farm bearbeiten" className="w-full max-w-5xl max-h-[88vh] flex flex-col bg-surface-raised border border-line rounded-lg p-4"
                                onClick={(e) => e.stopPropagation()}>
                               <GardenAdminPanel
                                   userId={gardenDetail.userId}
@@ -930,32 +930,32 @@ export default function AdminDashboard() {
                   {/* Wer darf Turniere erstellen (Content-Creator-Freigabe) */}
                   <TournamentCreatorsPanel />
                   <div className="flex gap-3 mb-5 flex-wrap items-center">
-                      <div className="panel px-4 py-2.5 flex items-center gap-2">
+                      <div className="rounded-lg border border-line bg-surface/80 px-4 py-2.5 flex items-center gap-2">
                           <span className="text-white/40 text-[10px] uppercase font-bold tracking-wider">Aktive Lobbys</span>
                           <span className="text-lg font-bold text-white">{clashLobbies.length}</span>
                       </div>
-                      <button onClick={() => fetchData("clashroyale")} className="ml-auto flex items-center gap-1.5 px-4 py-2.5 bg-violet-600 hover:bg-violet-500 text-white rounded-lg text-sm font-semibold transition-colors">
+                      <button onClick={() => fetchData("clashroyale")} className="ml-auto flex items-center gap-1.5 px-4 py-2.5 bg-accent hover:bg-accent-hover text-white rounded-lg text-sm font-semibold transition-colors">
                           <RefreshCw size={14} /> Aktualisieren
                       </button>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                       {filtered.map(l => (
-                          <div key={l.code} className="panel p-4">
+                          <div key={l.code} className="rounded-lg border border-line bg-surface/80 p-4">
                               <div className="flex items-center justify-between mb-2">
-                                  <span className="font-mono text-lg font-bold text-violet-300">{l.code}</span>
+                                  <span className="font-mono text-lg font-bold text-accent-soft">{l.code}</span>
                                   <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md border ${phaseColor[l.phase] || "text-white/40 border-white/10"}`}>
                                       {phaseLabel[l.phase] || l.phase}
                                   </span>
                               </div>
                               <div className="text-white font-semibold text-sm mb-1 flex items-center gap-1.5">
-                                  <Gamepad2 size={13} className="text-violet-300" /> {modeLabel[l.mode] || l.mode}
+                                  <Gamepad2 size={13} className="text-accent-soft" /> {modeLabel[l.mode] || l.mode}
                               </div>
                               <div className="text-xs text-white/40 mb-3">
                                   Host: <span className="text-white/70 font-semibold">{l.hostName}</span> · {l.playerCount} Spieler
                               </div>
                               <button
                                   onClick={() => navigate(`/clash-royale?adminCode=${l.code}`)}
-                                  className="w-full bg-violet-500/10 hover:bg-violet-600 text-violet-300 hover:text-white border border-violet-500/30 py-2 rounded-lg text-sm font-semibold transition-colors flex items-center justify-center gap-2"
+                                  className="w-full bg-accent/10 hover:bg-accent text-accent-soft hover:text-white border border-accent/30 py-2 rounded-lg text-sm font-semibold transition-colors flex items-center justify-center gap-2"
                               >
                                   <Eye size={14} /> Ansehen
                               </button>
@@ -986,7 +986,7 @@ export default function AdminDashboard() {
         <div className="grid grid-cols-1 lg:grid-cols-[240px_1fr] gap-6 items-start">
 
           {/* SIDEBAR NAV */}
-          <nav className="panel p-2 flex lg:flex-col gap-1 overflow-x-auto lg:overflow-visible lg:sticky lg:top-6">
+          <nav className="rounded-lg border border-line bg-surface/80 p-2 flex lg:flex-col gap-1 overflow-x-auto lg:overflow-visible lg:sticky lg:top-6">
               {SECTIONS.map(sec => {
                   const Icon = sec.icon;
                   const active = activeTab === sec.id;
@@ -995,7 +995,7 @@ export default function AdminDashboard() {
                           key={sec.id}
                           onClick={() => { setActiveTab(sec.id); setSearch(""); }}
                           className={`flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-semibold transition-colors whitespace-nowrap shrink-0 lg:shrink lg:w-full text-left ${
-                              active ? "bg-violet-600 text-white" : "text-white/50 hover:bg-white/5 hover:text-white"
+                              active ? "bg-accent text-white" : "text-white/50 hover:bg-white/5 hover:text-white"
                           }`}
                       >
                           <Icon size={16} className="shrink-0" />
@@ -1019,7 +1019,7 @@ export default function AdminDashboard() {
           <div className="min-w-0 space-y-6">
               <div className="flex items-center justify-between gap-4 flex-wrap">
                   <h2 className="font-display text-lg font-bold text-white flex items-center gap-2">
-                      <activeSection.icon size={18} className="text-violet-300" /> {activeSection.label}
+                      <activeSection.icon size={18} className="text-accent-soft" /> {activeSection.label}
                   </h2>
 
                   {!["codes", "broadcast", "seedrunners", "analytics"].includes(activeTab) && (
@@ -1030,7 +1030,7 @@ export default function AdminDashboard() {
                               placeholder="Suche nach Name, Login, ID..."
                               value={search}
                               onChange={e => setSearch(e.target.value)}
-                              className="w-full bg-black/40 border border-white/10 rounded-lg pl-10 pr-4 py-2.5 text-sm text-white focus:border-violet-500 outline-none transition-colors"
+                              className="w-full bg-black/30 border border-line rounded-lg pl-10 pr-4 py-2.5 text-sm text-white focus:border-accent outline-none transition-colors"
                           />
                       </div>
                   )}

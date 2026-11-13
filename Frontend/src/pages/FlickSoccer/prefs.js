@@ -1,17 +1,19 @@
 // prefs.js — gemerkte Einstellungen (nur dieser Browser): Name, Aufstellungen, Designs, Regeln, KI-Stufe, Online-Token.
-import { RULES, DEFAULT_FORMATION, DEFAULT_SKIN, DEFAULT_FIELD, isFormation, isField, isUnlocked } from './engine/index.js';
+import { RULES, DEFAULT_FORMATION, DEFAULT_SKIN, DEFAULT_FIELD, isCustomFormation, isFormation, isField, isUnlocked } from './engine/index.js';
 import { AI_LEVELS } from './ai.js';
 import { loadStats } from './stats.js';
-import { BALLS, TURFS, CELEBRATIONS, DEFAULT_LOOK, itemUnlocked } from './progress.js';
+import { BALLS, CELEBRATIONS, DEFAULT_LOOK, itemUnlocked } from './progress.js';
 
 const KEY = 'flickSoccer.prefs';
 const TOKEN_KEY = 'flickSoccer.token';
+export const MAX_CUSTOM_FORMATIONS = 5;
 
 export const DEFAULT_PREFS = Object.freeze({
   mode: 'ai',
   name: '',
   formation: DEFAULT_FORMATION,
   formation2: DEFAULT_FORMATION,
+  customFormations: [], // selbst gebaute Aufstellungen (Zeichenketten, engine/formations.js)
   goalsToWin: RULES.DEFAULT_GOALS,
   turnSeconds: RULES.DEFAULT_TURN_SECONDS,
   level: 'medium',
@@ -21,7 +23,6 @@ export const DEFAULT_PREFS = Object.freeze({
   skin: DEFAULT_SKIN,
   skin2: DEFAULT_SKIN,
   ball: DEFAULT_LOOK.ball,
-  turf: DEFAULT_LOOK.turf,
   celebration: DEFAULT_LOOK.celebration,
 });
 
@@ -40,6 +41,9 @@ export function loadPrefs() {
     name: typeof raw.name === 'string' ? raw.name.slice(0, 20) : '',
     formation: isFormation(raw.formation) ? raw.formation : DEFAULT_PREFS.formation,
     formation2: isFormation(raw.formation2) ? raw.formation2 : DEFAULT_PREFS.formation2,
+    customFormations: Array.isArray(raw.customFormations)
+      ? [...new Set(raw.customFormations.filter(isCustomFormation))].slice(0, MAX_CUSTOM_FORMATIONS)
+      : [],
     goalsToWin: RULES.GOALS_TO_WIN.includes(raw.goalsToWin) ? raw.goalsToWin : DEFAULT_PREFS.goalsToWin,
     turnSeconds: RULES.TURN_SECONDS.includes(raw.turnSeconds) ? raw.turnSeconds : DEFAULT_PREFS.turnSeconds,
     level: AI_LEVELS[raw.level] ? raw.level : DEFAULT_PREFS.level,
@@ -49,7 +53,6 @@ export function loadPrefs() {
     skin: isUnlocked(raw.skin, stats) ? raw.skin : DEFAULT_SKIN,
     skin2: isUnlocked(raw.skin2, stats) ? raw.skin2 : DEFAULT_SKIN,
     ball: pick(BALLS, raw.ball, DEFAULT_LOOK.ball),
-    turf: pick(TURFS, raw.turf, DEFAULT_LOOK.turf),
     celebration: pick(CELEBRATIONS, raw.celebration, DEFAULT_LOOK.celebration),
   };
 }

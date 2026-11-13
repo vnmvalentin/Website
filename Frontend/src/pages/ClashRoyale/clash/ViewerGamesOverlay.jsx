@@ -7,6 +7,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useCardImage, drawCardStage, VIEW_W, VIEW_H } from './cardStage';
+import { useFontLink } from '../../../components/shell/useFontLink';
 
 const POLL_MS = 1000;
 const FONT_HREF = 'https://fonts.googleapis.com/css2?family=Lilita+One&display=swap';
@@ -17,13 +18,7 @@ const TXT = {
 };
 
 function useFont() {
-  useEffect(() => {
-    if (document.querySelector(`link[href="${FONT_HREF}"]`)) return;
-    const l = document.createElement('link');
-    l.rel = 'stylesheet';
-    l.href = FONT_HREF;
-    document.head.appendChild(l);
-  }, []);
+  useFontLink(FONT_HREF);
 }
 
 /** Abfrage des Overlay-Zustands; offset = Serveruhr − eigene Uhr */

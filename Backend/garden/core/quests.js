@@ -86,7 +86,11 @@ const WOECHENTLICHE_IDS = new Set(WOECHENTLICHE_KATALOG.map((m) => m.id));
 function stufenFaktor(state) {
     // Über Level 50 gedämpft (belohnungsLevel in core/skills.js).
     const level = belohnungsLevel(state?.xp);
-    return Math.pow(FAKTOR_JE_ZEHN_LEVEL, (level - 1) / 10);
+    // 08.11.: in den ersten Leveln abgefedert (Level 1 = 15 %, ab Level 11 voll). Vorher
+    // brachte „Kaufe 5 Samen“ bei 500 Startgold sofort 4.000 Gold — damit sprang man in
+    // Minute 4 auf die teuren Samen und ließ die gewöhnlichen nach dem ersten Kauf links liegen.
+    const anfang = Math.min(1, 0.15 + 0.085 * (level - 1));
+    return Math.pow(FAKTOR_JE_ZEHN_LEVEL, (level - 1) / 10) * anfang;
 }
 
 /** Auf zwei geltende Ziffern runden — 1.234.567 wird 1.200.000. */
@@ -179,8 +183,9 @@ function bringeQuestsAufStand(state, now = Date.now()) {
     // Spielstände aus der Zeit vor dem Stufenfaktor: der LAUFENDE Zeitraum bleibt
     // bei Faktor 1. Fortschritt wurde bisher am alten Ziel gedeckelt — ein höheres
     // Ziel mitten am Tag machte eine geschaffte Mission wieder offen.
-    if (!(Number(q.faktorTag) >= 1)) q.faktorTag = 1;
-    if (!(Number(q.faktorWoche) >= 1)) q.faktorWoche = 1;
+    // 08.11.: > 0 statt >= 1 — der Anfangsfaktor (stufenFaktor) liegt in den ersten Leveln unter 1.
+    if (!(Number(q.faktorTag) > 0)) q.faktorTag = 1;
+    if (!(Number(q.faktorWoche) > 0)) q.faktorWoche = 1;
     return q;
 }
 

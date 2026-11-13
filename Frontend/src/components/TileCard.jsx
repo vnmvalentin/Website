@@ -2,16 +2,16 @@
 // Türen und Übersichtsseiten (/fun, /clash, /community, /tools) nutzen genau diese Karte.
 //
 // 3D: Die Karte neigt sich unter dem Zeiger (rotateX/rotateY, Tiefe über perspective), das Bild verschiebt sich
-// leicht gegenläufig, die Textleiste liegt mit translateZ "vor" dem Bild. Beim Erscheinen klappt sie aus der Tiefe
-// auf (.tile3d-in, Verzögerung über `index`). Bewusst ohne Leuchten und ohne Vergrößern; bei "Bewegung reduzieren"
-// entfallen Aufklappen und Bildwechsel, die Neigung unter der eigenen Maus bleibt. Die ganze Fläche ist der Link.
+// leicht gegenläufig, die Textleiste liegt mit translateZ "vor" dem Bild. Beim Erscheinen steigt sie leicht auf
+// (.tile3d-in, Verzögerung über `index`). Bewusst ohne Leuchten und ohne Vergrößern; bei "Bewegung reduzieren"
+// entfallen Einblenden und Bildwechsel, die Neigung unter der eigenen Maus bleibt. Die ganze Fläche ist der Link.
 import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { ArrowRight, ExternalLink } from "lucide-react";
 import { useTilt } from "../utils/useTilt";
 
-const MAX_TILT = 9; // Grad
-const PARALLAX = [8, 6]; // Pixel Bildverschiebung an der Kante
+const MAX_TILT = 5; // Grad — bewusst wenig, die Karte soll reagieren, nicht kippen
+const PARALLAX = [6, 4]; // Pixel Bildverschiebung an der Kante
 const ROTATE_MS = 3200;
 
 function useReducedMotion() {
@@ -38,12 +38,14 @@ function useRotation(count, ref, reduced) {
 /**
  * @param to / href   Ziel (intern / extern) — die ganze Karte ist der Link
  * @param images      Vorschaubilder; mehrere werden überblendet
+ * @param preview     Live-Vorschau statt Bild (z. B. ein laufendes Overlay): ein Element mit der Klasse .tile3d-live,
+ *                    das sich über die Bilder legt — solange es noch lädt, bleiben die Bilder sichtbar
  * @param kicker      kleine Zeile über dem Titel
  * @param icon        Symbol, wenn kein Bild da ist
  * @param size        "sm" (Schnellzugriff), "md" (Standard), "lg" (Türen)
  * @param index       Position im Raster — staffelt das Aufklappen
  */
-export default function TileCard({ to, href, onClick, title, text, kicker, images = [], icon: Icon, size = "md", index = 0, className = "" }) {
+export default function TileCard({ to, href, onClick, title, text, kicker, images = [], preview, icon: Icon, size = "md", index = 0, className = "" }) {
   // Neigung unter dem Zeiger (utils/useTilt.js) — auch bei "Bewegung reduzieren", sie folgt der eigenen Maus
   const { ref, onPointerMove: onMove, onPointerLeave: onLeave } = useTilt(MAX_TILT, PARALLAX);
   const reduced = useReducedMotion();
@@ -51,12 +53,13 @@ export default function TileCard({ to, href, onClick, title, text, kicker, image
   const pics = images.filter(Boolean).map((x) => (typeof x === "string" ? { src: x, fit: "cover" } : x));
   const shown = useRotation(pics.length, ref, reduced);
 
-  const media = pics.length > 0 ? (
+  const media = pics.length > 0 || preview ? (
     <div className="tile3d-media">
       {pics.map((p, i) => (
         <img key={p.src} src={p.src} alt="" loading="lazy" draggable={false}
           className={`${i === shown ? "is-on" : ""} ${p.fit === "contain" ? "fit-contain" : ""}`} />
       ))}
+      {preview}
     </div>
   ) : (
     <div className="tile3d-media tile3d-media--icon">{Icon && <Icon size={size === "sm" ? 22 : 34} aria-hidden="true" />}</div>

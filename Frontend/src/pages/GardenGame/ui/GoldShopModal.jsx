@@ -6,10 +6,12 @@
 // /api/garden/reskins) — wie beim Missionsbrett und dem Fähigkeitsbaum: eine
 // Anzeige, die etwas anderes verspricht als die Route tatsächlich auszahlt,
 // wäre schlimmer als gar keine Anzeige.
-import React, { useState } from 'react';
-import { GardenModal, PrimaryButton, TabBar, GoldTag, FensterZeile, LeerHinweis } from './gardenUi';
-import { formatGold } from './gardenTokens';
-import { HudIcon } from './gameIcons';
+import React, { useEffect, useState } from 'react';
+import { GoldTag } from './gardenUi';
+import { StandFenster, StandReiter, Regal, WarenKachel, KaufKnopf } from './laden/Marktstand';
+import { HudIcon, TabIcon } from './gameIcons';
+import { hutVorschau } from '../engine/huete';
+import { raumVorschau } from './hausRaum';
 import { versionedAsset } from '../engine/assetVersion';
 
 // Alle drei Reiter zeigen echte Icons statt lucide (Feedback 31.08./01.09.:
@@ -18,11 +20,14 @@ import { versionedAsset } from '../engine/assetVersion';
 // eigenes Bild für Spitzhacke/Gießkanne/Schaufel geliefert), siehe
 // core/reskins.js für die passende Entfernung dort.
 const TAB_META = {
-    shed: { label: "Schuppen", icon: HudIcon.shed },
+    shed: { label: "Haus", icon: HudIcon.shed },
     mailbox: { label: "Briefkasten", icon: HudIcon.mailbox },
-    nameplate: { label: "Nameplate", icon: HudIcon.nameplate },
+    nameplate: { label: "Namensschild", icon: HudIcon.nameplate },
+    hut: { label: "Hüte", icon: HudIcon.wardrobe },
+    tierhut: { label: "Tierhüte", icon: TabIcon.pet },
+    tapete: { label: "Tapeten", icon: HudIcon.shed },
 };
-const TAB_REIHENFOLGE = ["shed", "mailbox", "nameplate"];
+const TAB_REIHENFOLGE = ["shed", "tapete", "hut", "tierhut", "mailbox", "nameplate"];
 
 /**
  * Zurück zum Standard-Look — fehlte bisher (Feedback 01.09.: "einmal gekauft,
@@ -34,6 +39,9 @@ const TAB_REIHENFOLGE = ["shed", "mailbox", "nameplate"];
 const STANDARD_EINTRAG = {
     shed: { id: null, name: "Standard", price: 0, gekauft: true, image: "/garden-assets/world/shed.png" },
     mailbox: { id: null, name: "Standard", price: 0, gekauft: true, image: "/garden-assets/world/mailbox.png" },
+    hut: { id: null, name: "Ohne Hut", price: 0, gekauft: true },
+    tierhut: { id: null, name: "Ohne Hut", price: 0, gekauft: true },
+    tapete: { id: null, name: "Wie das Haus", price: 0, gekauft: true },
     nameplate: {
         id: null, name: "Standard", price: 0, gekauft: true,
         // Dieselben Farben wie der eigene Nametag ohne Reskin (Renderer.js,
@@ -44,6 +52,15 @@ const STANDARD_EINTRAG = {
 };
 
 function Vorschau({ kategorie, eintrag }) {
+    // 06.11.: Hüte sind Code-Pixelbilder (engine/huete.js), Tapeten ein Blick ins Zimmer (ui/hausRaum.js)
+    if (kategorie === "hut" || kategorie === "tierhut") {
+        const url = eintrag.id ? hutVorschau(eintrag.id) : null;
+        return url ? <img src={url} alt="" draggable={false} className="h-24 object-contain" style={{ imageRendering: "pixelated" }} /> : <span className="text-xs font-bold text-[#8a7a5a]">—</span>;
+    }
+    if (kategorie === "tapete") {
+        const url = raumVorschau(eintrag.id);
+        return url ? <img src={url} alt="" draggable={false} className="h-32 w-[92%] object-cover" style={{ imageRendering: "pixelated" }} /> : null;
+    }
     if (kategorie === "nameplate") {
         const f = eintrag.farbe || {};
         // Derselbe diagonale Verlauf wie in der Welt (Renderer.js,
@@ -59,11 +76,9 @@ function Vorschau({ kategorie, eintrag }) {
         );
     }
     return (
-        <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-xl border-2 border-amber-950/40 bg-amber-50 p-1">
-            {eintrag.image ? (
-                <img src={versionedAsset(eintrag.image)} alt="" className="max-h-full max-w-full object-contain" draggable={false} />
-            ) : null}
-        </div>
+        eintrag.image ? (
+            <img src={versionedAsset(eintrag.image)} alt="" className="h-32 max-w-[90%] object-contain sm:h-36" style={{ imageRendering: "pixelated" }} draggable={false} />
+        ) : null
     );
 }
 
@@ -79,30 +94,38 @@ function ReskinKarte({ kategorie, eintrag, ausgeruestet, gold, onKaufen, onAusru
     // Saison-Namensschilder gibt es nur über die Saisonziele (Missionsbrett → Jahreszeit).
     const nurSaison = Boolean(eintrag.saison) && !eintrag.gekauft;
     return (
-        <FensterZeile
-            zustand={istAusgeruestet ? "aktiv" : "normal"}
+        <WarenKachel
+            gross
+            hervorheben={istAusgeruestet}
+            band={istAusgeruestet ? { text: "Ausgerüstet", farbe: "#3f7a35", hell: "#dcebc8" }
+                : eintrag.gekauft ? { text: eintrag.saison ? "Freigeschaltet" : "Gekauft", farbe: "#2f6ab0", hell: "#d4e4f4" }
+                    : nurSaison ? { text: "Saisonziel", farbe: "#c8407a", hell: "#f8d8e6" }
+                        : { text: "", farbe: "transparent", hell: "#f8e8b8" }}
             bild={<Vorschau kategorie={kategorie} eintrag={eintrag} />}
-            titel={eintrag.name}
-            text={istAusgeruestet ? "Ausgerüstet" : eintrag.gekauft ? (eintrag.saison ? "Freigeschaltet" : "Gekauft") : nurSaison ? (eintrag.saison === "alle" ? "Für alle vier Jahreszeiten-Namensschilder" : "Belohnung der Saisonziele (Missionsbrett → Jahreszeit)") : null}
-            wert={eintrag.gekauft || nurSaison ? null : formatGold(eintrag.price)}
+            name={eintrag.name}
+            text={nurSaison ? (eintrag.saison === "alle" ? "Für alle vier Jahreszeiten-Namensschilder" : "Belohnung der Saisonziele (Missionsbrett → Jahreszeit)") : null}
+            preis={eintrag.gekauft || nurSaison ? undefined : eintrag.price}
+            leistbar={leistbar}
             aktionen={eintrag.gekauft ? (
-                <PrimaryButton onClick={() => onAusruesten(kategorie, eintrag.id)} disabled={istAusgeruestet || busy}>
+                <KaufKnopf onClick={() => onAusruesten(kategorie, eintrag.id)} disabled={istAusgeruestet || busy}>
                     {istAusgeruestet ? "Aktiv" : "Ausrüsten"}
-                </PrimaryButton>
-            ) : nurSaison ? (
-                <PrimaryButton disabled>Saisonziel</PrimaryButton>
-            ) : (
-                <PrimaryButton onClick={() => onKaufen(kategorie, eintrag.id)} disabled={!leistbar || busy}>
+                </KaufKnopf>
+            ) : nurSaison ? null : (
+                <KaufKnopf onClick={() => onKaufen(kategorie, eintrag.id)} disabled={!leistbar || busy}>
                     {leistbar ? "Kaufen" : "Zu teuer"}
-                </PrimaryButton>
+                </KaufKnopf>
             )}
         />
     );
 }
 
-export default function GoldShopModal({ offen, onClose, onBack, daten, gold, onKaufen, onAusruesten }) {
+export default function GoldShopModal({ offen, onClose, onBack, daten, gold, onKaufen, onAusruesten, startTab = null }) {
     const [tab, setTab] = useState("shed");
     const [laufendeId, setLaufendeId] = useState(null);
+    // 11.11.: Im begehbaren Gold-Shop öffnet jedes Regal seine Abteilung (ui/HausInnen.jsx)
+    useEffect(() => {
+        if (offen && startTab && TAB_META[startTab]) setTab(startTab);
+    }, [offen, startTab]);
     if (!offen) return null;
 
     const katalog = daten?.katalog || {};
@@ -125,18 +148,20 @@ export default function GoldShopModal({ offen, onClose, onBack, daten, gold, onK
     };
 
     return (
-        <GardenModal
-            title="Gold-Shop"
-            subtitle="Rein kosmetisch — kein Vorteil, nur ein anderer Look."
+        <StandFenster
+            titel="Gold-Shop"
+            untertitel="Rein kosmetisch — kein Vorteil, nur ein anderer Look"
+            farbe="gold"
+            bild="/garden-assets/world/gold_shop.png"
             onClose={onClose}
             onBack={onBack}
-            headerRight={<GoldTag gold={gold} />}
-            toolbar={<TabBar className="-mb-2" tabs={tabs} active={tab} onSelect={setTab} />}
+            kopfRechts={<GoldTag gold={gold} />}
+            reiter={<StandReiter aktiv={tab} onWaehlen={setTab} reiter={tabs.map((t) => ({ key: t.key, label: t.label, anzahl: t.count }))} />}
         >
             {liste.length === 0 ? (
-                <LeerHinweis>Gerade nichts im Angebot.</LeerHinweis>
+                <div className="py-6 text-center text-sm text-[#f3e3c3]">Gerade nichts im Angebot.</div>
             ) : (
-                <div className="space-y-1.5">
+                <Regal titel={TAB_META[tab]?.label}>
                     {liste.map((eintrag) => (
                         <ReskinKarte
                             key={eintrag.id}
@@ -149,8 +174,8 @@ export default function GoldShopModal({ offen, onClose, onBack, daten, gold, onK
                             busy={laufendeId === `${tab}:${eintrag.id}`}
                         />
                     ))}
-                </div>
+                </Regal>
             )}
-        </GardenModal>
+        </StandFenster>
     );
 }

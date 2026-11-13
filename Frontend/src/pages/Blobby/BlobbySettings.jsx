@@ -32,12 +32,12 @@ export default function BlobbySettings({ value, onChange, disabled = false }) {
 
   return (
     <div className="bv-rows">
-      <Row label="Spielfeld" hint="Beach 3D: echtes Feld, laufen mit WASD, springen mit Leertaste">
+      <Row label="Spielfeld" hint="Ego 3D: Volleyball aus der Ich-Sicht — mit der Maus zielen, per Klick schlagen">
         <Choice active={!beach} disabled={disabled} onClick={() => set({ field: "classic" })}>Klassisch</Choice>
-        <Choice active={beach} disabled={disabled} onClick={() => set({ field: "beach" })}>Beach 3D</Choice>
+        <Choice active={beach} disabled={disabled} onClick={() => set({ field: "beach" })}>Ego 3D</Choice>
       </Row>
 
-      <Row label="Spielmodus" hint="2 gegen 2 spielt auf einem breiteren Feld">
+      <Row label="Spielmodus" hint="2 gegen 2 spielt auf einem größeren Feld">
         <Choice active={s.mode === "1v1"} disabled={disabled} onClick={() => set({ mode: "1v1" })}>1 gegen 1</Choice>
         <Choice active={s.mode === "2v2"} disabled={disabled} onClick={() => set({ mode: "2v2" })}>2 gegen 2</Choice>
       </Row>

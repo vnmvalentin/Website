@@ -49,11 +49,12 @@ const DEFAULT_SETTINGS = {
   danceStyle: 'auto',        // auto | mixed | rave | classic
   bpm: 124,                  // Takt ohne Musik-Anbindung
   music: { enabled: false, port: 9500, reactive: true, showSong: true, sensitivity: 1 },
-  effects: { confetti: true, fire: true, strobe: true, fog: true },
+  effects: { confetti: true, fire: true, strobe: true, fog: true, lasers: true, sparks: true },
+  groupDance: true,          // ab und zu tanzen alle denselben Schritt (beim Drop immer)
   title: '',
   countdownTo: null,         // Zeitpunkt (ms), auf den der Countdown zählt
   demo: false,               // Testmodus: simulierte Zuschauer tanzen (zum Ausprobieren, vor dem Stream ausschalten)
-  theme: 'party',            // party | halloween (Deko, Lichtfarben, verkleidete Tänzer)
+  theme: 'party',            // party | halloween | christmas (Deko, Lichtfarben, verkleidete Tänzer bzw. Weihnachtsmützen)
   dj: true,                  // Streamer steht als Figur hinter dem DJ-Pult
   // BRB-Planet (/overlay/brb): Modus, Thema (auto = Halloween-Thema oder Jahreszeit), Rückkehr-Zeitpunkt, eigene Zeile
   // showCard: Tafel unten links; race: Planetenlauf per !rennen (Anmeldezeit s, Pause zwischen Läufen min)
@@ -111,11 +112,14 @@ function sanitizeSettings(input, base = DEFAULT_SETTINGS) {
       fire: bool(e.fire, base.effects.fire),
       strobe: bool(e.strobe, base.effects.strobe),
       fog: bool(e.fog, base.effects.fog),
+      lasers: bool(e.lasers, base.effects.lasers ?? true),
+      sparks: bool(e.sparks, base.effects.sparks ?? true),
     },
     title: typeof s.title === 'string' ? s.title.slice(0, 120) : base.title,
     countdownTo: s.countdownTo === undefined ? base.countdownTo : cd,
     demo: bool(s.demo, base.demo ?? false),
-    theme: oneOf(s.theme, ['party', 'halloween'], base.theme ?? 'party'),
+    theme: oneOf(s.theme, ['party', 'halloween', 'christmas'], base.theme ?? 'party'),
+    groupDance: bool(s.groupDance, base.groupDance ?? true),
     dj: bool(s.dj, base.dj ?? true),
     brb: {
       mode: oneOf(brbIn.mode, ['brb', 'difficulties'], brbBase.mode),
@@ -154,7 +158,7 @@ function parseSettings(text) {
   try { return sanitizeSettings(JSON.parse(text)); } catch { return { ...DEFAULT_SETTINGS }; }
 }
 
-const COMMANDS = new Set(['drop', 'fire', 'clearFloor', 'brbRace', 'brbRaceStop']);
+const COMMANDS = new Set(['drop', 'fire', 'clearFloor', 'polonaise', 'brbRace', 'brbRaceStop']);
 
 function getOrCreateControl(userId, login) {
   let row = db.prepare('SELECT * FROM scene_controls WHERE user_id = ?').get(userId);
@@ -253,6 +257,8 @@ function sanitizeLook(input) {
     if (typeof input[slot] !== 'string' || !PART_ID.test(input[slot])) return null;
     out[slot] = input[slot];
   }
+  // Accessoire: später dazugekommen — ältere Seiten im Browser-Cache schicken es noch nicht mit
+  out.extra = typeof input.extra === 'string' && PART_ID.test(input.extra) ? input.extra : 'none';
   const skin = Number(input.skin);
   if (!Number.isInteger(skin) || skin < 0 || skin > 15) return null;
   out.skin = skin;

@@ -4,6 +4,11 @@ import { useNavigate } from "react-router-dom";
 import { io } from "socket.io-client";
 import { Disc, ArrowRight, Users, Loader2 } from "lucide-react";
 import SEO from "../../components/SEO";
+import { Page, PageHeader, Card, Button, Field, Input } from "../../components/ui";
+
+function SpinningLoader({ size }) {
+  return <Loader2 size={size} className="animate-spin" />;
+}
 
 export default function Connect4Page() {
   const navigate = useNavigate();
@@ -75,53 +80,37 @@ export default function Connect4Page() {
   };
 
   return (
-    <div className="page-fade w-full max-w-2xl mx-auto px-2 md:px-4 py-10 md:py-16">
+    <Page width="narrow" className="py-6 md:py-10">
       <SEO
         title="Connect 4"
         description="Vier Gewinnt gegen einen Freund — Link teilen und direkt loslegen, kein Download nötig."
         path="/connect4"
       />
 
-      <div className="flex items-start gap-4 mb-8 md:mb-10">
-        <span className="hidden sm:flex items-center justify-center w-14 h-14 rounded-2xl bg-violet-500/10 border border-violet-400/20 text-violet-300 shrink-0">
-          <Disc size={26} />
-        </span>
-        <div>
-          <p className="text-xs font-bold uppercase tracking-widest text-violet-300/80 mb-2">1 gegen 1 · Live</p>
-          <h1 className="font-display text-3xl md:text-5xl font-bold text-white tracking-tight mb-3">Connect 4</h1>
-          <p className="text-white/50 text-sm md:text-base max-w-xl leading-relaxed">
-            Vier Gewinnt auf einem 7×6-Feld. Erstelle ein Spiel, schick den Link an einen Freund und setzt
-            abwechselnd — wer zuerst vier in einer Reihe hat, gewinnt.
-          </p>
-        </div>
-      </div>
+      <PageHeader
+        icon={Disc}
+        kicker="1 gegen 1 · Live"
+        title="Connect 4"
+        description="Vier Gewinnt auf einem 7×6-Feld. Erstelle ein Spiel, schick den Link an einen Freund und setzt abwechselnd — wer zuerst vier in einer Reihe hat, gewinnt."
+      />
 
-      <div className="panel p-5 md:p-7 space-y-5">
-        <div>
-          <label className="block text-xs font-semibold uppercase tracking-wider text-white/40 mb-2">
-            Dein Name
-          </label>
-          <input
+      <Card className="md:p-7 space-y-5">
+        <Field label="Dein Name" error={error && !name.trim() ? error : undefined}>
+          <Input
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
             maxLength={24}
             placeholder="Name eingeben"
-            className="w-full bg-black/40 border border-white/10 rounded-lg px-3.5 py-2.5 text-white placeholder:text-white/25 focus:border-violet-500 focus:outline-none transition-colors text-sm"
           />
-        </div>
+        </Field>
 
-        {error && <p className="text-sm text-red-300">{error}</p>}
+        {error && name.trim() && <p className="text-sm text-red-300">{error}</p>}
 
-        <button
-          type="button"
-          onClick={createGame}
-          disabled={creating}
-          className="w-full flex items-center justify-center gap-2 bg-violet-600 hover:bg-violet-500 disabled:bg-violet-600/40 disabled:cursor-not-allowed text-white font-semibold py-3 rounded-lg text-sm transition-colors"
-        >
-          {creating ? <Loader2 size={16} className="animate-spin" /> : <Disc size={16} />}
-          {creating ? "Erstelle Spiel…" : "Neues Spiel erstellen"}
-        </button>
+        <Button block size="lg" onClick={createGame} loading={creating} loadingText="Erstelle Spiel…"
+          icon={creating ? SpinningLoader : Disc}>
+          Neues Spiel erstellen
+        </Button>
 
         <div className="flex items-center gap-3 pt-1">
           <div className="h-px flex-1 bg-white/10" />
@@ -130,24 +119,21 @@ export default function Connect4Page() {
         </div>
 
         <form onSubmit={joinExisting} className="flex flex-col sm:flex-row gap-3">
-          <input
+          <Input
             type="text"
             value={joinCode}
             onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
             maxLength={8}
+            aria-label="Spiel-Code"
             placeholder="Code eingeben (z.B. AB3XZ)"
-            className="flex-1 bg-black/40 border border-white/10 rounded-lg px-3.5 py-2.5 text-white placeholder:text-white/25 focus:border-violet-500 focus:outline-none transition-colors text-sm uppercase tracking-widest"
+            className="flex-1 uppercase tracking-widest"
           />
-          <button
-            type="submit"
-            className="flex items-center justify-center gap-2 bg-white/5 hover:bg-white/10 border border-white/10 text-white font-semibold px-5 py-2.5 rounded-lg text-sm transition-colors shrink-0"
-          >
-            <Users size={15} />
+          <Button type="submit" variant="secondary" icon={Users} className="shrink-0">
             Beitreten
             <ArrowRight size={14} />
-          </button>
+          </Button>
         </form>
-      </div>
-    </div>
+      </Card>
+    </Page>
   );
 }

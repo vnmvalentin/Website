@@ -1,11 +1,19 @@
-import { useMemo, useEffect, useState, useContext } from "react";
+// Home.jsx — die Startseite. Bewusst schlicht (Neubau 12.11.2026): Kopf mit zwei Knöpfen, drei Vorschau-Karten
+// (dieselbe TileCard wie auf den Übersichten: für Wiederkehrer „Zuletzt besucht", sonst „Beliebt"), ein
+// Text-Verzeichnis aller Bereiche und eine ruhige Zeile zu Social Media und Setup. Der Stream startet von selbst,
+// wenn der Kanal live ist. Keine eigenen Schriften oder Spiel-Looks hier — die gehören in die jeweilige Unterseite.
+import { useEffect, useMemo, useState, useContext } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import SEO from "../components/SEO";
-import { Share2, MonitorSmartphone, ArrowRight, X } from "lucide-react";
+import { Share2, MonitorSmartphone, ArrowRight, Play } from "lucide-react";
+import { Button, Dialog, Input, Page, SectionHeading } from "../components/ui";
 import { TwitchAuthContext } from "../components/TwitchAuthContext";
 import ActivityStrip from "../components/ActivityStrip";
-import HomeFavorites from "../components/HomeFavorites";
-import { getCategory } from "../config/navigation";
+import TileCard from "../components/TileCard";
+import SiteDirectory from "../components/SiteDirectory";
+import { showcaseLinks } from "../config/navigation";
+import { recentVisited } from "../utils/visitMemory";
+import { useLiveStatus } from "../utils/useLiveStatus";
 
 // --- DATEN ---
 
@@ -69,6 +77,22 @@ const SETUP_HARDWARE = [
   { label: "Cap-Card: AVerMedia Mini", href: "https://www.avermedia.com/de/product-detail/GC311" },
 ];
 
+// „Beliebt": die drei meistgenutzten Seiten. Bild und Ziel kommen aus navigation.js (id), der Text ist hier kürzer.
+// Wer schon Unterseiten besucht hat, sieht stattdessen diese zuerst (utils/visitMemory.js, nur im eigenen Browser);
+// freie Plätze füllen die beliebten auf.
+const FEATURED = [
+  { id: "cr-minigames", title: "Clash Royale Minigames", text: "Zehn Draft-Modi für 2–8 Spieler — mit Freunden oder dem Chat, ohne Anmeldung." },
+  { id: "win-tracker", title: "Win Tracker", text: "OBS-Overlay mit Liga, Trophäen, Deck und den letzten Matches. Aktualisiert sich von selbst." },
+  { id: "win-challenge", title: "Win Challenge", text: "OBS-Overlay für deine Challenges mit Zählern, Timer und Chat-Befehlen." },
+];
+const FEATURED_COUNT = 3;
+const DESKTOP_QUERY = "(min-width: 1024px)"; // ab hier steht der Stream im Kopf (Tailwind lg)
+
+const ABOUT = [
+  { view: "social", icon: Share2, title: "Social Media", text: "Alle Kanäle auf einen Blick" },
+  { view: "setup", icon: MonitorSmartphone, title: "Mein Setup", text: "Hardware & Streaming-Equipment" },
+];
+
 // --- HELPER COMPONENTS ---
 
 function SmartLink({ href, className, children, ...props }) {
@@ -83,45 +107,18 @@ function SmartLink({ href, className, children, ...props }) {
 }
 
 // Modal Component für die Overlays
+// Der gemeinsame Dialog (components/ui) übernimmt Escape, Klick daneben und den Fokus
 function InfoModal({ title, onClose, children }) {
-  // Schließen bei ESC-Taste
-  useEffect(() => {
-    const handleEsc = (e) => { if (e.key === "Escape") onClose(); };
-    window.addEventListener("keydown", handleEsc);
-    return () => window.removeEventListener("keydown", handleEsc);
-  }, [onClose]);
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label={title}>
-      {/* Backdrop */}
-      <div
-        className="absolute inset-0 bg-black/70 backdrop-blur-sm transition-opacity"
-        onClick={onClose}
-      />
-
-      {/* Content Card */}
-      <div className="relative w-full max-w-2xl panel-strong shadow-2xl shadow-black/60 overflow-hidden flex flex-col max-h-[80vh]">
-        <div className="flex items-center justify-between p-4 border-b border-white/10">
-          <h2 className="font-display text-lg font-bold text-white">{title}</h2>
-          <button
-            onClick={onClose}
-            aria-label="Schließen"
-            className="p-2 rounded-lg hover:bg-white/10 text-white/50 hover:text-white transition-colors"
-          >
-            <X size={18} />
-          </button>
-        </div>
-        <div className="p-0 overflow-hidden flex-1 relative">
-           {children}
-        </div>
-      </div>
-    </div>
+    <Dialog open onClose={onClose} title={title} width="xl">
+      {children}
+    </Dialog>
   );
 }
 
 function SocialContent() {
   return (
-    <div className="p-5 overflow-y-auto max-h-[60vh] custom-scrollbar">
+    <div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {SOCIAL_LINKS.map((item) => (
           <SmartLink
@@ -161,16 +158,16 @@ function HardwareContent() {
   }, [q]);
 
   return (
-    <div className="flex flex-col h-full max-h-[60vh]">
-      <div className="p-4 border-b border-white/10">
-        <input
+    <div className="flex flex-col">
+      <div className="pb-3 border-b border-line">
+        <Input
           value={q}
           onChange={(e) => setQ(e.target.value)}
+          aria-label="Hardware suchen"
           placeholder="Hardware suchen..."
-          className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-2 text-sm text-white focus:outline-none focus:border-violet-500 transition-colors"
         />
       </div>
-      <div className="flex-1 overflow-y-auto p-2 space-y-1 custom-scrollbar">
+      <div className="pt-2 space-y-1">
         {filtered.map((item, idx) => (
           <SmartLink
             key={idx}
@@ -180,7 +177,7 @@ function HardwareContent() {
             <span className="text-sm text-white/80 group-hover:text-white truncate pr-4">
               {item.label}
             </span>
-            <span className="text-[10px] uppercase tracking-wider text-white/20 group-hover:text-violet-300 opacity-0 group-hover:opacity-100 transition-all shrink-0">
+            <span className="text-[10px] uppercase tracking-wider text-white/20 group-hover:text-accent-soft opacity-0 group-hover:opacity-100 transition-all shrink-0">
               Check
             </span>
           </SmartLink>
@@ -193,61 +190,108 @@ function HardwareContent() {
   );
 }
 
-function TwitchTV() {
+/** true, sobald das Fenster zur Abfrage passt — damit der Stream nur an EINER Stelle der Seite geladen wird */
+function useMediaQuery(query) {
+  const [matches, setMatches] = useState(() => typeof window !== "undefined" && !!window.matchMedia?.(query).matches);
+  useEffect(() => {
+    const mq = window.matchMedia?.(query);
+    if (!mq) return undefined;
+    const onChange = () => setMatches(mq.matches);
+    onChange();
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, [query]);
+  return matches;
+}
+
+/**
+ * Der Stream. Ist der Kanal live (Backend fragt Twitch, utils/useLiveStatus.js), startet der Player von selbst und
+ * stumm; sonst lädt er erst auf Klick. Vorher stand er immer da und zeigte, wenn der Kanal offline war, einen großen
+ * weißen Kasten mitten auf der dunklen Seite.
+ * @param {{ live: { live: boolean, title: string|null, game: string|null } }} props
+ */
+function StreamTile({ live }) {
+  // "click": selbst gestartet (mit Ton) · "auto": von selbst gestartet, weil live (stumm — Browser erlauben nichts anderes)
+  const [started, setStarted] = useState(null);
+  useEffect(() => {
+    if (live.live) setStarted((s) => s || "auto");
+  }, [live.live]);
+
   return (
-    <div className="w-full panel overflow-hidden shadow-2xl shadow-black/40">
+    <div className="w-full rounded-lg border border-line bg-surface overflow-hidden">
       <div className="relative w-full aspect-video bg-black">
-        <iframe
-          src="https://player.twitch.tv/?channel=vnmvalentin&parent=vnmvalentin.de&parent=vnmvalentin.com&parent=localhost"
-          width="100%"
-          height="100%"
-          allowFullScreen
-          frameBorder="0"
-          title="Twitch Player"
-          loading="lazy"
-          className="w-full h-full"
-        />
+        {started ? (
+          <iframe
+            src={`https://player.twitch.tv/?channel=vnmvalentin&parent=vnmvalentin.de&parent=vnmvalentin.com&parent=localhost${started === "auto" ? "&muted=true" : ""}`}
+            width="100%"
+            height="100%"
+            allowFullScreen
+            frameBorder="0"
+            title="Twitch Player"
+            className="w-full h-full"
+          />
+        ) : (
+          <button
+            type="button"
+            onClick={() => setStarted("click")}
+            className="group absolute inset-0 flex flex-col items-center justify-center gap-3 bg-surface hover:bg-surface-raised transition-colors"
+          >
+            <span className="flex items-center justify-center w-11 h-11 rounded-lg bg-twitch group-hover:bg-twitch-hover text-white transition-colors">
+              <Play size={18} fill="currentColor" aria-hidden="true" />
+            </span>
+            <span className="text-sm font-semibold text-white">Stream hier ansehen</span>
+          </button>
+        )}
       </div>
-      {/* Hier stand früher fest "● Live" — auch wenn der Kanal offline war und der Player
-          direkt darüber "OFFLINE" zeigte. Den Zustand kennt nur der Player, deshalb steht
-          hier jetzt ein Link zum Kanal statt einer Behauptung. */}
       <a
         href="https://twitch.tv/vnmvalentin"
         target="_blank"
         rel="noopener noreferrer"
-        className="group flex items-center justify-between px-4 py-2.5 border-t border-white/10 text-xs text-white/40 hover:text-white transition-colors"
+        className="group flex items-center justify-between px-4 py-2.5 border-t border-line text-xs text-white/45 hover:text-white transition-colors"
       >
-        <span>twitch.tv/vnmvalentin</span>
-        <span className="flex items-center gap-1.5">Kanal öffnen <ArrowRight size={13} className="group-hover:translate-x-0.5 transition-transform" /></span>
+        {live.live ? (
+          <span className="flex items-center gap-2 min-w-0 text-white/80">
+            <span className="h-2 w-2 rounded-full bg-red-500 shrink-0" aria-hidden="true" />
+            <span className="font-semibold text-white shrink-0">Live</span>
+            {(live.game || live.title) && <span className="truncate">{live.game || live.title}</span>}
+          </span>
+        ) : (
+          <span>twitch.tv/vnmvalentin</span>
+        )}
+        <span className="flex items-center gap-1.5 shrink-0 pl-3">Kanal öffnen <ArrowRight size={13} className="group-hover:translate-x-0.5 transition-transform" aria-hidden="true" /></span>
       </a>
     </div>
   );
 }
 
-const MORE = [
-  { key: "tools", label: "Streamer-Tools", text: "Overlays, Bots & Helfer" },
-  { key: "clash-royale", label: "Clash Royale", text: "Minigames, Nuzlocke, Turniere" },
-  { key: "fun", label: "Browserspiele", text: "Blobby, adVentures, Seed Runners …" },
-  { key: "community", label: "Community", text: "Abstimmungen & Giveaways" },
-];
+/** Bilder einer Karte: die Vorschau, sonst das kleine Symbolbild der Unterseite (ganz gezeigt), sonst nur das Symbol */
+function cardImages(link) {
+  if (link.previews?.length) return link.previews;
+  return link.thumb ? [{ src: link.thumb, fit: "contain" }] : [];
+}
 
-function MoreLinks() {
+function Featured() {
+  // Einmal beim Öffnen gelesen: zuletzt besuchte Unterseiten zuerst, den Rest füllen die beliebten auf
+  const { cards, recentCount } = useMemo(() => {
+    const byId = Object.fromEntries(showcaseLinks().map((l) => [l.id, l]));
+    const recent = recentVisited(FEATURED_COUNT).map((link) => ({ link, title: link.label, text: link.description }));
+    const taken = new Set(recent.map((c) => c.link.id));
+    const popular = FEATURED
+      .filter((f) => byId[f.id] && !taken.has(f.id))
+      .map((f) => ({ link: byId[f.id], title: f.title, text: f.text }));
+    return { cards: [...recent, ...popular].slice(0, FEATURED_COUNT), recentCount: recent.length };
+  }, []);
+
+  const title = recentCount >= FEATURED_COUNT ? "Zuletzt besucht" : recentCount > 0 ? "Zuletzt besucht & beliebt" : "Beliebt";
   return (
-    <nav aria-label="Mehr entdecken" className="grid grid-cols-2 lg:grid-cols-4 border-y border-white/10 divide-white/10 lg:divide-x">
-      {MORE.map((m) => {
-        const cat = getCategory(m.key);
-        if (!cat) return null;
-        return (
-          <Link key={m.key} to={cat.to} className="group flex items-center gap-3 px-3 py-4 lg:px-5 hover:bg-white/[0.03] transition-colors">
-            <span className="flex-1 min-w-0">
-              <span className="block text-sm font-semibold text-white">{m.label}</span>
-              <span className="block text-xs text-white/40 truncate">{m.text}</span>
-            </span>
-            <ArrowRight size={15} className="shrink-0 text-white/25 group-hover:text-violet-300 group-hover:translate-x-0.5 transition-all" />
-          </Link>
-        );
-      })}
-    </nav>
+    <section aria-labelledby="home-featured">
+      <SectionHeading id="home-featured" title={title} />
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 md:gap-6">
+        {cards.map((c, i) => (
+          <TileCard key={c.link.id} index={i} to={c.link.to} title={c.title} text={c.text} images={cardImages(c.link)} icon={c.link.icon} />
+        ))}
+      </div>
+    </section>
   );
 }
 
@@ -255,6 +299,10 @@ export default function Home() {
   const { user } = useContext(TwitchAuthContext);
   const [searchParams, setSearchParams] = useSearchParams();
   const activeModal = searchParams.get("view"); // 'social', 'setup', oder null
+  const live = useLiveStatus();
+  const isDesktop = useMediaQuery(DESKTOP_QUERY);
+  // Der Stream steht im Kopf: am großen Bildschirm immer, auf dem Handy nur während einer Sendung (sonst ganz unten)
+  const streamInHead = isDesktop || live.live;
 
   const openModal = (viewName) => {
     setSearchParams(prev => {
@@ -273,68 +321,74 @@ export default function Home() {
   };
 
   return (
-    <div className="page-fade min-h-full w-full pb-20 pt-6 md:pt-10 px-2 md:px-4">
+    <Page width="wide" className="py-6 md:py-12">
       <SEO
         title="Home"
         description="Die offizielle Website von vnmvalentin. Streaming, Tools und Community."
         path="/"
       />
-      <div className="max-w-7xl mx-auto flex flex-col gap-10 md:gap-12">
+      <div className="flex flex-col gap-14 md:gap-20">
 
-        {/* Kopf: Frage links, Stream klein rechts (statt großem Fernseher) */}
-        <section className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_320px] gap-8 items-end">
+        {/* Kopf: Aussage + zwei Wege, rechts der Stream (startet von selbst, wenn live — sonst erst auf Klick) */}
+        <header className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_380px] gap-10 lg:gap-16 items-center">
           <div className="min-w-0">
-            <p className="text-xs font-bold uppercase tracking-widest text-violet-300/80 mb-2">
-              {user ? `Willkommen, ${user.displayName || user.login}` : "vnmvalentin.de"}
+            {user && (
+              <p className="text-sm text-white/45 mb-3">Willkommen zurück, {user.displayName || user.login}</p>
+            )}
+            <h1 className="font-display text-4xl md:text-6xl font-bold text-white tracking-tight leading-[1.05] text-balance">
+              Spiele, Overlays & Tools vom Stream
+            </h1>
+            <p className="mt-4 md:mt-5 text-base md:text-lg text-white/55 max-w-xl leading-relaxed">
+              Kostenlos, direkt im Browser und ohne Download.
             </p>
-            <h1 className="font-display text-3xl md:text-5xl font-bold text-white tracking-tight mb-3">Spiele, Overlays & Tools vom Stream</h1>
-            <p className="text-white/50 text-sm md:text-base max-w-2xl">
-              Die Favoriten der Community — kostenlos, im Browser, ohne Download.
-            </p>
+            <div className="mt-7 md:mt-8 flex flex-wrap gap-3">
+              <Button to="/fun" size="lg">Spiele entdecken</Button>
+              <Button to="/tools" size="lg" variant="secondary">Tools für Streamer</Button>
+            </div>
           </div>
-          <aside className="hidden lg:block">
-            <p className="text-xs font-bold uppercase tracking-widest text-white/45 mb-3">Auf Twitch</p>
-            <TwitchTV />
-          </aside>
-        </section>
+          {streamInHead && (
+            <aside aria-label="Stream auf Twitch">
+              <StreamTile live={live} />
+            </aside>
+          )}
+        </header>
 
-        {/* Favoriten: Minigames groß, darunter Win Tracker + Win Challenge mit Live-Vorschau (components/HomeFavorites.jsx) */}
-        <HomeFavorites />
+        <Featured />
 
-        {/* Der Rest der Seite in einer ruhigen Zeile statt eigener Kästen (Navigation oben hat alles vollständig) */}
-        <MoreLinks />
+        <nav aria-labelledby="home-all">
+          <SectionHeading id="home-all" title="Alles auf einen Blick" />
+          <SiteDirectory className="border-t border-line pt-6 md:pt-8" />
+        </nav>
 
         {/* Echte Zahlen, nur wenn sie über ihrer Schwelle liegen (Backend/activity) */}
         <ActivityStrip />
 
         {/* Über mich: Social Media und Setup (öffnen die Fenster unten, ?view=social|setup) */}
-        <section aria-label="Über vnmvalentin" className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {[
-            { view: "social", icon: Share2, title: "Social Media", text: "Alle Kanäle auf einen Blick" },
-            { view: "setup", icon: MonitorSmartphone, title: "Mein Setup", text: "Hardware & Streaming-Equipment" },
-          ].map((x) => (
-            <button
-              key={x.view}
-              type="button"
-              onClick={() => openModal(x.view)}
-              className="group flex items-center gap-4 p-4 text-left rounded-2xl bg-[#13131c] border border-white/10 hover:border-violet-400/40 transition-colors"
-            >
-              <span className="flex items-center justify-center w-11 h-11 rounded-xl bg-violet-500/10 border border-violet-400/20 text-violet-300 shrink-0">
-                <x.icon size={19} />
-              </span>
-              <span className="flex-1 min-w-0">
-                <span className="block text-sm font-semibold text-white">{x.title}</span>
-                <span className="block text-xs text-white/40 mt-0.5">{x.text}</span>
-              </span>
-              <ArrowRight size={16} className="text-white/20 group-hover:text-violet-300 group-hover:translate-x-1 transition-all shrink-0" />
-            </button>
-          ))}
+        <section aria-labelledby="home-about">
+          <SectionHeading id="home-about" title="Mehr von vnmvalentin" />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {ABOUT.map((x) => (
+              <button
+                key={x.view}
+                type="button"
+                onClick={() => openModal(x.view)}
+                className="group flex items-center gap-4 px-4 py-4 text-left rounded-lg border border-line hover:border-white/20 hover:bg-white/[0.03] transition-colors"
+              >
+                <x.icon size={19} className="shrink-0 text-white/40 group-hover:text-white/70 transition-colors" aria-hidden="true" />
+                <span className="flex-1 min-w-0">
+                  <span className="block text-sm font-semibold text-white">{x.title}</span>
+                  <span className="block text-xs text-white/45 mt-0.5">{x.text}</span>
+                </span>
+                <ArrowRight size={16} className="text-white/20 group-hover:text-white/70 group-hover:translate-x-0.5 transition-all shrink-0" aria-hidden="true" />
+              </button>
+            ))}
+          </div>
+          {!streamInHead && (
+            <aside aria-label="Stream auf Twitch" className="mt-4">
+              <StreamTile live={live} />
+            </aside>
+          )}
         </section>
-
-        <aside className="lg:hidden">
-          <p className="text-xs font-bold uppercase tracking-widest text-white/45 mb-3">Auf Twitch</p>
-          <TwitchTV />
-        </aside>
 
         {/* Modals prüfen auf den URL Parameter 'view' */}
         {activeModal === 'social' && (
@@ -350,6 +404,6 @@ export default function Home() {
         )}
 
       </div>
-    </div>
+    </Page>
   );
 }

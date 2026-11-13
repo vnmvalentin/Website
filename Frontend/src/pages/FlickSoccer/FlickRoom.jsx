@@ -7,13 +7,15 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { io } from "socket.io-client";
-import { Check, Copy, Home, Loader2, LogOut, RotateCcw, Eye } from "lucide-react";
+import { Check, Copy, Home, Loader2, LogOut, RotateCcw, Eye, Trophy } from "lucide-react";
 import SEO from "../../components/SEO";
 import Pitch from "./components/Pitch.jsx";
 import GameStage from "./components/GameStage.jsx";
 import { matchInfo } from "./matchInfo.js";
 import Scoreboard from "./components/Scoreboard.jsx";
-import PowerupBar from "./components/PowerupBar.jsx";
+import CardHand from "./components/CardHand.jsx";
+import CardFlash from "./components/CardFlash.jsx";
+import EventFlash from "./components/EventFlash.jsx";
 import MatchOptions from "./components/MatchOptions.jsx";
 import { EmoteBar, EmoteBubbles, EMOTE_SHOW_MS } from "./components/Emotes.jsx";
 import VsIntro from "./components/VsIntro.jsx";
@@ -22,16 +24,17 @@ import ReplayTag from "./components/ReplayTag.jsx";
 import FinalWhistle from "./components/FinalWhistle.jsx";
 import RematchSetup from "./components/RematchSetup.jsx";
 import DiscPreview from "./components/DiscPreview.jsx";
+import Countdown from "./components/Countdown.jsx";
 import { useFlickShell } from "./ui/shellContext.js";
 import FormationPicker from "./components/FormationPicker.jsx";
-import { FORMATIONS, REPLAY, currentPowerup, getField, kickoffState } from "./engine/index.js";
+import { REPLAY, currentEvent, formationInfo, getField, kickoffState, shotMods, usablePower } from "./engine/index.js";
 import { getToken, loadPrefs } from "./prefs.js";
-import { playNotify, playWhistle } from "./sound.js";
+import { playCard, playEvent, playNotify, playWhistle } from "./sound.js";
 import { recordMatch } from "./stats.js";
 
 
 const TEAM_NAME = ["Rot", "Blau"];
-const emptyPlay = () => ({ shots: 0, powerSum: 0, ballHits: 0, posts: 0, bankGoals: 0, kickoffGoals: 0 });
+const emptyPlay = () => ({ shots: 0, powerSum: 0, ballHits: 0, posts: 0, bankGoals: 0, kickoffGoals: 0, cards: 0 });
 
 export default function FlickRoom() {
   const { code: rawCode } = useParams();
@@ -44,7 +47,8 @@ export default function FlickRoom() {
   const [nameDraft, setNameDraft] = useState(prefs.name);
   // Name, mit dem verbunden wird — fest für diesen Besuch, damit Tippen im Profil nicht neu verbindet
   const [joinName, setJoinName] = useState(() => prefs.name.trim());
-  const [phase, setPhase] = useState(prefs.name.trim() ? "connecting" : "name"); // name | connecting | room | notFound | kicked
+  const [phase, setPhase] = useState(prefs.name.trim() ? "connecting" : "name"); // name | connecting | room | notFound | kicked | closed
+  const [closed, setClosed] = useState(null); // { reason, tournament } — Turnier-Raum wurde geschlossen
   const [error, setError] = useState("");
   const [room, setRoom] = useState(null);
   const [seat, setSeat] = useState(null);
@@ -54,6 +58,8 @@ export default function FlickRoom() {
   const [introFor, setIntroFor] = useState(null); // Spielnummer, deren VS-Einblendung gerade läuft
   const [replaying, setReplaying] = useState(false);
   const [unlocked, setUnlocked] = useState([]);
+  const [card, setCard] = useState(null); // im Chaos-Modus für den nächsten eigenen Schuss gewählte Karte
+  const [flash, setFlash] = useState(null); // { key, power, team } — Einblendung der ausgespielten Karte
   // { start, shot, mods, mine, kickoff } des zuletzt abgespielten Schusses (Wiederholung, Statistik)
   const lastPlayRef = useRef(null);
   const playRef = useRef(emptyPlay()); // was die eigenen Schüsse dieser Partie ergeben haben
@@ -130,6 +136,11 @@ export default function FlickRoom() {
       setPhase("kicked");
       socket.disconnect();
     });
+    socket.on("fs:closed", (info) => {
+      setClosed(info || {});
+      setPhase("closed");
+      socket.disconnect();
+    });
     return () => {
       socket.removeAllListeners();
       socket.disconnect();
@@ -167,8 +178,13 @@ export default function FlickRoom() {
     clearTimeout(goalTimerRef.current);
     setBanner(null);
     setReplaying(false);
-    const mods = last.power ? { power: last.power, team: last.team } : null;
+    // mods kommt fertig vom Server (Karte + Ereignis); ältere Server schicken nur die Karte
+    const mods = last.mods !== undefined ? last.mods : last.power ? { power: last.power, team: last.team } : null;
     lastPlayRef.current = { start: last.start, shot: last.shot, mods, mine: false, kickoff: false };
+    if (last.power) {
+      setFlash({ key: `s${seq}`, power: last.power, team: last.team });
+      playCard();
+    }
     setPlayback({ id: `s${seq}`, start: last.start, shot: last.shot, mods });
   }, [room, seat]);
 
@@ -195,6 +211,7 @@ export default function FlickRoom() {
         st.powerSum += summary.power;
         if (summary.ballHit) st.ballHits += 1;
         st.posts += summary.posts;
+        if (play.mods?.power) st.cards += 1;
         if (goal === play.team && summary.ballWall) st.bankGoals += 1;
         if (goal === play.team && play.kickoff) st.kickoffGoals += 1;
       }
@@ -285,14 +302,19 @@ export default function FlickRoom() {
       const socket = socketRef.current;
       if (!socket || !room?.match) return;
       ownShotRef.current = true;
-      // dasselbe Power-up, das der Server gleich anwendet (Chaos-Modus)
-      const power = currentPowerup(room.match);
-      const mods = power ? { power, team: seat } : null;
+      // die gewählte Karte (Chaos-Modus) — der Server prüft sie mit derselben Regel und wendet sie an
+      const power = usablePower(room.match, seat, card);
+      const mods = shotMods(room.match, seat, power);
+      if (power) {
+        setFlash({ key: `own${Date.now()}`, power, team: seat });
+        playCard();
+      }
+      setCard(null);
       const start = room.match.state;
       const f = getField(start.field);
       lastPlayRef.current = { start, shot, mods, mine: true, team: seat, kickoff: start.ball.x === f.W / 2 && start.ball.y === f.H / 2 };
       setPlayback({ id: `own${Date.now()}`, start, shot, mods });
-      socket.emit("fs:shoot", shot, (res) => {
+      socket.emit("fs:shoot", { ...shot, power }, (res) => {
         if (!res?.ok) {
           ownShotRef.current = false;
           setPlayback(null);
@@ -300,16 +322,40 @@ export default function FlickRoom() {
         }
       });
     },
-    [room, seat],
+    [room, seat, card],
   );
+
+  // Ereignis des laufenden Zugs (Chaos): beim Beginn groß einblenden — erst wenn der Ball des letzten Schusses steht
+  const [eventFlash, setEventFlash] = useState(null);
+  const liveEvent = room?.phase === "playing" && room.match ? currentEvent(room.match) : null;
+  const eventBlock = liveEvent ? `${room.matchNo}/${liveEvent}/${Math.floor((room.match.chaos.turns || 0) / 2)}` : "";
+  const rolling = !!playback;
+  useEffect(() => {
+    if (!eventBlock || rolling) return;
+    setEventFlash((f) => {
+      if (f?.key === eventBlock) return f;
+      playEvent();
+      return { key: eventBlock, event: liveEvent };
+    });
+    // liveEvent steckt in eventBlock
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [eventBlock, rolling]);
+
+  // Eine gewählte Karte gilt nur für den Zug, in dem sie gewählt wurde
+  const turnKey = room?.match ? `${room.matchNo}/${room.match.shotCount}/${room.match.turn}` : "";
+  useEffect(() => {
+    setCard(null);
+  }, [turnKey]);
 
   const emit = (event, payload = {}) => socketRef.current?.emit(event, payload, (res) => {
     if (res && !res.ok && res.error) setToast(res.error);
   });
 
+  // Turnierspiel: zurück geht es zum Turnier statt ins Menü
+  const tournamentCode = room?.locked?.tournament || null;
   const leave = () => {
     socketRef.current?.emit("fs:leave", {});
-    navigate("/flick-soccer");
+    navigate(tournamentCode ? `/flick-soccer/turnier/${tournamentCode}` : "/flick-soccer");
   };
 
   const saveName = (e) => {
@@ -353,6 +399,20 @@ export default function FlickRoom() {
       </div>
     );
   }
+  if (phase === "closed") {
+    return (
+      <div className="w-full max-w-[460px] mx-auto px-4 py-10">
+        {seo}
+        <div className="fk-card px-5 py-5 grid gap-3">
+          <h1 className="fk-display text-[28px]">Spiel beendet</h1>
+          <p className="fk-dim">{closed?.reason || "Dieses Turnierspiel wurde geschlossen."}</p>
+          <Link to={closed?.tournament ? `/flick-soccer/turnier/${closed.tournament}` : "/flick-soccer"} className="fk-btn">
+            <Trophy size={16} /> Zum Turnier
+          </Link>
+        </div>
+      </div>
+    );
+  }
   if (phase === "notFound" || phase === "kicked") {
     return (
       <div className="w-full max-w-[460px] mx-auto px-4 py-10">
@@ -381,7 +441,8 @@ export default function FlickRoom() {
   // ── Raum ─────────────────────────────────────────────────────────────────
   const me = seat !== null ? room.seats[seat] : null;
   const spectator = !me;
-  const isHost = seat === 0;
+  const locked = room.locked; // Turnierspiel: Regeln fest, keine Revanche
+  const isHost = seat === 0 && !locked;
   const match = room.match;
   const names = [room.seats[0]?.name || "Frei", room.seats[1]?.name || "Frei"];
   const deadline = room.turnEndsAt ? room.turnEndsAt - offset : null;
@@ -396,13 +457,29 @@ export default function FlickRoom() {
         <div className="grid gap-5 lg:grid-cols-[minmax(340px,420px)_1fr] items-start">
           <div className="fk-card">
             <div className="px-5 pt-4 pb-3 flex items-start justify-between gap-3">
-              <div>
-                <p className="fk-label">Raum</p>
-                <h1 className="fk-display text-[34px] tracking-[0.08em]">{room.code}</h1>
-              </div>
-              <button type="button" className="fk-btn fk-btn-sm fk-btn-ghost" onClick={leave}><LogOut size={15} /> Verlassen</button>
+              {locked ? (
+                <div className="min-w-0">
+                  <p className="fk-label fk-lime">Turnierspiel</p>
+                  <h1 className="fk-display text-[24px] break-words">{locked.label}</h1>
+                </div>
+              ) : (
+                <div>
+                  <p className="fk-label">Raum</p>
+                  <h1 className="fk-display text-[34px] tracking-[0.08em]">{room.code}</h1>
+                </div>
+              )}
+              <button type="button" className="fk-btn fk-btn-sm fk-btn-ghost shrink-0" onClick={leave}>
+                {locked ? <><Trophy size={15} /> Turnier</> : <><LogOut size={15} /> Verlassen</>}
+              </button>
             </div>
             <div className="fk-rows">
+              {locked ? (
+                <section className="px-5 py-4">
+                  <p className="fk-dim text-[14px]">
+                    Anpfiff, sobald beide bereit sind — spätestens in <Countdown until={locked.startBy - offset} />. Wer dann nicht hier ist, verliert kampflos.
+                  </p>
+                </section>
+              ) : (
               <section className="px-5 py-4">
                 <h2 className="fk-section-title mb-2">Link teilen</h2>
                 <div className="flex gap-2">
@@ -412,6 +489,7 @@ export default function FlickRoom() {
                   </button>
                 </div>
               </section>
+              )}
               <section className="px-5 py-4">
                 <h2 className="fk-section-title mb-2">Spieler</h2>
                 <ul className="grid gap-1.5">
@@ -423,7 +501,7 @@ export default function FlickRoom() {
                         <span className="font-semibold truncate">{s ? s.name : <span className="fk-faint font-normal">wartet auf Gegner …</span>}</span>
                         {t === seat && <span className="fk-chip">du</span>}
                         {s && !s.connected && <span className="fk-chip">getrennt</span>}
-                        {s && <span className="fk-faint text-[14px] ml-auto">{FORMATIONS[s.formation]?.name}</span>}
+                        {s && <span className="fk-faint text-[14px] ml-auto">{formationInfo(s.formation).name}</span>}
                         {s?.ready && <span className="fk-chip" style={{ color: "var(--fk-lime)" }}><Check size={13} /> bereit</span>}
                       </li>
                     );
@@ -445,7 +523,11 @@ export default function FlickRoom() {
               )}
               <section className="px-5 py-4 grid gap-3">
                 <MatchOptions value={room.settings} disabled={!isHost} onChange={(patch) => emit("fs:settings", { settings: patch })} />
-                {!isHost && <p className="fk-faint text-[13px]">Die Regeln legt {room.seats[0]?.name || "der Gastgeber"} fest.</p>}
+                {!isHost && (
+                  <p className="fk-faint text-[13px]">
+                    {locked ? "Die Regeln dieser Runde legt das Turnier fest." : `Die Regeln legt ${room.seats[0]?.name || "der Gastgeber"} fest.`}
+                  </p>
+                )}
               </section>
               {!spectator && (
                 <div className="px-5 py-4">
@@ -458,7 +540,11 @@ export default function FlickRoom() {
                     {me.ready ? "Doch nicht bereit" : "Bereit"}
                   </button>
                   <p className="fk-faint text-[13px] mt-2">
-                    {!opponent ? "Schick den Link an deinen Gegner." : me.ready ? `Warte auf ${opponent.name} …` : "Sind beide bereit, geht es los."}
+                    {!opponent
+                      ? "Schick den Link an deinen Gegner."
+                      : locked && !opponent.connected
+                        ? `${opponent.name} ist noch nicht da.`
+                        : me.ready ? `Warte auf ${opponent.name} …` : "Sind beide bereit, geht es los."}
                   </p>
                 </div>
               )}
@@ -470,7 +556,7 @@ export default function FlickRoom() {
                 state={lobbyPreview}
                 maxHeightOffset={400}
                 skins={[room.seats[0]?.skin, room.seats[1]?.skin]}
-                look={{ turf: prefs.turf, ball: prefs.ball }}
+                look={{ ball: prefs.ball }}
               />
             </div>
             {spectator ? (
@@ -479,12 +565,12 @@ export default function FlickRoom() {
               <>
                 <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
                   <h2 className="fk-section-title">Deine Aufstellung</h2>
-                  <span className="fk-faint text-[13px] truncate">{FORMATIONS[me.formation]?.hint}</span>
+                  <span className="fk-faint text-[13px] truncate">{formationInfo(me.formation).hint}</span>
                 </div>
                 <FormationPicker
                   value={me.formation}
                   team={seat}
-                  className="grid-cols-3 sm:grid-cols-5 @2xl:grid-cols-10"
+                  className="grid-cols-3 sm:grid-cols-5 @2xl:grid-cols-11"
                   onChange={(formation) => {
                     emit("fs:formation", { formation });
                     updatePrefs({ formation });
@@ -523,7 +609,8 @@ export default function FlickRoom() {
 
   const chaos = room.settings.chaos;
   const disconnected = !over && room.seats.some((s) => s && !s.connected);
-  const power = !over && !playback ? currentPowerup(match) : null;
+  const myCard = myTurn && !busy ? usablePower(match, seat, card) : null;
+  const event = over ? null : currentEvent(match);
   // Eigener Jubel bei eigenen Toren (Zuschauer: Standard)
   const celebrations = [seat === 0 ? prefs.celebration : "konfetti", seat === 1 ? prefs.celebration : "konfetti"];
 
@@ -541,17 +628,25 @@ export default function FlickRoom() {
       }
       power={
         chaos && !over
-          ? (playback ? <div className="fk-power" style={{ borderColor: "var(--fk-line)" }}><span className="fk-power-hint">Der Ball rollt …</span></div> : <PowerupBar match={match} names={names} />)
+          ? (
+            <CardHand
+              match={match}
+              names={names}
+              canPick={myTurn && !busy}
+              selected={myCard}
+              onSelect={(id) => {
+                setCard(id);
+                if (id) playCard();
+              }}
+            />
+          )
           : null
       }
       foot={
-        <>
-          <p className="fk-dim text-[14px]">
-            {hint}
-            {disconnected && <span className="fk-red ml-2">Gegner getrennt — wartet bis zu 60 s.</span>}
-          </p>
-          {!spectator && <EmoteBar onSend={(id) => socketRef.current?.emit("fs:emote", { id })} />}
-        </>
+        <p className="fk-dim text-[14px]">
+          {hint}
+          {disconnected && <span className="fk-red ml-2">Gegner getrennt — wartet bis zu 60 s.</span>}
+        </p>
       }
       leaveLabel={spectator ? "Verlassen" : over ? "Menü" : "Aufgeben"}
       confirmLeave={!spectator && !over}
@@ -568,11 +663,14 @@ export default function FlickRoom() {
         aimTeam={myTurn && !busy ? seat : null}
         onShoot={shoot}
         skins={[room.seats[0]?.skin, room.seats[1]?.skin]}
-        look={{ turf: prefs.turf, ball: prefs.ball }}
+        look={{ ball: prefs.ball }}
         celebrations={celebrations}
-        turnPower={power ? { power, team: match.turn } : null}
+        turnPower={!busy && (myCard || event) ? { power: myCard, team: match.turn, event } : null}
       >
-        <EmoteBubbles bubbles={bubbles} />
+        <EmoteBubbles bubbles={bubbles} names={names} />
+        {!spectator && <EmoteBar onSend={(id) => socketRef.current?.emit("fs:emote", { id })} />}
+        {eventFlash && introFor === null && !over && <EventFlash key={eventFlash.key} event={eventFlash.event} />}
+        {flash && <CardFlash key={flash.key} power={flash.power} team={flash.team} name={names[flash.team]} />}
         {introFor !== null && <VsIntro key={introFor} names={names} formations={match.formations} onDone={endIntro} />}
         {banner && <GoalBanner team={banner.team} scorer={names[banner.team]} score={match.score} />}
         {replaying && <ReplayTag onSkip={finishGoal} />}
@@ -585,7 +683,7 @@ export default function FlickRoom() {
             unlocked={unlocked}
             myTeam={seat ?? 0}
             extra={
-              !spectator && room.seats[0] && room.seats[1] ? (
+              !locked && !spectator && room.seats[0] && room.seats[1] ? (
                 <>
                   <div className="fk-rematch-status" aria-live="polite">
                     {[seat, 1 - seat].map((t) => {
@@ -595,7 +693,7 @@ export default function FlickRoom() {
                         <div key={t} className={`fk-rematch-row${s.rematch ? " wants" : ""}${!isMe && oppJustAsked ? " new" : ""}`}>
                           <span className={`fk-cap fk-cap-${t}`} aria-hidden="true" />
                           <span className="font-bold truncate">{isMe ? "Du" : s.name}</span>
-                          <span className="fk-faint text-[13px] truncate">{FORMATIONS[s.formation]?.name}</span>
+                          <span className="fk-faint text-[13px] truncate">{formationInfo(s.formation).name}</span>
                           <span className="state">
                             {s.rematch ? (isMe ? "bereit" : "will Revanche") : !s.connected ? "getrennt" : isMe ? "noch nicht" : "überlegt noch"}
                           </span>
@@ -618,7 +716,17 @@ export default function FlickRoom() {
               ) : null
             }
           >
-            {!spectator && (
+            {locked && (
+              <>
+                {!spectator && (
+                  <p className="fk-dim text-[14px] w-full mb-1">
+                    {winner === seat ? "Du bist eine Runde weiter." : "Für dich ist das Turnier hier zu Ende."}
+                  </p>
+                )}
+                <button type="button" className="fk-btn" onClick={leave}><Trophy size={16} /> Zum Turnier</button>
+              </>
+            )}
+            {!locked && !spectator && (
               <>
                 <button
                   type="button"
@@ -632,7 +740,7 @@ export default function FlickRoom() {
                 <button type="button" className="fk-btn fk-btn-ghost" onClick={leave}><Home size={16} /> Menü</button>
               </>
             )}
-            {!spectator && (!room.seats[0] || !room.seats[1]) && (
+            {!locked && !spectator && (!room.seats[0] || !room.seats[1]) && (
               <p className="fk-faint text-[13px] w-full mt-1">Dein Gegner ist weg. Teile den Link für einen neuen.</p>
             )}
           </FinalWhistle>

@@ -9,7 +9,7 @@ import { useParams, useSearchParams } from 'react-router-dom';
 import { useStableState } from '../../utils/useStableState';
 import { getOverlayData, reportMarbleWinner, reportMarblePlacings } from './streamToolApi';
 import {
-  mergeConfig, toPollView, toPredictionView, toGoalView, toRaidView, toStatsView,
+  mergeConfig, effectiveModules, toPollView, toPredictionView, toGoalView, toRaidView, toStatsView,
   useDemoSim, useLinger, paintDemo, DEMO_HYPE, demoMarbles,
 } from './streamToolConfig';
 import {
@@ -84,7 +84,7 @@ export default function PollsPredictionsOverlay() {
   }, []);
 
   const config = mergeConfig(payload?.config);
-  const m = config.modules;
+  const m = effectiveModules(config);
   const sim = useDemoSim(demo, demoOutcomes);
 
   const now = Date.now() + clockOffset.current;

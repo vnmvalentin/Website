@@ -94,6 +94,12 @@ const SHOTS = {
     await wait(4000);
     await p.screenshot({ path: file, type: 'webp', quality: 80 });
   },
+  // Worldflip: laufende Partie gegen Bots (3D — am schönsten mit echter Grafikkarte, sonst greift der Sparmodus)
+  worldflip: async (p, file) => {
+    await p.goto(`${BASE}/worldflip/spiel`, { waitUntil: 'networkidle2' });
+    await wait(5000);
+    await p.screenshot({ path: file, type: 'webp', quality: 80 });
+  },
   // ── Clash Royale ──
   'cr-minigames': async (p, file) => {
     await p.goto(`${BASE}/clash-royale`, { waitUntil: 'domcontentloaded' });
@@ -241,6 +247,14 @@ const DRAWN = {
     <rect x="26" y="36" width="60" height="34" rx="12" fill="#1e1f3b"/>
     <circle cx="43" cy="53" r="7" fill="#7dd3fc"/><circle cx="69" cy="53" r="7" fill="#7dd3fc"/>
     <rect x="44" y="76" width="24" height="5" rx="2.5" fill="#1e1f3b"/></svg>`,
+  // Worldflip: Kartenrückseite mit dem Windrad aus den vier Weltfarben
+  worldflip: `<svg width="112" height="112" viewBox="0 0 112 112">
+    <g transform="rotate(-9 56 56)">
+    <rect x="22" y="6" width="68" height="100" rx="9" fill="#17161d" stroke="#f4eedf" stroke-width="4"/>
+    <g transform="translate(56 56)">
+      <path d="M0 0 L0 -30 L20 -20 Z" fill="#f0562b"/><path d="M0 0 L30 0 L20 20 Z" fill="#2b93f0"/>
+      <path d="M0 0 L0 30 L-20 20 Z" fill="#3dbb4f"/><path d="M0 0 L-30 0 L-20 -20 Z" fill="#9b62f2"/>
+      <circle r="6" fill="#17161d"/></g></g></svg>`,
   'ytm-bot': `<div style="width:96px;height:96px;border-radius:50%;background:repeating-radial-gradient(circle,#18181b 0 3px,#27272a 3px 5px);display:grid;place-items:center;box-shadow:0 8px 0 #09090b">
     <i style="width:34px;height:34px;border-radius:50%;background:#ef4444;border:6px solid #fca5a5;display:block"></i></div>`,
 };

@@ -1,10 +1,12 @@
-// engine/skins.js — Scheiben-Designs und wie man sie freischaltet. Die Teamfarbe bleibt bei jedem Design die
-// Grundfarbe, damit Rot und Blau immer unterscheidbar sind; das Design ändert nur Muster und Emblem (render.js).
+// engine/skins.js — Scheiben-Designs und wie man sie freischaltet. Zwei Sorten: Muster (die ersten neun — Teamfarbe mit
+// Nummer, nur anders bemalt) und Motive (Münze, Puck, Auge … — die Scheibe sieht komplett anders aus). Bei jedem
+// Design bleibt die Teamfarbe deutlich sichtbar, damit Rot und Blau immer unterscheidbar sind (discArt.js).
 //
 // Freigeschaltet wird über Erfolge, die nur in diesem Browser gezählt werden (stats.js) — reine Kosmetik, der Server
 // prüft nur, ob die ID existiert. Die Schlüssel sind gespeicherte IDs: nie umbenennen, nur neue hinzufügen.
 //
 // need: { stat, count, label } — freigeschaltet, sobald stats[stat] >= count. Ohne need: immer frei.
+// motif: true → Motiv-Scheibe (eigene Gruppe in der Auswahl).
 
 export const SKINS = Object.freeze({
   klassik: { name: 'Klassik' },
@@ -16,6 +18,23 @@ export const SKINS = Object.freeze({
   karo: { name: 'Karo', need: { stat: 'onlineWins', count: 1, label: 'Gewinne ein Online-Spiel' } },
   metall: { name: 'Metall', need: { stat: 'winsHard', count: 1, label: 'Besiege den Computer auf Schwer' } },
   krone: { name: 'Krone', need: { stat: 'wins', count: 10, label: 'Gewinne 10 Partien' } },
+
+  korken: { name: 'Kronkorken', motif: true },
+  muenze: { name: 'Münze', motif: true, need: { stat: 'wins', count: 3, label: 'Gewinne 3 Partien' } },
+  vinyl: { name: 'Schallplatte', motif: true, need: { stat: 'played', count: 10, label: 'Spiele 10 Partien' } },
+  ziel: { name: 'Zielscheibe', motif: true, need: { stat: 'bankGoals', count: 3, label: 'Triff 3-mal über die Bande' } },
+  puck: { name: 'Puck', motif: true, need: { stat: 'fieldsWon', count: 3, label: 'Gewinne auf 3 verschiedenen Feldern' } },
+  jeton: { name: 'Jeton', motif: true, need: { stat: 'chaosWins', count: 1, label: 'Gewinne eine Chaos-Partie' } },
+  grinser: { name: 'Grinser', motif: true, need: { stat: 'goals', count: 40, label: 'Schieße 40 Tore' } },
+  keks: { name: 'Keks', motif: true, need: { stat: 'played', count: 25, label: 'Spiele 25 Partien' } },
+  zahnrad: { name: 'Zahnrad', motif: true, need: { stat: 'tourStars', count: 6, label: 'Sammle 6 Sterne in der Tour' } },
+  auge: { name: 'Auge', motif: true, need: { stat: 'tourStars', count: 15, label: 'Sammle 15 Sterne in der Tour' } },
+  kompass: { name: 'Kompass', motif: true, need: { stat: 'customWins', count: 1, label: 'Gewinne mit einer eigenen Aufstellung' } },
+  donut: { name: 'Donut', motif: true, need: { stat: 'chaosWins', count: 5, label: 'Gewinne 5 Chaos-Partien' } },
+  planet: { name: 'Planet', motif: true, need: { stat: 'fieldsWon', count: 8, label: 'Gewinne auf 8 verschiedenen Feldern' } },
+  wappen: { name: 'Wappen', motif: true, need: { stat: 'tourStars', count: 30, label: 'Sammle 30 Sterne in der Tour' } },
+  schaedel: { name: 'Schädel', motif: true, need: { stat: 'winsProfi', count: 1, label: 'Besiege den Computer auf Profi' } },
+  kristall: { name: 'Kristall', motif: true, need: { stat: 'tourStars', count: 50, label: 'Sammle 50 Sterne in der Tour' } },
 });
 
 export const SKIN_IDS = Object.freeze(Object.keys(SKINS));

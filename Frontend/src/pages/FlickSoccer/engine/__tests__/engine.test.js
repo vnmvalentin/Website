@@ -100,8 +100,11 @@ test('Designs: Klassik immer frei, Freischaltung über Zähler, Fortschritt gede
   assert.ok(isUnlocked('streifen', { played: 3 }));
   assert.deepEqual(skinProgress('krone', { wins: 25 }), { have: 10, need: 10 });
   assert.equal(isSkin('gibtsnicht'), false);
-  assert.equal(unlockedSkins({}).length, 1);
-  const all = { played: 99, wins: 99, goals: 99, winsEasy: 1, winsMedium: 1, winsHard: 1, onlineWins: 1, cleanSheets: 1 };
+  assert.deepEqual(unlockedSkins({}), ['klassik', 'korken']);
+  const all = {
+    played: 99, wins: 99, goals: 99, winsEasy: 1, winsMedium: 1, winsHard: 1, winsProfi: 1, onlineWins: 1, cleanSheets: 1,
+    bankGoals: 9, fieldsWon: 99, chaosWins: 9, tourStars: 99, customWins: 1,
+  };
   assert.equal(unlockedSkins(all).length, SKIN_IDS.length);
 });
 

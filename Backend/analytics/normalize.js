@@ -13,7 +13,8 @@ const KNOWN_PATHS = [
   '/sacrifice-and-sigils/raum', '/sacrifice-and-sigils/uebung', '/sacrifice-and-sigils/kartenbuch',
   '/sacrifice-and-sigils/anleitung', '/sacrifice-and-sigils/tutorial', '/sacrifice-and-sigils/moorwanderung',
   '/clash-royale/turnier', '/clash-royale/turnier/neu', '/clash-royale/win-tracker',
-  '/flick-soccer/spiel',
+  '/flick-soccer/spiel', '/flick-soccer/tour', '/flick-soccer/trick',
+  '/worldflip/spiel',
   '/discord-bot/privacy', '/discord-bot/terms',
   '/tutorial/ytm-bot',
 ];

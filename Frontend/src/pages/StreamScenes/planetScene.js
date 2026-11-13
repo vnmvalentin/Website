@@ -8,8 +8,8 @@
 // Nachrichten als Sprechblase. Wer länger still ist, geht wieder hinein; das Haus bleibt stehen
 // (auch über Neustarts der Quelle hinweg, localStorage).
 //
-// Am Himmel steht „BE RIGHT BACK“ aus Wolken. Modus „Störung“ (Steuerpult): die Wolken formen
-// „TECHNICAL DIFFICULTIES“, der Himmel wird grau, vor dem Streamer fällt eine Baustelle vom Himmel,
+// Am Himmel steht „BE RIGHT BACK“ als klare Schrift auf einer Wolkenbank. Modus „Störung“
+// (Steuerpult): die Schrift wechselt zu „TECHNICAL DIFFICULTIES“, der Himmel wird grau, vor dem Streamer fällt eine Baustelle vom Himmel,
 // er bleibt stehen und kratzt sich am Kopf. Themen: Tag, Halloween (Nacht, Kürbisse aus dem KayKit-
 // Paket, Kostüme), Winter (Abendrot, Schnee, Tannen, Schneemänner, Lichterketten).
 import * as THREE from 'three';
@@ -19,7 +19,7 @@ import { createAssets, createPostFX, warmUp } from '../ClashRoyale/modes/scene3d
 import { createStage, canvasTexture, noise, rng, clamp01, lerp, smooth, SanitizeShader } from './sceneKit';
 import {
   R, ROAD_HALF, WALK_OUT, WALK_H, SLOTS_PER_SIDE, SLOT_ANGLE, PLOT_LAT, GATE_X,
-  surfacePose, bandGeometry, curbGeometry, paintMaterial, buildPlot, nameSignTexture, freeSignTexture, cloudTextPoints,
+  surfacePose, bandGeometry, curbGeometry, paintMaterial, buildPlot, nameSignTexture, freeSignTexture, skyTextTexture, cloudBankPoints, SKY_TEXT_ASPECT,
 } from './planetWorld';
 import { loadPeopleKit, buildPersonFigure, personSeed, COSTUMES, PERSON_WALK_MPS } from './peopleFigure';
 import { createBeatClock, requestLook, cachedLook, forgetLook } from './sceneLink';
@@ -536,10 +536,10 @@ export function createPlanetScene(canvas, overlay, { onFatal, store = true } = {
     requestChatAvatar({ login: ch }, (img) => { if (img && label.avatar) { label.avatar.src = img.src; label.avatar.hidden = false; } });
   };
 
-  // ── Wolkenschrift ──
+  // ── Himmelsschrift: klare Tafel-Schrift auf einer Wolkenbank (die Bank formt sich beim Moduswechsel um) ──
   const TEXTS = {
-    brb: cloudTextPoints(['BE RIGHT BACK'], 84, { step: 0.6 }),
-    difficulties: cloudTextPoints(['TECHNICAL', 'DIFFICULTIES'], 62, { step: 0.62, seed: 9 }),
+    brb: cloudBankPoints(90, 3),
+    difficulties: cloudBankPoints(90, 9),
   };
   const PUFFS = Math.max(TEXTS.brb.length, TEXTS.difficulties.length);
   const cloudMat = std({ color: '#ffffff', roughness: 1, emissive: '#ffffff', emissiveIntensity: 0.12, fog: false });
@@ -549,6 +549,22 @@ export function createPlanetScene(canvas, overlay, { onFatal, store = true } = {
   const cloudText = new THREE.Group();
   cloudText.add(puffs);
   scene.add(cloudText);
+  // zwei Schrifttafeln, weich überblendet; liegen vor der Wolkenbank
+  const skyTextGeo = keep(new THREE.PlaneGeometry(86, 86 / SKY_TEXT_ASPECT));
+  const skyTexts = {};
+  for (const [key, lines] of [['brb', ['BE RIGHT BACK']], ['difficulties', ['TECHNICAL', 'DIFFICULTIES']]]) {
+    const m = new THREE.Mesh(skyTextGeo, keep(new THREE.MeshBasicMaterial({
+      // leicht abgedunkelt: reines Weiß läge über der Schwelle des Lichthofs und überstrahlte die dunkle Kontur
+      map: keep(skyTextTexture(lines)), color: '#d2d6de', transparent: true, depthWrite: false, fog: false, toneMapped: false, opacity: key === 'brb' ? 1 : 0,
+    })));
+    m.position.set(0, 2.5, 4);
+    m.renderOrder = 5;
+    m.visible = key === 'brb';
+    cloudText.add(m);
+    skyTexts[key] = m;
+  }
+  let skyTextKey = 'brb';
+  let skyTextT = 0;
   const pf = Array.from({ length: PUFFS }, (_, i) => ({ x: 0, y: 0, z: 0, s: 0, fx: 0, fy: 0, fz: 0, fs: 0, tx: 0, ty: 0, tz: 0, ts: 0, t0: -1, delay: 0, ph: i * 1.7 }));
   const setCloudText = (key, now, instant = false) => {
     const pts = [...TEXTS[key]].sort((p, q) => p.x - q.x);
@@ -952,6 +968,7 @@ export function createPlanetScene(canvas, overlay, { onFatal, store = true } = {
     cfg.mode = mode;
     if (mode === 'difficulties') race.abort();
     setCloudText(mode === 'difficulties' ? 'difficulties' : 'brb', t);
+    skyTextKey = mode === 'difficulties' ? 'difficulties' : 'brb';
     if (mode === 'difficulties') {
       // Baustelle 7,5 m vor dem Streamer; er hält 3 m davor (hinter den Pylonen)
       site.a = phi + 7.5 / R;
@@ -1068,6 +1085,15 @@ export function createPlanetScene(canvas, overlay, { onFatal, store = true } = {
     cloudText.position.set(camera.position.x + fwd.x * CLOUD_DIST, cy, camera.position.z + fwd.z * CLOUD_DIST);
     cloudText.lookAt(camera.position.x, cy, camera.position.z);
     updatePuffs(t);
+    {
+      const k = clamp01(Math.min(0.1, t - skyTextT) * 1.6);
+      skyTextT = t;
+      for (const [key, m] of Object.entries(skyTexts)) {
+        m.material.opacity += ((key === skyTextKey ? 1 : 0) - m.material.opacity) * k;
+        m.visible = m.material.opacity > 0.01;
+        m.position.y = 2.5 + Math.sin(t * 0.5) * 0.3;
+      }
+    }
     skyClouds.rotation.y = t * 0.004;
 
     // Schnee
@@ -1280,7 +1306,7 @@ export function createPlanetScene(canvas, overlay, { onFatal, store = true } = {
       let theme = brb.theme || 'auto';
       if (theme === 'auto') {
         const m = new Date().getMonth();
-        theme = st.theme === 'halloween' ? 'halloween' : (m === 11 || m <= 1) ? 'winter' : 'day';
+        theme = st.theme === 'halloween' ? 'halloween' : (st.theme === 'christmas' || m === 11 || m <= 1) ? 'winter' : 'day';
       }
       if (!THEMES[theme]) theme = 'day';
       const prev = cfg.theme;

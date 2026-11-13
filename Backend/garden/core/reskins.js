@@ -33,6 +33,34 @@ const RESKIN_KATALOG = {
     ],
     // Kein Bildwechsel — eine reine Farb-/Rahmen-Variante des Namensschilds über
     // dem Spieler, deshalb ohne `image`, dafür mit `farbe`.
+    // 06.11.: Hüte für die eigene Figur, Hüte für die eigenen Tiere und Tapeten fürs Haus.
+    // Ohne Bild: gezeichnet wird im Browser (engine/huete.js, ui/HausInnen.jsx THEMEN).
+    hut: [
+        { id: "muetze", name: "Strickmütze", price: 250_000 },
+        { id: "blumenkranz", name: "Blumenkranz", price: 500_000 },
+        { id: "kochmuetze", name: "Kochmütze", price: 1_000_000 },
+        { id: "partyhut", name: "Partyhut", price: 2_000_000 },
+        { id: "piratenhut", name: "Piratenhut", price: 5_000_000 },
+        { id: "zylinder", name: "Zylinder", price: 10_000_000 },
+        { id: "zauberhut", name: "Zauberhut", price: 25_000_000 },
+        { id: "krone", name: "Krone", price: 100_000_000 },
+    ],
+    tierhut: [
+        { id: "schleife", name: "Schleife", price: 200_000 },
+        { id: "blumenkranz", name: "Blumenkranz", price: 400_000 },
+        { id: "partyhut", name: "Partyhut", price: 1_500_000 },
+        { id: "zylinder", name: "Zylinder", price: 8_000_000 },
+        { id: "krone", name: "Krone", price: 60_000_000 },
+    ],
+    tapete: [
+        { id: "seedsman", name: "Samenhandlung", price: 500_000 },
+        { id: "herbs", name: "Kräuterstube", price: 1_000_000 },
+        { id: "forge", name: "Schmiede", price: 2_500_000 },
+        { id: "observatory", name: "Sternwarte", price: 8_000_000 },
+        { id: "celestial", name: "Kristallzimmer", price: 15_000_000 },
+        { id: "orbital", name: "Raumstation", price: 30_000_000 },
+        { id: "void_weaver", name: "Schattenzimmer", price: 50_000_000 },
+    ],
     nameplate: [
         // `bg2` ist der zweite Farbverlaufs-Halt (Feedback 01.09.: "Textur statt
         // flacher Farbe") — ein diagonaler Verlauf von `bg` nach `bg2` statt einer

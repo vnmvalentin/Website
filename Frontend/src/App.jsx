@@ -7,6 +7,7 @@ import NotFound from "./pages/NotFound";
 import TwitchAuthProvider from "./components/TwitchAuthProvider";
 import AnalyticsTracker from "./components/AnalyticsTracker";
 import { VisitMemory } from "./utils/visitMemory";
+import { ToolScroll } from "./components/toolShell/ToolParts";
 
 // ── Nachgeladene Routen ─────────────────────────────────────────────────────
 // Eager importiert bleibt nur, was auf JEDER Seite gebraucht wird (Layout, die
@@ -39,6 +40,7 @@ const WhoAmI = lazy(() => import("./pages/ClashRoyale/clash/WhoAmI"));
 const StatsDuel = lazy(() => import("./pages/ClashRoyale/clash/StatsDuel"));
 const ImageGuess = lazy(() => import("./pages/ClashRoyale/clash/ImageGuess"));
 const CardWordle = lazy(() => import("./pages/ClashRoyale/clash/CardWordle"));
+const ColorGuess = lazy(() => import("./pages/ClashRoyale/clash/ColorGuess"));
 const ViewerGamesPage = lazy(() => import("./pages/ClashRoyale/clash/ViewerGamesPage"));
 const ViewerGamesOverlay = lazy(() => import("./pages/ClashRoyale/clash/ViewerGamesOverlay"));
 const TournamentPage = lazy(() => import("./pages/ClashRoyale/tournament/TournamentPage"));
@@ -49,6 +51,7 @@ const Abstimmung = lazy(() => import("./pages/Abstimmung/Abstimmung"));
 const AbstimmungDetail = lazy(() => import("./pages/Abstimmung/AbstimmungDetail"));
 const AuthTwitch = lazy(() => import("./pages/AuthTwitch"));
 const WcShell = lazy(() => import("./pages/WinChallenge/ui/WcShell.jsx"));
+const ToolShell = lazy(() => import("./components/toolShell/ToolShell.jsx"));
 const WinChallenge = lazy(() => import("./pages/WinChallenge/WinChallenge"));
 const WinChallengeOverlay = lazy(() => import("./pages/WinChallenge/WinChallengeOverlay"));
 const WinChallengeControl = lazy(() => import("./pages/WinChallenge/WinChallengeControl"));
@@ -108,7 +111,15 @@ const SeedRunnersShell = lazy(() => import("./pages/SeedRunners/ui/GameShell"));
 const FlickShell = lazy(() => import("./pages/FlickSoccer/ui/Shell.jsx"));
 const FlickMenu = lazy(() => import("./pages/FlickSoccer/FlickMenu.jsx"));
 const FlickLocal = lazy(() => import("./pages/FlickSoccer/FlickLocal.jsx"));
+const FlickTour = lazy(() => import("./pages/FlickSoccer/FlickTour.jsx"));
+const FlickTrick = lazy(() => import("./pages/FlickSoccer/FlickTrick.jsx"));
 const FlickRoom = lazy(() => import("./pages/FlickSoccer/FlickRoom.jsx"));
+const FlickTournaments = lazy(() => import("./pages/FlickSoccer/FlickTournaments.jsx"));
+const FlickTournament = lazy(() => import("./pages/FlickSoccer/FlickTournament.jsx"));
+const WfShell = lazy(() => import("./pages/Worldflip/ui/Shell.jsx"));
+const WfMenu = lazy(() => import("./pages/Worldflip/WfMenu.jsx"));
+const WfLocal = lazy(() => import("./pages/Worldflip/WfLocal.jsx"));
+const WfRoom = lazy(() => import("./pages/Worldflip/WfRoom.jsx"));
 const LightsOut = lazy(() => import("./pages/LightsOut/LightsOut.jsx"));
 const SigilsShell = lazy(() => import("./pages/SacrificeSigils/ui/Shell.jsx"));
 const SigilsHome = lazy(() => import("./pages/SacrificeSigils/ui/screens/HomeScreen.jsx"));
@@ -196,11 +207,20 @@ export default function App() {
           <Route path="/clash-royale/win-tracker/overlay/:overlayKey" element={<WinTrackerOverlayPage />} />
           <Route path="/twitch-tools/overlay/:overlayKey" element={<PollsPredictionsOverlay />} />
 
-          {/* Win Challenge: Editor, öffentliche Beschreibung und Moderator-Ansicht in eigener Hülle
-              (ui/WcShell.jsx) statt im Website-Layout; das OBS-Overlay oben bleibt ohne Hülle */}
+          {/* Streamer-Werkzeuge in der gemeinsamen Tool-Hülle (components/toolShell/ToolShell.jsx) statt im
+              Website-Layout. Die Win Challenge setzt Sprachwahl und Übersetzung obendrauf (ui/WcShell.jsx).
+              OBS-Overlays oben bleiben ohne Hülle; Bingo-Beitritt (Zuschauer) bleibt im Layout. */}
           <Route element={<WcShell />}>
             <Route path="/WinChallenge-Overlay" element={<WinChallenge />} />
             <Route path="/WinChallengeControl/:controlKey" element={<WinChallengeControl />} />
+          </Route>
+          <Route element={<ToolShell />}>
+            <Route path="/twitch-tools" element={<PollsPredictionsPage />} />
+            {/* Diese drei scrollen ganz normal (ToolScroll); die übrigen haben eine Arbeitsfläche über die volle Höhe */}
+            <Route path="/stream-szenen" element={<ToolScroll><StreamScenesControlPage /></ToolScroll>} />
+            <Route path="/Bingo" element={<ToolScroll><BingoPage/></ToolScroll>} />
+            <Route path="/Bingo/:sessionId" element={<ToolScroll><BingoEditorPage/></ToolScroll>} />
+            <Route path="/discord-bot" element={<DiscordBotDashboard />} />
           </Route>
 
           {/* Seed Runners als eigenes Spiel: eigene Hülle statt Website-Layout (ui/GameShell.jsx) */}
@@ -266,6 +286,7 @@ export default function App() {
             <Route path="zoom" element={<ImageGuess key="zoom" mode="zoom" />} />
             <Route path="pixel" element={<ImageGuess key="pixel" mode="pixel" />} />
             <Route path="wordle" element={<CardWordle />} />
+            <Route path="farbe" element={<ColorGuess />} />
             <Route path="viewer-games" element={<ViewerGamesPage />} />
           </Route>
           {/* Nuzlocke: seit Okt. 2026 ebenfalls im Arcade-Look, URL bleibt /nuzlocke (SEO) */}
@@ -287,7 +308,19 @@ export default function App() {
           <Route path="/flick-soccer" element={<FlickShell />}>
             <Route index element={<FlickMenu/>} />
             <Route path="spiel" element={<FlickLocal/>} />
+            <Route path="tour" element={<FlickTour/>} />
+            <Route path="trick" element={<FlickTrick/>} />
+            <Route path="trick/:id" element={<FlickTrick/>} />
+            <Route path="turnier" element={<FlickTournaments/>} />
+            <Route path="turnier/:code" element={<FlickTournament/>} />
             <Route path=":code" element={<FlickRoom/>} />
+          </Route>
+
+          {/* Worldflip: 3D-Kartenspiel für 2 bis 4 am schwebenden Tisch, eigene Hülle (Worldflip/ui/Shell.jsx) */}
+          <Route path="/worldflip" element={<WfShell />}>
+            <Route index element={<WfMenu/>} />
+            <Route path="spiel" element={<WfLocal/>} />
+            <Route path=":code" element={<WfRoom/>} />
           </Route>
 
           {/* Lights Out: Horror-Labyrinth in der Ego-Perspektive, eigene Hülle (LightsOut/LightsOut.jsx) */}
@@ -315,8 +348,6 @@ export default function App() {
             <Route path="auth/twitch" element={<AuthTwitch />} />
 
             <Route path="Giveaways" element={<GiveawaysPage />} />
-            <Route path="Bingo" element={<BingoPage/>} />
-            <Route path="Bingo/:sessionId" element={<BingoEditorPage/>} />
             <Route path="Bingo/join/:joinKey" element={<BingoJoinPage/>} />
             <Route path="connect4" element={<Connect4Page/>} />
             <Route path="connect4/:code" element={<Connect4Room/>} />
@@ -329,12 +360,9 @@ export default function App() {
             <Route path="tutorial/ytm-songrequest" element={<Navigate to="/tutorial/ytm-bot" replace />} />
             <Route path="tutorial/ytm-streamdeck" element={<Navigate to="/tutorial/ytm-bot" replace />} />
             <Route path="updates" element={<Updates />} />
-            <Route path="/discord-bot" element={<DiscordBotDashboard />} />
             <Route path="/discord-bot/privacy" element={<DiscordBotPrivacyPage />} />
             <Route path="/discord-bot/terms" element={<DiscordBotTermsPage />} />
-            <Route path="/twitch-tools" element={<PollsPredictionsPage />} />
-            {/* 3D-Stream-Szenen: Steuerpult (Streamer) und Figurbaukasten (Zuschauer) */}
-            <Route path="/stream-szenen" element={<StreamScenesControlPage />} />
+            {/* Figurbaukasten der 3D-Stream-Szenen (Zuschauer); das Steuerpult steht in der Tool-Hülle oben */}
             <Route path="/tanzfigur" element={<AvatarBuilderPage />} />
             {/* Premium-Abo ansehen, verwalten, kündigen (Backend/billing) */}
             <Route path="/abo" element={<Abo />} />

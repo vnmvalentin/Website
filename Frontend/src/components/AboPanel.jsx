@@ -6,6 +6,7 @@
 // angekommen — Stripe meldet es per Webhook. Deshalb wird der Stand dann kurz nachgefragt.
 import React, { useEffect, useState } from "react";
 import PremiumDialog from "./PremiumDialog";
+import Button from "./ui/Button";
 import { PREMIUM_INCLUDES, getBillingStatus, openPortal, untilText } from "../utils/billingApi";
 
 const STRINGS = {
@@ -97,7 +98,8 @@ export default function AboPanel({ returnPath, lang = "de" }) {
 
   if (!status) return <p className="text-sm text-white/40">{error || t.loading}</p>;
 
-  const p = status.premium;
+  // Fehlt der Abschnitt (alter Server-Stand), gilt „kein Abo“ statt die ganze Profilseite abstürzen zu lassen
+  const p = status.premium || {};
   let line = t.none;
   if (p.source === "owner") line = t.owner;
   else if (p.source === "grant") line = t.grant(untilText(p.until));
@@ -107,18 +109,14 @@ export default function AboPanel({ returnPath, lang = "de" }) {
   return (
     <>
       <p className="text-sm text-white/85">{line}</p>
-      {note && <p className="mt-2 text-xs text-violet-200">{note}</p>}
+      {note && <p className="mt-2 text-xs text-accent-soft">{note}</p>}
       {error && <p className="mt-2 text-xs text-red-300">{error}</p>}
       <div className="mt-4 flex flex-wrap gap-2">
         {status.hasCustomer && (
-          <button type="button" onClick={portal} disabled={busy} className="h-10 px-4 rounded-md bg-violet-600 hover:bg-violet-500 disabled:bg-white/5 disabled:text-white/30 text-sm font-bold text-white transition-colors">
-            {busy ? t.opening : t.manage}
-          </button>
+          <Button onClick={portal} loading={busy} loadingText={t.opening}>{t.manage}</Button>
         )}
         {!p.active && (
-          <button type="button" onClick={() => setDialog(true)} className={`h-10 px-4 rounded-md text-sm font-bold text-white transition-colors ${status.hasCustomer ? "border border-white/15 hover:bg-white/5" : "bg-violet-600 hover:bg-violet-500"}`}>
-            {t.subscribe}
-          </button>
+          <Button variant={status.hasCustomer ? "secondary" : "primary"} onClick={() => setDialog(true)}>{t.subscribe}</Button>
         )}
       </div>
       {status.hasCustomer && <p className="mt-3 text-xs text-white/40">{t.portalHint}</p>}

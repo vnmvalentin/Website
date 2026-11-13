@@ -137,7 +137,8 @@ function tierUebersicht(state) {
  *
  * Bewusst nicht linear: mit gleichmäßigen Schritten wäre der Skill auf langen
  * Pflanzen wertlos geblieben (fünf Minuten auf 22 Stunden sind nichts). Die
- * Staffel macht ihn zum echten Ausbau — und weil die Kanne bei 5.000 Gold bleibt,
+ * Staffel macht ihn zum echten Ausbau. Seit 07.11. wächst der Kannenpreis mit dem Acker
+ * (core/werkzeug.js preisFuer) — am Anfang bleibt er bei 5.000 Gold,
  * bleibt sie auch für kleine Pflanzen bezahlbar.
  */
 // ACHTUNG: Index 0 ist der Grundwert OHNE Skill. Die Fähigkeit hat deshalb eine

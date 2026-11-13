@@ -1,5 +1,331 @@
 export const NEWS_UPDATES = [
   {
+    date: "11.11.2026",
+    version: "v6.20: Virtual Farm: neues Angeln, Virtual Farm: Haus und Gold-Shop zum Hineinlaufen und Virtual Farm: Wegweiser und Post",
+    sections: [
+      {
+        title: "Virtual Farm: neues Angeln",
+        items: [
+          "Neues Einholen statt „Balken halten“: Sobald es beißt, ziehen sich Ringe um den Schwimmer zusammen. Drück in dem Moment, in dem der Ring den Schwimmer berührt.",
+          "Gewöhnliche Fische brauchen einen Treffer mit Leertaste oder Klick. Seltenere brauchen drei bis fünf schnell hintereinander, jeder mit der Taste, die über dem Schwimmer steht: Leertaste oder ein Buchstabe direkt um WASD herum (Q, W, E, A, S, D, F). Die Hand bleibt also, wo sie beim Laufen liegt.",
+          "Bei drei oder mehr Ringen darfst du meist einen verpassen. Die Profi-Angel gibt dir mehr Zeit für jeden Treffer.",
+          "Ausgeworfen wird jetzt mit dem großen Knopf „Auswerfen“ mittig über der Angel-Leiste, nicht mehr mit der Leertaste.",
+          "Ein gefangener Fisch springt aus dem Wasser in die Bildmitte, mit Name, Länge, Wert und einem Hinweis, wenn er neu im Fischbuch ist.",
+          "Solange der Teichling im Dorfteich zu sehen ist, beißen seltene Fische deutlich öfter. Die Angel-Leiste sagt dir Bescheid.",
+          "Am Teich klingt es jetzt nach Teich: eigene Töne für Anbiss, Treffer und Fang statt der Töne aus dem Laden.",
+          "Die Angel stand im Werkzeugladen mit 50.000 Gold, gekostet hat sie 750.000. Jetzt steht der richtige Preis da, ebenso bei der Profi-Angel (250 Millionen).",
+        ]
+      },
+      {
+        title: "Virtual Farm: Haus und Gold-Shop zum Hineinlaufen",
+        items: [
+          "Ins Haus läufst du jetzt wirklich hinein: Lauf einfach gegen die Tür (oder drück E davor), die Tür schwingt auf und deine Figur geht durch den Rahmen. Beim Hinausgehen kommt sie genauso wieder heraus. Das klappt bei allen Haus-Looks.",
+          "Der Gold-Shop ist kein Marktstand mehr, sondern ein kleiner Laden mit goldenem Dach, in den du hineingehst. Drinnen hat jede Abteilung ihr eigenes Regal: Haus-Looks, Tapeten, Hüte, Tierhüte, Briefkästen und Namensschilder. Geh hin und drück E, um das Angebot anzusehen.",
+        ]
+      },
+      {
+        title: "Virtual Farm: Wegweiser und Post",
+        items: [
+          "Kleine Pfeile neben deiner Figur zeigen dir die Richtung, wenn es etwas abzuholen gibt: gelb zum Missionsbrett, blau zum Händler, orange zum Erntefest. Stehst du schon in der Nähe, verschwinden sie.",
+          "Post an andere Spieler wurde fälschlich mit „gleicher Anschluss“ abgelehnt, obwohl man sich gar keinen Anschluss teilt. Das ist behoben.",
+        ]
+      },
+      {
+        title: "Virtual Farm: Editor und Aussehen",
+        items: [
+          "Die Deko in deiner Hand folgt im Editor dem Mauszeiger und zeigt genau, wie sie auf der Kachel stehen wird, auch gespiegelt oder gedreht. So siehst du vor dem Setzen, wie es aussieht.",
+          "Im Editor liegt wieder ein gut sichtbares Kachel-Raster über dem ganzen Grundstück.",
+          "Der Editor startet näher dran. Mit WASD oder den Pfeiltasten verschiebst du die Ansicht, mit dem Mausrad zoomst du, bis zurück auf das ganze Grundstück.",
+          "Schnee, Laub, Blüten, Pollen, Glühwürmchen, Schneehaufen und Pfützen sind jetzt eckig wie der Rest der Welt statt rund.",
+          "Das Winter-Symbol ist neu gezeichnet: eine klare Schneeflocke.",
+          "Namensschilder verdecken keine Hüte mehr. Wer einen Hut trägt, bei dem sitzt das Schild darüber.",
+        ]
+      },
+      {
+        title: "Virtual Farm: Umtopfen",
+        items: [
+          "In der 2,5D-Ansicht lässt sich ein leeres Feld hinter einer Pflanze jetzt als Ziel anklicken. Vorher hieß es dort „Zielfeld ist bereits belegt“.",
+          "Der Topf wird erst abgebucht und dann wird umgesetzt. Schlägt das fehl, bleibt die Pflanze an ihrem Platz.",
+        ]
+      },
+      {
+        title: "Win Challenge",
+        items: [
+          "Mods können in der Moderator-Ansicht jetzt auch einstellen, ob der Timer hoch- oder runterzählt, und die Startzeit des Countdowns ändern.",
+        ]
+      },
+      {
+        title: "Clash Royale Win Tracker",
+        items: [
+          "Neue Option „Eckige Ecken“ unter Aussehen: Overlay-Karte, Deck und Ergebnis-Blasen ohne Rundung, im klassischen und im Royale-Stil.",
+          "Der Overlay-Editor ist in Reiter aufgeteilt (Aussehen, Größe, Inhalt, Modus, Chat) statt alles untereinander. Vorschau und OBS-Link bleiben daneben stehen, der zuletzt offene Reiter wird gemerkt.",
+          "Der Rahmen um das neueste Spiel wird am linken und rechten Rand nicht mehr abgeschnitten, wenn das Overlay die Seiten wechselt.",
+        ]
+      },
+    ]
+  },
+  {
+    date: "10.11.2026",
+    version: "v6.19: Virtual Farm: faires Spiel, Virtual Farm: Neue Saat und Virtual Farm: Saisonziele und Bestenlisten",
+    sections: [
+      {
+        title: "Virtual Farm: faires Spiel",
+        items: [
+          "Rucksack-Ausbauten ab Stufe 30 geben jetzt wirklich zusätzliche Plätze. Vorher brachten sie trotz Bezahlung nichts mehr.",
+          "Eier, Brutkasten und Schlüpfen laufen jetzt komplett über den Server. Gekaufte Eier und geschlüpfte Tiere können nicht mehr verloren gehen, und niemand kann sich Tiere oder Eier erschummeln.",
+          "Samen, Felder, Tiere und Wetter-Effekte sind gegen Schummeln geschützt. So bleiben Ranglisten und Erntefest fair.",
+          "Pro Gerät ist nur noch eine Farm spielbar, und zwischen Accounts vom selben Internet-Anschluss gibt es keine Post mehr. Zweit-Accounts bringen damit keinen Vorteil.",
+          "Per Post erhaltenes Gold zählt nicht mehr zum „insgesamt gesammelten Gold“, nur selbst Verdientes.",
+        ]
+      },
+      {
+        title: "Virtual Farm: Neue Saat",
+        items: [
+          "Neu: die „Neue Saat“. Ab Level 100 und mit genug verdientem Gold (beim ersten Mal 750 Milliarden) kannst du deine Farm neu anfangen und bekommst dafür für immer einen Stern. Zu finden im Profil.",
+          "Jeder Stern bringt dauerhaft +10 % Gold beim Verkaufen und +10 % Erfahrung beim Ernten, bis zu fünf Sterne. Jede weitere Neue Saat braucht doppelt so viel verdientes Gold wie die vorige.",
+          "Dabei werden Gold, Level, Fähigkeiten, Felder, Rucksack, Samen, Ernte, Kiste, Vitrine und Werkzeuge zurückgesetzt. Logbuch, Zuchtbuch, Tiere, Eier, Deko, Umkleide, Gold-Shop-Käufe und deine Wettbewerbs-Siege bleiben.",
+          "Sterne sieht man: ein Stern am Namen, ab zwei Sternen ein goldener Name, ab drei eine Sternenspur beim Laufen, ab vier goldene Ernte-Funken und mit fünf der Titel „Sternengärtner“.",
+          "Die Bestenliste im Menü sortiert jetzt zuerst nach Sternen. Wer neu anfängt, fällt also nicht nach unten.",
+          "Die Mondblume bringt beim Verkauf etwas weniger (115 bis 320 statt 134 bis 402 Milliarden). Sie hat bisher allein rund ein Drittel allen Goldes eingebracht.",
+        ]
+      },
+      {
+        title: "Virtual Farm: Saisonziele und Bestenlisten",
+        items: [
+          "Neu: Saisonziele. Jede Jahreszeit hat vier Ziele, zum Beispiel Saisonsorten ernten, Käfer fangen oder gefragte Früchte verkaufen. Du findest sie im Missionsbrett unter „Jahreszeit“.",
+          "Wer alle vier schafft, bekommt das Namensschild der Jahreszeit: Kirschblüte, Sonnenglut, Laubgold oder Raureif. Mit allen vier gibt es zusätzlich „Jahreskreis“. Diese Schilder kann man nicht kaufen, ausrüsten kannst du sie im Gold-Shop.",
+          "Die Bestenliste im Hauptmenü hat jetzt vier Reiter: Gold, Logbuch (komplette Seiten), Siege (Wochenwettbewerb) und Saison (geschaffte Saisonziele).",
+          "Im Profil zeigt eine neue Übersicht „Sammlung“, wie weit du bei Logbuch-Seiten, Kreuzungen und Jahreszeiten-Namensschildern bist.",
+          "Das Missionsbrett ist etwas breiter, damit alle Reiter in eine Zeile passen.",
+        ]
+      },
+      {
+        title: "Virtual Farm: Level 100 und Vielfalt-Bonus",
+        items: [
+          "Das Höchstlevel steigt von 50 auf 100. Ab Level 52 gibt es drei neue Fähigkeiten: Sortenkenner (stärkerer Vielfalt-Bonus), Auftragsprofi (mehr Gold für Händler-Aufträge) und Festkomitee (größere Erntefest-Belohnung).",
+          "Neu: der Vielfalt-Bonus. Je mehr verschiedene Sorten auf deinem Acker stehen (bis zu drei je Seltenheit), desto mehr bringt jede Ernte, bis zu +32 %. Den aktuellen Bonus siehst du oben rechts unter „Vielfalt“.",
+          "Belohnungen von Missionen, Erntefest und Händler-Aufträgen wachsen ab Level 50 nicht mehr weiter mit dem Level.",
+        ]
+      },
+      {
+        title: "Virtual Farm: besseres Schnell-Ernten",
+        items: [
+          "Beim Ernten mit gedrückter Shift-Taste reagiert jedes Feld sofort, sobald du darüber fährst: ein kurzer Ton, ein kleiner Funkenstoß, und die Frucht fliegt los. Vorher passierte beim Drüberziehen erst einmal nichts.",
+          "Neuer Ernte-Ton: Erntest du schnell hintereinander, steigt er mit jedem Feld eine Stufe höher. Töne schneiden sich nicht mehr gegenseitig ab, ein Zug über das ganze Feld klingt jetzt wie eine kleine Melodie.",
+          "Während du mit Shift über den Acker ziehst, verdeckt die Pflanzen-Infokarte nichts mehr.",
+          "Neu: Käfer und Unkraut. Während du erntest, setzt sich ab und zu ein Käfer auf eine Pflanze oder Unkraut wächst auf einem freien Feld. Klick sie weg (oder zieh mit Shift drüber) und du bekommst etwas Gold. Ignorierst du sie, passiert nichts — sie verschwinden nach einer Weile von selbst.",
+          "Neu: das Zuchtbuch. Kreuzungen, die du noch nicht gefunden hast, stehen im Logbuch nur als Umriss mit Hinweisen auf ihre Elternsorten. Erntest du eine Elternsorte 25-mal, zeigt sie sich. Nach deiner ersten gelungenen Kreuzung steht das ganze Rezept da. Kreuzungen, die du schon kennst, bleiben aufgedeckt.",
+          "Neu: gefragte Sorten am Markt. Jede volle Stunde sind drei bis vier Sorten besonders gefragt und bringen beim Verkaufen 20 bis 50 % mehr. Welche gerade dran sind, siehst du oben rechts unter „Markt gefragt“. Alle anderen Sorten bringen weiter den normalen Preis.",
+          "Neu: der Wochenwettbewerb „Rekord-Ernte der Woche“. Jede Woche gibt es eine Sorte, und wer das größte Stück davon erntet, gewinnt. Rangliste und Preise findest du im Missionsbrett unter „Wettbewerb“, die besten drei bekommen nach Wochenende Gold und ein Abzeichen im Profil.",
+          "Früchte haben jetzt eine genauere Größe von 1,0 bis 100,0, zum Beispiel 85,8. So steht im Wochenwettbewerb fast nie Gleichstand. Eine glatte 100,0 ist sehr selten, etwa einmal in 13.500 Ernten. Was eine Frucht beim Verkauf bringt, ändert sich dadurch nicht, und alte Früchte werden auf die neue Skala umgerechnet.",
+          "Im Logbuch heißen die beiden Größen-Ausprägungen jetzt „Winzling“ (unter Größe 2) und „Riese“ (ab Größe 99). Wer sie schon hatte, behält sie.",
+          "Im Hinweis zur Jahreszeit und in der Meldung beim Saisonwechsel stehen jetzt die richtigen Sortennamen statt interner Bezeichnungen.",
+          "Neu: der Ernte-Rausch. Wer dranbleibt und regelmäßig erntet (spätestens jede Minute), baut ihn auf — nach zehn Minuten bringt jede Ernte +15 % mehr Gold. Machst du länger Pause, sinkt er langsam wieder. Den Stand siehst du oben rechts als Balken.",
+          "Beim Ernten mit Shift und gedrückter Maus verschwinden die Pflanzen sofort, nicht erst einen Moment später.",
+          "Der Ton steigt nur noch, wenn du über mehrere Pflanzen ziehst. Ein einzelner Klick klingt immer gleich, und die Töne überlagern sich nicht mehr. Beim Pflanzen genauso.",
+        ]
+      },
+      {
+        title: "Virtual Farm: neues Hauptmenü und neuer Ladebildschirm",
+        items: [
+          "Das Hauptmenü ist aufgeräumt: Spielen und Bestenliste stehen nebeneinander auf einer Höhe, die Bestenliste zeigt jetzt alle zehn Plätze und hebt deinen eigenen Eintrag hervor.",
+          "Wer noch nicht angemeldet ist, sieht alles Wichtige auf einen Blick, ohne scrollen zu müssen.",
+          "Der Ladebildschirm passt jetzt zum Menü: dieselbe Wiese, ein gut lesbarer Fortschrittsbalken, verständliche Statustexte und wechselnde Spieltipps.",
+        ]
+      },
+      {
+        title: "Virtual Farm: aufgeräumte Fenster",
+        items: [
+          "Alle Fenster haben jetzt denselben Aufbau: Läden, Mülleimer und Gold-Shop zeigen ihre Einträge in einheitlichen Zeilen, Preis rechts, Nebenknöpfe wie „Alle“ oder „×10“ immer links vom grünen Kaufen-Knopf.",
+          "Der Deko-Shop zeigt seine Stücke in einer Liste wie die anderen Läden, mit denselben Reitern oben. Auch Kiste und Vitrine haben jetzt diese Reiter.",
+          "Fenster haben nur noch drei feste Breiten, statt dass jedes etwas anders breit ist.",
+          "Hinter einem offenen Fenster wird das Spiel nur noch abgedunkelt statt verschwommen, und der Schließen-Knopf wackelt beim Drüberfahren nicht mehr.",
+          "Die Anzeige oben rechts ist geordnet: erst die Knöpfe (Briefkasten, Gold-Shop, Tiere, Chat), darunter eine Tafel mit Uhrzeit, Jahreszeit, Wetter und deinem Vielfalt-Bonus.",
+        ]
+      },
+      {
+        title: "Virtual Farm: neue Bilder",
+        items: [
+          "Alle acht Kreuzungen haben jetzt eigene Bilder: die Pflanze bzw. Frucht auf dem Acker, eine eigene Samentüte im Rucksack und eigene Samen auf dem Acker. Vorher fehlten sie ganz.",
+          "Phönix, Tiger, Waschbär und Ziege laufen jetzt sichtbar über den Hof, und im Rucksack und Brutkasten haben alle Tiere wieder ihr Bild. Vorher fehlten diese Bilder.",
+        ]
+      },
+      {
+        title: "Virtual Farm: neue Weltkarte",
+        items: [
+          "Die Welt ist kein Rechteck mehr: In der Mitte liegt jetzt ein großer Dorfplatz mit Teich, Holzsteg und einem Rundweg, drumherum Rasen, Blumen und Büsche.",
+          "Die Stände sind sortiert: oben links wird eingekauft (Samen, Werkzeug, Eier, Deko), oben rechts verkauft (Markt, Tier-Verkauf) und dort hängt auch das Missionsbrett. Keiner steht mehr mitten im Weg.",
+          "Rund um die Grundstücke wächst Natur: dichter Wald am Rand, kleine Wäldchen und zwei weitere Teiche. In Wald, Wasser und Büsche kann man nicht hineinlaufen.",
+          "Die beiden mittleren Grundstücke liegen direkt am Dorfplatz, die äußeren an der Straße, die links und rechts in den Platz mündet. Deine Felder, Pflanzen und Deko sind beim Umzug genau dort geblieben, wo sie waren.",
+          "Der Gold-Shop ist jetzt ein goldener Stand unten links auf dem Dorfplatz statt eines Knopfs oben rechts.",
+          "Den Briefkasten-Knopf gibt es nicht mehr: Neue Post zeigt dein Briefkasten am Grundstück mit einer roten Zahl, die leicht wippt.",
+          "Der Ernte-Rausch steht jetzt als Balken direkt über deiner Schnellleiste.",
+          "Uhrzeit, Jahreszeit, Wetter, gefragte Sorten und Vielfalt sind oben rechts zusammengeklappt. Fährst du mit der Maus darüber, klappt alles aus.",
+          "An jeden Stand kommt man jetzt auch von direkt davor heran, nicht nur schräg daneben.",
+        ]
+      },
+      {
+        title: "Virtual Farm: Pixel-Look",
+        items: [
+          "Hauptmenü, Spielanzeige und alle Fenster haben jetzt einen leichten Pixel-Look: Pixel-Schrift, eckige Kanten und harte Schatten.",
+          "Teiche und der Rundweg auf dem Dorfplatz haben pixelige Ufer, mit flachem und tiefem Wasser und kleinen Wellen.",
+          "Alle Stände auf dem Dorfplatz, das Missionsbrett, der Schuppen und der Briefkasten sind neu gezeichnet, als Pixelbilder in gerader Vorderansicht. Der Gold-Shop hat einen eigenen goldenen Stand mit Münzschild.",
+          "Viele Pflanzen, fast alle Früchte, die meisten Tiere und ein Großteil der Deko sind jetzt ebenfalls als Pixelbilder neu gezeichnet.",
+          "Auch alle Samen, die Eier und alle Figuren zum Anziehen sind jetzt Pixelbilder. Dazu die Werkzeuge und die Briefkästen aus dem Gold-Shop.",
+          "Jedes Haus aus dem Gold-Shop hat jetzt seinen eigenen Innenraum: lila Kristallfliesen mit Sternenhimmel, eine Schmiede mit glühender Esse, eine Kräuterstube, eine Sternwarte, eine Raumstation mit Blick auf die Erde, eine Samenhandlung mit Schubladenwand und ein dunkles Schattenhaus mit Portalfenster.",
+          "Statt des Schuppens steht auf deinem Grundstück jetzt ein kleines Haus, und du kannst es betreten: Drinnen stehen Kiste, Vitrine, Mülleimer und Inkubator als Möbel, dazu Bett, Teppich und Fenster. Du läufst frei herum, öffnest die Möbel mit E oder per Klick und gehst durch die Tür wieder hinaus. In der Vitrine siehst du schon von außen deine ersten Ausstellungsstücke.",
+          "An den Wegen des Dorfplatzes und an der Straße stehen jetzt kleine Laternen. Wenn es dunkel wird, gehen sie an und leuchten den Weg aus.",
+          "Blumenkästen, Wildblumen, Tulpenbeet, Topfpflanze, Hecken, Kirschblütenbaum und alle Böden im Deko-Shop sind neu gezeichnet, passend zum Pixel-Look. Die vier Wildblumen-Sträuße haben jetzt je eine eigene Hauptfarbe: Rosa, Blau, Rot und Lila.",
+          "Neu im Deko-Shop: Gänseblümchen, Mohnblumen, Lavendel, Zierkürbis, eine große Sonnenblume, Pilze, Steinhaufen und ein Bienenkorb.",
+          "Im Haus steht jetzt ein Kleiderschrank. Er öffnet die neue Umkleide: Deine Katze steht groß auf einem Podest, mit Pfeilen links und rechts (oder A/D) blätterst du durch alle Fellfarben und Kostüme, gesperrte siehst du als Schattenriss mit ihrem Level. Über das Profil kommst du weiterhin auch direkt hinein.",
+          "Die Figuren schauen beim Laufen wieder in die richtige Richtung. Einige waren seitenverkehrt.",
+          "Alle Läden sehen jetzt aus wie Marktstände: Markise in der Farbe des Stands, Holzschild und die Ware als Kacheln mit großem Bild und Preisschild auf Holzregalen. Das gilt für Samen, Werkzeug, Eier, Deko und den Gold-Shop. Händler-Aufträge und Missionen hängen als Zettel mit Reißzwecke am Brett, das Erntefest zeigt Medaillen für Bronze, Silber und Gold.",
+          "Die Haus-Skins aus dem Gold-Shop sind neu gezeichnet, gerade von vorn wie dein Haus.",
+          "Dein Haus ist größer und steht jetzt auf 4×4 Feldern statt 3×3.",
+          "Kiste und Vitrine haben eigene Fenster: Die Kiste sieht aus wie eine offene Holzkiste mit Metallbändern, die Vitrine wie ein Glasschrank mit Regalbrettern, und dein Rucksack liegt als Stofftasche daneben. Ein Klick auf ein Stück legt es hinüber. Im Werkzeug-Shop haben beide jetzt ein eigenes Bild.",
+          "Wettbewerb und Jahreszeit am Missionsbrett sind neu gestaltet: Aushang für die Sorte der Woche, Siegertreppchen mit Preisen, Rangliste auf Pergament und die Namensschilder als Sammlung.",
+          "Auch oben ist die Spielanzeige neu: Die Schnellreise ist ein Wegweiser mit Holzpfeilen, deine Spielerkarte ein Holzrahmen mit Pergament, und Einstellungen, Online-Liste, Tiere und Chat sind nur noch Pixel-Symbole mit kleinen Schildchen.",
+          "Neue Himmelsuhr: Sonne und Mond wandern über einen kleinen Himmel, der sich mit der Tageszeit färbt, mit Morgen- und Abendrot und Sternen in der Nacht. Daneben zeigt ein Symbol die Jahreszeit: Blüte, Sonne, Ahornblatt oder Schneeflocke.",
+          "Der Rucksack unten rechts klappt auf, wenn du mit der Maus darüberfährst.",
+          "Alle Symbole im Spiel sind neu gezeichnet, im Pixel-Look. Dazu haben drei Fähigkeiten, die bisher ohne Bild waren, ein eigenes bekommen.",
+          "Tiere, Briefkasten, Chat, Einstellungen, Markt und „Neue Saat“ sind im Holz-und-Pergament-Look. Die Tiere wohnen jetzt in einem Stall mit rotem Scheunengiebel und Strohboden, der Mülleimer sieht aus wie eine Blechtonne mit Deckel, der Inkubator wie eine Brutmaschine mit Wärmelampen.",
+          "Zahlen wie Uhrzeit, Gold, Preise und Vorrat stehen in einer klareren Schrift und sind besser lesbar.",
+          "Die Schildchen unter den Symbolen oben (online, Tiere, Chat) stehen mit etwas Abstand und sind größer.",
+          "Beim Verkaufen verdeckt der Pfeil mit dem Namen nicht mehr das verdiente Gold.",
+          "Nachts zeigt auch das Fenster im Haus den Nachthimmel.",
+          "Behoben: Nach einem Rechtsklick lief die Figur endlos weiter.",
+          "Dein Profil ist jetzt ein Steckbrief: deine Katze groß auf einer Wiese, Level mit Erfahrungsbalken, Gold als Schilder, die Sammlung mit Fortschrittsbalken und große Knöpfe zu Fähigkeiten und Logbuch. Die Umkleide findest du jetzt im Kleiderschrank in deinem Haus.",
+          "Der Fähigkeitsbaum ist neu gestaltet: eine Pergamentkarte mit Holzlineal, die Fähigkeiten auf Holzschildern, farbige Wege und eckige Knoten. Lernbare Stufen leuchten golden, freie Punkte siehst du als goldene Marken.",
+          "Das Logbuch sieht aus wie ein Buch mit linierten Seiten: Geerntete Arten stehen als helle Stempel darauf, noch fehlende sind blass.",
+          "Inkubator und Mülleimer haben neue Fenster: Die Eier liegen unter Glaskuppeln auf Holzsockeln mit Wärmelampe, der Mülleimer zeigt deine Samen und Deko als Kacheln mit roten Wegwerf-Knöpfen.",
+          "Die Spielanzeige unten ist neu: Die Schnellleiste ist ein Holzbrett, die Werkzeuge stecken in einem Ledergürtel, Rucksack und Editor sind nur noch ihr Bild und wackeln beim Draufzeigen. Der Rucksack sieht von innen jetzt auch wie ein Rucksack aus.",
+          "Böden lassen sich nicht mehr auf Ackerfelder legen. Steinplatten und Moosplatten zeigen eine Platte je Feld, vorher sah ein Feld wie vier aus.",
+          "Jede Sorte zeigt im Samen-Shop und im Rucksack jetzt ihren eigenen Samen statt derselben braunen Bohne. Auch die Samentüten sind neu, im Pixel-Look mit Rand in der Farbe der Seltenheit.",
+          "Der Samen-Shop: Statt der zwei fast gleichen Reiter „Lohnt sich“ und „Im Angebot“ gibt es nur noch „Angebot“. Samen, die bei deinem Gold kaum etwas bringen, stehen dort blass im untersten Regal.",
+          "Deine Figur hüpft nicht mehr von Feld zu Feld, sondern läuft frei und flüssig in alle Richtungen, auch schräg. An Wasser, Wald und Gebäuden gleitet sie entlang, statt hängen zu bleiben.",
+          "Händler und Erntefest haben eigene Stände unten rechts auf dem Dorfplatz: ein Planwagen für die Händler-Aufträge und ein Herbststand mit Kürbissen fürs Erntefest. Am Missionsbrett stehen dafür nur noch die Missionen, der Wettbewerb und die Jahreszeit.",
+          "Auch der Boden ist jetzt pixelig: Wiese, Waldboden, Kieswege, Acker, Steinfelder und Holzstege. Er wechselt mit der Jahreszeit, mit Blüten im Frühling, gelblichem Gras und Laub im Herbst und Raureif im Winter.",
+          "Im Hauptmenü steht jetzt richtig, dass eine Welt sechs Grundstücke hat.",
+          "Die schräge 2,5D-Ansicht ist jetzt für alle eingestellt. Die Draufsicht kannst du weiter in den Einstellungen wählen.",
+          "In der 2,5D-Ansicht stehen Laternen und Blumen jetzt aufrecht, und nachts leuchten die Laternen.",
+          "Deine Figur watschelt beim Laufen und wirbelt dabei etwas Staub auf.",
+          "Briefkästen und Ranken haben keinen aufgemalten Grasfleck mehr unter sich und fügen sich sauber in den Boden ein.",
+          "Reife Pflanzen erkennst du jetzt besser: Über ihnen hüpft ein Pixelpfeil, in der Draufsicht kommen helle Ecken auf dem Feld dazu.",
+          "Die Einstellungen sind neu gestaltet: Holzbrett mit Bereichen für Klang, Grafik und Tasten, Pixel-Regler für die Lautstärke.",
+          "Die Zoom-Anzeige und der Weltcode passen jetzt zum Pixel-Look.",
+          "Auch Gartenzwerge, Vogelscheuche, Rosenbogen, mehrere Stände und der Baum haben keinen aufgemalten Grasfleck mehr.",
+          "Golden- und Rainbow-Ernten zeigen keine Emojis mehr.",
+          "Die Infokarte beim Überfahren einer Pflanze und die Infokarte im Rucksack sind jetzt Pergamentkarten im Holzlook, mit Seltenheit als farbigem Streifen.",
+          "Meldungen, die Hinweisleisten beim Benutzen von Werkzeug, Deko oder Tieren, der Schaufel-Balken, der Einsteiger-Hinweis und die Laden-Ankündigungen passen jetzt zum Pixel-Look.",
+          "Die Editor-Leiste ist ein Holzbrett wie die Schnellleiste und sitzt nicht mehr über ihr.",
+          "Das Partyzeit-Schild oben rechts hat einen Regenbogen-Streifen bekommen, die Sortier-Knöpfe im Rucksack sind Holzknöpfe.",
+          "Auch die Farb- und Emoji-Auswahl im Chat, das Tierfenster und die letzten runden Knöpfe in Umkleide, Haus und „Neue Saat“ passen jetzt zum Pixel-Look.",
+          "Die Ziffern sind besser lesbar: Eine „2“ sieht nicht mehr fast wie eine „8“ aus.",
+          "Der Zaun an den Seiten der Grundstücke ist neu gezeichnet, im Pixel-Look mit Pfosten und Längsbalken. Im Winter liegt Schnee auf den Pfosten.",
+          "Das „Zaunfeld“ gibt es nicht mehr im Deko-Shop, weil jedes Grundstück schon einen Zaun hat. Gekaufte Zaunfelder werden entfernt, du bekommst den vollen Preis als Gold zurück.",
+          "Alle Fische sind neu und detaillierter gezeichnet. Jede Art hat ihre eigene Form: Gabel-, Fächer-, Mond- oder Schleierschwanz, eigene Rückenflossen, Kiemen, Bartfäden, Zähne beim Hecht und eine Flammenschwanz-Spitze beim Teichdrachen.",
+          "Stände, Briefkästen, Zwerge, Bäume und Deko sind unten nicht mehr ausgefranst. Häuser, Kürbis und die Obstbäume stehen wieder wie gemalt da, ohne abgeschnittene Kanten.",
+          "Dein Gold steht oben rechts jetzt groß in einer eigenen Zeile.",
+          "Tiere, Stände, Häuser, Bäume und Deko haben jetzt alle dieselbe Pixelgröße wie Boden und Pflanzen. Die Welt wirkt dadurch einheitlicher und lädt schneller.",
+          "Bei „Markt gefragt“ und im Wettbewerb sieht man bei Rhabarber und anderen Dauerträgern das richtige Bild statt eines Platzhalters.",
+          "In der 2,5D-Ansicht kannst du auch Felder hinter hohen Pflanzen bepflanzen, und Käfer hinter einer Pflanze lassen sich anklicken. Vorher erschien stattdessen die Infokarte der vorderen Pflanze.",
+          "Der Chat hat eigene Pixel-Emojis: Gesichter, Daumen, Herz, Feuer, dazu Farm-Motive wie Keimling, Tomate, Huhn, Katze, Fisch und Pokal. Im Text tippst du sie als Kürzel wie „:herz:“, im Chat erscheint das Bild.",
+        ]
+      },
+      {
+        title: "Virtual Farm: neues Hauptmenü und lebendiger Dorfplatz",
+        items: [
+          "Das Hauptmenü ist jetzt ein richtiger Titelbildschirm: Im Hintergrund läuft die echte Spielwelt, eine Katze spaziert um den Dorfteich. Davor stehen ein großes Pixel-Logo, die Knöpfe „Spielen“ und „Private Welt“ und die Bestenliste als Anzeigetafel.",
+          "Über dem Stand, den du gerade mit E öffnen würdest, wippt ein kleiner Pixelpfeil mit seinem Namen, zum Beispiel „E · Händler“. Das gilt auch für dein Haus und den Briefkasten.",
+          "Der Editor zeigt dein ganzes Grundstück auf einen Blick: Ein Klick auf „Editor“ fährt die Kamera über deinen Hof, ohne Spielfigur, damit du deine Deko in Ruhe einrichten kannst.",
+          "Weit herausgezoomt ruckelt die Welt nicht mehr.",
+          "Die Stände auf dem Dorfplatz stehen weiter auseinander, man kommt bequem zwischen ihnen durch.",
+          "Auf dem Dorfteich und den kleinen Teichen schwimmen Seerosen, manche blühen, und darunter ziehen Fischschatten ihre Bahnen.",
+        ]
+      },
+      {
+        title: "Virtual Farm: Angeln am Dorfteich",
+        items: [
+          "Vorn auf dem Steg im Dorfteich kannst du jetzt angeln. Die Angel kaufst du für 750.000 Gold im Werkzeugladen.",
+          "Auswerfen, beim „Anbiss!“ sofort ziehen und dann den Fisch im Drill einholen: Halte ihn mit Leertaste oder Maus im grünen Balken, bis die Leine voll ist. Seltene Fische zappeln wilder.",
+          "23 Fischarten von Stichling bis Teichdrache. Manche beißen nur am Tag oder nachts, manche nur in einer Jahreszeit und manche nur bei Regen, Schnee, Gewitter oder Mondlicht. Ab und zu hängt auch ein alter Stiefel an der Angel.",
+          "Ohne Köder beißt nichts. Im Werkzeugladen gibt es Würmer als einfachen Köder, Teigkugeln für seltene Fische und Leuchtköder für epische und legendäre. Bessere Köder lassen Fische auch schneller beißen. Köder werden teurer, je mehr dein Acker abwirft, weil auch die Fische dann mehr wert sind.",
+          "Die Profi-Angel macht den Fangbalken im Drill größer.",
+          "In der Angel-Leiste siehst du, was gerade gilt und wie viele Arten jetzt beißen. Im Fischbuch steht bei jeder Art, wann sie beißt.",
+          "Deine Fänge landen im Fischeimer. Dort verkaufst du sie einzeln oder alle auf einmal für Gold.",
+          "Im Fischbuch siehst du, nach Seltenheit sortiert, welche Fische du schon gefangen hast und wie groß dein größter war.",
+          "Deine Tiere brauchen jetzt Futter: Ein verhungertes Tier arbeitet nicht, bis du ihm einen Fisch gibst. Ein Fisch hält 3 Stunden satt, seltenere länger, bis zu 24 Stunden im Voraus. Jedes Tier startet mit 6 Stunden Futter.",
+          "Ein rotes Zeichen am Tiere-Symbol zeigt, wenn ein Tier Hunger hat. Im Stall fütterst du mit einem Klick alle hungrigen Tiere mit den günstigsten Fischen aus dem Eimer.",
+        ]
+      },
+      {
+        title: "Virtual Farm: stärkere Tiere",
+        items: [
+          "Der Goldfinder findet mehr, je mehr dein Acker abwirft. Vorher waren seine Funde später im Spiel kaum noch spürbar.",
+          "Erntehelfer, Gärtner, Forscher und Kaufmann sind stärker: bis zu 30 % Chance auf ein zweites Stück, 40 % schnelleres Wachstum, 50 % mehr Erfahrung und 20 % mehr beim Alles-Verkaufen.",
+          "Der Abo-Bonus beim Verkaufen beträgt jetzt 25 % statt 50 %.",
+          "Die Gießkanne kostet am Anfang weiter 5.000 Gold, wird aber teurer, je wertvoller dein Acker ist. Vorher war sie später im Spiel praktisch gratis.",
+          "Der Anfang ist ruhiger: Ingwer, Paprika, Mais und Kürbis wachsen deutlich länger, und Missionen zahlen in den ersten zehn Leveln weniger. So lohnen sich die gewöhnlichen Samen am Anfang länger, statt dass man sie nach dem ersten Kauf überspringt.",
+        ]
+      },
+      {
+        title: "Virtual Farm: mehr zum Anpassen",
+        items: [
+          "Neu im Gold-Shop: Hüte für deine Figur, zum Beispiel Strickmütze, Blumenkranz, Zylinder, Zauberhut oder Krone. Mitspieler sehen deinen Hut auch.",
+          "Auch deine Tiere bekommen Hüte, etwa eine Schleife oder ein Partyhütchen.",
+          "Mit neuen Tapeten richtest du dein Haus von innen ein, unabhängig davon, wie das Haus außen aussieht.",
+        ]
+      },
+      {
+        title: "Virtual Farm: lebendige Welt",
+        items: [
+          "Geangelt wird jetzt direkt im Dorfteich statt in einem eigenen Fenster: Du stehst vorn auf dem Steg, wirfst aus und siehst Angel, Schnur und Schwimmer im Wasser. Beim Anbiss taucht der Schwimmer ab und ein Ausrufezeichen erscheint, im Drill reißt der Fisch ihn hin und her.",
+          "Auswerfen und Anhieb gehen mit Leertaste oder einem Klick ins Wasser. Köder, Fischeimer und Fischbuch stehen in einer schmalen Leiste unten. Mit Esc, „Einpacken“ oder einfach Loslaufen hörst du auf.",
+          "Kurz vor dem Anbiss schwimmt ein Fischschatten auf den Schwimmer zu. Ein gefangener Fisch fliegt dir aus dem Wasser in die Hand.",
+          "Die Teiche zeigen das Wetter: Regentropfen schlagen Ringe, bei Gewitter mehr und größere, bei Schnee treiben Eisschollen, nachts und bei Mondlicht spiegelt sich der Mond, bei Sonne glitzert das Wasser. Ab und zu springt ein Fisch.",
+          "Man erzählt sich, dass im Dorfteich etwas Großes wohnt. Es zeigt sich selten, bei Gewitter und Mondlicht öfter.",
+          "Deine Figur läuft jetzt richtig: Die Füße heben sich abwechselnd, statt dass die ganze Figur wackelt. Im Stand atmet sie und blinzelt ab und zu. Das gilt auch im Haus.",
+          "Beim Ernten und Pflanzen beugt sich die Figur kurz vor, und was sie in der Hand hält, wippt beim Laufen mit.",
+          "Tiere laufen nicht mehr ununterbrochen: Sie bleiben stehen, fressen mit gesenktem Kopf und schlafen nachts, mit kleinen „z“ über dem Kopf.",
+          "Die Party ist größer geworden: Über dem Dorfteich hängt eine Discokugel, bunte Lichtflecken wandern über den Platz, am Himmel platzt Feuerwerk, und alle Figuren und Tiere tanzen im selben Takt.",
+        ]
+      },
+      {
+        title: "Win Challenge: Countdown und Chat-Rollen",
+        items: [
+          "Der Timer kann jetzt auch runterzählen. Richtung und Startzeit stellst du über das neue Zahnrad am Timer ein. Bei 00:00:00 bleibt der Countdown stehen, Reset springt zurück auf die Startzeit.",
+          "Beim Countdown wirken „+“ und „−“, das direkte Eintippen der Zeit und „!settimer“ auf die Restzeit. Das gilt auch in der Moderator-Ansicht.",
+          "Bei den Chat-Befehlen legst du jetzt selbst fest, wer sie nutzen darf: Mods, VIPs, Abonnenten oder alle im Chat. Du als Streamer darfst immer.",
+        ]
+      },
+      {
+        title: "Clash Royale Win Tracker: eigenes Format und schnellere Werte",
+        items: [
+          "Breite und Höhe des Overlays lassen sich jetzt einzeln festlegen. Der Inhalt passt sich selbst an: Schrift und Bilder wachsen oder schrumpfen mit, übriger Platz wird gleichmäßig verteilt. Bei flachen, breiten Formaten stehen Profil, Deck und Session automatisch nebeneinander.",
+          "Medaillen und Platzierung ziehen nach einem Spiel sofort mit, gleichzeitig mit Profit und Bilanz. Vorher hinkte der Kopf oft eine Minute hinterher.",
+          "Neue Spiele erscheinen insgesamt schneller im Overlay.",
+          "Die „NEWEST“-Zeile unter den letzten 5 Spielen ist weg, das Overlay wird dadurch nicht mehr höher. Das neueste Spiel hat stattdessen einen Rahmen, ältere Spiele sind etwas blasser.",
+        ]
+      },
+      {
+        title: "Weitere Neuerungen",
+        items: [
+          "Beim Ernten hört man wieder den Ernte-Ton.",
+          "Das Chatfenster verdeckt nicht mehr die Uhr und die Jahreszeit.",
+          "Die Katze im Hauptmenü läuft wieder gemütlich, statt hektisch zu wackeln.",
+          "Beim Betreten der Welt bleibt der Ladebildschirm stehen, bis die 2,5D-Ansicht fertig ist. Vorher sah man kurz eine falsch gezoomte Draufsicht, dann ruckelte es.",
+          "Über Händler, Missionsbrett und Erntefest erscheint eine gelbe Sprechblase, wenn du dort gerade etwas abgeben oder abholen kannst, mit der Anzahl.",
+          "Die Farm läuft flüssiger, in der Draufsicht und in 2,5D, besonders nachts.",
+          "Die 2,5D-Ansicht ruckelt beim Laufen nicht mehr: Der Boden wird jetzt Stück für Stück nachgeladen statt alle paar Schritte komplett neu gemalt.",
+          "Unkraut und Käfer bleiben in der 2,5D-Ansicht auf ihrem Feld, statt mit der Kamera mitzuschweben.",
+          "Rainbow-Pflanzen in der Hand haben keinen feinen Rahmen mehr.",
+          "Die 2,5D-Ansicht lässt sich in den Einstellungen jetzt immer auswählen, auch wenn dein Browser keine Grafikbeschleunigung meldet (dann mit Hinweis, dass es ruckeln kann). Gemerkt wird nur noch, was du selbst auswählst.",
+          "Dein Haus öffnet sich nicht mehr aus Versehen per Klick. Hinein geht es zu Fuß mit E, im Editor lässt es sich weiter anklicken.",
+        ]
+      },
+    ]
+  },
+  {
     date: "02.11.2026",
     version: "v6.18: Gamble-Overlay, Discord-Punkte und Virtual Farm: Jahreszeiten",
     sections: [

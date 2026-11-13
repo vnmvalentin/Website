@@ -2,7 +2,7 @@
 // Holztisch, flackerndes Kerzenlicht (folgt leicht der Maus), Partikel-Overlay, Tooltip, Ton- und Anzeige-Einstellungen.
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Link, NavLink, Outlet } from "react-router-dom";
-import { ArrowLeftToLine, Volume2, VolumeX, Settings2 } from "lucide-react";
+import { Volume2, VolumeX, Settings2 } from "lucide-react";
 import { ShellContext } from "./shellContext.js";
 import Table3DLayer from "./battle/table3d/Table3DLayer.jsx";
 import { sound } from "../audio/sound.js";
@@ -10,6 +10,8 @@ import { particles } from "./anim/particles.js";
 import { usePrefs, setPrefs, SPEED_OPTIONS, systemPrefersReducedMotion } from "./prefs.js";
 import { de } from "../i18n/de.js";
 import "./theme.css";
+import { useFontLink } from "../../../components/shell/useFontLink";
+import BackToSite from "../../../components/shell/BackToSite";
 
 const FONT_HREF = "https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=IM+Fell+English:ital@0;1&family=IM+Fell+English+SC&display=swap";
 
@@ -103,13 +105,7 @@ export default function Shell() {
   useEffect(() => sound.subscribe((s) => setMuted(s.muted)), []);
 
   // Schriften einmal laden (per <link>, wie in der Seed-Runners-Hülle)
-  useEffect(() => {
-    if (document.querySelector(`link[href="${FONT_HREF}"]`)) return;
-    const link = document.createElement("link");
-    link.rel = "stylesheet";
-    link.href = FONT_HREF;
-    document.head.appendChild(link);
-  }, []);
+  useFontLink(FONT_HREF);
 
   // Audio erst nach der ersten Interaktion; Ambient läuft, solange die Hülle offen ist
   useEffect(() => {
@@ -210,7 +206,7 @@ export default function Shell() {
                 <Settings2 size={16} />
               </button>
               {settingsOpen && <SettingsPopover onClose={() => setSettingsOpen(false)} />}
-              <Link to="/fun" className="ss-btn ss-btn-sm ss-btn-ghost" title="Zurück zur Website"><ArrowLeftToLine size={16} /><span className="hidden md:inline">Website</span></Link>
+              <BackToSite className="ss-btn ss-btn-sm ss-btn-ghost" />
             </div>
           </div>
         </header>

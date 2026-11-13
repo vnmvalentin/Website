@@ -4,16 +4,9 @@ import { TwitchAuthContext } from "../../components/TwitchAuthContext";
 import { Plus, Trash2, Calendar, Clock, BarChart2, X, Image as ImageIcon, RefreshCw, ArrowRight, Vote } from "lucide-react";
 import SEO from "../../components/SEO";
 import { socket, useFeedRoom } from "../../utils/socket";
+import { Page, PageHeader, Card, EmptyState, Button, Dialog, Tabs, Field, Input, Select } from "../../components/ui";
 
-const STREAMER_ID = "160224748";
-
-function TwitchGlyph({ className }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden="true">
-      <path d="M11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714zM6 0 1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.286 12V0zm14.571 11.143-3.428 3.428h-3.429l-3 3v-3H6.857V1.714h13.714Z" />
-    </svg>
-  );
-}
+import { STREAMER_ID } from "../../config/owner";
 
 // --- HELPER COMPONENTS ---
 
@@ -21,16 +14,19 @@ function PollCard({ poll, onClick, isAdmin, onDelete }) {
   const isExpired = new Date(poll.endDate) <= new Date();
 
   return (
-    <div
+    <Card
+      role="link"
+      tabIndex={0}
       onClick={onClick}
-      className="group panel flex items-center gap-4 p-3 transition-colors hover:bg-white/[0.06] hover:border-violet-400/30 cursor-pointer"
+      onKeyDown={(e) => { if (e.key === "Enter") onClick(); }}
+      className="group !p-3 flex items-center gap-4 transition-colors hover:bg-white/[0.06] hover:border-accent/30 cursor-pointer focus-visible:outline-2 focus-visible:outline-accent-soft"
     >
       {/* Thumbnail */}
-      <div className="relative w-20 h-20 md:w-24 md:h-24 shrink-0 rounded-xl overflow-hidden bg-black/40 border border-white/10">
+      <div className="relative w-20 h-20 md:w-24 md:h-24 shrink-0 rounded-lg overflow-hidden bg-black/40 border border-line">
         {poll.background ? (
           <img src={poll.background} alt="" className="w-full h-full object-cover" />
         ) : (
-          <div className="w-full h-full flex items-center justify-center text-violet-300/40 group-hover:text-violet-300/70 transition-colors">
+          <div className="w-full h-full flex items-center justify-center text-accent-soft/40 group-hover:text-accent-soft/70 transition-colors">
             <BarChart2 size={28} />
           </div>
         )}
@@ -55,17 +51,19 @@ function PollCard({ poll, onClick, isAdmin, onDelete }) {
 
       {/* Admin Actions */}
       {isAdmin && (
-        <button
+        <Button
+          variant="ghost"
+          icon={Trash2}
           onClick={(e) => { e.stopPropagation(); onDelete(poll.id); }}
-          className="p-2 text-white/20 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors shrink-0"
+          onKeyDown={(e) => e.stopPropagation()}
           title="Löschen"
-        >
-          <Trash2 size={17} />
-        </button>
+          aria-label="Löschen"
+          className="shrink-0 hover:!text-red-400"
+        />
       )}
 
-      <ArrowRight size={17} className="text-white/15 group-hover:text-violet-300 group-hover:translate-x-1 transition-all shrink-0" />
-    </div>
+      <ArrowRight size={17} className="text-white/15 group-hover:text-accent-soft group-hover:translate-x-1 transition-all shrink-0" />
+    </Card>
   );
 }
 
@@ -115,60 +113,38 @@ function CreatePollModal({ onClose, onSave }) {
       setData({ ...data, questions: qs });
   };
 
+  // Pflichtfelder im Fenster anmahnen statt per alert()
+  const [tried, setTried] = useState(false);
   const handleSave = () => {
-      if(!data.title || !data.endDate) return alert("Titel & Enddatum fehlen!");
+      setTried(true);
+      if(!data.title || !data.endDate) return;
       onSave(data);
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={onClose} />
-
-      <div className="relative w-full max-w-2xl panel-strong shadow-2xl shadow-black/60 flex flex-col max-h-[85vh]">
-
-        {/* Header */}
-        <div className="flex items-center justify-between p-5 border-b border-white/10">
-          <h2 className="font-display text-xl font-bold text-white">Neue Abstimmung</h2>
-          <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-lg text-white/40 hover:text-white transition-colors"><X size={20} /></button>
-        </div>
-
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
-
+    <Dialog
+      open
+      onClose={onClose}
+      width="xl"
+      kicker="Abstimmung"
+      title="Neue Abstimmung"
+      footer={<><Button variant="ghost" onClick={onClose}>Abbrechen</Button><Button onClick={handleSave}>Speichern</Button></>}
+    >
             {/* Metadata Section */}
             <div className="space-y-4 mb-8">
-                <div>
-                    <label className="text-xs font-bold text-white/40 uppercase tracking-wider mb-1.5 block">Titel</label>
-                    <input
-                        className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-3 text-white focus:border-violet-500 outline-none transition-colors placeholder:text-white/20"
-                        placeholder="Worum geht es?"
-                        value={data.title}
-                        onChange={e => setData({...data, title: e.target.value})}
-                        autoFocus
-                    />
-                </div>
+                <Field label="Titel" error={tried && !data.title ? "Bitte einen Titel eingeben." : undefined}>
+                    <Input placeholder="Worum geht es?" value={data.title} onChange={e => setData({...data, title: e.target.value})} />
+                </Field>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                        <label className="text-xs font-bold text-white/40 uppercase tracking-wider mb-1.5 block">Enddatum</label>
-                        <input
-                            type="datetime-local"
-                            className="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-3 text-white focus:border-violet-500 outline-none transition-colors text-sm"
-                            value={data.endDate}
-                            onChange={e => setData({...data, endDate: e.target.value})}
-                        />
-                    </div>
-                    <div>
-                        <label className="text-xs font-bold text-white/40 uppercase tracking-wider mb-1.5 block">Bild URL (Optional)</label>
-                        <div className="relative">
-                            <input
-                                className="w-full bg-black/40 border border-white/10 rounded-lg pl-10 pr-4 py-3 text-white focus:border-violet-500 outline-none transition-colors placeholder:text-white/20 text-sm"
-                                placeholder="https://..."
-                                value={data.background}
-                                onChange={e => setData({...data, background: e.target.value})}
-                            />
-                            <ImageIcon size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/30" />
-                        </div>
+                    <Field label="Enddatum" error={tried && !data.endDate ? "Bitte ein Enddatum wählen." : undefined}>
+                        <Input type="datetime-local" value={data.endDate} onChange={e => setData({...data, endDate: e.target.value})} />
+                    </Field>
+                    <div className="relative">
+                        <Field label="Bild-Adresse (optional)">
+                            <Input className="pl-9" placeholder="https://..." value={data.background} onChange={e => setData({...data, background: e.target.value})} />
+                        </Field>
+                        <ImageIcon size={15} className="absolute left-3 bottom-3 text-white/30 pointer-events-none" />
                     </div>
                 </div>
             </div>
@@ -176,61 +152,55 @@ function CreatePollModal({ onClose, onSave }) {
             {/* Questions Section */}
             <div className="space-y-4">
                 <div className="flex items-center justify-between">
-                     <label className="text-xs font-bold text-white/40 uppercase tracking-wider block">Fragen ({data.questions.length})</label>
-                     <button onClick={addQuestion} className="text-xs bg-white/5 hover:bg-white/10 border border-white/10 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5 text-white/70 hover:text-white">
-                        <Plus size={14} /> Frage hinzufügen
-                     </button>
+                     <p className="text-xs font-semibold text-white/70">Fragen ({data.questions.length})</p>
+                     <Button variant="secondary" size="sm" icon={Plus} onClick={addQuestion}>Frage hinzufügen</Button>
                 </div>
 
                 {data.questions.length === 0 && (
-                    <div className="text-center py-8 border border-dashed border-white/10 rounded-lg bg-white/[0.02] text-white/30 text-sm">
-                        Noch keine Fragen hinzugefügt.
-                    </div>
+                    <EmptyState className="!py-8">Noch keine Fragen hinzugefügt.</EmptyState>
                 )}
 
                 {data.questions.map((q, i) => (
-                    <div key={q.id} className="bg-black/20 border border-white/10 rounded-lg p-4">
+                    <div key={q.id} className="bg-black/20 border border-line rounded-lg p-4">
                         <div className="flex gap-3 mb-3">
-                            <span className="flex items-center justify-center w-6 h-6 rounded-lg bg-violet-500/10 border border-violet-400/20 text-xs font-bold text-violet-300 mt-1.5 shrink-0">{i+1}</span>
-                            <div className="flex-1 space-y-3">
-                                <div className="flex gap-2">
-                                    <input
-                                        className="flex-1 bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm focus:border-violet-500 outline-none transition-colors"
+                            <span className="flex items-center justify-center w-6 h-6 rounded-md bg-accent/10 border border-accent/25 text-xs font-bold text-accent-soft mt-2 shrink-0">{i+1}</span>
+                            <div className="flex-1 min-w-0 space-y-3">
+                                <div className="flex flex-wrap sm:flex-nowrap gap-2">
+                                    <Input
+                                        className="flex-1 min-w-0"
+                                        aria-label={`Frage ${i + 1}`}
                                         placeholder="Deine Frage..."
                                         value={q.question}
                                         onChange={e => updateQuestion(i, 'question', e.target.value)}
                                     />
-                                    <select
-                                        className="bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-sm focus:border-violet-500 outline-none transition-colors"
+                                    <Select
+                                        className="!w-auto"
+                                        aria-label={`Art von Frage ${i + 1}`}
                                         value={q.type}
                                         onChange={e => updateQuestion(i, 'type', e.target.value)}
                                     >
-                                        <option value="single">Single Choice</option>
-                                        <option value="multiple">Multiple Choice</option>
+                                        <option value="single">Eine Antwort</option>
+                                        <option value="multiple">Mehrere Antworten</option>
                                         <option value="text">Freitext</option>
-                                    </select>
-                                    <button onClick={() => removeQuestion(i)} className="p-2 text-white/20 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors shrink-0">
-                                        <Trash2 size={16} />
-                                    </button>
+                                    </Select>
+                                    <Button variant="ghost" icon={Trash2} onClick={() => removeQuestion(i)} title="Frage entfernen" aria-label="Frage entfernen" className="shrink-0 hover:!text-red-400" />
                                 </div>
 
                                 {q.type !== 'text' && (
-                                    <div className="pl-1 space-y-2 border-l-2 border-white/10 ml-1">
+                                    <div className="space-y-2 border-l-2 border-line ml-1 pl-3">
                                         {q.options.map((opt, oi) => (
-                                            <div key={oi} className="flex items-center gap-2 pl-3">
-                                                <div className="w-1.5 h-1.5 rounded-full bg-violet-400/50 shrink-0" />
-                                                <input
-                                                    className="flex-1 bg-transparent border-b border-white/10 px-2 py-1 text-sm focus:border-violet-500 outline-none placeholder:text-white/15 transition-colors"
+                                            <div key={oi} className="flex items-center gap-2">
+                                                <Input
+                                                    className="!h-9 flex-1"
+                                                    aria-label={`Frage ${i + 1}, Option ${oi + 1}`}
                                                     placeholder={`Option ${oi+1}`}
                                                     value={opt}
                                                     onChange={e => updateOption(i, oi, e.target.value)}
                                                 />
-                                                <button onClick={() => removeOption(i, oi)} className="text-white/15 hover:text-red-400 transition-colors shrink-0"><X size={14} /></button>
+                                                <Button variant="ghost" size="sm" icon={X} onClick={() => removeOption(i, oi)} title="Option entfernen" aria-label="Option entfernen" className="shrink-0 hover:!text-red-400" />
                                             </div>
                                         ))}
-                                        <button onClick={() => addOption(i)} className="text-xs text-violet-300 hover:text-violet-200 ml-3 pt-1 flex items-center gap-1">
-                                            <Plus size={12} /> Option
-                                        </button>
+                                        <Button variant="ghost" size="sm" icon={Plus} onClick={() => addOption(i)} className="!text-accent-soft">Option</Button>
                                     </div>
                                 )}
                             </div>
@@ -238,16 +208,7 @@ function CreatePollModal({ onClose, onSave }) {
                     </div>
                 ))}
             </div>
-
-        </div>
-
-        {/* Footer */}
-        <div className="p-5 border-t border-white/10 flex justify-end gap-3">
-            <button onClick={onClose} className="px-5 py-2.5 rounded-lg font-medium text-white/50 hover:text-white hover:bg-white/5 transition-colors">Abbrechen</button>
-            <button onClick={handleSave} className="px-6 py-2.5 rounded-lg font-bold bg-violet-600 hover:bg-violet-500 text-white transition-colors">Speichern</button>
-        </div>
-      </div>
-    </div>
+    </Dialog>
   );
 }
 
@@ -338,48 +299,45 @@ export default function AbstimmungPage() {
   const displayPolls = activeTab === "active" ? activePolls : expiredPolls;
 
   return (
-    <div className="page-fade max-w-4xl mx-auto px-2 md:px-4 py-8 md:py-12 min-h-[80vh]">
+    <Page width="default" className="py-4 md:py-8 min-h-[70vh]">
       <SEO title = "Abstimmungen"/>
 
-      {/* Header */}
-      <div className="flex flex-col items-center text-center gap-4 mb-10">
-        <span className="flex items-center justify-center w-14 h-14 rounded-2xl bg-violet-500/10 border border-violet-400/20 text-violet-300">
-          <Vote size={26} />
-        </span>
-        <h1 className="font-display text-3xl md:text-4xl font-bold text-white tracking-tight">Abstimmungen</h1>
+      <PageHeader
+        icon={Vote}
+        kicker="Community"
+        title="Abstimmungen"
+        description="Stimme bei aktuellen Fragen ab und bestimme mit."
+        actions={isAdmin && (
+          <>
+            <Button variant="secondary" icon={RefreshCw} onClick={refreshPolls} title="Neu laden" aria-label="Neu laden" />
+            <Button icon={Plus} onClick={() => setShowModal(true)}>Neue Abstimmung</Button>
+          </>
+        )}
+      />
 
-        {/* Underline Tabs */}
-        <div className="flex border-b border-white/10 mt-2">
-          <button
-            className={`px-5 py-2.5 text-sm font-semibold transition-colors border-b-2 -mb-px ${activeTab === "active" ? "border-violet-400 text-white" : "border-transparent text-white/40 hover:text-white/70"}`}
-            onClick={() => setActiveTab("active")}
-          >
-            Laufend ({activePolls.length})
-          </button>
-          <button
-            className={`px-5 py-2.5 text-sm font-semibold transition-colors border-b-2 -mb-px ${activeTab === "expired" ? "border-violet-400 text-white" : "border-transparent text-white/40 hover:text-white/70"}`}
-            onClick={() => setActiveTab("expired")}
-          >
-            Vergangen ({expiredPolls.length})
-          </button>
-        </div>
-      </div>
+      <Tabs
+        className="mb-6"
+        label="Abstimmungen"
+        value={activeTab}
+        onChange={setActiveTab}
+        items={[
+          { value: "active", label: "Laufend", badge: activePolls.length },
+          { value: "expired", label: "Vergangen", badge: expiredPolls.length },
+        ]}
+      />
 
       {/* List Area */}
       <div className="space-y-3">
           {loadState === "loading" ? (
               <div className="text-center py-20 text-white/30 animate-pulse">Lade Abstimmungen...</div>
           ) : loadState === "error" ? (
-              <div className="text-center py-16 px-4 text-white/50 border border-dashed border-white/10 rounded-xl bg-white/[0.02]">
-                  <p className="mb-4">Die Abstimmungen konnten gerade nicht geladen werden.</p>
-                  <button onClick={() => { setLoadState("loading"); refreshPolls(); }} className="px-4 py-2 rounded-lg bg-white/10 hover:bg-white/15 text-white text-sm font-semibold transition-colors">
-                      Erneut versuchen
-                  </button>
-              </div>
+              <EmptyState action={<Button variant="secondary" onClick={() => { setLoadState("loading"); refreshPolls(); }}>Erneut versuchen</Button>}>
+                  Die Abstimmungen konnten gerade nicht geladen werden.
+              </EmptyState>
           ) : displayPolls.length === 0 ? (
-              <div className="text-center py-20 text-white/30 border border-dashed border-white/10 rounded-xl bg-white/[0.02]">
+              <EmptyState>
                  {activeTab === "active" ? "Keine aktiven Abstimmungen." : "Keine vergangenen Abstimmungen."}
-              </div>
+              </EmptyState>
           ) : (
               displayPolls.map(poll => (
                   <PollCard
@@ -393,34 +351,11 @@ export default function AbstimmungPage() {
           )}
       </div>
 
-      {/* Admin Floating Action Button */}
-      {/* Den schwebenden "Admin Login"-Knopf für Abgemeldete gibt es nicht mehr: er stand bei
-          JEDEM Besucher unten in der Seite, obwohl er nur für eine Person gedacht war — die
-          Anmeldung sitzt ohnehin oben rechts in der Kopfzeile. */}
-      {isAdmin && (
-          <div className="fixed bottom-8 right-8 flex flex-col gap-3 z-40">
-              <button
-                onClick={refreshPolls}
-                className="w-10 h-10 rounded-xl panel-strong text-white/50 hover:text-white flex items-center justify-center transition-colors"
-                title="Reload"
-              >
-                  <RefreshCw size={17} />
-              </button>
-              <button
-                onClick={() => setShowModal(true)}
-                className="w-10 h-10 rounded-xl bg-violet-600 hover:bg-violet-500 text-white flex items-center justify-center transition-colors shadow-lg shadow-violet-950/40"
-                title="Neue Abstimmung"
-              >
-                  <Plus size={20} />
-              </button>
-          </div>
-      )}
-
-      {/* Modal */}
+      {/* Admin-Knöpfe (Neu laden, Neue Abstimmung) stehen oben im Seitenkopf statt schwebend unten rechts */}
       {showModal && (
           <CreatePollModal onClose={() => setShowModal(false)} onSave={handleCreate} />
       )}
 
-    </div>
+    </Page>
   );
 }

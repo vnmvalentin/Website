@@ -112,7 +112,7 @@ const PIGMENTS = ['rgba(37,99,170,0.55)', 'rgba(170,50,30,0.5)', 'rgba(30,120,95
  * Hieroglyphenband als Aufkleber (transparent) für die Foto-Steinwände: zwei Zeilen bemalter,
  * eingeritzter Zeichen zwischen Linien. 1024×256, kachelt in x.
  */
-export function glyphBandTexture(rx = 1) {
+function glyphBandTexturePaint(rx = 1) {
   const p = pair(1024, 256);
   p.ctx.clearRect(0, 0, 1024, 256);
   const rand = rng(404);
@@ -132,7 +132,7 @@ export function glyphBandTexture(rx = 1) {
 }
 
 /** Gemalter Fries unter der Decke: Kheker-Bündel über blau/rot/goldenen Bändern. 1024×128. */
-export function friezeTexture(rx = 1) {
+function friezeTexturePaint(rx = 1) {
   const p = pair(1024, 128);
   p.ctx.fillStyle = '#c99a55';
   p.ctx.fillRect(0, 0, 1024, 128);
@@ -160,7 +160,7 @@ export function friezeTexture(rx = 1) {
 }
 
 /** Sternendecke wie in Grabkammern: tiefblau mit goldenen fünfzackigen Sternen. */
-export function starCeiling(rx, ry) {
+function starCeilingPaint(rx, ry) {
   const p = pair(256);
   const rand = rng(12);
   p.ctx.fillStyle = '#152a52';
@@ -190,7 +190,7 @@ export function starCeiling(rx, ry) {
 }
 
 /** Papyrussäule: senkrechte Bündel-Kanneluren, oben bemalte Bänder. Breite = Umfang. */
-export function columnTexture() {
+function columnTexturePaint() {
   const p = pair(256, 512);
   const rand = rng(3);
   const g = p.ctx.createLinearGradient(0, 0, 0, 512);
@@ -222,7 +222,7 @@ export function columnTexture() {
  * Geflügelte Sonnenscheibe (transparent): goldene Scheibe mit zwei Uräen, Flügel in Blau, Rot,
  * Grün. Für die Wandmalerei hinter der Pyramide und den Türsturz am Eingang. 1024×320.
  */
-export function wingedSunTexture() {
+function wingedSunTexturePaint() {
   const W = 1024, H = 320;
   const p = pair(W, H);
   p.hctx.clearRect(0, 0, W, H);
@@ -333,3 +333,23 @@ export function forbiddenTexture() {
   tex.anisotropy = 8;
   return tex;
 }
+
+/**
+ * Gemalte Texturen nur einmal je Seitenbesuch malen: das Malen (Tupfer, Normal-Maps) kostete beim
+ * Pyramidenstart spürbar Zeit vor dem ersten Bild. Jeder Aufruf bekommt eigene Textur-Objekte
+ * (clone teilt nur das gemalte Bild), die die Szene wie gewohnt freigeben kann.
+ */
+function memo(paint) {
+  const cache = new Map();
+  return (...args) => {
+    const key = args.join('|');
+    if (!cache.has(key)) cache.set(key, paint(...args));
+    const r = cache.get(key);
+    return Object.fromEntries(Object.entries(r).map(([k, t]) => [k, t.clone()]));
+  };
+}
+export const glyphBandTexture = memo(glyphBandTexturePaint);
+export const friezeTexture = memo(friezeTexturePaint);
+export const starCeiling = memo(starCeilingPaint);
+export const columnTexture = memo(columnTexturePaint);
+export const wingedSunTexture = memo(wingedSunTexturePaint);

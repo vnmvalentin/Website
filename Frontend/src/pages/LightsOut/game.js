@@ -3,8 +3,9 @@
 // Drei Ebenen (levels.js), jede mit eigenem Monster und eigener Spielweise:
 //  - Wald (forest):    Schlüssel finden, Haustür aufschließen. Der Beobachter bewegt sich nur,
 //                      solange man ihn nicht sieht — man muss sich umdrehen, und das kostet Licht.
-//  - Anstalt (halls):  drei Sicherungen in den Kasten am Ausgang. Der Jäger sieht das Licht und
-//                      hört Rennen; in Spinden ist man sicher, außer er sieht einen gerade hineinsteigen.
+//  - Anstalt (halls):  eine Station mit Fluren und Zimmern (kein Irrgarten). Drei Sicherungen liegen in den
+//                      Zimmern und gehören in den Kasten an der Treppe. Der Jäger sieht das Licht und hört
+//                      Rennen; in Spinden ist man sicher, außer er sieht einen gerade hineinsteigen.
 //  - Keller (cellar):  drei Ventile aufdrehen, dann öffnet der Notausgang. Der Lauscher ist blind
 //                      und jagt nur nach Gehör — Licht ist sicher, Schritte nicht.
 //
@@ -18,18 +19,24 @@
 import * as THREE from 'three';
 import { createAssets, createPostFX } from '../ClashRoyale/modes/scene3d/kit';
 import {
-  generateMaze, placeThings, generateForest, placeForest, isOpen, findPath, makeRng, DIRS, wallDirs, FOREST, pickStatues,
+  generateMaze, placeThings, generateForest, placeForest, isOpen, findPath, makeRng, DIRS, FOREST, pickStatues, edgeKey,
+  generateWard, placeWard,
 } from './maze';
 import { buildGarden } from './gardenWorld';
 import { SYMBOL_IDS, SYMBOL_NAMES } from './symbols';
 import {
-  wallTexture, floorTexture, ceilingTexture, lockerTexture, fuseBoxTexture, fuseSlotTexture,
+  wallTexture, floorTexture, ceilingTexture, lockerTexture,
   doorTexture, writingTexture, creatureViews, sidingTexture, brickTexture, wetFloorTextures,
-  carvingTexture, codeLockTexture,
+  carvingTexture, codeLockTexture, signTexture, paperTexture,
 } from './textures';
+import { fuseParts, makeFuse, batteryParts, makeBattery, makeKey, paperGeometry, buildFuseBox, makeFind } from './items';
+import { createScares } from './scares';
+import { createEvents } from './events';
+import { NOTES } from './lore';
 import { buildForest, STAR_R } from './forestWorld';
+import { buildTvRoom } from './introScene';
 import { placeRoomProps, propSpots } from './photoWorld';
-import { furnishRooms, createFlickerLamps, placePipes } from './decor';
+import { furnishRooms, furnishWard, buildWardWalls, createFlickerLamps, placePipes } from './decor';
 import { createAudio } from './audio';
 import { loadMonsterKit, buildMonsterModel } from './monsterModel';
 import { createFlashlight } from './viewmodel';
@@ -46,11 +53,13 @@ const STAMINA_REGEN = 14;
 const BATTERY_DRAIN = 1.0; // Prozent je Sekunde, ~100 s Licht je Ladung
 const BATTERY_PICKUP = 45;
 const CATCH_DIST = 0.95;
+/** Dicke der dünnen Raumwände der Anstalt (stehen mittig auf der Kachelgrenze) */
+const THIN_WALL = 0.24;
 
 /** Was je Welt anders ist: Licht, Nebel, Hörweite der eigenen Schritte (Meter), Ruhezeit des Monsters. */
 const THEMES = {
   forest: { wallH: 9, fog: 0.045, hemi: [0x5a6a90, 0x0c0c0c, 0.12], adapt: 0.45, noise: { walk: 5, sprint: 14, sneak: 1.2 }, dormant: 12 },
-  halls: { wallH: 3, fog: 0.085, hemi: [0x8890a0, 0x201810, 0.05], adapt: 0.2, noise: { walk: 4.5, sprint: 13, sneak: 1.2 }, dormant: 22 },
+  halls: { wallH: 3, fog: 0.085, hemi: [0x8890a0, 0x201810, 0.05], adapt: 0.2, noise: { walk: 3.2, sprint: 11, sneak: 0.8 }, dormant: 22 },
   cellar: { wallH: 2.8, fog: 0.09, hemi: [0x8a8a80, 0x141210, 0.04], adapt: 0.18, noise: { walk: 7, sprint: 18, sneak: 2 }, dormant: 15 },
   garden: { wallH: 3.3, fog: 0.055, hemi: [0x55648c, 0x0c0c0a, 0.1], adapt: 0.38, noise: { walk: 5, sprint: 14, sneak: 1.2 }, dormant: 14 },
 };
@@ -73,6 +82,16 @@ const WRITINGS = {
 };
 
 const MONSTER_HEIGHT = { hunter: 2.7, watcher: 3.1, listener: 2.3, tracker: 2.5 };
+
+/**
+ * Nachtschwester (Anstalt). Die Station besteht aus Zimmern mit einer oder zwei Türen — wer darin überrascht wird,
+ * kann kaum weg. Deshalb: Sie bleibt auf ihrer Runde auf den Fluren und betritt Zimmer nur, wenn sie etwas gehört
+ * oder gesehen hat. Sie sieht nicht weit (Meter: light = man hat die Lampe an, dark = aus, sneak = aus und man
+ * schleicht; chase… = während sie jagt), verliert einen nach LOSE Sekunden ohne Sicht und muss nach WIND Sekunden
+ * Jagd kurz stehen bleiben (REST), bevor sie weiterkann.
+ */
+const SIGHT = { light: 10, dark: 3.2, sneak: 2.2, chaseLight: 11, chaseDark: 4.5 };
+const HUNTER = { lose: 1.6, search: 5, wind: 8, rest: 2.4, speed: { patrol: 1.5, investigate: 2.3, chase: 3.15, search: 1.2 }, perFuse: 0.05 };
 
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 const tileOf = (p) => Math.round(p / S);
@@ -211,10 +230,12 @@ export function createGame(host, opts, cb) {
     door = f.door;
     exitCell = [door[0], door[1] + 1];
     const p = placeForest(maze, rng, start, door);
-    objectives = [p.key];
-    batteries = p.batteries.slice(0, HARD.batteries);
+    // Der Schlüssel liegt in der Hütte des Försters auf dem Tisch (die Laterne an ihrer Wand weist den Weg)
+    objectives = [[f.hut.x + 2, f.hut.z]];
+    // ein Akku weniger im Wald verstreut — dafür liegt einer in der Hütte
+    batteries = p.batteries.slice(0, HARD.batteries - 1);
     fromStart = p.fromStart;
-    forestInfo = { gate: f.gate, hut: f.hut, fire: f.fire, bushes: p.bushes };
+    forestInfo = { gate: f.gate, hut: f.hut, fire: f.fire, bushes: p.bushes, path: f.path, grave: f.grave, well: f.well };
   } else if (garden) {
     // Großes Labyrinth, in der Mitte ein offener Platz (Brunnen + Obelisk)
     maze = generateMaze(seed + levelIndex, 11, 2);
@@ -232,9 +253,9 @@ export function createGame(host, opts, cb) {
     const used = new Set([...objectives, ...gardenInfo.decoys].map(([x, z]) => z * maze.size + x));
     batteries = t.batteries.filter(([x, z]) => !used.has(z * maze.size + x)).slice(0, HARD.batteries - 1);
   } else {
-    // Anstalt mit vier Behandlungsräumen, Keller mit drei Lagerräumen
-    maze = generateMaze(seed + levelIndex, cellar ? 8 : 9, halls ? 4 : 3);
-    const t = placeThings(maze, rng, HARD.goals);
+    // Anstalt: Grundriss einer Station mit Fluren und Zimmern (kein Irrgarten); Keller: Irrgarten mit drei Lagerräumen
+    maze = halls ? generateWard(seed + levelIndex) : generateMaze(seed + levelIndex, 8, 3);
+    const t = halls ? placeWard(maze, rng, HARD.goals) : placeThings(maze, rng, HARD.goals);
     start = t.start;
     door = t.exit.door;
     exitCell = t.exit.cell;
@@ -344,9 +365,26 @@ export function createGame(host, opts, cb) {
   // Hindernisse, an denen der Spieler hängen bleibt (Spinde, Kasten, Möbel, Statuen)
   const props = [];
   const addProp = (cx, cz, hx, hz) => props.push({ minX: cx - hx, maxX: cx + hx, minZ: cz - hz, maxZ: cz + hz });
+  // Wände, die nicht auf dem Kachelraster liegen (Waldhütte): Hindernis UND Sichtsperre
+  // (je Kachel abgelegt — die Anstalt hat ein paar hundert dünne Wände, die Sichtprüfung soll nicht jedes Mal alle
+  // durchgehen)
+  const losGrid = new Map();
+  const addWall = (cx, cz, hx, hz) => {
+    addProp(cx, cz, hx, hz);
+    const box = { minX: cx - hx, maxX: cx + hx, minZ: cz - hz, maxZ: cz + hz };
+    for (let tz = tileOf(box.minZ - 0.02); tz <= tileOf(box.maxZ + 0.02); tz++) {
+      for (let tx = tileOf(box.minX - 0.02); tx <= tileOf(box.maxX + 0.02); tx++) {
+        const k = tz * size + tx;
+        if (!losGrid.has(k)) losGrid.set(k, []);
+        losGrid.get(k).push(box);
+      }
+    }
+  };
 
   let forestView = null;
   let gardenView = null;
+  /** Türblätter der Anstalt (für das Ereignis „Tür schlägt zu“) */
+  let wardLeaves = [];
   if (garden) {
     gardenView = buildGarden({
       scene, keep, rng, maze, isOpen, S, wallH: WALL_H, assets, addProp, door, exitCell,
@@ -356,11 +394,16 @@ export function createGame(host, opts, cb) {
   } else if (forest) {
     forestView = buildForest({
       scene, keep, rng, maze, S, wallH: WALL_H, gate: forestInfo.gate, hut: forestInfo.hut,
-      fire: forestInfo.fire, bushes: forestInfo.bushes, trunks, assets,
+      fire: forestInfo.fire, bushes: forestInfo.bushes, trunks, assets, intro: !!opts.intro,
+      addProp, addWall, path: forestInfo.path, grave: forestInfo.grave, well: forestInfo.well,
     });
     instanced.push(...forestView.instanced);
     // Ohne Anfahrt brauchen die Scheinwerfer nicht mitzuleuchten — jedes Licht kostet in jedem Shader
-    if (!opts.intro) forestView.headlights.forEach((h) => { h.visible = false; });
+    if (!opts.intro) {
+      forestView.headlights.forEach((h) => { h.visible = false; });
+      forestView.phone.glow.visible = false;
+    }
+    // (mit Vorspann bleiben sie bis zum Aufprall an — siehe crash())
 
     // Haus: Bretterwände, manche mit vernageltem Fenster und schwachem Licht dahinter
     const plain = sidingTexture(false);
@@ -404,6 +447,14 @@ export function createGame(host, opts, cb) {
     walls.receiveShadow = true;
     scene.add(walls);
     instanced.push(walls);
+    // Dünne Wände, Türen und Türschilder der Station (decor.js): Hindernis und Sichtsperre
+    if (maze.ward) {
+      const ward = buildWardWalls({
+        scene, keep, maze, S, wallH: WALL_H, thick: THIN_WALL, wallMat, addWall, addProp, rng, signTexture, doorTexture,
+      });
+      instanced.push(...ward.meshes);
+      wardLeaves = ward.leaves;
+    }
 
     if (cellar) {
       const wet = wetFloorTextures();
@@ -423,15 +474,21 @@ export function createGame(host, opts, cb) {
     addPlane(assets.pbr(keep(new THREE.MeshStandardMaterial({ map: ceilTex, roughness: 1, color: cellar ? 0x8a8070 : 0xffffff })), 'rough_concrete', size, size, { noMap: true }), WALL_H, false);
   }
 
-  /** Richtung (dx, dz) zu einer echten Wand neben einer Zelle — bevorzugt die gegenüber dem einzigen Ausgang. */
-  const wallSide = ([x, z], avoid = []) => {
+  /** Dünne Raumwand (maze.edges, Anstalt) zwischen einer Kachel und ihrem Nachbarn in Richtung d? */
+  const thinWall = ([x, z], d) => !!maze.edges?.size && maze.edges.has(edgeKey(maze, x, z, x + d[0], z + d[1]));
+  /** Steht in Richtung d eine Wand — Mauerkachel oder dünne Raumwand? (Türen zählen nicht als Wand.) */
+  const walled = (cell, d) => !isOpen(maze, cell[0] + d[0], cell[1] + d[1]) || thinWall(cell, d);
+  /** So weit ragt die Wand in Richtung d in die Kachel hinein: dünne Wände stehen mittig auf der Kachelgrenze. */
+  const wallGap = (cell, d) => (isOpen(maze, cell[0] + d[0], cell[1] + d[1]) && thinWall(cell, d) ? THIN_WALL / 2 : 0);
+  /** Richtung (dx, dz) zu einer Wand neben einer Zelle — bevorzugt die gegenüber dem einzigen Ausgang. */
+  const wallSide = (cell, avoid = []) => {
     const isAvoided = (d) => avoid.some((a) => a[0] === d[0] && a[1] === d[1]);
-    const open = DIRS.filter(([dx, dz]) => isOpen(maze, x + dx, z + dz));
+    const open = DIRS.filter((d) => !walled(cell, d));
     if (open.length === 1) {
       const back = [-open[0][0], -open[0][1]];
       if (!isAvoided(back)) return back;
     }
-    return wallDirs(maze, x, z).find((d) => !isAvoided(d)) || null;
+    return DIRS.find((d) => walled(cell, d) && !isAvoided(d)) || null;
   };
 
 
@@ -471,33 +528,37 @@ export function createGame(host, opts, cb) {
 
   // ── Sicherungskasten (Anstalt) ──────────────────────────────────────────
   let boxPos = null;
-  const slotMeshes = [];
+  let fuseBox = null;
   let boxLamp = null;
+  // Modelle aus items.js; jede Gruppe liegt mit ihrer Unterseite auf y = 0
+  const fuseKit = halls ? fuseParts(keep) : null;
   if (halls) {
     const boxSide = wallSide(exitCell, [doorDir]) || [-doorDir[0], -doorDir[1]];
-    boxPos = new THREE.Vector3(world(exitCell[0]) + boxSide[0] * (S / 2 - 0.1), 1.35, world(exitCell[1]) + boxSide[1] * (S / 2 - 0.1));
-    const fuseBox = new THREE.Mesh(keep(new THREE.BoxGeometry(0.7, 0.7, 0.2)),
-      keep(new THREE.MeshStandardMaterial({ map: keep(fuseBoxTexture()), roughness: 0.6, metalness: 0.3 })));
-    fuseBox.position.copy(boxPos);
-    fuseBox.rotation.y = Math.atan2(-boxSide[0], -boxSide[1]);
-    fuseBox.castShadow = true;
-    scene.add(fuseBox);
-    const slotMat = keep(new THREE.MeshStandardMaterial({ map: keep(fuseSlotTexture()), emissive: 0x403000, roughness: 0.4 }));
-    const slotGeo = keep(new THREE.PlaneGeometry(0.1, 0.15));
-    // ein Schlitz je Sicherung (allein drei, zu mehreren bis zu fünf), gleichmäßig über die Breite
-    const slots = objectives.length;
-    for (let i = 0; i < slots; i++) {
-      const m = new THREE.Mesh(slotGeo, slotMat);
-      m.position.set(slots === 1 ? 0 : -0.22 + (i * 0.44) / (slots - 1), -0.2, 0.105);
-      m.visible = false;
-      fuseBox.add(m);
-      slotMeshes.push(m);
-    }
+    const off = S / 2 - 0.1 - wallGap(exitCell, boxSide);
+    boxPos = new THREE.Vector3(world(exitCell[0]) + boxSide[0] * off, 1.35, world(exitCell[1]) + boxSide[1] * off);
+    // Blechschrank mit einer Fassung je Sicherung (allein drei, zu mehreren bis zu fünf)
+    fuseBox = buildFuseBox({ keep, slots: objectives.length, fuse: fuseKit });
+    fuseBox.group.position.copy(boxPos);
+    fuseBox.group.rotation.y = Math.atan2(-boxSide[0], -boxSide[1]);
+    scene.add(fuseBox.group);
     boxLamp = new THREE.PointLight(0xff3020, 0.5, 3, 1.5);
     boxLamp.position.copy(boxPos).add(new THREE.Vector3(-boxSide[0] * 0.4, 0.5, -boxSide[1] * 0.4));
     scene.add(boxLamp);
     if (boxSide[0] !== 0) addProp(boxPos.x, boxPos.z, 0.12, 0.35); else addProp(boxPos.x, boxPos.z, 0.35, 0.12);
   }
+
+  // ── Vernagelte Hütte (Wald) ─────────────────────────────────────────────
+  // Die Hütte des Försters ist zugenagelt. Das Brecheisen hängt im Brunnen (Jonas' Zettel am Lager verrät es):
+  // Seil hochziehen, dann die drei Bretter abhebeln — erst dann kommt man an den Hausschlüssel.
+  const hutInfo = forestView?.hut.boarded ? forestView.hut : null;
+  const crow = hutInfo ? forestView.crowbar : null;
+  let boardsLeft = hutInfo ? hutInfo.planks.length : 0;
+  /** Hat man schon vor der vernagelten Tür gestanden? (dann nennt das Ziel den nächsten Schritt) */
+  let hutSeen = false;
+  const boardBlock = hutInfo
+    ? { minX: hutInfo.x - hutInfo.half - 0.1, maxX: hutInfo.x + hutInfo.half + 0.1, minZ: hutInfo.z - 0.32, maxZ: hutInfo.z + 0.12 }
+    : null;
+  if (boardBlock) props.push(boardBlock);
 
   // ── Zahlenschloss (Wald) ────────────────────────────────────────────────
   // Die Haustür hat neben dem Schlüsselloch ein Zahlenschloss. Auf seinem Schild stehen drei Zeichen in
@@ -520,7 +581,8 @@ export function createGame(host, opts, cb) {
     for (const [k, t] of trunks) {
       const x = k % size;
       const z = (k - x) / size;
-      const open = DIRS.find(([dx, dz]) => isOpen(maze, x + dx, z + dz) && fromStart[(z + dz) * size + x + dx] > 7);
+      const open = DIRS.find(([dx, dz]) => isOpen(maze, x + dx, z + dz) && !maze.blocked.has((z + dz) * size + x + dx)
+        && fromStart[(z + dz) * size + x + dx] > 7);
       if (open && Math.abs(x - door[0]) + Math.abs(z - door[1]) >= 5) cands.push({ t, x, z, open });
     }
     for (let i = cands.length - 1; i > 0; i--) {
@@ -586,37 +648,101 @@ export function createGame(host, opts, cb) {
   }
 
   // ── Gegenstände am Boden ────────────────────────────────────────────────
-  const fuseGeo = keep(new THREE.CylinderGeometry(0.06, 0.06, 0.22, 12));
-  fuseGeo.rotateZ(Math.PI / 2);
-  const fuseMat = keep(new THREE.MeshStandardMaterial({ color: 0xd9b030, emissive: 0x3a2800, roughness: 0.35, metalness: 0.6 }));
-  const batGeo = keep(new THREE.CylinderGeometry(0.05, 0.05, 0.16, 12));
-  const batMat = keep(new THREE.MeshStandardMaterial({ color: 0x3c8a4a, emissive: 0x0a2010, roughness: 0.4, metalness: 0.4 }));
-  const brassMat = keep(new THREE.MeshStandardMaterial({ color: 0xc8a050, emissive: 0x2a1a00, roughness: 0.3, metalness: 0.9 }));
-  const makeKey = () => {
-    const g = new THREE.Group();
-    const ring = new THREE.Mesh(keep(new THREE.TorusGeometry(0.06, 0.016, 8, 20)), brassMat);
-    ring.rotation.x = Math.PI / 2;
-    ring.position.x = -0.1;
-    const shaft = new THREE.Mesh(keep(new THREE.BoxGeometry(0.18, 0.02, 0.025)), brassMat);
-    shaft.position.x = 0.04;
-    const bit = new THREE.Mesh(keep(new THREE.BoxGeometry(0.03, 0.02, 0.06)), brassMat);
-    bit.position.set(0.11, 0, 0.03);
-    g.add(ring, shaft, bit);
-    g.traverse((o) => { o.castShadow = true; });
-    return g;
-  };
+  // Schraubsicherung, Akku, Bartschlüssel (items.js); mesh ist jeweils eine Gruppe
+  const batteryKit = batteryParts(keep);
   const items = [];
-  const placeItem = (cell, kind) => {
-    const mesh = kind === 'key' ? makeKey() : new THREE.Mesh(kind === 'fuse' ? fuseGeo : batGeo, kind === 'fuse' ? fuseMat : batMat);
-    mesh.position.set(world(cell[0]) + (rng() - 0.5) * 0.8, kind === 'battery' ? 0.08 : 0.06, world(cell[1]) + (rng() - 0.5) * 0.8);
-    mesh.rotation.y = rng() * Math.PI;
-    mesh.castShadow = true;
+  /** at = feste Stelle { x, y, z } (y = Höhe der Fläche, z. B. Tischplatte) statt irgendwo auf der Kachel. */
+  const placeItem = (cell, kind, at = null) => {
+    const mesh = kind === 'key' ? makeKey(keep) : kind === 'fuse' ? makeFuse(fuseKit) : makeBattery(batteryKit);
+    if (at) mesh.position.set(at.x, at.y, at.z);
+    else mesh.position.set(world(cell[0]) + (rng() - 0.5) * 0.8, 0.004, world(cell[1]) + (rng() - 0.5) * 0.8);
+    mesh.rotation.y = rng() * Math.PI * 2;
+    // etwas größer als das Modell: aus Augenhöhe am Boden sonst leicht zu übersehen
+    mesh.scale.setScalar(kind === 'key' ? 1.15 : kind === 'battery' ? 1.5 : 1.4);
     scene.add(mesh);
     items.push({ kind, mesh, taken: false, nextSound: 1 + rng() * 3 });
   };
-  if (forest) placeItem(objectives[0], 'key');
+  if (forest) {
+    placeItem(objectives[0], 'key', forestView.spots.key);
+    placeItem(objectives[0], 'battery', forestView.spots.hutBattery);
+  }
   if (halls) objectives.forEach((c) => placeItem(c, 'fuse'));
   batteries.forEach((c) => placeItem(c, 'battery'));
+
+  // ── Notizen und Fundstücke (lore.js) ────────────────────────────────────
+  // Blätter und Dinge, die Jonas zurückgelassen hat (Rucksack, Uhr, Kamera, Handy). Im Wald an festen Orten (Tor,
+  // Lager, Hütte), in der Anstalt in bestimmten Zimmern bzw. auf dem Flur (Feld where), sonst weit verteilt. Lesen
+  // ist freiwillig — sie erzählen, was hier passiert ist und wie man es überlebt.
+  const notes = [];
+  {
+    const list = NOTES[level.theme] || [];
+    const paperGeo = keep(paperGeometry());
+    /** Blatt bzw. Fundstück hinlegen. have = Modell, das schon in der Welt steht (Rucksack am Lager). */
+    const addNote = (info, i, x, y, z, have = null) => {
+      let mesh = have;
+      if (!mesh) {
+        mesh = (info.item && makeFind(info.item, keep)) || new THREE.Mesh(paperGeo, keep(new THREE.MeshStandardMaterial({
+          map: keep(paperTexture(i + 1)), emissive: 0x2a2820, roughness: 0.9, polygonOffset: true, polygonOffsetFactor: -2,
+          side: THREE.DoubleSide,
+        })));
+        mesh.position.set(x, y, z);
+        mesh.rotation.y = rng() * Math.PI * 2;
+        scene.add(mesh);
+      }
+      notes.push({ ...info, x, z, mesh, read: false });
+    };
+    if (forest) {
+      const s = forestView.spots;
+      const camp = s.campNote || { x: world(start[0]) + 3, z: world(start[1]) - 9 };
+      const at = { gate: s.gateNote, hut: s.hutNote, camp: { x: camp.x, y: 0.03, z: camp.z }, pack: s.pack };
+      list.forEach((info, i) => {
+        const p = at[info.where];
+        if (p) addNote(info, i, p.x, p.y, p.z, p.mesh || null);
+      });
+    } else {
+      const idx = (x, z) => z * size + x;
+      const taken = new Set([start, exitCell, ...objectives, ...batteries, ...lockerCells].map(([x, z]) => idx(x, z)));
+      const usable = (x, z) => isOpen(maze, x, z) && !taken.has(idx(x, z)) && fromStart[idx(x, z)] >= 0 && !maze.ward?.doorTiles.has(idx(x, z));
+      const tiles = [];
+      for (let z = 1; z < size - 1; z++) for (let x = 1; x < size - 1; x++) if (usable(x, z)) tiles.push([x, z]);
+      const far = (a, b) => Math.abs(a[0] - b[0]) + Math.abs(a[1] - b[1]);
+      const chosen = [];
+      /** Die Kachel aus der Liste, die am weitesten von allen schon belegten entfernt ist (mit etwas Zufall). */
+      const spread = (cand) => {
+        let best = null;
+        let bestScore = -1;
+        for (const c of cand) {
+          if (taken.has(idx(c[0], c[1]))) continue;
+          const score = chosen.reduce((m, o) => Math.min(m, far(o, c)), 12) + rng() * 4;
+          if (score > bestScore) { bestScore = score; best = c; }
+        }
+        return best;
+      };
+      const region = maze.region;
+      const roomType = (x, z) => (region && region[idx(x, z)] > 0 ? maze.ward.rooms[region[idx(x, z)] - 1].type : '');
+      const inHall = ([x, z]) => !region || region[idx(x, z)] === 0;
+      list.forEach((info, i) => {
+        let cand = null;
+        if (info.where === 'start') cand = tiles.filter((c) => inHall(c) && fromStart[idx(c[0], c[1])] >= 2 && fromStart[idx(c[0], c[1])] <= 4);
+        else if (info.where === 'exit') cand = tiles.filter((c) => inHall(c) && far(c, exitCell) >= 2 && far(c, exitCell) <= 5);
+        else if (region && info.where && info.where !== 'hall') cand = tiles.filter(([x, z]) => roomType(x, z) === info.where);
+        // sonst (oder wenn es den Ort auf dieser Karte nicht gibt): irgendwo, nicht gleich am Start — in der Anstalt
+        // auf dem Flur, in Keller und Garten auf den Zellen des Irrgartens
+        if (!cand?.length) cand = tiles.filter((c) => inHall(c) && fromStart[idx(c[0], c[1])] > 4 && (region || (c[0] % 2 === 1 && c[1] % 2 === 1)));
+        const cell = spread(cand);
+        if (!cell) return;
+        chosen.push(cell);
+        taken.add(idx(cell[0], cell[1]));
+        // nahe an einer Wand, damit es nicht mitten im Laufweg liegt
+        const side = wallSide(cell) || [0, 0];
+        const reach = 0.75 - wallGap(cell, side);
+        addNote(info, i, world(cell[0]) + side[0] * reach + (rng() - 0.5) * 0.3, 0.012, world(cell[1]) + side[1] * reach + (rng() - 0.5) * 0.3);
+      });
+    }
+  }
+  let openNote = null;
+  /** Allein steht das Spiel, solange eine Notiz offen ist (zu mehreren läuft die Welt weiter). */
+  let reading = false;
 
   // ── Ventile (Keller) ────────────────────────────────────────────────────
   const valves = [];
@@ -664,8 +790,9 @@ export function createGame(host, opts, cb) {
   for (const cell of lockerCells) {
     const back = wallSide(cell);
     if (!back) continue;
-    const cx = world(cell[0]) + back[0] * (S / 2 - 0.3);
-    const cz = world(cell[1]) + back[1] * (S / 2 - 0.3);
+    const off = S / 2 - 0.3 - wallGap(cell, back);
+    const cx = world(cell[0]) + back[0] * off;
+    const cz = world(cell[1]) + back[1] * off;
     const mesh = new THREE.Mesh(lockerGeo, lockerMats);
     mesh.position.set(cx, 0, cz);
     mesh.rotation.y = Math.atan2(-back[0], -back[1]);
@@ -684,7 +811,8 @@ export function createGame(host, opts, cb) {
     const tex = keep(writingTexture(texts[i % texts.length], seed + i));
     const m = new THREE.Mesh(keep(new THREE.PlaneGeometry(1.8, 0.9)),
       keep(new THREE.MeshStandardMaterial({ map: tex, transparent: true, depthWrite: false, roughness: 0.9 })));
-    m.position.set(world(cell[0]) + side[0] * (S / 2 - 0.01), 1.55 + rng() * 0.25, world(cell[1]) + side[1] * (S / 2 - 0.01));
+    const off = S / 2 - 0.01 - wallGap(cell, side);
+    m.position.set(world(cell[0]) + side[0] * off, 1.55 + rng() * 0.25, world(cell[1]) + side[1] * off);
     m.rotation.y = Math.atan2(-side[0], -side[1]);
     scene.add(m);
   });
@@ -698,10 +826,28 @@ export function createGame(host, opts, cb) {
     const mark = ([x, z]) => avoid.add(z * size + x);
     [start, exitCell, door, ...objectives, ...batteries, ...lockerCells, ...writingCells].forEach(mark);
     for (const [dx, dz] of DIRS) mark([exitCell[0] + dx, exitCell[1] + dz]);
-    const rooms = furnishRooms({ scene, assets, keep, maze, isOpen, S, addProp, rng, kind: level.theme, avoid });
+    for (const n of notes) mark([tileOf(n.x), tileOf(n.z)]);
+    // Türkacheln bleiben frei von allem
+    for (const i of maze.ward?.doorTiles || []) avoid.add(i);
+    const rooms = halls
+      ? furnishWard({ scene, assets, keep, maze, isOpen, S, addProp, rng, avoid, thick: THIN_WALL })
+      : furnishRooms({ scene, assets, keep, maze, isOpen, S, addProp, rng, avoid });
+    if (halls) {
+      // Stationsschild an der Wand neben dem Start — man weiß sofort, wo man ist
+      const side = wallSide(start);
+      if (side) {
+        const plate = new THREE.Mesh(keep(new THREE.PlaneGeometry(1.7, 0.42)),
+          keep(new THREE.MeshStandardMaterial({ map: keep(signTexture('ERLENGRUND · STATION 3')), roughness: 0.6 })));
+        const off = S / 2 - 0.012 - wallGap(start, side);
+        plate.position.set(world(start[0]) + side[0] * off, 1.9, world(start[1]) + side[1] * off);
+        plate.rotation.y = Math.atan2(-side[0], -side[1]);
+        scene.add(plate);
+      }
+    }
     // Gang-Requisiten nicht noch zusätzlich in die Räume stellen
     for (const [cx, cz] of maze.rooms) for (let z = cz - 1; z <= cz + 1; z++) for (let x = cx - 1; x <= cx + 1; x++) mark([x, z]);
-    const spots = propSpots(maze, isOpen, DIRS, avoid, rng, halls ? 16 : 12);
+    for (const r of maze.ward?.rooms || []) for (let z = r.z0; z <= r.z1; z++) for (let x = r.x0; x <= r.x1; x++) mark([x, z]);
+    const spots = propSpots(maze, isOpen, DIRS, avoid, rng, halls ? 14 : 12, { passable: (x, z, d) => !walled([x, z], d), gapOf: wallGap });
     placeRoomProps({ scene, assets, kind: level.theme, spots, S, addProp, rng });
     // Lampen über Gängen: gleichmäßig verteilt (Abstand ≥ 4 Kacheln), über die ganze Karte
     const lampCand = [];
@@ -729,12 +875,42 @@ export function createGame(host, opts, cb) {
   const PROP_RANGE = 22;
   const cullables = [];
   scene.traverse((o) => { if (o.userData.prop && o.parent === scene) cullables.push(o); });
+  // Anstalt: Möbel in Zimmern sieht man nur von drinnen oder durch eine Tür — sonst sind Wände davor. Ein Zimmer
+  // wird deshalb nur gezeichnet, wenn man darin steht oder eine seiner Türen vor sich hat (näher als DOOR_RANGE;
+  // ganz nah auch seitlich/hinter sich, damit beim Umdrehen nichts aufploppt).
+  const DOOR_RANGE = 8;
+  const roomDoors = new Map();
+  for (const d of maze.doorEdges?.values() || []) {
+    const mid = [world((d.a[0] + d.b[0]) / 2), world((d.a[1] + d.b[1]) / 2)];
+    for (const id of [d.room, d.other]) {
+      if (!id) continue;
+      if (!roomDoors.has(id)) roomDoors.set(id, []);
+      roomDoors.get(id).push(mid);
+    }
+  }
+  const roomsInView = new Set();
   let cullTick = 0;
   function cullProps() {
-    if (!cullables.length || (++cullTick & 7) !== 0) return;
+    if (!cullables.length || (++cullTick & 3) !== 0) return;
     const cx = camera.position.x;
     const cz = camera.position.z;
-    for (const o of cullables) o.visible = Math.hypot(o.position.x - cx, o.position.z - cz) < PROP_RANGE;
+    roomsInView.clear();
+    if (roomDoors.size) {
+      const here = cellValue(tileOf(cx), tileOf(cz)) === 0 ? maze.region[tileOf(cz) * size + tileOf(cx)] : 0;
+      if (here > 0) roomsInView.add(here);
+      const fx = -Math.sin(camera.rotation.y);
+      const fz = -Math.cos(camera.rotation.y);
+      for (const [id, doors] of roomDoors) {
+        const seen = doors.some(([x, z]) => {
+          const d = Math.hypot(x - cx, z - cz);
+          return d < 3 || (d < DOOR_RANGE && ((x - cx) * fx + (z - cz) * fz) / d > -0.15);
+        });
+        if (seen) roomsInView.add(id);
+      }
+    }
+    for (const o of cullables) {
+      o.visible = Math.hypot(o.position.x - cx, o.position.z - cz) < PROP_RANGE && (!o.userData.room || roomsInView.has(o.userData.room));
+    }
   }
 
   // ── Scherben (Keller) ───────────────────────────────────────────────────
@@ -870,6 +1046,17 @@ export function createGame(host, opts, cb) {
       av.group.visible = false;
       scene.add(av.group);
     }
+    // Anstalt: der Tote für den Rollstuhl — einmal in Sitzhaltung gebracht, dann reglos
+    if (halls) {
+      const dead = buildMonsterModel(kit, 'corpse');
+      if (dead) {
+        keep(dead);
+        dead.update(0.016, { speed: 0 });
+        // Hüfte auf Sitzhöhe: die Figur steht mit den Füßen auf 0, die Hüfte liegt bei gut der halben Größe
+        dead.group.userData.seatY = -0.37;
+        events.setCorpse(dead.group);
+      }
+    }
     // Sonst übersetzt der Browser die Shader erst beim ersten Blick aufs Monster (spürbarer Ruckler)
     warm();
   });
@@ -881,6 +1068,8 @@ export function createGame(host, opts, cb) {
     for (let z = 1; z < size - 1; z++) {
       for (let x = 1; x < size - 1; x++) {
         if (!isOpen(maze, x, z)) continue;
+        // (Anstalt: auf dem Flur — nicht in einem Zimmer, in das man wegen einer Sicherung hineinmuss)
+        if (maze.region && maze.region[z * size + x] !== 0) continue;
         const d = fromStart[z * size + x];
         if (d < 0) continue;
         const toExit = Math.abs(x - exitCell[0]) + Math.abs(z - exitCell[1]);
@@ -896,9 +1085,9 @@ export function createGame(host, opts, cb) {
     x: world(spawn[0]), z: world(spawn[1]),
     state: 'dormant', path: [], pathAt: 0, target: null,
     fx: 0, fz: 1, lastSeenX: 0, lastSeenZ: 0, seenAt: -99, searchUntil: 0,
-    stepDist: 0, nextGrowl: 8, huntUntil: 0, sawHide: false, freezeUntil: 0,
+    stepDist: 0, nextGrowl: 8, nextHum: 4, huntUntil: 0, sawHide: false, freezeUntil: 0, chaseSince: 0, windedUntil: 0,
     nextEcho: 2, seenByPlayer: false, stingAt: -99, stare: 0, staredAway: false, awayUntil: 0, stalkUntil: 0,
-    trailT: 0,
+    trailT: 0, lit: 0, banished: 0, nextBreath: 0,
   };
 
   // Gärtner (Garten): Duftspur des Spielers und seine Laterne (Licht wandert mit — man sieht ihren Schein
@@ -920,13 +1109,13 @@ export function createGame(host, opts, cb) {
   const player = {
     x: world(start[0]), z: world(start[1]),
     yaw: 0, pitch: 0, stamina: 100, exhausted: false, staminaPause: 0,
-    battery: 100, light: true, fuses: 0, inserted: 0, hasKey: false, valvesDone: 0,
+    battery: 100, light: true, fuses: 0, inserted: 0, hasKey: false, crowbar: false, valvesDone: 0,
     hidden: null, stride: 0, bob: 0, hold: 0, adapt: 0,
   };
   {
     // Erste Blickrichtung: in den offenen Gang bzw. in den Wald hinein
     const [sx, sz] = start;
-    const d = forest ? [0, -1] : (DIRS.find(([dx, dz]) => isOpen(maze, sx + dx, sz + dz)) || [0, 1]);
+    const d = forest ? [0, -1] : (DIRS.find((dir) => !walled([sx, sz], dir)) || [0, 1]);
     player.yaw = yawTo(d[0], d[1]);
   }
   player.alive = true;
@@ -986,9 +1175,19 @@ export function createGame(host, opts, cb) {
   let ended = false;
   const canvasEl = renderer.domElement;
 
-  // Anfahrt im Auto (nur Wald, nur bei neuem Spiel): t läuft, bis INTRO_END; Leertaste/E/Enter überspringt
-  const INTRO_END = 9.2;
-  const intro = forest && opts.intro ? { t: 0, engine: null, slammed: false, faded: false, creaked: false } : null;
+  // Vorspann (nur Wald, nur bei neuem Spiel): t läuft, bis INTRO_END; Leertaste/E/Enter überspringt.
+  // Zeiten in Sekunden: Fernseher bis tvOff, ab ride im Auto, bei swerve reißt man das Lenkrad herum, impact =
+  // Aufprall (schwarz), bei wake kommt man am Tor zu sich, ab INTRO_END steuert man selbst.
+  const INTRO = { tvOff: 12.6, ride: 13.8, swerve: 56.8, impact: 58.2, wake: 62.2 };
+  const INTRO_END = 63;
+  const intro = forest && opts.intro
+    ? {
+      t: 0, cue: 0, line: null, lineUntil: 0, sent: null, engine: null, lineNoise: null, talkAt: -1, glance: 0,
+      cut: false, crashed: false, slammed: false, creaked: false, woke: false, hinted: false, figure: null, started: false,
+    }
+    : null;
+  /** Lichter, die es nur im Vorspann gibt (Scheinwerfer, Innenlicht) — danach unsichtbar */
+  const introLights = forest ? [...forestView.headlights, forestView.phone.glow] : [];
 
   const onKeyDown = (e) => {
     const k = e.key.toLowerCase();
@@ -996,7 +1195,15 @@ export function createGame(host, opts, cb) {
     if (intro && intro.t < INTRO_END) {
       if ([' ', 'e', 'enter'].includes(k)) {
         e.preventDefault();
-        if (intro.t < 7.4) intro.t = 7.4;
+        skipIntro();
+      }
+      return;
+    }
+    // Notiz offen und das Spiel steht: E, Leertaste oder Enter legt sie weg, sonst geht nichts
+    if (reading) {
+      if ([' ', 'e', 'enter'].includes(k)) {
+        e.preventDefault();
+        if (!e.repeat) closeNote();
       }
       return;
     }
@@ -1017,7 +1224,7 @@ export function createGame(host, opts, cb) {
   };
   const onKeyUp = (e) => keys.delete(e.key.toLowerCase());
   const onMouse = (e) => {
-    if (paused || ended || document.pointerLockElement !== canvasEl) return;
+    if (paused || ended || reading || document.pointerLockElement !== canvasEl) return;
     player.yaw -= e.movementX * 0.0022 * sensitivity;
     player.pitch = clamp(player.pitch - e.movementY * 0.0022 * sensitivity, -1.35, 1.35);
     if (player.hidden) {
@@ -1076,7 +1283,8 @@ export function createGame(host, opts, cb) {
           else boxes.push({ minX: world(x) - S / 2, maxX: world(x) + S / 2, minZ: world(z) - S / 2, maxZ: world(z) + S / 2 });
         }
       }
-      for (const p of props) if (Math.abs(p.minX - px) < 3 && Math.abs(p.minZ - pz) < 3) boxes.push(p);
+      // (Abstand zum Kasten selbst, nicht zu seiner Ecke — lange Wände wie die der Hütte fielen sonst durch)
+      for (const p of props) if (px > p.minX - 1 && px < p.maxX + 1 && pz > p.minZ - 1 && pz < p.maxZ + 1) boxes.push(p);
       for (const b of boxes) {
         const cx = clamp(px, b.minX, b.maxX);
         const cz = clamp(pz, b.minZ, b.maxZ);
@@ -1112,6 +1320,8 @@ export function createGame(host, opts, cb) {
       const z = z0 + dz * t;
       const tx = tileOf(x);
       const tz = tileOf(z);
+      const near = losGrid.get(tz * size + tx);
+      if (near) for (const b of near) if (x > b.minX && x < b.maxX && z > b.minZ && z < b.maxZ) return false;
       if (!solid(tx, tz)) continue;
       if (isTrunk(tx, tz)) {
         const tr = trunks.get(tz * size + tx);
@@ -1124,10 +1334,19 @@ export function createGame(host, opts, cb) {
 
   const distTo = (x, z) => Math.hypot(player.x - x, player.z - z);
 
+  /** Untergrund unter den Füßen — bestimmt den Klang der eigenen Schritte. */
+  const pathTiles = new Set((forestInfo?.path || []).map(([x, z]) => z * size + x));
+  const surface = () => {
+    if (halls) return 'tile';
+    if (cellar) return 'wet';
+    if (garden) return 'gravel';
+    if (inHut(player)) return 'wood';
+    return pathTiles.has(tileOf(player.z) * size + tileOf(player.x)) ? 'gravel' : 'grass';
+  };
+
   // ── Zustand für Regie und HUD ───────────────────────────────────────────
   let time = 0;
   let phase = 'collect'; // collect → deliver → escape
-  let lastScare = 0;
   let flickerUntil = 0;
   let nextAlarm = 0;
   let nextBeep = 0;
@@ -1136,7 +1355,27 @@ export function createGame(host, opts, cb) {
   let breathAt = 0;
   let shake = 0;
   let message = { text: level.title, until: 4 };
-  let glimpseUntil = 0;
+  /** Stromausfall (Schreck-Regie): bis dahin sind Taschenlampe und Deckenlampen aus. */
+  let blackoutUntil = 0;
+  /** Was Schreck-Regie und Karten-Ereignisse von der Welt brauchen */
+  const stage = {
+    free: (x, z) => !solid(tileOf(x), tileOf(z)) && !maze.blocked?.has(tileOf(z) * size + tileOf(x)),
+    los: (x0, z0, x1, z1) => lineOfSight(x0, z0, x1, z1),
+    shake: (v) => { shake = Math.max(shake, v); },
+    flicker: (secs) => { flickerUntil = Math.max(flickerUntil, time + secs); },
+    blackout: (secs) => { blackoutUntil = Math.max(blackoutUntil, time + secs); flicker?.blackout(time + secs); },
+  };
+  // Schreckmomente der Karte (events.js): Fledermäuse, Wildschwein, Toter im Rollstuhl, platzende Lampe …
+  const events = createEvents({
+    scene, keep, rng, audio, player, theme: level.theme, soft: softScares, wallH: WALL_H, addProp, assets, ...stage,
+    lamps: () => flicker?.lamps, leaves: wardLeaves, statues: gardenView?.statues,
+  });
+  const scares = createScares({
+    rng, audio, player, monster, theme: level.theme, soft: softScares, eye: EYE, lockers, events, ...stage,
+    // Solange der Beobachter noch nicht aufgetreten ist, zeigt auch die Regie keine Gestalt — nur Geräusche
+    // (Fledermäuse und Wildschwein kommen trotzdem)
+    calm: () => monster.kind === 'watcher' && monster.state === 'dormant',
+  });
   const say = (text, secs = 4) => { message = { text, until: time + secs }; };
 
   /**
@@ -1186,6 +1425,7 @@ export function createGame(host, opts, cb) {
         const ts = targets();
         focus = ts.reduce((b, t) => (!b || Math.hypot(t.x - x, t.z - z) < Math.hypot(b.x - x, b.z - z) ? t : b), null) || player;
         mfx('stinger', monster.x, monster.z, focus);
+        mfx('roar', monster.x, monster.z);
       }
     }
     monster.target = [tileOf(x), tileOf(z)];
@@ -1198,9 +1438,10 @@ export function createGame(host, opts, cb) {
     if (monster.state === 'chase' || (coop && !isHost)) return;
     monster.state = 'chase';
     // Kurzes Zögern beim Entdecken — das ist der Vorsprung, um wegzukommen
-    monster.freezeUntil = time + 0.9;
+    monster.freezeUntil = time + 1.2;
+    monster.chaseSince = time + 1.2;
     mfx('stinger', monster.x, monster.z, focus);
-    mfx('growl', monster.x, monster.z);
+    mfx('screech', monster.x, monster.z);
   }
 
   // ── Ziele je Ebene ──────────────────────────────────────────────────────
@@ -1212,7 +1453,10 @@ export function createGame(host, opts, cb) {
       if (!codeLock.open) todo.push(player.hasKey ? 'Knacke das Zahlenschloss' : 'knacke das Zahlenschloss');
       const read = carvings.filter((c) => c.read).length;
       const hint = codeLock.open ? '' : ` Der Code ist in Bäume mit rotem Band geritzt — Schnitzereien ${read} / ${carvings.length}.`;
-      return [todo.join(' und '), (player.hasKey ? '' : 'Hör auf das Klimpern.') + hint];
+      let where = 'Er liegt in der Hütte des Försters — dort brennt eine Laterne.';
+      if (boardsLeft > 0 && player.crowbar) where = 'Heble die Bretter an der Hütte des Försters auf.';
+      else if (boardsLeft > 0 && hutSeen) where = 'Die Hütte ist vernagelt. Du brauchst etwas zum Aufhebeln — vielleicht hilft Jonas’ Zettel am Lager.';
+      return [todo.join(' und '), (player.hasKey ? '' : where) + hint];
     }
     if (garden) {
       if (phase === 'escape') return ['Das Tor ist offen — raus hier.', 'Folge dem Quietschen.'];
@@ -1230,47 +1474,86 @@ export function createGame(host, opts, cb) {
   }
 
   // ── Interaktion ─────────────────────────────────────────────────────────
+  /**
+   * Was man gerade ANSIEHT. Der Hinweis erscheint nur, wenn der Blick wirklich auf dem Ding liegt — auch in der
+   * Höhe: Was am Boden liegt, muss man ansehen (nach unten schauen), es reicht nicht, davorzustehen und
+   * geradeaus zu schauen.
+   */
   function findInteract() {
     if (player.hidden) return { kind: 'leave', label: 'Spind verlassen' };
-    const fx = -Math.sin(player.yaw);
-    const fz = -Math.cos(player.yaw);
+    const cp = Math.cos(player.pitch);
+    const vx = -Math.sin(player.yaw) * cp;
+    const vy = Math.sin(player.pitch);
+    const vz = -Math.cos(player.yaw) * cp;
+    const eyeY = EYE - (keys.has('c') ? 0.35 : 0);
     let best = null;
-    let bestD = 1.9;
-    const consider = (x, z, obj) => {
+    let bestScore = Infinity;
+    /**
+     * (x, z) = Ort, y0…y1 = Höhe des Dings (flach am Boden: beide gleich), r = wie weit der Blick danebenliegen
+     * darf (Meter). reach = Reichweite am Boden, los = false für Dinge, die selbst in einer Wand stecken.
+     */
+    const consider = (x, z, y0, y1, r, obj, { reach = 1.9, los = true } = {}) => {
       const dx = x - player.x;
       const dz = z - player.z;
-      const d = Math.hypot(dx, dz);
-      if (d > bestD) return;
-      if (d > 0.5 && (dx * fx + dz * fz) / d < 0.45) return;
-      bestD = d;
+      const hd = Math.hypot(dx, dz);
+      if (hd > reach) return;
+      // der Punkt des Dings, der dem Blickstrahl in der Höhe am nächsten kommt
+      const y = clamp(eyeY + (vy / Math.max(cp, 0.05)) * hd, y0, y1);
+      const dy = y - eyeY;
+      const along = dx * vx + dy * vy + dz * vz;
+      if (along <= 0) return;
+      const off = Math.sqrt(Math.max(0, hd * hd + dy * dy - along * along));
+      if (off > r || off / r >= bestScore) return;
+      // nichts durch eine Wand hindurch aufheben
+      if (los && hd > 0.4 && !lineOfSight(player.x, player.z, x, z)) return;
+      bestScore = off / r;
       best = obj;
     };
     const LABEL = { fuse: 'Sicherung aufheben', battery: 'Akku aufheben', key: 'Schlüssel aufheben' };
     for (const it of items) {
-      if (!it.taken) consider(it.mesh.position.x, it.mesh.position.z, { kind: it.kind, item: it, label: LABEL[it.kind] });
+      if (it.taken) continue;
+      const p = it.mesh.position;
+      consider(p.x, p.z, p.y, p.y, 0.3, { kind: it.kind, item: it, label: LABEL[it.kind] });
     }
-    for (const l of lockers) consider(l.x, l.z, { kind: 'locker', locker: l, label: 'Im Spind verstecken' });
+    for (const n of notes) {
+      const y = n.mesh.position.y;
+      const label = n.item
+        ? (n.read ? `${n.title} (angesehen)` : 'Ansehen')
+        : (n.read ? `${n.title} (gelesen)` : 'Notiz lesen');
+      consider(n.x, n.z, y, y, n.item ? 0.42 : 0.32, { kind: 'note', note: n, label: openNote === n ? 'Weglegen' : label });
+    }
+    for (const l of lockers) consider(l.x, l.z, 0.2, 2.0, 0.5, { kind: 'locker', locker: l, label: 'Im Spind verstecken' });
     if (halls && phase !== 'escape') {
-      consider(boxPos.x, boxPos.z, player.fuses > 0
+      consider(boxPos.x, boxPos.z, 1.0, 1.7, 0.45, player.fuses > 0
         ? { kind: 'box', hold: true, label: 'Sicherung einsetzen (E halten)' }
-        : { kind: 'info', label: `Sicherungskasten — ${player.inserted} / 3 eingesetzt` });
+        : { kind: 'info', label: `Sicherungskasten — ${player.inserted} / ${NEED} eingesetzt` });
     }
     for (const v of valves) {
-      if (!v.done) consider(v.pos.x, v.pos.z, { kind: 'valve', valve: v, hold: true, label: 'Ventil aufdrehen (E halten)' });
+      if (!v.done) consider(v.pos.x, v.pos.z, 1.0, 1.6, 0.4, { kind: 'valve', valve: v, hold: true, label: 'Ventil aufdrehen (E halten)' });
     }
     if (forest) {
       let t;
       if (!codeLock.open) t = { kind: 'code', label: codeLock.active ? 'Ziffern tippen (0–9) · E: zurücktreten' : 'Zahlenschloss: Code eingeben' };
       else if (!player.hasKey) t = { kind: 'info', label: 'Das Zahlenschloss ist offen. Fehlt der Schlüssel.' };
       else t = { kind: 'houseDoor', label: 'Tür aufschließen' };
-      consider(doorBase.x, doorBase.z, t);
+      consider(doorBase.x, doorBase.z, 0.3, 2.3, 0.65, t, { los: false });
+      if (boardsLeft > 0) {
+        consider(hutInfo.x, hutInfo.z, 0.3, 2.0, 0.75, player.crowbar
+          ? { kind: 'boards', hold: true, label: 'Bretter aufhebeln (E halten)' }
+          : { kind: 'info', hut: true, label: 'Vernagelt. Mit bloßen Händen geht das nicht.' }, { los: false });
+      }
+      if (crow && !player.crowbar) {
+        consider(crow.x, crow.z, 0.5, 1.7, 0.95, { kind: 'well', hold: true, label: 'Seil hochziehen (E halten)' }, { los: false, reach: 2.4 });
+      }
       // Stammmitte statt Vorderseite: die Schnitzerei ist auch auf der Rückseite, ansehen geht von beiden Seiten
-      for (const c of carvings) consider(c.tx, c.tz, { kind: 'carving', carving: c, label: c.read ? 'Schnitzerei (schon gesehen)' : 'Schnitzerei ansehen' });
+      for (const c of carvings) {
+        consider(c.tx, c.tz, 0.9, 1.9, 0.55, { kind: 'carving', carving: c, label: c.read ? 'Schnitzerei (schon gesehen)' : 'Schnitzerei ansehen' }, { los: false });
+      }
     }
     for (const s of gardenView?.statues || []) {
-      consider(s.x, s.z, s.turnable
+      consider(s.x, s.z, 0.2, 2.2, 0.65, s.turnable
         ? (phase === 'escape' ? { kind: 'info', label: 'Die Statue rührt sich nicht mehr.' } : { kind: 'statue', statue: s, hold: true, label: 'Sockel drehen (E halten)' })
-        : { kind: 'info', label: 'Diese Figur sitzt fest im Stein.' });
+        : { kind: 'info', label: 'Diese Figur sitzt fest im Stein.' }, { los: false });
     }
     return best;
   }
@@ -1303,25 +1586,63 @@ export function createGame(host, opts, cb) {
       say(mine ? 'Der Schlüssel. Zurück zum Haus.' : `${who}Ich hab den Schlüssel!`, 4);
       flickerUntil = time + 1.2;
       audio?.buzz(1.2);
+      if (mine) {
+        // Kaum hat man ihn in der Hand, klopft es von außen an die Hüttenwand — und der Beobachter ist da
+        const hb = forestView.hutBox;
+        setTimeout(() => { if (!disposed) audio?.knock(hb.minX, 1.4, (hb.minZ + hb.maxZ) / 2); }, 1500);
+        setTimeout(() => { if (!disposed) audio?.knock((hb.minX + hb.maxX) / 2, 1.4, hb.minZ); }, 3200);
+        scares.delay(25);
+        if (isHost && (monster.state === 'away' || monster.state === 'dormant')) { monster.state = 'away'; monster.awayUntil = time + 5; }
+      }
       return;
     }
     player.fuses++;
     const found = player.inserted + player.fuses;
     if (found === 1) {
-      say(mine ? 'Eine Sicherung. Irgendwo hat es dich gehört.' : `${who}Eine Sicherung!`, 4);
+      say(mine ? 'Eine Sicherung. Irgendwo auf der Station geht eine Tür.' : `${who}Eine Sicherung!`, 4);
       const a = rng() * Math.PI * 2;
       audio?.bang(player.x + Math.cos(a) * 14, 1.5, player.z + Math.sin(a) * 14);
+      // Sie beginnt ihre Runde — weiß aber nicht, wo man ist (früher kam sie geradewegs ins Zimmer: keine Chance)
       if (monster.state === 'dormant') monster.state = 'patrol';
-      noise(99);
     } else if (found < NEED) {
       say(mine ? `Noch eine (${found} / ${NEED}). Es kommt näher.` : `${who}Sicherung ${found} / ${NEED}.`, 4);
       if (mine) mfx('growl', monster.x, monster.z);
     } else {
       say(`Alle ${NEED}. Zum Sicherungskasten am Ausgang — dem Piepen nach.`, 5);
-      flickerUntil = time + 1.6;
-      audio?.buzz(1.6);
+      // Die letzte Sicherung: für einen Moment fällt alles aus
+      if (mine) scares.trigger('blackout');
+      else { flickerUntil = time + 1.6; audio?.buzz(1.6); }
     }
     if (found >= NEED) phase = 'deliver';
+  }
+
+  /** Brecheisen aus dem Brunnen (by: wie takeItem). Es gehört dem ganzen Team. */
+  function takeCrowbar(by) {
+    if (!crow || player.crowbar) return;
+    player.crowbar = true;
+    crow.lift(1);
+    crow.mesh.visible = false;
+    audio?.pickup();
+    if (by === null) sendEvent({ type: 'crowbar' });
+    say(`${by === null ? '' : `${peerName(by)}: `}Im Eimer liegt ein Brecheisen. Damit gehen die Bretter an der Hütte ab.`, 5);
+  }
+
+  /** Ein Brett von der Hüttentür hebeln (by: wie takeItem); nach dem letzten ist die Tür frei. */
+  function pryBoard(by) {
+    if (!hutInfo || boardsLeft <= 0) return;
+    boardsLeft--;
+    // das Brett fällt vor die Tür
+    const plank = hutInfo.planks[boardsLeft];
+    plank.position.set(hutInfo.x + (boardsLeft - 1) * 0.55, 0.03, hutInfo.z + 0.8 + boardsLeft * 0.24);
+    plank.rotation.set(Math.PI / 2, 0, 0.4 + boardsLeft * 0.9);
+    audio?.crack(hutInfo.x, 1.2, hutInfo.z);
+    if (by === null) sendEvent({ type: 'board' });
+    if (boardsLeft > 0) return;
+    const at = props.indexOf(boardBlock);
+    if (at >= 0) props.splice(at, 1);
+    hutInfo.door.rotation.y = 1.75;
+    audio?.creak(hutInfo.x, 1.2, hutInfo.z);
+    say('Die Tür ist frei.', 3);
   }
 
   function interact(target) {
@@ -1336,6 +1657,21 @@ export function createGame(host, opts, cb) {
     }
     if (target.kind === 'fuse' || target.kind === 'battery' || target.kind === 'key') {
       takeItem(target.item, null);
+      return;
+    }
+    if (target.kind === 'note') {
+      const n = target.note;
+      if (openNote === n) { closeNote(); return; }
+      audio?.paper();
+      openNote = n;
+      n.read = true;
+      // Allein steht das Spiel, solange man liest. Zu mehreren läuft die Welt weiter — die anderen spielen ja.
+      reading = !coop;
+      if (reading) {
+        keys.clear();
+        audio?.setChase(0);
+      }
+      cb.onNote?.({ id: n.id, title: n.title, text: n.text, paused: reading });
       return;
     }
     if (target.kind === 'locker') {
@@ -1373,6 +1709,13 @@ export function createGame(host, opts, cb) {
       }
       say(`In die Rinde geritzt: ${SYMBOL_NAMES[c.id]} — ${c.digit}`, 5);
     }
+  }
+
+  function closeNote() {
+    if (!openNote) return;
+    openNote = null;
+    reading = false;
+    cb.onNote?.(null);
   }
 
   /** Zahlenschloss offen (selbst geknackt oder von einem Mitspieler). */
@@ -1432,7 +1775,7 @@ export function createGame(host, opts, cb) {
     if (player.inserted >= NEED) return;
     player.fuses = Math.max(0, player.fuses - 1);
     player.inserted++;
-    if (slotMeshes[player.inserted - 1]) slotMeshes[player.inserted - 1].visible = true;
+    fuseBox?.setInserted(player.inserted);
     audio?.clunk();
     if (by === null) {
       noise(9);
@@ -1472,6 +1815,7 @@ export function createGame(host, opts, cb) {
     audio?.powerOn();
     say('Strom ist da. Die Tür zur Treppe geht auf — RENN.', 5);
     boxLamp?.color.set(0x30ff60);
+    fuseBox?.setPower(true);
     flicker?.powerOn();
     openDoor();
     keepFair(12);
@@ -1496,6 +1840,8 @@ export function createGame(host, opts, cb) {
       noise(99, world(exitCell[0]), world(exitCell[1]));
     } else {
       say(`${by === null ? '' : `${peerName(by)}: `}${player.valvesDone} / ${NEED} Ventile.`, 2.5);
+      // Vor dem letzten Ventil: etwas kommt aus dem Dunkel auf einen zugerannt
+      if (by === null && player.valvesDone === NEED - 1) setTimeout(() => { if (!disposed && !ended) scares.trigger('rush'); }, 1200);
     }
   }
 
@@ -1510,13 +1856,17 @@ export function createGame(host, opts, cb) {
   function canSee(t = focus) {
     if (t.hidden || t.alive === false) return false;
     const d = Math.hypot(t.x - monster.x, t.z - monster.z);
-    let range;
-    if (monster.state === 'chase') range = t.light ? 16 : 8;
-    else range = t.light ? 15 : 5.5;
+    const chasing = monster.state === 'chase';
+    // Mit Licht sieht sie einen den halben Flur hinunter. Ohne Licht nur aus nächster Nähe, wer dabei schleicht,
+    // an dem geht sie fast vorbei. Während sie außer Atem ist (siehe updateHunter), sieht sie kaum etwas.
+    const sneaking = t === player ? keys.has('c') : !!t.sneak;
+    let range = chasing ? (t.light ? SIGHT.chaseLight : SIGHT.chaseDark) : t.light ? SIGHT.light : sneaking ? SIGHT.sneak : SIGHT.dark;
+    if (time < monster.windedUntil) range = Math.min(range, 2.2);
     if (d > range) return false;
-    if (d > 3 && monster.state !== 'chase') {
+    // Auf der Runde schaut sie nach vorn — hinter und neben ihr ist man sicher, außer ganz nah
+    if (d > 1.8 && !chasing) {
       const dot = ((t.x - monster.x) * monster.fx + (t.z - monster.z) * monster.fz) / d;
-      if (dot < 0.3) return false;
+      if (dot < 0.35) return false;
     }
     return lineOfSight(monster.x, monster.z, t.x, t.z);
   }
@@ -1576,12 +1926,34 @@ export function createGame(host, opts, cb) {
     return [tileOf(monster.x), tileOf(monster.z)];
   }
 
+  /**
+   * Nächstes Ziel der Nachtschwester auf ihrer Runde: nur Flure (in der Anstalt), meist irgendwo auf der Station,
+   * manchmal in der Nähe eines Spielers. In die Zimmer kommt sie so nicht von selbst.
+   */
+  function patrolTarget() {
+    if (!maze.region) return randomTarget(rng() < 0.65);
+    const near = rng() < 0.3;
+    for (let tries = 0; tries < 300; tries++) {
+      const x = near ? tileOf(focus.x) + Math.round((rng() - 0.5) * 12) : 1 + Math.floor(rng() * (size - 2));
+      const z = near ? tileOf(focus.z) + Math.round((rng() - 0.5) * 12) : 1 + Math.floor(rng() * (size - 2));
+      if (isOpen(maze, x, z) && maze.region[z * size + x] === 0) return [x, z];
+    }
+    return randomTarget(false);
+  }
+
+  /** Alle Kacheln, die zu einem Zimmer gehören (Anstalt) */
+  const roomTiles = maze.region ? new Set(Array.from(maze.region.keys()).filter((i) => maze.region[i] > 0)) : null;
+
   const follows = () => monster.state === 'chase' || monster.state === 'stalk';
 
   /** Bewegt das Monster ein Stück entlang seines Wegs; gibt die zurückgelegte Strecke zurück. */
   function moveAlongPath(speed, dt) {
     if (monster.target && (monster.path.length === 0 || time > monster.pathAt)) {
-      monster.path = findPath(maze, tileOf(monster.x), tileOf(monster.z), monster.target[0], monster.target[1]);
+      // Die Nachtschwester bleibt auf ihrer Runde auf den Fluren — auch keine Abkürzung durch einen Saal mit zwei
+      // Türen. (Steht sie nach einer Suche noch in einem Zimmer, findet sich so kein Weg: dann der normale.)
+      const stay = monster.kind === 'hunter' && monster.state === 'patrol' ? roomTiles : null;
+      monster.path = findPath(maze, tileOf(monster.x), tileOf(monster.z), monster.target[0], monster.target[1], stay);
+      if (!monster.path.length && stay) monster.path = findPath(maze, tileOf(monster.x), tileOf(monster.z), monster.target[0], monster.target[1]);
       monster.pathAt = time + (follows() || monster.state === 'charge' ? 0.35 : 1.5);
       if (!monster.path.length && !follows() && monster.state !== 'charge') monster.target = null;
     }
@@ -1626,16 +1998,29 @@ export function createGame(host, opts, cb) {
       monster.lastSeenZ = focus.z;
       monster.seenAt = time;
     }
+    // Auf ihrer Runde summt sie ein Wiegenlied — man hört sie kommen. Hat sie etwas bemerkt, ist es still.
+    if (monster.state === 'patrol' && time > monster.nextHum) {
+      monster.nextHum = time + 7 + rng() * 6;
+      if (targets().some((t) => Math.hypot(t.x - monster.x, t.z - monster.z) < 24)) mfx('hum', monster.x, monster.z);
+    }
     if (monster.state === 'chase') {
       if (focus.hidden && focus.sawHide) {
         monster.target = [tileOf(focus.hidden.x), tileOf(focus.hidden.z)];
-      } else if (time - monster.seenAt > 2.5) {
+      } else if (time - monster.seenAt > HUNTER.lose) {
         monster.state = 'search';
         monster.target = [tileOf(monster.lastSeenX), tileOf(monster.lastSeenZ)];
-        monster.searchUntil = time + 8;
+        monster.searchUntil = time + HUNTER.search;
         monster.path = [];
       } else {
         monster.target = [tileOf(monster.lastSeenX), tileOf(monster.lastSeenZ)];
+        // Nach ein paar Sekunden Jagd geht ihr die Luft aus: Sie bleibt stehen und keucht. Das ist die Gelegenheit,
+        // um eine Ecke zu kommen — rennen muss man dafür trotzdem. (Nicht auf der Flucht zur Treppe.)
+        if (time - monster.chaseSince > HUNTER.wind && time > monster.huntUntil && focusDist() > 2) {
+          monster.chaseSince = time + HUNTER.rest;
+          monster.freezeUntil = time + HUNTER.rest;
+          monster.windedUntil = time + HUNTER.rest;
+          mfx('growl', monster.x, monster.z);
+        }
       }
     } else if (monster.state === 'search' && time > monster.searchUntil) {
       monster.state = 'patrol';
@@ -1644,15 +2029,16 @@ export function createGame(host, opts, cb) {
     if (!monster.target) {
       if (monster.state === 'investigate') {
         monster.state = 'search';
-        monster.searchUntil = time + 5;
+        monster.searchUntil = time + 4;
       }
-      if (monster.state === 'search') monster.target = randomTarget(true);
-      if (monster.state === 'patrol') monster.target = randomTarget(rng() < 0.65);
+      // Suchen: rund um die Stelle, an der sie einen zuletzt gesehen oder gehört hat
+      if (monster.state === 'search') monster.target = nearTile(monster.lastSeenX, monster.lastSeenZ, 2);
+      if (monster.state === 'patrol') monster.target = patrolTarget();
       monster.path = [];
     }
     if (time < monster.freezeUntil) return 0;
-    const SPEED = { patrol: 1.5, investigate: 2.5, chase: 3.45, search: 1.2 };
-    const speed = (SPEED[monster.state] + (monster.state === 'chase' ? (player.inserted + player.fuses) * 0.08 : 0)) * HARD.speed;
+    const SPEED = HUNTER.speed;
+    const speed = (SPEED[monster.state] + (monster.state === 'chase' ? (player.inserted + player.fuses) * HUNTER.perFuse : 0)) * HARD.speed;
     const d = focusDist();
     if (monster.state === 'chase' && sees && d < 3) {
       // Letzte Meter direkt auf den Spieler zu
@@ -1672,6 +2058,10 @@ export function createGame(host, opts, cb) {
       monster.nextEcho = time + (monster.state === 'charge' ? 0.7 : 1.6 + rng());
       mfx('echo', monster.x, monster.z);
     }
+    if (monster.state === 'patrol' && time > monster.nextGrowl) {
+      monster.nextGrowl = time + 9 + rng() * 9;
+      mfx('croak', monster.x, monster.z);
+    }
     // Ganz nah spürt es einen auch ohne Geräusch
     if (monster.state !== 'charge') {
       for (const t of targets()) {
@@ -1682,6 +2072,8 @@ export function createGame(host, opts, cb) {
       if (monster.state === 'charge' || monster.state === 'investigate') {
         monster.state = 'search';
         monster.searchUntil = time + 3;
+        // steht still und horcht: das Röcheln verrät, dass es ganz nah ist
+        mfx('croak', monster.x, monster.z);
       } else if (monster.state === 'search' && time > monster.searchUntil) {
         monster.state = 'patrol';
       }
@@ -1705,7 +2097,7 @@ export function createGame(host, opts, cb) {
         const r = minR + rng() * (maxR - minR);
         const tx = tileOf(focus.x + Math.sin(a) * r);
         const tz = tileOf(focus.z + Math.cos(a) * r);
-        if (!isOpen(maze, tx, tz)) continue;
+        if (!isOpen(maze, tx, tz) || maze.blocked?.has(tz * size + tx)) continue;
         // In den weiteren Durchgängen nur Plätze, die gerade keiner sehen kann
         if (pass > 0 && targets().some((t) => {
           if (!lineOfSight(t.x, t.z, world(tx), world(tz))) return false;
@@ -1734,6 +2126,7 @@ export function createGame(host, opts, cb) {
     monster.z = -1000;
     monster.path = [];
     monster.stare = 0;
+    monster.lit = 0;
     monster.seenByPlayer = false;
   }
 
@@ -1754,38 +2147,115 @@ export function createGame(host, opts, cb) {
     if (focus.alive === false) { const ts = targets(); if (ts.length) focus = ts[0]; }
     const seen = seenByAnyone();
     const d = focusDist();
+    // Im Lichtkegel löst er sich auf — nach einem Wimpernschlag, damit man gerade noch merkt, DASS da etwas
+    // stand. Er kommt bald wieder, aus einer anderen Richtung: Licht ist die einzige Abwehr, und Licht ist knapp.
+    if (litByAnyone()) {
+      monster.lit += dt;
+      monster.seenByPlayer = true;
+      if (monster.lit > 0.3) {
+        mfx('vanish', monster.x, monster.z, focus);
+        monster.banished++;
+        if (monster.banished === 1) say('Es erträgt das Licht nicht. Aber es kommt wieder.', 4);
+        if (player.hasKey) sendAway(7, 13); else sendAway(12, 22);
+      }
+      return 0;
+    }
+    monster.lit = 0;
     // Lange genug gelauert und gerade nicht im Blick: er zieht sich zurück
     if (!seen && time > monster.stalkUntil) {
-      sendAway(30, 55);
+      sendAway(25, 45);
       return 0;
     }
     if (seen) {
-      if (!monster.seenByPlayer && d < 9 && time - monster.stingAt > 8) {
+      // Im Blick, aber ohne Licht: er erstarrt als Umriss zwischen den Stämmen
+      if (!monster.seenByPlayer && d < 7 && time - monster.stingAt > 8) {
         monster.stingAt = time;
         mfx('stinger', monster.x, monster.z, focus);
       }
       monster.seenByPlayer = true;
-      // Wer es lange genug anstarrt, verscheucht es: das Licht zuckt, es ist weg — und kommt erst nach einer
-      // ganzen Weile wieder. Sonst könnte man es dauerhaft mit dem Blick festhalten. Zu mehreren dauert es länger.
+      // Festhalten lässt er sich so nicht: nach ein paar Sekunden ist die Stelle leer, und er steht woanders —
+      // außer Sicht, nicht weiter weg. (Zu mehreren dauert es länger.)
       monster.stare += dt;
-      if (monster.stare > HARD.stare) {
+      if (monster.stare > HARD.stare * 0.7) {
         mfx('staredAway', focus.x + Math.sin(focus.yaw) * 0.8, focus.z + Math.cos(focus.yaw) * 0.8, focus);
-        sendAway(40, 70);
-        if (!monster.staredAway) {
-          monster.staredAway = true;
-          say('Weg. Fürs Erste.', 3);
-        }
+        vanishAt(monster.x, monster.z);
+        monster.stare = 0;
+        monster.seenByPlayer = false;
+        if (!relocateBehind(Math.max(6, d - 2), Math.max(9, d + 2))) sendAway(6, 10);
       }
       return 0;
     }
     monster.seenByPlayer = false;
     monster.stare = Math.max(0, monster.stare - dt * 2);
+    // Atem im Nacken, wenn er dicht hinter einem ist — die letzte Warnung, sich umzudrehen
+    if (d < 6 && time > monster.nextBreath) {
+      monster.nextBreath = time + 3.5;
+      mfx('breath', monster.x, monster.z, focus);
+    }
     // Zu weit weg: ungesehen hinter den Spieler versetzen, damit der Druck bleibt
     if (d > 26) relocateBehind(13, 18);
     monster.state = 'stalk';
+    const speed = (player.hasKey ? 3.0 : 2.6) * HARD.speed;
+    // In die Hütte kommt er nicht: er wartet vor der Tür
+    if (inHut(focus)) {
+      const porch = forestInfo.hut.porch;
+      const gx = world(porch[0]);
+      const gz = world(porch[1]);
+      if (tileOf(monster.x) !== porch[0] || tileOf(monster.z) !== porch[1]) {
+        monster.state = 'lurk';   // (kein 'stalk': moveAlongPath liefe am Ende sonst geradewegs durch die Wand)
+        monster.target = porch;
+        const moved = moveAlongPath(speed, dt);
+        monster.state = 'stalk';
+        return moved;
+      }
+      const len = Math.hypot(gx - monster.x, gz - monster.z);
+      if (len < 0.05) return 0;
+      const step = Math.min(len, speed * dt);
+      monster.x += ((gx - monster.x) / len) * step;
+      monster.z += ((gz - monster.z) / len) * step;
+      return step;
+    }
     monster.target = [tileOf(focus.x), tileOf(focus.z)];
-    return moveAlongPath((player.hasKey ? 3.0 : 2.6) * HARD.speed, dt);
+    return moveAlongPath(speed, dt);
   }
+
+  /** Spätester erster Auftritt des Beobachters (Sekunden), falls man bis dahin nichts gefunden hat. */
+  const WATCHER_LATEST = 240 * HARD.dormant;
+  /** Darf der Beobachter zum ersten Mal auftauchen? */
+  function watcherDue() {
+    // (auch wer die Hütte aufbricht, ruft ihn — er hat sie zugenagelt)
+    return player.hasKey || (hutInfo && boardsLeft === 0) || carvings.filter((c) => c.read).length >= 2 || time > WATCHER_LATEST;
+  }
+
+  /** Steht dieses Ziel in der Waldhütte? */
+  function inHut(t) {
+    const b = forestView?.hutBox;
+    return !!b && t.x > b.minX && t.x < b.maxX && t.z > b.minZ && t.z < b.maxZ;
+  }
+
+  /** Trifft (irgend)ein Lichtkegel den Beobachter? Mitspieler: wer ihn sieht und die Lampe an hat. */
+  function litByAnyone() {
+    if (playerLightsMonster()) return true;
+    for (const p of peers.values()) if (p.alive && p.sees && p.lightOn) return true;
+    return false;
+  }
+
+  /** Der eigene Lichtkegel liegt auf dem Monster (enger als das Sichtfeld, bis 17 m, freie Sicht). */
+  function playerLightsMonster() {
+    if (player.hidden || !player.alive || !player.lightOn) return false;
+    const dx = monster.x - player.x;
+    const dz = monster.z - player.z;
+    const d = Math.hypot(dx, dz);
+    if (d > 17) return false;
+    if (d < 0.5) return true;
+    const cos = (dx * -Math.sin(player.yaw) + dz * -Math.cos(player.yaw)) / d;
+    if (cos < Math.cos(0.4)) return false;
+    return lineOfSight(player.x, player.z, monster.x, monster.z);
+  }
+
+  /** Der Schatten löst sich an dieser Stelle auf (nur fürs Auge: 0,35 s Ausblenden). */
+  let vanishFx = null;
+  function vanishAt(x, z) { vanishFx = { x, z, until: time + 0.35 }; }
 
   // ── Gärtner ─────────────────────────────────────────────────────────────
   /** Sieht der Gärtner dieses Ziel? Kurzsichtig: mit Licht 11 m, ohne 4,5 m; nach vorn, außer ganz nah. */
@@ -1825,6 +2295,7 @@ export function createGame(host, opts, cb) {
         monster.state = 'chase';
         monster.freezeUntil = time + 0.6;
         mfx('stinger', monster.x, monster.z, seen);
+        mfx('roar', monster.x, monster.z);
       }
     }
     if (time < monster.freezeUntil) return 0;
@@ -1855,6 +2326,7 @@ export function createGame(host, opts, cb) {
       let found = null;
       for (const c of trail) if (crumbFresh(c) && Math.hypot(c.x - monster.x, c.z - monster.z) < 3) { found = c; break; }
       if (found) {
+        mfx('grunt', monster.x, monster.z);
         monster.state = 'track';
         monster.trailOwner = found.o;
         monster.trailT = found.t - 0.01;
@@ -1940,11 +2412,11 @@ export function createGame(host, opts, cb) {
       return;
     }
     if (monster.state === 'dormant') {
-      if (time > DORMANT) {
-        // Der Beobachter lässt einen am Anfang erst eine Weile in Ruhe (zusammen ~45–70 s)
-        if (monster.kind === 'watcher') sendAway(33 * HARD.dormant, 58 * HARD.dormant);
-        else monster.state = monster.kind === 'tracker' ? 'roam' : 'patrol';
-      }
+      if (monster.kind === 'watcher') {
+        // Der Wald gehört erst einmal einem allein: der Beobachter kommt erst, wenn man schon ein Stück weit ist
+        // (Schlüssel in der Hand, zwei Schnitzereien gefunden) — spätestens nach ein paar Minuten.
+        if (watcherDue()) sendAway(8, 16);
+      } else if (time > DORMANT) monster.state = monster.kind === 'tracker' ? 'roam' : 'patrol';
       return;
     }
     if (monster.state === 'away') {
@@ -1959,7 +2431,8 @@ export function createGame(host, opts, cb) {
     else moved = updateWatcher(dt);
     monster.speed = moved / Math.max(dt, 1e-4);   // für die Laufanimation der 3D-Figur
     monsterSteps(moved);
-    if (monster.kind === 'hunter' && time > monster.nextGrowl && targets().some((t) => Math.hypot(t.x - monster.x, t.z - monster.z) < 18)) {
+    // Knurren, sobald sie sucht oder jagt (auf der Runde summt sie stattdessen)
+    if (monster.kind === 'hunter' && monster.state !== 'patrol' && time > monster.nextGrowl && targets().some((t) => Math.hypot(t.x - monster.x, t.z - monster.z) < 18)) {
       monster.nextGrowl = time + 7 + rng() * 9;
       mfx('growl', monster.x, monster.z);
     }
@@ -1979,29 +2452,42 @@ export function createGame(host, opts, cb) {
     if (monster.stepDist > stride) {
       monster.stepDist = 0;
       if (monster.kind === 'watcher') audio?.twig(monster.x, 0.2, monster.z);
-      else audio?.monsterStep(monster.x, 0.2, monster.z, monster.kind === 'listener' ? 0.45 : monster.state === 'chase' ? 1.4 : 0.8);
+      else audio?.monsterStep(monster.x, 0.2, monster.z, monster.kind === 'listener' ? 0.45 : monster.state === 'chase' ? 1.4 : 0.8, monster.kind);
     }
   }
 
+  // ── Erwischt: die Todesszene ────────────────────────────────────────────
+  // Kein Bild über dem Spiel, sondern das Monster selbst: Die Kamera reißt zu ihm herum, es steht plötzlich
+  // direkt vor einem, die Arme greifen zu, sein Kopf füllt das Bild. Die Lampe zuckt, das Bild zoomt und
+  // wackelt — dann harter Schnitt ins Schwarze (LightsOut.jsx: Phase 'cut'). Sanft: kürzer, ohne Zucken.
+  let death = null;
+  const DEATH_LEN = softScares ? 1.0 : 1.7;
+  const DEATH_CUT = softScares ? 0.75 : 1.25; // ab hier ist das Bild schwarz
+  const _head = new THREE.Vector3();
+
   function caught() {
-    if (ended || !player.alive) return;
+    if (ended || !player.alive || death) return;
     audio?.scream(softScares);
+    audio?.deathHit(softScares);
+    closeNote();
     // Kamera reißt zum Monster herum
     player.yaw = yawTo(monster.x - player.x, monster.z - player.z);
     player.pitch = 0.12;
-    cb.onScare?.({ soft: softScares, monster: monster.kind });
+    player.hidden = null;
+    death = { t: 0, cut: false, pitch: 0.12, off: 0 };
+    cb.onScare?.({ soft: softScares, monster: monster.kind, phase: 'grab' });
     if (coop) {
       // Koop: man ist raus und schaut den anderen zu, bis sie es schaffen — oder alle erwischt sind
       player.alive = false;
       player.light = false;
-      player.hidden = null;
       if (isHost) sendEvent({ type: 'caught', s: player.seat });
       setTimeout(() => {
         if (disposed || ended) return;
+        endDeath();
         cb.onScare?.(null);
         nextSpectate();
         say(spectate !== null ? 'Erwischt. Du schaust zu — Leertaste wechselt.' : 'Erwischt.', 5);
-      }, softScares ? 900 : 1500);
+      }, DEATH_LEN * 1000);
       checkWipe();
       return;
     }
@@ -2010,7 +2496,70 @@ export function createGame(host, opts, cb) {
     setTimeout(() => {
       if (document.pointerLockElement === canvasEl) document.exitPointerLock();
       cb.onEnd?.({ result: 'caught', time, level: levelIndex, seed });
-    }, softScares ? 900 : 1500);
+    }, DEATH_LEN * 1000);
+  }
+
+  function endDeath() {
+    death = null;
+    camera.fov = 72;
+    camera.updateProjectionMatrix();
+    body?.setEyes(1);
+  }
+
+  /** Jedes Bild während der Todesszene: Monster vor die Kamera, Kamera auf seinen Kopf, Licht und Zoom. */
+  function deathFrame(dt) {
+    death.t += dt;
+    const t = death.t;
+    // Danach bleibt das Bild dunkel stehen (dahinter liegt schon der Endbildschirm)
+    if (t > DEATH_LEN) { flash.intensity = 0; spill.intensity = 0; return; }
+    if (!death.cut && t > DEATH_CUT) {
+      death.cut = true;
+      cb.onScare?.({ soft: softScares, monster: monster.kind, phase: 'cut' });
+    }
+    // Es schießt in einer Fünftelsekunde heran und bleibt dann zitternd dicht vor dem Gesicht. Geregelt wird der
+    // Abstand des KOPFES (nicht der Füße): die Figuren sind verschieden weit vorgebeugt — der Lauscher fast
+    // waagerecht, sein Kopf wäre sonst schon hinter der Kamera.
+    const k = Math.min(1, t / 0.2);
+    const ease = 1 - (1 - k) ** 3;
+    const reach = softScares ? 0.95 : 0.42;
+    const dist = 2.0 - ease * 0.9 + death.off;
+    const fx = -Math.sin(player.yaw);
+    const fz = -Math.cos(player.yaw);
+    const jitter = softScares ? 0 : 0.012;
+    const mx = player.x + fx * dist + (Math.random() - 0.5) * jitter;
+    const mz = player.z + fz * dist + (Math.random() - 0.5) * jitter;
+    camera.position.set(player.x, EYE, player.z);
+    let headY = monsterH - 0.2;
+    let headDist = dist;
+    if (body) {
+      body.setFade(1);
+      body.setEyes(softScares ? 1.5 : 3 + Math.sin(t * 40) * 1.5);
+      body.group.visible = true;
+      body.group.position.set(mx, 0, mz);
+      body.group.rotation.y = Math.atan2(player.x - mx, player.z - mz);
+      body.update(dt, { speed: 0, lunge: ease });
+      body.group.updateMatrixWorld(true);
+      body.headWorld(_head);
+      headY = _head.y;
+      headDist = (_head.x - player.x) * fx + (_head.z - player.z) * fz;
+      // nachregeln, bis der Kopf auf Armlänge vor den Augen ist
+      death.off = clamp(death.off + (reach + (1 - ease) * 0.9 - headDist) * Math.min(1, dt * 12), -1.2, 1.5);
+    } else {
+      monsterMesh.visible = true;
+      monsterMesh.position.set(mx, 0, mz);
+      monsterMesh.rotation.y = Math.atan2(player.x - mx, player.z - mz);
+    }
+    // Blick zum Kopf (der steht meist höher als die eigenen Augen), weich nachgeführt
+    const want = clamp(Math.atan2(headY - EYE, Math.max(0.3, headDist)), -0.9, 1.1);
+    death.pitch += (want - death.pitch) * Math.min(1, dt * 14);
+    const wob = softScares ? 0.004 : 0.03;
+    camera.rotation.set(death.pitch + (Math.random() - 0.5) * wob, player.yaw + (Math.random() - 0.5) * wob, softScares ? 0 : Math.sin(t * 31) * 0.035);
+    camera.fov = 72 - ease * (softScares ? 6 : 14);
+    camera.updateProjectionMatrix();
+    // Die Lampe zuckt — etwa jedes dritte Bild ist dunkel. Gedimmt: aus dieser Nähe überstrahlt sie sonst alles.
+    const on = softScares ? true : Math.random() < 0.68;
+    flash.intensity = on ? 9 : 0;
+    spill.intensity = on ? 0.35 : 0;
   }
 
   function win() {
@@ -2032,7 +2581,7 @@ export function createGame(host, opts, cb) {
 
   // ── Regie ───────────────────────────────────────────────────────────────
   function director() {
-    // Hintergrund: Tropfen im Keller, Eulen im Wald
+    // Hintergrund: Tropfen im Keller, Eulen im Wald, Flüstern aus dem Brunnen
     if (time > nextAmbient) {
       const a = rng() * Math.PI * 2;
       const r = 4 + rng() * 10;
@@ -2040,46 +2589,13 @@ export function createGame(host, opts, cb) {
         audio?.drip(player.x + Math.cos(a) * r, 2.5, player.z + Math.sin(a) * r);
         nextAmbient = time + 1.5 + rng() * 3;
       } else if (outdoor) {
-        audio?.owl(player.x + Math.cos(a) * 20, 8, player.z + Math.sin(a) * 20);
-        nextAmbient = time + 20 + rng() * 25;
+        const w = forestView?.well;
+        if (w && distTo(w.x, w.z) < 9) audio?.whisper(w.x, 0.4, w.z);
+        else audio?.owl(player.x + Math.cos(a) * 20, 8, player.z + Math.sin(a) * 20);
+        nextAmbient = time + (w && distTo(w.x, w.z) < 9 ? 5 + rng() * 5 : 20 + rng() * 25);
       } else nextAmbient = Infinity;
     }
-    if (monster.state === 'chase' || monster.state === 'charge' || player.hidden || time < 30) return;
-    if (time - lastScare < 32 + rng() * 20) return;
-    if (distTo(monster.x, monster.z) < 12) return;
-    lastScare = time;
-    const fx = -Math.sin(player.yaw);
-    const fz = -Math.cos(player.yaw);
-    const roll = rng();
-    if (halls && roll < 0.3) {
-      // Gestalt am Gangende — nur, wenn dort wirklich freie Sicht ist
-      for (let dist = 13; dist >= 7; dist -= 1) {
-        const x = player.x + fx * dist;
-        const z = player.z + fz * dist;
-        if (solid(tileOf(x), tileOf(z)) || !lineOfSight(player.x, player.z, x, z)) continue;
-        phantom.position.set(x, 0, z);
-        phantom.visible = true;
-        glimpseUntil = time + 0.7;
-        audio?.growl(x, 1.6, z);
-        return;
-      }
-    }
-    if (roll < 0.5) {
-      flickerUntil = time + 1.4;
-      audio?.buzz(1.4);
-    } else if (roll < 0.75 && !outdoor) {
-      // Schritte direkt hinter einem (draußen nicht: dort sind Geräusche hinter einem echt)
-      for (let i = 0; i < 3; i++) {
-        setTimeout(() => {
-          if (!ended) audio?.monsterStep(player.x - fx * (4 - i), 0.2, player.z - fz * (4 - i), 0.9);
-        }, i * 520);
-      }
-    } else if (roll < 0.9) {
-      const a = rng() * Math.PI * 2;
-      audio?.bang(player.x + Math.cos(a) * 12, 1.5, player.z + Math.sin(a) * 12);
-    } else {
-      audio?.whisper(player.x - fx * 0.6, EYE, player.z - fz * 0.6);
-    }
+    // Schreckmomente und Erscheinungen: scares.js
   }
 
   // ── Koop: Netz ──────────────────────────────────────────────────────────
@@ -2095,6 +2611,7 @@ export function createGame(host, opts, cb) {
    * Laute des Monsters, die die KI auslöst: beim Host abspielen und an alle schicken (die anderen rechnen keine KI).
    * who = Ziel (Stinger erschreckt nur den Gemeinten bzw. wer nah dran ist).
    */
+  let humPhrase = 0;
   function mfx(kind, x, z, who = null) {
     if (coop && !isHost) return;
     playFx(kind, x, z, who === null || who === player);
@@ -2104,6 +2621,11 @@ export function createGame(host, opts, cb) {
     if (kind === 'echo') audio?.echo(x, 1.4, z);
     else if (kind === 'sniff') audio?.sniff(x, 1.7, z);
     else if (kind === 'growl') audio?.growl(x, 1.8, z);
+    else if (kind === 'screech') audio?.screech(x, 1.8, z);
+    else if (kind === 'roar') audio?.roar(x, 1.6, z);
+    else if (kind === 'grunt') audio?.grunt(x, 1.6, z);
+    else if (kind === 'croak') audio?.croak(x, 1.3, z);
+    else if (kind === 'hum') audio?.hum(x, 1.7, z, humPhrase++);
     else if (kind === 'stinger') {
       if (!mine && Math.hypot(x - camera.position.x, z - camera.position.z) > 12) return;
       audio?.stinger();
@@ -2112,6 +2634,13 @@ export function createGame(host, opts, cb) {
       flickerUntil = time + 0.4;
       audio?.buzz(0.4);
       audio?.whisper(x, EYE, z);
+    } else if (kind === 'vanish') {
+      // Der Schatten löst sich im Licht auf (alle sehen und hören es)
+      vanishAt(x, z);
+      audio?.vanish(x, 1.6, z);
+      if (mine) shake = Math.max(shake, softScares ? 0.05 : 0.18);
+    } else if (kind === 'breath' && mine) {
+      audio?.neckBreath(x, EYE, z);
     }
   }
 
@@ -2133,7 +2662,7 @@ export function createGame(host, opts, cb) {
       net.send('world', {
         r: net.round,
         m: [r2(monster.x), r2(monster.z), r2(monster.fx), r2(monster.fz), STATES.indexOf(monster.state), r2(monster.speed || 0), monster.seenByPlayer ? 1 : 0],
-        g: [taken, player.inserted, vd, player.hasKey ? 1 : 0, codeLock?.open ? 1 : 0],
+        g: [taken, player.inserted, vd, player.hasKey ? 1 : 0, codeLock?.open ? 1 : 0, player.crowbar ? 1 : 0, boardsLeft],
       });
     }
   }
@@ -2151,12 +2680,14 @@ export function createGame(host, opts, cb) {
     monster.state = STATES[st] || monster.state;
     monster.netSpeed = sp;
     monster.seenByPlayer = !!seen;
-    const [taken, ins, vd, key, code] = Array.isArray(w.g) ? w.g : [];
+    const [taken, ins, vd, key, code, bar, boards] = Array.isArray(w.g) ? w.g : [];
     items.forEach((it, i) => { if ((taken >> i) & 1 && !it.taken) takeItem(it, -1); });
     while (player.inserted < Math.min(ins || 0, NEED)) insertFuse(-1);
     valves.forEach((v, i) => { if ((vd >> i) & 1 && !v.done) valveDone(v, -1); });
     if (key && !player.hasKey) { player.hasKey = true; phase = 'deliver'; }
     if (code && codeLock && !codeLock.open) openCode(-1);
+    if (bar) takeCrowbar(-1);
+    if (typeof boards === 'number') while (boardsLeft > boards) pryBoard(-1);
   }
 
   function applyPeer(p) {
@@ -2195,6 +2726,8 @@ export function createGame(host, opts, cb) {
       case 'statue': if (puzzleStatues[e.i]) turnStatue(puzzleStatues[e.i], by); break;
       case 'code': if (codeLock) openCode(by); break;
       case 'carving': if (carvings[e.i]) carvings[e.i].read = true; break;
+      case 'crowbar': takeCrowbar(by); break;
+      case 'board': pryBoard(by); break;
       case 'noise':
         if (!isHost) break;
         if (e.lure && (monster.state === 'away' || monster.state === 'dormant')) { monster.state = 'away'; monster.awayUntil = time; }
@@ -2285,7 +2818,7 @@ export function createGame(host, opts, cb) {
         p.stride += Math.hypot(p.x - ox, p.z - oz);
         if (p.stride > 1.7) {
           p.stride = 0;
-          if (!p.sneak && dCam > 0.5) audio?.monsterStep(p.x, 0.1, p.z, 0.28);
+          if (!p.sneak && dCam > 0.5) audio?.monsterStep(p.x, 0.1, p.z, 0.28, 'peer');
         }
       }
     }
@@ -2348,53 +2881,208 @@ export function createGame(host, opts, cb) {
     win();
   }
 
-  // ── Anfahrt im Auto ─────────────────────────────────────────────────────
-  // 0–6 s: Fahrt auf dem Schotterweg (Scheinwerfer, Motor), 6–7.6 s: anhalten, Blick zum Tor,
-  // 7.6 s: Tür zu, 8 s: abblenden, 8.6 s: man steht am Tor, Tor quietscht, 9.2 s: aufblenden, los.
+  // ── Vorspann ────────────────────────────────────────────────────────────
+  // 1. Wohnzimmer: im Fernseher die Meldung — Jonas wird vermisst, die Suche ist eingestellt (introScene.js).
+  // 2. Im Auto auf dem Waldweg: Jonas ruft an. Er warnt (komm nicht her) und sagt, wie man dem entkommt, was im
+  //    Wald steht — deshalb muss das später keine Notiz mehr erklären. Die Verbindung reißt ab.
+  // 3. Die Gestalt steht mitten auf dem Weg. Lenkrad herum, der Wagen prallt gegen einen Baum. Schwarz.
+  // 4. Man kommt am Tor wieder zu sich; das Wrack hängt hinter einem am Baum.
+  // Leertaste überspringt alles bis kurz vor dem Aufwachen.
+  /** Ablauf: [Zeit, Art, Sprecher, Text, Dauer der Untertitelzeile]. Zeiten in Sekunden ab Beginn. */
+  const CUES = (() => {
+    const r = INTRO.ride;
+    return [
+      [0, 'tvOn'],
+      [0.8, 'line', 'Nachrichten', 'Von dem 27-jährigen Jonas Brandt fehlt weiterhin jede Spur.', 3.4],
+      [4.6, 'line', 'Nachrichten', 'Er wurde vor drei Tagen zuletzt am ehemaligen Sanatorium Erlengrund gesehen. Sein Wagen stand am Tor.', 4.4],
+      [9.4, 'line', 'Nachrichten', 'Die Polizei hat die Suche im Wald heute Abend eingestellt.', 3.0],
+      [INTRO.tvOff, 'tvOff'],
+      [r - 1.0, 'carStart'],
+      [r, 'ride'],
+      [r + 2.0, 'ring'],
+      [r + 4.1, 'ring'],
+      [r + 6.0, 'pickup'],
+      [r + 6.7, 'line', 'Lena', 'Jonas?! Wo bist du? Alle suchen nach dir!', 3.4],
+      [r + 10.5, 'line', 'Jonas', 'Lena … wo bist du gerade?', 2.8],
+      [r + 13.7, 'line', 'Lena', 'Im Auto. Ich bin gleich am Sanatorium.', 3.2],
+      [r + 17.3, 'line', 'Jonas', 'Nein. Dreh um! Komm nicht her — ich bin fast draußen.', 4.0],
+      [r + 21.7, 'line', 'Jonas', 'Im Wald steht etwas. Es kommt näher, sobald du wegsiehst.', 4.4],
+      [r + 26.5, 'line', 'Jonas', 'Wenn du es siehst: Leuchte es an. Nur Licht hält es auf.', 4.0],
+      [r + 30.9, 'line', 'Lena', 'Was redest du da? Ich hol dich da raus.', 3.2],
+      [r + 34.5, 'line', 'Jonas', 'Lena, bitte — halt nicht a…', 2.2],
+      [r + 36.7, 'lost'],
+      [r + 39.2, 'line', 'Lena', 'Jonas? … Jonas!', 1.8],
+      [INTRO.swerve - 0.3, 'line', 'Lena', 'Nein —!', 1.3],
+      [INTRO.swerve, 'swerve'],
+    ];
+  })();
+  /** So lange vor dem Ausweichen steht die Gestalt plötzlich da (Sekunden) — gerade genug, um zu erschrecken */
+  const FIGURE_LEAD = 0.3;
+  const tvRoom = intro ? buildTvRoom({ scene, keep, at: [-420, 0, -420] }) : null;
   const introActive = () => intro && intro.t < INTRO_END;
-  const easeOut = (x) => 1 - (1 - x) * (1 - x);
   let introHudAt = 0;
+
+  function runCue([, kind, who, text, secs]) {
+    const phone = forestView.phone;
+    if (kind === 'tvOn') audio?.tvOn();
+    else if (kind === 'tvOff') audio?.tvOff();
+    else if (kind === 'carStart') {
+      audio?.carStart();
+      intro.engine = audio?.engine() || null;
+      intro.engine?.set(0.2);
+    } else if (kind === 'ride') {
+      tvRoom.group.visible = false;
+      cb.onFade?.(false);
+    } else if (kind === 'ring') {
+      phone.draw('ring');
+      audio?.phoneRing();
+    } else if (kind === 'pickup') {
+      intro.talkAt = intro.t;
+      phone.draw('talk', 0);
+      audio?.phonePickup();
+      intro.lineNoise = audio?.phoneLine() || null;
+    } else if (kind === 'line') {
+      intro.line = { who, text };
+      intro.lineUntil = intro.t + secs;
+      // Zu hören sind nur Stimmen aus Geräten: die Sprecherin leise aus dem Fernseher, Jonas verzerrt und zerhackt
+      // aus dem Handy — je länger er redet, desto schlechter die Verbindung. Lena (man selbst) spricht ohne Ton.
+      if (who === 'Nachrichten') audio?.phoneVoice(secs * 0.9, { pitch: 196, level: 0.4, dropouts: 0 });
+      else if (who === 'Jonas') {
+        audio?.phoneVoice(secs * 0.85);
+        intro.lineNoise?.set(intro.t > INTRO.ride + 20 ? 1 : 0.45);
+      } else intro.lineNoise?.set(0.25);
+    } else if (kind === 'lost') {
+      intro.talkAt = -1;
+      intro.line = { who: '', text: 'Verbindung getrennt' };
+      intro.lineUntil = intro.t + 2.2;
+      phone.draw('lost');
+      endCall();
+      audio?.phoneLost();
+    } else if (kind === 'swerve') {
+      audio?.skid(INTRO.impact - INTRO.swerve);
+      shake = 0.5;
+    }
+  }
+  function endCall() {
+    intro.lineNoise?.stop();
+    intro.lineNoise = null;
+  }
+  /** Aufprall (oder übersprungen): Bild sofort schwarz, der Wagen hängt am Baum, alle Lichter des Vorspanns aus. */
+  function crash(silent) {
+    intro.crashed = true;
+    intro.cue = CUES.length;
+    intro.line = null;
+    intro.talkAt = -1;
+    endCall();
+    intro.engine?.stop();
+    intro.engine = null;
+    if (!silent) audio?.crash();
+    cb.onFade?.(true, 'hard');
+    tvRoom.group.visible = false;
+    forestView.phone.draw('off');
+    forestView.wreckCar();
+    phantom.visible = false;
+    phantomBody?.setEyes(1);
+    for (const h of forestView.headlights) h.intensity = 60;
+    // Ohne Scheinwerfer und Innenlicht (drei Lichter weniger in jedem Pixel). Die Shader für diese Lichterzahl
+    // sind schon übersetzt (warm) — hier ruckelt nichts mehr.
+    for (const l of introLights) l.visible = false;
+    // (erst ein paar Bilder später: das Vorwärmen hält das Bild kurz an, und bis dahin soll es schwarz sein)
+    setTimeout(() => { if (!disposed) warm(); }, 120);
+  }
+  /** Leertaste: direkt zum Aufwachen am Tor. */
+  function skipIntro() {
+    if (intro.crashed) return;
+    intro.t = INTRO.wake - 1.9;
+    crash(true);
+  }
+
   function updateIntro(dt) {
     intro.t += dt;
     const t = intro.t;
-    const car = forestView.car;
-    const s = easeOut(Math.min(t / 6, 1));
-    car.position.x = forestView.parkX + 45 * (1 - s);
-    if (!intro.engine && t < 6) intro.engine = audio?.engine() || 'none';
-    if (intro.engine && intro.engine !== 'off' && intro.engine !== 'none') {
-      intro.engine.set(t < 6 ? 0.15 + 0.6 * (1 - s) : 0.08);
-      if (t > 6.2) { intro.engine.stop(); intro.engine = 'off'; }
+    const phone = forestView.phone;
+    while (intro.cue < CUES.length && t >= CUES[intro.cue][0]) runCue(CUES[intro.cue++]);
+    if (intro.line && t > intro.lineUntil) intro.line = null;
+    if (!intro.crashed) {
+      if (t < INTRO.ride) {
+        // Fernseher; kurz nach dem Ausschalten wird es ganz schwarz (Schnitt ins Auto)
+        tvRoom.update(t, INTRO.tvOff);
+        if (t > INTRO.tvOff + 0.45 && !intro.cut) { intro.cut = true; cb.onFade?.(true, 'hard'); }
+      } else {
+        const s = t - INTRO.swerve;
+        forestView.driveCar(s);
+        intro.engine?.set(s < 0 ? 0.42 + Math.sin(t * 0.9) * 0.04 : 0.25);
+        if (intro.talkAt >= 0) phone.draw('talk', t - intro.talkAt);
+        // Innenlicht: schwach grünlich von den Instrumenten; leuchtet das Handy, hell und bläulich (pulsiert beim Klingeln)
+        const ringing = intro.talkAt < 0 && t > INTRO.ride + 2 && t < INTRO.ride + 6;
+        const lit = ringing || intro.talkAt >= 0 || (intro.line && !intro.line.who);
+        phone.glow.color.set(lit ? 0x9fc4ff : 0x8fd6a8);
+        phone.glow.intensity = ringing ? 0.5 + 0.3 * Math.sin(t * 9) : lit ? 0.55 : 0.32;
+        // Blick wandert beim Klingeln kurz zum Handy
+        const look = (t > INTRO.ride + 2.2 && t < INTRO.ride + 3.5) || (t > INTRO.ride + 5.4 && t < INTRO.ride + 6.6);
+        intro.glance += ((look ? 1 : 0) - intro.glance) * Math.min(1, dt * 5);
+        // Die Gestalt kommt ohne Vorwarnung — der erste Schreck des Spiels. Die Scheinwerfer setzen einen
+        // Wimpernschlag aus, und als sie wieder brennen, steht sie mitten auf dem Weg, direkt vor dem Kühler.
+        // Aufschrei; einen Atemzug später reißt man das Lenkrad herum.
+        const blink = s > -FIGURE_LEAD - 0.14 && s < -FIGURE_LEAD;
+        for (const h of forestView.headlights) h.intensity = blink ? 0 : 60;
+        if (s >= -FIGURE_LEAD && !intro.figure) {
+          // (etwas links der Wegmitte — man weicht nach rechts aus)
+          intro.figure = [forestView.car.position.x - 6.5, forestView.roadZ + 0.6];
+          phantomBody?.setEyes(5);
+          if (softScares) audio?.stinger(); else audio?.shriek();
+          shake = softScares ? 0.15 : 0.7;
+        }
+        phantom.visible = !!intro.figure;
+        if (intro.figure) phantom.position.set(intro.figure[0], 0, intro.figure[1]);
+        if (t >= INTRO.impact) crash(false);
+      }
+    } else {
+      // schwarz: aussteigen, das Tor — dann kommt man am Zaun wieder zu sich
+      if (t > INTRO.wake - 1.6 && !intro.slammed) { intro.slammed = true; audio?.doorSlam(); }
+      if (t > INTRO.wake - 0.7 && !intro.creaked) { intro.creaked = true; audio?.gateCreak(); }
+      if (t > INTRO.wake && !intro.woke) {
+        intro.woke = true;
+        cb.onFade?.(false);
+        audio?.startAmbience(level.theme);
+        message = { text: level.title, until: time + 4 };
+      }
     }
-    if (t > 7.6 && !intro.slammed) { intro.slammed = true; audio?.doorSlam(); }
-    if (t > 8.0 && !intro.faded) {
-      intro.faded = true;
-      cb.onFade?.(true);
-      // Ab hier steht man am Tor: Scheinwerfer aus (zwei Lichter weniger in jedem Pixel) und unter dem
-      // schwarzen Bild für die neue Lichterzahl vorwärmen
-      forestView.headlights.forEach((h) => { h.visible = false; });
-      warm();
-    }
-    if (t > 8.7 && !intro.creaked) { intro.creaked = true; audio?.gateCreak(); }
-    if (t >= INTRO_END) {
-      if (intro.engine && intro.engine !== 'off' && intro.engine !== 'none') intro.engine.stop();
-      cb.onFade?.(false);
-      audio?.startAmbience(level.theme);
-      message = { text: level.title, until: time + 4 };
-    }
-    if (t > introHudAt) {
+    // HUD: gedrosselt, aber sofort, wenn sich die Untertitelzeile ändert
+    if (t > introHudAt || intro.sent !== intro.line) {
       introHudAt = t + 0.25;
-      cb.onHud?.({ cinematic: true });
+      intro.sent = intro.line;
+      cb.onHud?.({ cinematic: true, line: intro.line });
     }
   }
 
-  /** Kamera im Auto: Fahrersitz links (Fahrtrichtung -x, links = +z), am Ende Blick zum Tor. */
+  /** Kamera im Vorspann: erst im Sessel vor dem Fernseher, dann auf dem Fahrersitz (links; Fahrtrichtung = -x des Wagens). */
   function introCamera() {
     const t = intro.t;
+    if (t < INTRO.ride) {
+      tvRoom.camera(t, camera);
+      return;
+    }
     const car = forestView.car;
-    camera.position.set(car.position.x - 0.35, 1.5 + Math.sin(t * 9) * 0.006, car.position.z + 0.42);
-    const turn = clamp((t - 6.6) / 1, 0, 1);
-    const yaw = Math.PI / 2 * (1 - easeOut(turn));
-    camera.rotation.set(-0.06, yaw, 0);
+    const th = car.rotation.y;
+    const s = t - INTRO.swerve;
+    const cos = Math.cos(th);
+    const sin = Math.sin(th);
+    // Sitzplatz im Wagen: 0,1 m hinter der Mitte, 0,42 m links
+    const lx = -0.1;
+    const lz = 0.42;
+    const bump = Math.sin(t * 9) * 0.006 + Math.sin(t * 23) * 0.003;
+    camera.position.set(car.position.x + lx * cos + lz * sin, 1.48 + bump, car.position.z - lx * sin + lz * cos);
+    // Beim Ausweichen wird man herumgeworfen
+    const thrown = s > 0 ? Math.min(1, s * 2) : 0;
+    // (shake: der Schreck, wenn die Gestalt plötzlich dasteht)
+    const jx = (Math.random() - 0.5) * (0.03 * thrown + shake * 0.05);
+    const jy = (Math.random() - 0.5) * (0.03 * thrown + shake * 0.05);
+    camera.rotation.set(
+      -0.12 - intro.glance * 0.1 + jx,
+      Math.PI / 2 + th - intro.glance * 0.32 + jy,
+      Math.sin(t * 17) * 0.0025 - thrown * 0.07,
+    );
   }
 
   // ── Schleife ────────────────────────────────────────────────────────────
@@ -2404,6 +3092,10 @@ export function createGame(host, opts, cb) {
       return;
     }
     time += dt;
+    if (intro && !intro.hinted && time > 4.6) {
+      intro.hinted = true;
+      say('Der Wagen ist hin. Zurück geht es nicht mehr.', 4.5);
+    }
     const px0 = player.x;
     const pz0 = player.z;
 
@@ -2458,7 +3150,7 @@ export function createGame(host, opts, cb) {
         const strideLen = wantSprint ? 2.2 : sneaking ? 1.1 : 1.7;
         if (player.stride > strideLen) {
           player.stride = 0;
-          if (!sneaking) audio?.footstep(wantSprint);
+          audio?.footstep(wantSprint, surface(), sneaking);
           noise(wantSprint ? theme.noise.sprint : sneaking ? theme.noise.sneak : theme.noise.walk);
         }
         // Glas: knirscht beim Betreten und dann alle paar Zentimeter — auch beim Schleichen hörbar,
@@ -2497,6 +3189,7 @@ export function createGame(host, opts, cb) {
     }
     const md = distTo(monster.x, monster.z);
     if (monster.state !== 'dormant' && monster.kind === 'hunter' && md < 5 && Math.random() < (5 - md) * 0.05) lightOn = false;
+    if (time < blackoutUntil) lightOn = false;
     const level01 = player.battery < 25 ? 0.55 + player.battery / 55 : 1;
     player.lightOn = lightOn;
     player.level01 = level01;
@@ -2537,11 +3230,28 @@ export function createGame(host, opts, cb) {
           noise(22, s.x, s.z);
         }
         if (player.hold >= 1) { player.hold = 0; turnStatue(s); }
+      } else if (target.kind === 'well') {
+        // Seil hochziehen: der Eimer kommt aus dem Schacht, darin das Brecheisen
+        player.hold += dt / 2.2;
+        crow.lift(Math.min(1, player.hold));
+        if (time > (crow.squeakAt || 0)) {
+          crow.squeakAt = time + 0.55;
+          audio?.squeak(crow.x, 1.9, crow.z);
+        }
+        if (player.hold >= 1) { player.hold = 0; takeCrowbar(null); }
+      } else if (target.kind === 'boards') {
+        player.hold += dt / 1.3;
+        if (player.hold >= 1) { player.hold = 0; pryBoard(null); }
       }
     } else if (target?.kind === 'valve') {
       // Ein halb aufgedrehtes Ventil bleibt halb offen
       player.hold = target.valve.progress;
-    } else player.hold = 0;
+    } else {
+      // (lässt man das Seil los, rauscht der Eimer wieder hinunter)
+      if (player.hold > 0 && crow && !player.crowbar) crow.lift(0);
+      player.hold = 0;
+    }
+    if (target?.hut) hutSeen = true;
     // Vom Zahlenschloss weggegangen bzw. weggeschaut: Eingabe beenden
     if (codeLock?.active && target?.kind !== 'code') {
       codeLock.active = false;
@@ -2562,6 +3272,12 @@ export function createGame(host, opts, cb) {
         if (it.kind === 'key') audio?.jingle(it.mesh.position.x, 0.2, it.mesh.position.z);
         else audio?.crackle(it.mesh.position.x, 0.2, it.mesh.position.z);
       }
+    }
+    // Jonas' Uhr tickt — man hört sie, bevor man sie sieht
+    for (const n of notes) {
+      if (n.item !== 'watch' || n.read) continue;
+      n.tickAt = (n.tickAt || 0) - dt;
+      if (n.tickAt <= 0) { n.tickAt = 1; audio?.tick(n.x, 0.1, n.z); }
     }
     if (halls && phase === 'deliver' && time > nextBeep) {
       nextBeep = time + 1.6;
@@ -2590,7 +3306,12 @@ export function createGame(host, opts, cb) {
     audio?.heartbeat(fear);
     audio?.setChase(monster.state === 'chase' || monster.state === 'charge' ? 1 : 0);
 
-    if (glimpseUntil && time > glimpseUntil) { phantom.visible = false; glimpseUntil = 0; }
+    scares.update(dt, time);
+    events.update(dt);
+    phantom.visible = scares.phantom.on;
+    if (phantom.visible) phantom.position.set(scares.phantom.x, 0, scares.phantom.z);
+    // Notiz weglegen, sobald man weitergeht
+    if (openNote && distTo(openNote.x, openNote.z) > 2.6) closeNote();
 
     netSend(performance.now());
 
@@ -2614,8 +3335,11 @@ export function createGame(host, opts, cb) {
 
   function render() {
     // Im Auto (bis man am Tor steht) sieht man durch die Windschutzscheibe, ohne Taschenlampe
-    const inCar = introActive() && intro.t < 8.6;
-    if (inCar) {
+    // Vorspann (Fernseher, Auto, schwarz nach dem Aufprall): eigene Kamera, ohne Taschenlampe
+    const inCar = introActive() && intro.t < INTRO.wake;
+    if (death) {
+      // Kamera und Licht führt deathFrame (unten, nach dem Monster)
+    } else if (inCar) {
       introCamera();
       flash.intensity = 0;
       spill.intensity = 0;
@@ -2661,7 +3385,9 @@ export function createGame(host, opts, cb) {
     // Leichtes Wanken, damit es nicht wie ein Pappaufsteller wirkt — der Beobachter steht vollkommen still
     const sway = monster.kind === 'watcher' ? 0 : 1;
     monsterMesh.scale.set(flip * (1 + Math.sin(time * 3.1) * 0.03 * sway), 1 + Math.sin(time * 2.3) * 0.015 * sway, 1);
-    monsterMesh.visible = !inCar && monster.state !== 'away' && (monster.state !== 'dormant' || time > DORMANT - 0.1);
+    // (der Beobachter ist in seiner Ruhezeit gar nicht da — die anderen stehen schon an ihrem Platz)
+    monsterMesh.visible = !inCar && monster.state !== 'away'
+      && (monster.state !== 'dormant' || (monster.kind !== 'watcher' && time > DORMANT - 0.1));
 
     if (body) {
       // Jäger/Lauscher schauen in Laufrichtung, der Beobachter immer zum Spieler
@@ -2692,7 +3418,8 @@ export function createGame(host, opts, cb) {
       if (phantom.visible) {
         phantomBody.group.position.copy(phantom.position);
         phantomBody.group.rotation.y = Math.atan2(camera.position.x - phantom.position.x, camera.position.z - phantom.position.z);
-        phantomBody.update(animStep, { speed: 0 });
+        phantomBody.setFade(1);
+        phantomBody.update(animStep, { speed: scares.phantom.speed });
       }
     }
     // Laterne des Gärtners: das Licht sitzt am Laternenglas in seiner Hand und flackert wie eine Flamme
@@ -2702,6 +3429,15 @@ export function createGame(host, opts, cb) {
       else lanternLight.position.set(monster.x, 1.1, monster.z);
       lanternLight.intensity = active ? 1.8 * (0.86 + Math.sin(time * 11) * 0.06 + Math.sin(time * 5.3) * 0.08) : 0;
     }
+    // Der Beobachter löst sich auf: an der alten Stelle blendet der Schatten kurz aus
+    if (body && monster.kind === 'watcher') {
+      if (vanishFx && time < vanishFx.until && !death) {
+        body.group.visible = true;
+        body.group.position.set(vanishFx.x, 0, vanishFx.z);
+        body.setFade(Math.max(0, (vanishFx.until - time) / 0.35) * 0.8);
+      } else if (!death) body.setFade(1);
+    }
+    if (death) deathFrame(frameDt);
     animStep = 0;
 
     const fx = -Math.sin(player.yaw);
@@ -2734,21 +3470,43 @@ export function createGame(host, opts, cb) {
       for (const g of [body?.group, phantomBody?.group]) if (g) { moved.push([g, g.position.clone()]); g.position.copy(ahead); }
       const flashWas = flash.intensity;
       flash.intensity = 1;
-      try {
-        if (renderer.compileAsync) {
-          if (!direct()) renderer.setRenderTarget(post.composer.readBuffer);
-          const p = renderer.compileAsync(scene, camera);
-          renderer.setRenderTarget(null);
-          await p;
-        }
-      } catch { /* dann übersetzt eben das Zeichnen */ }
-      if (disposed) return;
+      // Läuft noch der Vorspann, gibt es zwei Lichter-Zustände: mit Scheinwerfern und Innenlicht (jetzt) und ohne
+      // (nach dem Aufprall). Die Zahl der Lichter steckt in jedem Shader — beide Fassungen vorab übersetzen, sonst
+      // steht das Bild beim Aufprall eine gute Sekunde.
+      const lightStates = intro && !intro.crashed ? [false, true] : [null];
       const yaw = camera.rotation.y;
-      for (let i = 0; i < 4; i++) {
-        camera.rotation.y = yaw + (i * Math.PI) / 2;
-        camera.updateMatrixWorld();
-        draw();
+      // Gezeichnet wird von jedem Ort aus, an dem die Kamera gleich stehen wird: wo sie jetzt ist, wo man selbst
+      // steht und (vor der Fahrt) vom Fahrersitz am Anfang des Wegs. Sonst lädt die Grafikkarte Bäume und Boden
+      // erst beim ersten Bild von dort — genau im Schnitt.
+      const home = camera.position.clone();
+      const spots = [home, new THREE.Vector3(player.x, EYE, player.z)];
+      if (intro && !intro.crashed && intro.t < INTRO.ride) {
+        const d = forestView.drive;
+        spots.push(new THREE.Vector3(d.swerveX + (INTRO.swerve - INTRO.ride) * d.speed - 0.1, 1.48, forestView.roadZ + 0.42));
       }
+      for (const on of lightStates) {
+        if (on !== null) for (const l of introLights) l.visible = on;
+        try {
+          if (renderer.compileAsync) {
+            if (!direct()) renderer.setRenderTarget(post.composer.readBuffer);
+            const p = renderer.compileAsync(scene, camera);
+            renderer.setRenderTarget(null);
+            await p;
+          }
+        } catch { /* dann übersetzt eben das Zeichnen */ }
+        if (disposed) return;
+        for (const spot of spots) {
+          camera.position.copy(spot);
+          for (let i = 0; i < 4; i++) {
+            camera.rotation.y = yaw + (i * Math.PI) / 2;
+            camera.updateMatrixWorld();
+            draw();
+          }
+        }
+      }
+      camera.position.copy(home);
+      // (hat der Aufprall inzwischen stattgefunden, bleiben die Lichter aus)
+      if (lightStates.length > 1 && intro.crashed) for (const l of introLights) l.visible = false;
       camera.rotation.y = yaw;
       flash.intensity = flashWas;
       for (const o of hidden) o.visible = false;
@@ -2827,7 +3585,8 @@ export function createGame(host, opts, cb) {
     frameDt = dt;
     shake = Math.max(0, shake - dt * 1.5);
     // Koop: die Welt läuft weiter, auch wenn man selbst im Pausenmenü steht (die anderen spielen ja)
-    if ((!paused || coop) && !ended) { update(dt); animStep = dt; if (!paused) govern(raw); }
+    // Beim Lesen einer Notiz (allein) steht die Welt, gezeichnet wird weiter
+    if ((!paused || coop) && !ended && !reading) { update(dt); animStep = dt; if (!paused) govern(raw); }
     render();
   };
 
@@ -2861,6 +3620,9 @@ export function createGame(host, opts, cb) {
     new Promise((r) => setTimeout(r, 12000)),
   ]).then(() => true);
 
+  // Mit Vorspann: Hinter dem Startfenster soll nicht schon das Wohnzimmer zu sehen sein — schwarz, bis man startet
+  if (intro) cb.onFade?.(true, 'hard');
+
   // Übergang aus der vorigen Ebene: die Zeigersperre besteht noch, also direkt weiterspielen
   if (opts.autoplay && document.pointerLockElement === canvasEl) {
     paused = false;
@@ -2884,6 +3646,11 @@ export function createGame(host, opts, cb) {
       paused = false;
       last = performance.now();
       cb.onPause?.(false);
+      // Vorspann: bis hierhin war das Bild schwarz — jetzt langsam einblenden (der Fernseher geht gerade an)
+      if (intro && !intro.started) {
+        intro.started = true;
+        cb.onFade?.(false, 'slow');
+      }
     },
     /** Löst auf, sobald die Welt geladen und vorgewärmt ist. */
     whenReady: () => readyPromise,
@@ -2916,10 +3683,12 @@ export function createGame(host, opts, cb) {
       window.removeEventListener('blur', onBlur);
       document.removeEventListener('mousemove', onMouse);
       document.removeEventListener('pointerlockchange', onLockChange);
-      if (intro?.engine && typeof intro.engine === 'object') intro.engine.stop();
+      intro?.engine?.stop();
+      intro?.lineNoise?.stop();
       // Zeichenfläche, Ton und Zeigersperre gehören der Hülle — hier nur die eigene Szene abbauen
       audio?.stopAmbience();
       audio?.setChase(0);
+      events.dispose();
       for (const d of disposables) d.dispose?.();
       for (const m of instanced) m.dispose();
       post.dispose();
@@ -2928,9 +3697,10 @@ export function createGame(host, opts, cb) {
     // Für den Prüfstand
     _debug: {
       player, monster, maze, items, valves, lockers, boxPos, door, exitCell, objectives, shards,
-      scene, flash, renderer, camera, trail, codeLock, carvings, gardenView, puzzleStatues, turnStatue, insertFuse, peers, targets, NEED, HARD, applyQuality,
+      scene, flash, renderer, camera, trail, notes, scares, caught, forestView, codeLock, carvings, gardenView, puzzleStatues, turnStatue, insertFuse, peers, targets, NEED, HARD, applyQuality,
       get quality() { return Object.keys(QUALITY).find((k) => QUALITY[k] === quality); }, get ratio() { return ratio; },
       get isHost() { return isHost; }, get focus() { return focus; }, get flicker() { return flicker; }, get body() { return body; }, get noPost() { return noPost; }, set noPost(v) { noPost = v; },
+      takeCrowbar, pryBoard, get boardsLeft() { return boardsLeft; }, hutInfo, events,
       get time() { return time; }, get phase() { return phase; }, get introT() { return intro?.t; }, get paused() { return paused; }, get ended() { return ended; }, interact, findInteract,
     },
   };

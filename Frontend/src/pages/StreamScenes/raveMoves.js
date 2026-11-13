@@ -244,10 +244,260 @@ const MOVES = {
       };
     },
   },
+  /** Floss: beide Arme schwingen gemeinsam von Seite zu Seite (einer vor, einer hinter dem Körper), Hüfte gegenläufig. */
+  floss: {
+    beats: 4,
+    pose(b) {
+      const f = b % 1;
+      const side = Math.floor(b) % 2 === 0 ? 1 : -1;
+      const sw = side * (2 * ease(Math.min(1, f * 2.2)) - 1);   // schnell rüber, dann kurz halten
+      const c = Math.cos(PI * b / 2);                           // welcher Arm vorn vorbeigeht
+      const armOf = (s) => ({ pos: [sw * 0.45 - s * 0.28, -0.52, 0.1 + 0.2 * s * c], pole: [s, -0.3, -0.6] });
+      return {
+        hip: [-0.07 * sw, -0.04 + bounce(f, 0.04), 0],
+        hipRot: [0, -0.1 * sw, 0],
+        spine: [0.04, 0.12 * sw, 0],
+        head: [0, -0.1 * sw, 0],
+        armL: armOf(1),
+        armR: armOf(-1),
+        legL: foot(1, 0.24, 0, 0, 0.15),
+        legR: foot(-1, 0.24, 0, 0, 0.15),
+      };
+    },
+  },
+  /** Twist: Knie gebeugt, Hüfte und Füße drehen, der Oberkörper dreht dagegen. */
+  twist: {
+    beats: 2,
+    pose(b) {
+      const f = b % 1;
+      const w = Math.sin(PI * b);
+      const arm = (s) => hand(s, 0.16, -0.22, 0.3 + 0.16 * s * w, [1, -0.5, -0.6]);
+      return {
+        hip: [0, -0.12 + bounce(f, 0.03), 0],
+        hipRot: [0, 0.38 * w, 0],
+        spine: [0.1, -0.6 * w, 0],
+        head: [0, 0.2 * w, 0],
+        armL: arm(1),
+        armR: arm(-1),
+        // beide Füße drehen in dieselbe Richtung (foot() spiegelt die Drehung je Seite)
+        legL: foot(1, 0.2, 0, 0.05 * w, 0.15 + 0.45 * w),
+        legR: foot(-1, 0.2, 0, -0.05 * w, 0.15 - 0.45 * w),
+      };
+    },
+  },
+  /** Disco: zwei Schläge schräg nach oben zeigen, zwei Schläge quer nach unten; andere Hand in der Hüfte. */
+  pointer: {
+    beats: 4,
+    pose(b) {
+      const f = b % 1;
+      const u = b < 2 ? ease(b / 0.5) : 1 - ease((b - 2) / 0.5);
+      const top = hand(-1, 0.55, 0.68 + 0.05 * thrust(f), 0.1, [1, -0.6, -0.3]);
+      const low = hand(-1, -0.42, -0.45, 0.32, [1, -0.3, -0.6]);
+      return {
+        hip: [0.07 * (2 * u - 1), -0.04 + bounce(f, 0.05), 0],
+        hipRot: [0, 0.1 * (2 * u - 1), 0],
+        spine: [0.02, -0.12 * (2 * u - 1), 0],
+        head: [lerp(0.1, -0.15, u), -0.3 * (2 * u - 1), 0],
+        armR: { pos: low.pos.map((v, i) => lerp(v, top.pos[i], u)), pole: low.pole.map((v, i) => lerp(v, top.pole[i], u)) },
+        armL: hand(1, 0.36, -0.3, -0.02, [1, 0.2, -0.8]),
+        legL: foot(1, 0.26, 0, 0.02, 0.2),
+        legR: foot(-1, 0.26, 0, -0.02, 0.2),
+      };
+    },
+  },
+  /** Arme oben (V) und gemeinsam von Seite zu Seite schwenken — wie vor einer Festivalbühne. */
+  wavearms: {
+    beats: 4,
+    pose(b) {
+      const f = b % 1;
+      const sw = Math.sin(PI * b / 2);
+      return {
+        hip: [-0.05 * sw, -0.03 + bounce(f, 0.04), 0],
+        spine: [-0.04, 0, -0.12 * sw],
+        head: [-0.12, 0, -0.06 * sw],
+        armL: hand(1, 0.5 + 0.2 * sw, 0.72 - 0.06 * Math.abs(sw), 0.1, [1, -0.3, -0.3]),
+        armR: hand(-1, 0.5 - 0.2 * sw, 0.72 - 0.06 * Math.abs(sw), 0.1, [1, -0.3, -0.3]),
+        legL: foot(1, 0.26, 0, 0, 0.15),
+        legR: foot(-1, 0.26, 0, 0, 0.15),
+      };
+    },
+  },
+  /** Kasatschok: tief in der Hocke, die Beine treten im Wechsel nach vorn, Arme vor der Brust verschränkt. */
+  kazotsky: {
+    beats: 2,
+    pose(b) {
+      const f = b % 1;
+      const kicker = Math.floor(b) % 2 === 0 ? 1 : -1;
+      const k = Math.sin(PI * f);
+      const leg = (s) => (s === kicker
+        ? foot(s, 0.16, 0.06 + 0.1 * k, 0.12 + 0.5 * k, 0, -0.5 * k)
+        : foot(s, 0.2, 0, -0.06, 0.3));
+      return {
+        hip: [0, -0.34 + 0.08 * k, -0.1],
+        spine: [-0.08, 0, 0],
+        head: [-0.05 + 0.1 * snap(f), 0, 0],
+        armL: hand(1, -0.14, -0.08, 0.34, [1, -0.2, -0.3]),
+        armR: hand(-1, -0.14, -0.14, 0.38, [1, -0.2, -0.3]),
+        legL: leg(1),
+        legR: leg(-1),
+      };
+    },
+  },
+  /** Seitschritt: Schritt zur Seite, Fuß heranziehen und klatschen — zwei Schläge hin, zwei zurück. */
+  twostep: {
+    beats: 4,
+    pose(b) {
+      const f = b % 1;
+      const i = Math.floor(b) % 4;
+      const e = ease(f);
+      const lift = 0.14 * Math.sin(PI * f);
+      // Fußlagen (Welt-x) je Schlag: links raus, rechts ran, rechts raus, links ran
+      const xL = i === 0 ? lerp(0.06, 0.34, e) : i === 3 ? lerp(0.34, 0.06, e) : 0.34;
+      const xR = i === 1 ? lerp(-0.34, -0.06, e) : i === 2 ? lerp(-0.06, -0.34, e) : -0.34;
+      const cx = (xL + xR) / 2;
+      const clap = i % 2 === 1 ? Math.sin(PI * f) ** 2 : 0;
+      const arm = (s) => {
+        const rest = hand(s, 0.12, -0.4, 0.2, [1, -0.4, -0.6]);
+        const meet = hand(s, -0.26, 0.05, 0.5, [1, -0.3, -0.4]);
+        return { pos: rest.pos.map((v, j) => lerp(v, meet.pos[j], clap)), pole: rest.pole.map((v, j) => lerp(v, meet.pole[j], clap)) };
+      };
+      return {
+        hip: [cx, -0.05 + bounce(f, 0.04), 0],
+        spine: [0.04, 0, 0],
+        head: [0.03 + 0.1 * snap(f), 0, 0],
+        armL: arm(1),
+        armR: arm(-1),
+        legL: { pos: [xL, GROUND + ((i === 0 || i === 3) ? lift : 0), 0], yaw: 0.15, toe: 0 },
+        legR: { pos: [xR, GROUND + ((i === 1 || i === 2) ? lift : 0), 0], yaw: -0.15, toe: 0 },
+      };
+    },
+  },
+  /** Ruhiges Wiegen für leise Stellen: Gewicht von Bein zu Bein, Arme locker, Kopf nickt. */
+  sway: {
+    beats: 4,
+    pose(b) {
+      const f = b % 1;
+      const sw = Math.sin(PI * b / 2);
+      return {
+        hip: [0.09 * sw, -0.04 + bounce(f, 0.025), 0],
+        hipRot: [0, 0.06 * sw, 0],
+        spine: [0.03, 0, 0.06 * sw],
+        head: [0.04 + 0.08 * snap(f), 0, -0.05 * sw],
+        armL: hand(1, 0.14, -0.5 + 0.05 * sw, 0.14 + 0.06 * sw, [1, -0.3, -0.7]),
+        armR: hand(-1, 0.14, -0.5 - 0.05 * sw, 0.14 - 0.06 * sw, [1, -0.3, -0.7]),
+        legL: foot(1, 0.24, 0, 0, 0.15),
+        legR: foot(-1, 0.24, 0, 0, 0.15),
+      };
+    },
+  },
+  /** Roboter: auf jeden Schlag rastet eine neue eckige Armhaltung ein, dazwischen steht die Figur starr. */
+  robot: {
+    beats: 4,
+    pose(b) {
+      const f = b % 1;
+      const i = Math.floor(b) % 4;
+      const k = ease(Math.min(1, f / 0.22));
+      const P = [
+        { l: hand(1, 0.45, 0.2, 0.15, [1, -1, -0.2]), r: hand(-1, 0.3, -0.35, 0.3, [1, -0.3, -0.8]), yaw: 0.25 },
+        { l: hand(1, 0.3, -0.35, 0.3, [1, -0.3, -0.8]), r: hand(-1, 0.45, 0.2, 0.15, [1, -1, -0.2]), yaw: -0.25 },
+        { l: hand(1, 0.15, 0, 0.6, [1, -0.6, -0.3]), r: hand(-1, 0.15, 0, 0.6, [1, -0.6, -0.3]), yaw: 0 },
+        { l: hand(1, 0.75, 0, 0.05, [0.2, -1, -0.3]), r: hand(-1, 0.2, -0.1, 0.5, [1, -0.6, -0.3]), yaw: 0.15 },
+      ];
+      const a = P[(i + 3) % 4], c = P[i];
+      const mix = (x, y) => ({ pos: x.pos.map((v, j) => lerp(v, y.pos[j], k)), pole: x.pole.map((v, j) => lerp(v, y.pole[j], k)) });
+      const yaw = lerp(a.yaw, c.yaw, k);
+      return {
+        hip: [0, -0.05 - 0.03 * snap(f * 2), 0],
+        spine: [0.02, yaw, 0],
+        head: [0, -yaw * 1.6, 0],
+        armL: mix(a.l, c.l),
+        armR: mix(a.r, c.r),
+        legL: foot(1, 0.26, 0, 0, 0.1),
+        legR: foot(-1, 0.26, 0, 0, 0.1),
+      };
+    },
+  },
+  /** Beide Hände zeigen nach vorn oben und stoßen im Wechsel im Takt — breiter Stand, tiefes Federn. */
+  gunfingers: {
+    beats: 2,
+    pose(b) {
+      const f = b % 1;
+      const i = Math.floor(b) % 2;
+      const p = (s) => thrust(f) * ((s === 1) === (i === 0) ? 1 : 0.35);
+      // Hände auf Brusthöhe und seitlich versetzt — höher verdecken die Fäuste das Gesicht (großer Kopf)
+      const arm = (s) => hand(s, 0.32, 0.0 + 0.2 * p(s), 0.58 + 0.1 * p(s), [1, -0.8, -0.2]);
+      return {
+        hip: [0, -0.07 + bounce(f, 0.07), 0],
+        hipRot: [0, 0.1 * (i ? -1 : 1) * snap(f), 0],
+        spine: [0.12 + 0.06 * snap(f), 0, 0],
+        head: [0.05 + 0.18 * snap(f), 0, 0],
+        armL: arm(1),
+        armR: arm(-1),
+        legL: foot(1, 0.32, 0, 0.04, 0.25),
+        legR: foot(-1, 0.32, 0, -0.04, 0.25),
+      };
+    },
+  },
+  /** Hardstyle-Stampfer: ein Fuß geht hoch und knallt auf die Kick, beide Fäuste schlagen mit nach unten. */
+  stomp: {
+    beats: 2,
+    pose(b) {
+      const f = b % 1;
+      const next = Math.floor(b) % 2 === 0 ? -1 : 1;           // dieser Fuß stampft auf den nächsten Schlag
+      const l = f > 0.35 ? Math.sin(PI * (f - 0.35) / 0.65) : 0;
+      const leg = (s) => (s === next ? foot(s, 0.34, 0.3 * l, 0.06 * l, 0.3) : foot(s, 0.34, 0, 0, 0.3));
+      const arm = (s) => hand(s, 0.14, lerp(-0.5, 0, l), lerp(0.3, 0.36, l), [1, -0.5, -0.5]);
+      return {
+        hip: [-0.05 * next * l, -0.12 - 0.07 * snap(f) + 0.06 * l, 0],
+        spine: [0.16 + 0.14 * snap(f), 0.1 * next * l, 0],
+        head: [0.05 + 0.25 * snap(f), 0, 0],
+        armL: arm(1),
+        armR: arm(-1),
+        legL: leg(1),
+        legR: leg(-1),
+      };
+    },
+  },
+  /** Drei Schläge federn, auf den vierten ein Sprung mit ganzer Drehung. */
+  spin: {
+    beats: 4,
+    pose(b) {
+      const f = b % 1;
+      const turning = b >= 3;
+      const ang = turning ? 2 * PI * ease(f) : 0;
+      const h = turning ? air(f) : 0;
+      const tuck = turning ? Math.sin(PI * f) : 0;
+      // kurz in die Knie, bevor es hochgeht
+      const crouch = b >= 2.5 && b < 3 ? ease((b - 2.5) / 0.5) : turning ? 1 - ease(Math.min(1, f * 4)) : 0;
+      const co = Math.cos(ang), si = Math.sin(ang);
+      const leg = (s) => ({ pos: [s * 0.22 * co, GROUND + 0.16 * h, -s * 0.22 * si], yaw: ang + s * 0.15, toe: 0.3 * h });
+      const arm = (s) => {
+        const pump = hand(s, 0.12, -0.3 + 0.12 * thrust(f), 0.25, [1, -0.5, -0.5]);
+        const close = hand(s, -0.05, -0.05, 0.3, [1, -0.4, -0.4]);
+        return { pos: pump.pos.map((v, j) => lerp(v, close.pos[j], tuck)), pole: pump.pole.map((v, j) => lerp(v, close.pole[j], tuck)) };
+      };
+      return {
+        hip: [0, -0.05 + (turning ? 0 : bounce(f, 0.06)) + 0.22 * h - 0.1 * crouch, 0],
+        hipRot: [0, ang, 0],
+        spine: [0.06, 0, 0],
+        head: [0.04 + (turning ? 0 : 0.12 * snap(f)), 0, 0],
+        armL: arm(1),
+        armR: arm(-1),
+        legL: leg(1),
+        legR: leg(-1),
+      };
+    },
+  },
 };
 
+/** Ruhige Tänze für leise Stellen in der Musik (Breakdown). */
+const CALM = ['sway', 'twostep', 'wavearms'];
+/** Nur für leise Stellen — in den normalen Tanzlisten wäre das zu müde. */
+const CALM_ONLY = new Set(['sway']);
+
 /** Namen der Tänze (inkl. Spiegelung) — für die Tanzlisten der Szene. */
-export const RAVE_MOVES = Object.keys(MOVES).flatMap((n) => [n, `${n}_m`]);
+export const RAVE_MOVES = Object.keys(MOVES).filter((n) => !CALM_ONLY.has(n)).flatMap((n) => [n, `${n}_m`]);
+export const RAVE_CALM = CALM.flatMap((n) => [n, `${n}_m`]);
 
 /**
  * Hände auf dem Mischpult, relativ zum Schultergelenk (Rumpf-Rahmen). Der Rumpf ist dabei nach
@@ -256,8 +506,36 @@ export const RAVE_MOVES = Object.keys(MOVES).flatMap((n) => [n, `${n}_m`]);
 const DJ_HAND = { x: 0.1, y: -0.62, z: 0.52 };
 const DJ_LEAN = 0.3;
 
-/** Einzelbewegungen außerhalb der Tanzlisten: DJ-Pult (Starting), Winken + Kopfkratzen (BRB-Planet). */
+/** Einzelbewegungen außerhalb der Tanzlisten: DJ-Pult und Polonaise (Starting), Winken + Kopfkratzen (BRB-Planet). */
 const DJ_MOVES = {
+  /**
+   * Polonaise: Hände nach vorn auf die Schultern des Vordermanns, Schritt auf jeden Schlag, auf den
+   * vierten geht ein Bein zur Seite raus. Vorwärts bewegt die Szene die Figur (partyDancers.js).
+   */
+  conga: {
+    beats: 4,
+    pose(b) {
+      const f = b % 1;
+      const i = Math.floor(b) % 4;
+      const side = i % 2 === 0 ? 1 : -1;
+      const lift = Math.sin(PI * f);
+      const out = i === 3;
+      const leg = (s) => (s !== side ? foot(s, 0.18, 0, 0, 0.1)
+        : out ? foot(s, lerp(0.2, 0.62, lift), 0.24 * lift, 0.04, 0.1)
+          : foot(s, 0.18, 0.16 * lift, 0.1 * lift, 0.05, -0.2 * lift));
+      const arm = (s) => hand(s, 0.03, 0.1 + 0.03 * Math.sin(PI * b), 0.74, [1, -0.7, -0.2]);
+      return {
+        hip: [out ? -0.07 * side * lift : 0.03 * side * lift, -0.04 + bounce(f, 0.05), 0],
+        hipRot: [0, 0.06 * side * lift, 0],
+        spine: [0.06, 0, out ? 0.1 * side * lift : 0],
+        head: [0.03 + 0.1 * snap(f), 0.12 * Math.sin(PI * b / 2), 0],
+        armL: arm(1),
+        armR: arm(-1),
+        legL: leg(1),
+        legR: leg(-1),
+      };
+    },
+  },
   /**
    * 16 Schläge: Hände am Pult mit kleinen Dreh-/Schiebebewegungen, Kopfnicken auf jeden Schlag,
    * Knie federn leicht. Im letzten Takt geht eine Hand hoch (Faust im Takt) und wieder zurück.

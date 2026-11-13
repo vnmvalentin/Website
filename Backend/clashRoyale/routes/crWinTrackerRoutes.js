@@ -8,7 +8,7 @@ const db = require("../lib/winTrackerStore");
 // (lib/crApi.js) — sie waren vorher hier, in nuzlockeRoutes.js und im Modus-Scanner
 // jeweils separat ausgeschrieben.
 const {
-  isConfigured, normalizeTag, fetchBattlelog: fetchBattlelogRaw, fetchPlayerSummary, fetchEvents,
+  isConfigured, normalizeTag, fetchBattlelog: fetchBattlelogRaw, fetchPlayerSummary, fetchEvents, resolvePolRank,
 } = require("../lib/crApi");
 // Generische saisonale Ranked-Modi (Spooky Chess League & künftige) — Zuordnung Battle <-> Profil.
 const {
@@ -22,7 +22,10 @@ const { ALL_CARDS } = require("../core/cards");
 const Recap = require("../lib/winTrackerRecap");
 const { renderRecap } = require("../lib/recapImage");
 
-const MIN_SYNC_INTERVAL_MS = 30 * 1000;
+// Bei offenem Overlay höchstens so oft neu bei Supercell fragen. 15 s: das Battlelog ist dort 33 s
+// gecacht, /players 60 s — kürzer bringt nichts, länger lässt ein Match unnötig lange warten.
+// Gleichzeitige Anfragen teilen sich ohnehin einen Durchlauf (siehe syncInFlight).
+const MIN_SYNC_INTERVAL_MS = 15 * 1000;
 
 // Eigener Token statt des geteilten CLASH_ROYALE_API_TOKEN (den nutzen weiterhin Nuzlocke und
 // der Modus-Scanner): eigenes Rate-Limit-Kontingent, unabhängig von den anderen CR-Features.
@@ -689,14 +692,25 @@ function normalizeOverlayScale(raw) {
   const n = Math.round(Number(raw));
   return Number.isFinite(n) ? Math.max(100, Math.min(200, n)) : 100;
 }
-const updateThemeStmt = db.prepare("UPDATE cr_wintracker_settings SET overlay_theme = ?, royale_panel = ?, royale_pattern = ?, overlay_scale = ? WHERE user_id = ?");
+// Feste Breite/Höhe in Pixeln, 0 = automatisch (siehe overlay_width in winTrackerStore.js)
+const OVERLAY_DIM_LIMITS = { width: [200, 1200], height: [100, 1200] };
+function normalizeOverlayDim(raw, kind) {
+  const n = Math.round(Number(raw));
+  if (!Number.isFinite(n) || n <= 0) return 0;
+  const [min, max] = OVERLAY_DIM_LIMITS[kind];
+  return Math.max(min, Math.min(max, n));
+}
+const updateThemeStmt = db.prepare("UPDATE cr_wintracker_settings SET overlay_theme = ?, royale_panel = ?, royale_pattern = ?, square_corners = ?, overlay_scale = ?, overlay_width = ?, overlay_height = ? WHERE user_id = ?");
 // Gemeinsam für /me und die öffentliche Overlay-Route — beide müssen dieselben Werte liefern.
 function themeSettings(settings) {
   return {
     overlayTheme: normalizeOverlayTheme(settings.overlay_theme),
     royalePanel: normalizeRoyalePanel(settings.royale_panel),
     royalePattern: settings.royale_pattern === null || settings.royale_pattern === undefined ? true : !!settings.royale_pattern,
+    squareCorners: !!settings.square_corners,
     overlayScale: normalizeOverlayScale(settings.overlay_scale),
+    overlayWidth: normalizeOverlayDim(settings.overlay_width, "width"),
+    overlayHeight: normalizeOverlayDim(settings.overlay_height, "height"),
   };
 }
 
@@ -1165,9 +1179,59 @@ function autoSwitchTrackMode(row) {
   }
 }
 
-async function syncAccount(row) {
+// Profil (/players) und Battlelog haben bei Supercell getrennte Caches — meist ist das Match im
+// Battlelog (und damit in Profit/Win-Loss) früher da als der neue Stand im Profil. Jedes Ranked-/
+// Trophy-Road-Match nennt aber den Stand VOR dem Match (startingTrophies) und die Änderung: steht
+// das Profil noch auf dem Stand vor einem der neuesten Matches, gilt stattdessen der Stand nach dem
+// neuesten Match. Kopf und Session springen so gemeinsam. Nur für frische Matches (sonst ist der
+// Profilwert ohnehin richtig) — und läuft das Profil dem Battlelog voraus, bleibt es beim Profil.
+const PROJECT_MAX_AGE_MS = 10 * 60 * 1000;
+const PROJECT_LOOKBACK = 3; // so viele Matches darf das Profil hinterherhinken
+function projectFromBattlelog(profileValue, battles, group, nowMs = Date.now()) {
+  if (typeof profileValue !== "number") return profileValue;
+  const known = (battles || [])
+    .filter((b) => gameModeGroup(b) === group && typeof b.startingTrophies === "number" && b.trophyChangeKnown)
+    .sort((a, b) => b.battleTimeMs - a.battleTimeMs);
+  const newest = known[0];
+  if (!newest || nowMs - newest.battleTimeMs > PROJECT_MAX_AGE_MS) return profileValue;
+  const after = newest.startingTrophies + newest.trophyChange;
+  if (after === profileValue) return profileValue;
+  const lagging = known.slice(0, PROJECT_LOOKBACK).some((b) => b.startingTrophies === profileValue);
+  return lagging ? Math.max(0, after) : profileValue;
+}
+
+// Gleichzeitige Syncs desselben Accounts (mehrere OBS-Quellen, Editor-Vorschau, Hintergrund-Loop)
+// teilen sich einen laufenden Durchlauf, statt die API doppelt zu fragen und sich beim Schreiben
+// in die Quere zu kommen.
+const syncInFlight = new Map();
+function syncAccount(row) {
+  const running = syncInFlight.get(row.account_id);
+  if (running) return running;
+  const p = syncAccountOnce(row).finally(() => syncInFlight.delete(row.account_id));
+  syncInFlight.set(row.account_id, p);
+  return p;
+}
+
+async function syncAccountOnce(row) {
   const [player, battles] = await Promise.all([fetchPlayer(row.player_tag), fetchBattlelog(row.player_tag)]);
   const playerOk = !!(player && !player.notFound);
+  if (playerOk) {
+    // Kopf nicht hinter der Session herlaufen lassen (siehe projectFromBattlelog). Medaillen nur ab
+    // Ultimate Champion — darunter zählt das Overlay Stufen, und trophyChange ist dort kein Stand.
+    const league = Number(player.leagueNumber) || 0;
+    if (league > 0 && ladderStepCount(league) === 0) {
+      const medals = projectFromBattlelog(player.seasonMedals, battles, "ranked");
+      if (medals !== player.seasonMedals) {
+        player.seasonMedals = medals;
+        try { player.polRank = await resolvePolRank(row.player_tag, player.polProfile, WT_TOKEN, medals); } catch { /* Platz bleibt */ }
+      }
+    }
+    const trophies = projectFromBattlelog(player.trophies, battles, "trophy");
+    if (trophies !== player.trophies) {
+      player.trophies = trophies;
+      player.bestTrophies = Math.max(player.bestTrophies || 0, trophies);
+    }
+  }
   // Saisonale Modi: Battles zuordnen (ohne Profil mit den zuletzt bekannten Schlüsseln) und fehlende
   // Deltas nachrechnen, BEVOR sie unten in die DB gehen.
   const seasonalEntries = playerOk ? trackableEntries(player.seasonalProgress) : storedSeasonalEntries(row.account_id);
@@ -1242,8 +1306,8 @@ async function syncAccount(row) {
   // siehe dort) — das lässt sich nicht vermeiden, wir kennen den richtigen Wert schlicht noch
   // nicht. Was sich vermeiden lässt: unnötig lang auf die Korrektur warten. Deshalb hier
   // last_fetched NICHT auf "jetzt" vorrücken, sondern auf dem alten (bereits abgelaufenen) Stand
-  // belassen — der nächste Overlay-Poll (alle 15s) löst dann sofort einen neuen Sync-Versuch aus,
-  // statt die volle MIN_SYNC_INTERVAL_MS-Bremse (30s) abzuwarten.
+  // belassen — der nächste Overlay-Poll (alle 8s) löst dann sofort einen neuen Sync-Versuch aus,
+  // statt die volle MIN_SYNC_INTERVAL_MS-Bremse (15s) abzuwarten.
   const newest2v2 = findLatestDeckBattles(battles)["2v2"];
   const league2v2Stale = !!(player && !player.notFound && player.league2v2 && newest2v2
     && newest2v2.battleTimeMs > (row.league2v2_deck_at || 0)
@@ -1256,8 +1320,8 @@ async function syncAccount(row) {
   // Bild meldete ein Nutzer live: Liga-Trophäen im Overlay sprangen sofort, Win/Loss+Tagesprofit
   // (aus SUM(trophy_change) über die noch fehlenden battlelog-Einträge, siehe applyLeague2v2Deltas)
   // erst viele Sekunden später. Ohne diesen Zweig würde last_fetched trotzdem auf "jetzt" gesetzt
-  // und der nächste Sync-Versuch erst nach der vollen MIN_SYNC_INTERVAL_MS-Bremse (30s) folgen,
-  // statt schon beim nächsten Overlay-Poll (15s) erneut nachzusehen.
+  // und der nächste Sync-Versuch erst nach der vollen MIN_SYNC_INTERVAL_MS-Bremse (15s) folgen,
+  // statt schon beim nächsten Overlay-Poll (8s) erneut nachzusehen.
   // Bezugspunkt ist league2v2_trophies_at (Match-Stand beim letzten Schreiben der Trophäen), NICHT
   // league2v2_deck_at: applyDeckUpdates oben hat deck_at schon auf das neueste Match vorgerückt.
   // Hinkte das Profil beim ersten Sync noch hinterher (league2v2Stale), hätte ein deck_at-Vergleich
@@ -1714,7 +1778,8 @@ module.exports = function createCrWinTrackerRouter({ requireAuth: requireLogin, 
       Date.now(),
       userId
     );
-    updateThemeStmt.run(normalizeOverlayTheme(s.overlayTheme), normalizeRoyalePanel(s.royalePanel), s.royalePattern === false ? 0 : 1, normalizeOverlayScale(s.overlayScale), userId);
+    updateThemeStmt.run(normalizeOverlayTheme(s.overlayTheme), normalizeRoyalePanel(s.royalePanel), s.royalePattern === false ? 0 : 1, s.squareCorners ? 1 : 0, normalizeOverlayScale(s.overlayScale),
+      normalizeOverlayDim(s.overlayWidth, "width"), normalizeOverlayDim(s.overlayHeight, "height"), userId);
     // Kanal-Joins des gemeinsamen IRC-Bots sofort abgleichen (kein Neustart nötig).
     try { require("../../lib/winchallengeIrc").refreshChannels(); } catch { /* IRC optional */ }
     res.json({ ok: true });

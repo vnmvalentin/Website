@@ -65,6 +65,13 @@ public class CPHInline
     const long MURMEL_TEILNAHME = 20;         // für jeden, der mitgefahren ist (0 = nichts)
     const int MURMEL_PLAETZE_WARTEN_S = 10;   // so lange nach dem Sieger auf Platz 2/3 von der Website warten
 
+    // Einmalige Übernahme der Zuschauzeit aus StreamElements (Methode WatchtimeImport).
+    // Leer = der Kanal, der in Streamer.bot als Broadcaster verbunden ist. Nur eintragen,
+    // falls dein Kanal bei StreamElements anders heißt.
+    const string SE_KANAL = "";
+    const string SE_API = "https://api.streamelements.com/kappa/v2/";
+    const string TWITCH_API = "https://api.twitch.tv/helix/";
+
     // Stream-Verzögerung: Chat-Ergebnisse warten so lange, damit niemand gespoilert wird
     const int STREAM_DELAY_S = 4;
 
@@ -212,6 +219,177 @@ public class CPHInline
         string id = Arg("userId");
         if (string.IsNullOrEmpty(id) || IstBot(Arg("userName"))) return true;
         lock (Sperre) aktivSeitRunde.Add(id);
+        return true;
+    }
+
+    // ════════════════════════════════════════════════════════════════════
+    //  !watchtime [name]  — Zuschauzeit, die die Watchtime-Runde oben mitzählt
+    // ════════════════════════════════════════════════════════════════════
+    public bool WatchtimeBefehl()
+    {
+        Vorbereiten();
+        string[] teile = Eingabe();
+        string name = Arg("user");
+
+        if (teile.Length >= 1)
+        {
+            string gesucht = teile[0].TrimStart('@');
+            var anderer = FindeNutzer(gesucht, VAR_MINUTEN);
+            // Aus StreamElements übernommene Zuschauer kennt Streamer.bot evtl. noch nicht beim Namen
+            if (anderer == null) anderer = TwitchNutzer(gesucht);
+            long minA = anderer == null ? 0 : CPH.GetTwitchUserVarById<long>(anderer.Id, VAR_MINUTEN, true);
+            if (minA <= 0) { Sagen("@" + name + " " + gesucht + " hat noch keine Zuschauzeit."); return true; }
+            Sagen(anderer.Name + " hat " + Dauer(minA) + " zugeschaut.");
+            return true;
+        }
+
+        long minuten = CPH.GetTwitchUserVarById<long>(Arg("userId"), VAR_MINUTEN, true);
+        if (minuten <= 0) { Sagen("@" + name + " du hast noch keine Zuschauzeit. Gezählt wird alle paar Minuten, solange der Stream läuft."); return true; }
+        Sagen("@" + name + " du hast " + Dauer(minuten) + " zugeschaut.");
+        return true;
+    }
+
+    // ════════════════════════════════════════════════════════════════════
+    //  !followage [name]  — seit wann jemand dem Kanal folgt (fragt Twitch direkt)
+    // ════════════════════════════════════════════════════════════════════
+    public bool Followage()
+    {
+        Vorbereiten();
+        string[] teile = Eingabe();
+        string name = Arg("user");
+        string zielId = Arg("userId");
+        string zielName = name;
+        bool selbst = true;
+
+        if (teile.Length >= 1)
+        {
+            string gesucht = teile[0].TrimStart('@');
+            var anderer = TwitchNutzer(gesucht);
+            if (anderer == null) { Sagen("@" + name + " " + gesucht + " finde ich auf Twitch nicht."); return true; }
+            selbst = anderer.Id == zielId;
+            zielId = anderer.Id;
+            zielName = anderer.Name;
+        }
+        if (zielId == "") return true;
+
+        string kanal = Arg("broadcastUserId");
+        if (kanal == "")
+        {
+            try { kanal = CPH.TwitchGetBroadcaster().UserId; } catch { }
+        }
+        if (string.IsNullOrEmpty(kanal)) { LogFehler("Followage: Kanal unbekannt (Twitch-Konto in Streamer.bot verbunden?)"); return true; }
+        if (zielId == kanal) { Sagen("@" + name + " dem eigenen Kanal kann man nicht folgen."); return true; }
+
+        JToken eintrag;
+        try
+        {
+            string json = Hole(TWITCH_API + "channels/followers?broadcaster_id=" + Uri.EscapeDataString(kanal) + "&user_id=" + Uri.EscapeDataString(zielId),
+                CPH.TwitchOAuthToken, CPH.TwitchClientId);
+            var daten = JObject.Parse(json)["data"] as JArray;
+            eintrag = daten != null && daten.Count > 0 ? daten[0] : null;
+        }
+        catch (Exception e)
+        {
+            LogFehler("Followage: Twitch antwortet nicht: " + e.Message);
+            Sagen("@" + name + " das kann ich gerade nicht nachsehen.");
+            return true;
+        }
+
+        if (eintrag == null || eintrag["followed_at"] == null)
+        {
+            Sagen(selbst ? "@" + name + " du folgst dem Kanal noch nicht." : zielName + " folgt dem Kanal nicht.");
+            return true;
+        }
+
+        DateTime seit = eintrag.Value<DateTime>("followed_at").ToUniversalTime();
+        string text = Zeitraum(seit, DateTime.UtcNow) + " (seit dem " + seit.ToLocalTime().ToString("dd.MM.yyyy") + ")";
+        Sagen(selbst ? "@" + name + " du folgst seit " + text + "." : zielName + " folgt seit " + text + ".");
+        return true;
+    }
+
+    // ════════════════════════════════════════════════════════════════════
+    //  Zuschauzeit aus StreamElements übernehmen  (einmalig, Aktion ohne Trigger, per "Test" starten)
+    //  Nimmt pro Zuschauer den größeren Wert aus StreamElements und Streamer.bot. Da
+    //  StreamElements die ganze Zeit mitgezählt hat, zählt nichts doppelt — auch nicht
+    //  bei einem zweiten Durchlauf.
+    // ════════════════════════════════════════════════════════════════════
+    public bool WatchtimeImport()
+    {
+        Vorbereiten();
+        if (Arg("userId") != "" && !IstMod()) return true;
+
+        // 1. Alle Zuschauzeiten bei StreamElements abholen (login -> Minuten).
+        //    Die Liste ist öffentlich, es braucht keinen Token.
+        var seMinuten = new Dictionary<string, long>();
+        try
+        {
+            string kanal = SE_KANAL;
+            if (kanal == "") kanal = CPH.TwitchGetBroadcaster().UserLogin;
+            string kanalId = Feld(JObject.Parse(Hole(SE_API + "channels/" + Uri.EscapeDataString(kanal), null, null)), "_id");
+            if (kanalId == "") { Melden("Übernahme: StreamElements kennt den Kanal " + kanal + " nicht."); return true; }
+
+            const int SEITE = 100;
+            for (int offset = 0; offset < 200000; offset += SEITE)
+            {
+                string json = Hole(SE_API + "points/" + Uri.EscapeDataString(kanalId) + "/watchtime?limit=" + SEITE + "&offset=" + offset, null, null);
+                JObject wurzel = JObject.Parse(json);
+                if (wurzel["users"] == null)
+                {
+                    Melden("Übernahme: unerwartete Antwort von StreamElements, nichts geändert. Details im Streamer.bot-Log.");
+                    LogFehler("StreamElements-Antwort: " + (json.Length > 300 ? json.Substring(0, 300) : json));
+                    return true;
+                }
+                // Am Ende der Liste schickt StreamElements "users": null
+                JArray users = wurzel["users"] as JArray;
+                if (users == null || users.Count == 0) break;
+                foreach (var u in users)
+                {
+                    string login = Feld(u, "username", "login", "user").ToLowerInvariant();
+                    long min;
+                    if (!long.TryParse(Feld(u, "minutes", "watchtime"), out min) || min <= 0) continue;
+                    if (!GueltigerLogin(login) || IstBot(login)) continue;
+                    long schon;
+                    if (!seMinuten.TryGetValue(login, out schon) || min > schon) seMinuten[login] = min;
+                }
+                if (users.Count < SEITE) break;
+            }
+        }
+        catch (Exception e) { Melden("Übernahme: StreamElements nicht erreichbar, nichts geändert (" + e.Message + ")."); return true; }
+
+        if (seMinuten.Count == 0) { Melden("Übernahme: StreamElements hat keine Zuschauzeiten geliefert."); return true; }
+
+        // 2. Namen in Twitch-IDs übersetzen (100 pro Anfrage) und eintragen
+        var logins = seMinuten.Keys.ToList();
+        int gefunden = 0, geaendert = 0, fehler = 0;
+        for (int i = 0; i < logins.Count; i += 100)
+        {
+            var teil = logins.Skip(i).Take(100).ToList();
+            JArray daten;
+            try
+            {
+                string json = Hole(TWITCH_API + "users?login=" + string.Join("&login=", teil), CPH.TwitchOAuthToken, CPH.TwitchClientId);
+                daten = JObject.Parse(json)["data"] as JArray;
+            }
+            catch (Exception e) { fehler += teil.Count; LogFehler("Übernahme: Twitch-Abfrage fehlgeschlagen: " + e.Message); continue; }
+            if (daten == null) continue;
+
+            foreach (var d in daten)
+            {
+                string id = Feld(d, "id");
+                long se;
+                if (id == "" || !seMinuten.TryGetValue(Feld(d, "login").ToLowerInvariant(), out se)) continue;
+                gefunden++;
+                long alt = CPH.GetTwitchUserVarById<long>(id, VAR_MINUTEN, true);
+                if (se <= alt) continue;
+                CPH.SetTwitchUserVarById(id, VAR_MINUTEN, se, true);
+                geaendert++;
+            }
+        }
+
+        int weg = logins.Count - gefunden - fehler;
+        Melden("Zuschauzeit übernommen: " + Zahl(geaendert) + " von " + Zahl(logins.Count) + " Zuschauern aktualisiert"
+            + (weg > 0 ? ", " + Zahl(weg) + " gibt es auf Twitch nicht mehr" : "")
+            + (fehler > 0 ? ", " + Zahl(fehler) + " wegen Fehlern übersprungen (einfach nochmal starten)" : "") + ".");
         return true;
     }
 
@@ -881,14 +1059,77 @@ public class CPHInline
         return i < 0 ? liste.Count + 1 : i + 1;
     }
 
-    Spieler FindeNutzer(string eingabe)
+    Spieler FindeNutzer(string eingabe, string variable = VAR_PUNKTE)
     {
         string login = (eingabe ?? "").TrimStart('@').ToLowerInvariant();
         if (login == "") return null;
-        var liste = CPH.GetTwitchUsersVar<long>(VAR_PUNKTE, true);
+        var liste = CPH.GetTwitchUsersVar<long>(variable, true);
         if (liste == null) return null;
         var v = liste.FirstOrDefault(x => (x.UserLogin ?? "").ToLowerInvariant() == login || (x.UserName ?? "").ToLowerInvariant() == login);
         return v == null ? null : new Spieler { Id = v.UserId, Name = string.IsNullOrEmpty(v.UserName) ? v.UserLogin : v.UserName };
+    }
+
+    // Fragt Twitch nach einem Namen — findet auch Leute, die noch nie im Chat waren
+    Spieler TwitchNutzer(string eingabe)
+    {
+        string login = (eingabe ?? "").TrimStart('@').ToLowerInvariant();
+        if (!GueltigerLogin(login)) return null;
+        try
+        {
+            var info = CPH.TwitchGetUserInfoByLogin(login);
+            if (info == null || string.IsNullOrEmpty(info.UserId)) return null;
+            return new Spieler { Id = info.UserId, Name = string.IsNullOrEmpty(info.UserName) ? login : info.UserName };
+        }
+        catch { return null; }
+    }
+
+    static bool GueltigerLogin(string login)
+    {
+        if (string.IsNullOrEmpty(login) || login.Length > 25) return false;
+        foreach (char c in login)
+            if (!((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '_')) return false;
+        return true;
+    }
+
+    // GET mit Anmeldung; wirft bei Fehlern (der Aufrufer fängt ab)
+    static string Hole(string url, string bearer, string clientId)
+    {
+        ServicePointManager.SecurityProtocol |= SecurityProtocolType.Tls12;
+        using (var wc = new WebClient())
+        {
+            wc.Encoding = Encoding.UTF8;
+            wc.Proxy = null; // keine Proxy-Suche: die kostet unter Windows sonst Sekunden
+            wc.Headers.Add("User-Agent", "StreamerBot-Gamble");
+            wc.Headers.Add("Accept", "application/json");
+            if (!string.IsNullOrEmpty(bearer)) wc.Headers.Add("Authorization", "Bearer " + bearer);
+            if (!string.IsNullOrEmpty(clientId)) wc.Headers.Add("Client-Id", clientId);
+            return wc.DownloadString(url);
+        }
+    }
+
+    // "2 Jahren, 3 Monaten und 5 Tagen" — passend hinter "seit"
+    static string Zeitraum(DateTime von, DateTime bis)
+    {
+        if (bis < von) bis = von;
+        int jahre = bis.Year - von.Year, monate = bis.Month - von.Month, tage = bis.Day - von.Day;
+        if (bis.TimeOfDay < von.TimeOfDay) tage--;
+        if (tage < 0) { monate--; tage += DateTime.DaysInMonth(bis.AddMonths(-1).Year, bis.AddMonths(-1).Month); }
+        if (monate < 0) { jahre--; monate += 12; }
+
+        var teile = new List<string>();
+        if (jahre > 0) teile.Add(jahre + (jahre == 1 ? " Jahr" : " Jahren"));
+        if (monate > 0) teile.Add(monate + (monate == 1 ? " Monat" : " Monaten"));
+        if (tage > 0) teile.Add(tage + (tage == 1 ? " Tag" : " Tagen"));
+        if (teile.Count == 0) return "weniger als einem Tag";
+        if (teile.Count == 1) return teile[0];
+        return string.Join(", ", teile.Take(teile.Count - 1)) + " und " + teile[teile.Count - 1];
+    }
+
+    // Für Dinge, die der Streamer selbst anstößt: ins Log und in den Chat
+    static void Melden(string text)
+    {
+        LogFehler(text);
+        Sagen(text);
     }
 
     // Erlaubt: 500, 1k, 2.5k, all/alles, half/hälfte, 25%
@@ -954,10 +1195,20 @@ public class CPHInline
 
     static string Mult(double m) { return m.ToString("0.00", CultureInfo.GetCultureInfo("de-DE")) + "x"; }
 
+    // "2 Monate 5 Tage 3 Std 12 Min" — ein Monat zählt als 30 Tage, leere Teile fallen weg
     static string Dauer(long minuten)
     {
-        if (minuten < 60) return minuten + " Min";
-        return (minuten / 60) + " Std " + (minuten % 60) + " Min";
+        if (minuten < 60) return Math.Max(0, minuten) + " Min";
+        long monate = minuten / (30 * 24 * 60); minuten %= 30 * 24 * 60;
+        long tage = minuten / (24 * 60); minuten %= 24 * 60;
+        long stunden = minuten / 60; minuten %= 60;
+
+        var teile = new List<string>();
+        if (monate > 0) teile.Add(monate + (monate == 1 ? " Monat" : " Monate"));
+        if (tage > 0) teile.Add(tage + (tage == 1 ? " Tag" : " Tage"));
+        if (stunden > 0) teile.Add(stunden + " Std");
+        if (minuten > 0) teile.Add(minuten + " Min");
+        return string.Join(" ", teile);
     }
 
     static JObject Ereignis(string typ)

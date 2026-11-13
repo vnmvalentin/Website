@@ -57,7 +57,7 @@ function DayChart({ series, metric }) {
             // Die ganze Spalte ist die Trefferfläche, nicht nur der Balken — sonst wäre ein Tag mit 1 Aufruf kaum zu treffen.
             <div key={r.day} className="relative flex-1 h-full flex items-end" onMouseEnter={() => setHover(i)}>
               <div
-                className={`w-full rounded-t-[4px] transition-colors ${hover === i ? "bg-violet-300" : "bg-violet-500"}`}
+                className={`w-full rounded-t-[4px] transition-colors ${hover === i ? "bg-accent-soft" : "bg-accent"}`}
                 style={{ height: `${(r[metric] / max) * 100}%`, minHeight: r[metric] > 0 ? 2 : 0 }}
               />
             </div>
@@ -88,13 +88,13 @@ function DayChart({ series, metric }) {
 function ShareList({ title, rows, empty }) {
   const total = rows.reduce((s, r) => s + r.value, 0);
   return (
-    <div className="panel p-5">
+    <div className="rounded-lg border border-line bg-surface/80 p-5">
       <h3 className="text-xs font-bold uppercase tracking-wider text-white/40 mb-3">{title}</h3>
       {rows.length === 0 && <p className="text-sm text-white/30 italic">{empty}</p>}
       <ul className="space-y-1">
         {rows.map((r) => (
           <li key={r.label} className="relative flex items-center justify-between gap-3 px-2 py-1.5 text-sm">
-            <span className="absolute inset-y-0 left-0 bg-violet-500/15 rounded-md" style={{ width: `${total ? (r.value / total) * 100 : 0}%` }} />
+            <span className="absolute inset-y-0 left-0 bg-accent/15 rounded-md" style={{ width: `${total ? (r.value / total) * 100 : 0}%` }} />
             <span className="relative text-white/80 truncate">{r.label}</span>
             <span className="relative text-white/50 tabular-nums shrink-0">
               {num(r.value)} <span className="text-white/30">· {total ? Math.round((r.value / total) * 100) : 0} %</span>
@@ -142,7 +142,7 @@ export default function AnalyticsPanel() {
   }, [report]);
 
   const toggle = (active) => `px-3 py-1.5 text-xs font-semibold rounded-md transition-colors ${
-    active ? "bg-violet-600 text-white" : "text-white/50 hover:text-white hover:bg-white/5"
+    active ? "bg-accent text-white" : "text-white/50 hover:text-white hover:bg-white/5"
   }`;
 
   if (!report) {
@@ -160,21 +160,21 @@ export default function AnalyticsPanel() {
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center gap-3">
-        <div className="panel p-1 flex gap-1">
+        <div className="rounded-lg border border-line bg-surface/80 p-1 flex gap-1">
           {RANGES.map((r) => (
             <button key={r.days} onClick={() => setDays(r.days)} className={toggle(days === r.days)}>{r.label}</button>
           ))}
         </div>
         {error && <span className="text-xs text-red-400">{error}</span>}
         <button onClick={load} disabled={loading}
-          className="ml-auto flex items-center gap-1.5 px-4 py-2.5 bg-violet-600 hover:bg-violet-500 disabled:bg-white/5 disabled:text-white/30 text-white rounded-lg text-sm font-semibold transition-colors">
+          className="ml-auto flex items-center gap-1.5 px-4 py-2.5 bg-accent hover:bg-accent-hover disabled:bg-white/5 disabled:text-white/30 text-white rounded-lg text-sm font-semibold transition-colors">
           <RefreshCw size={14} /> {loading ? "Lädt..." : "Aktualisieren"}
         </button>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {tiles.map((t) => (
-          <div key={t.label} className="panel p-5">
+          <div key={t.label} className="rounded-lg border border-line bg-surface/80 p-5">
             <div className="text-white/40 text-xs font-bold uppercase tracking-wider mb-2">{t.label}</div>
             <div className="text-3xl font-bold text-white tabular-nums">{t.value}</div>
             <div className="text-[11px] text-white/30 mt-1">{t.hint}</div>
@@ -182,7 +182,7 @@ export default function AnalyticsPanel() {
         ))}
       </div>
 
-      <div className="panel p-5">
+      <div className="rounded-lg border border-line bg-surface/80 p-5">
         <div className="flex items-center justify-between gap-3 mb-5">
           <h3 className="text-xs font-bold uppercase tracking-wider text-white/40">
             {METRICS.find((m) => m.id === metric).label} pro Tag
@@ -196,7 +196,7 @@ export default function AnalyticsPanel() {
         <DayChart series={report.series} metric={metric} />
       </div>
 
-      <div className="panel overflow-hidden">
+      <div className="rounded-lg border border-line bg-surface/80 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm text-left">
             <thead className="bg-black/25 text-[10px] uppercase tracking-wider text-white/40">

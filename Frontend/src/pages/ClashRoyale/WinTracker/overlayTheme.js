@@ -65,11 +65,34 @@ const ROYALE_RESULT = {
 
 /**
  * @param {object} base      Basis-styles der aufrufenden Datei
- * @param {object} settings  Overlay-Einstellungen (overlayTheme, royalePanel, royalePattern, bg*, borderColor)
+ * @param {object} settings  Overlay-Einstellungen (overlayTheme, royalePanel, royalePattern, squareCorners, bg*, borderColor)
  * @returns {{ royale: boolean, styles: object, cardSurface: object, dividerStyle: object, vDividerStyle: object,
  *             statSepStyle: object }}
  */
 export function overlayLook(base, settings = {}) {
+  const look = buildLook(base, settings);
+  return settings.squareCorners ? squareLook(look) : look;
+}
+
+// Eckige Ecken (Nov. 2026): Karte, Deck-Karten und Ergebnis-Blasen ohne Rundung — in beiden Stilen.
+// Punkte (Stil "Punkte") bleiben rund, das sind keine Ecken.
+function squareLook(look) {
+  const s = look.styles;
+  return {
+    ...look,
+    cardSurface: { ...look.cardSurface, borderRadius: 0 },
+    styles: {
+      ...s,
+      card: { ...s.card, borderRadius: 0 },
+      badgeFallback: s.badgeFallback && { ...s.badgeFallback, borderRadius: 0 },
+      deckCard: s.deckCard && { ...s.deckCard, borderRadius: 0 },
+      matchPill: (result) => ({ ...s.matchPill(result), borderRadius: 0 }),
+      matchPillEmpty: s.matchPillEmpty && { ...s.matchPillEmpty, borderRadius: 0 },
+    },
+  };
+}
+
+function buildLook(base, settings) {
   const opacity = settings.bgOpacity ?? 88;
   const opacityFrac = Math.max(0, Math.min(100, opacity)) / 100;
   // Rahmen, Trennlinien und Schatten der Karte: ab 20 % Deckkraft voll wie bisher, darunter
@@ -153,10 +176,8 @@ export function overlayLook(base, settings = {}) {
       ...base.matchPillEmpty, padding: "5px 0", fontSize: 13, fontFamily: CR_FONT, fontWeight: 400,
       background: "rgba(4,12,28,0.35)", border: "2px solid rgba(4,12,28,0.45)",
     },
-    // 3D-Knöpfe werfen 2px Sockel nach unten — NEWEST braucht dafür mehr Abstand
-    last5BadgeRow: { ...base.last5BadgeRow, marginTop: 6 },
-    last5Badge: { ...base.last5Badge, fontFamily: CR_FONT, fontWeight: 400, fontSize: 9, letterSpacing: "0.06em", color: "#ffc93c", textShadow: outline(1, 0) },
-    last5Caption: { ...base.last5Caption, fontFamily: CR_FONT, fontWeight: 400, fontSize: 9, letterSpacing: "0.06em", color: "#ffc93c", textShadow: outline(1, 0) },
+    // Neuestes Spiel: weißer Ring außen um den Knopf (2px Abstand, damit der Sockel frei bleibt)
+    pillNewest: { outline: "2px solid rgba(255,255,255,0.9)", outlineOffset: 2 },
     dotEmpty: { ...base.dotEmpty, width: 11, height: 11, border: "2px solid rgba(4,12,28,0.6)", boxSizing: "border-box" },
     dot: (result) => {
       const c = ROYALE_RESULT[result] || ROYALE_RESULT.draw;

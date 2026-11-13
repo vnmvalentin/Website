@@ -1,51 +1,47 @@
-// WinChallengeControl.jsx — Moderator-Ansicht für ein WinChallenge-Overlay
+// WinChallengeControl.jsx — Moderator-Ansicht für ein WinChallenge-Overlay.
+// Aufbau wie der Editor (WinChallenge.jsx): links Timer und Titel, rechts die Challenges —
+// mit denselben Bausteinen (ui/TimerPanel.jsx, ui/StreakBoxes.jsx). Was davon zu sehen ist,
+// hängt an den Rechten, die der Streamer freigegeben hat.
 import React, { useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { nanoid } from "nanoid";
 import SEO from "../../components/SEO";
 import { chatCommandDocs } from "./chatCommands";
-import { msToClock } from "./overlayUtils";
+import {
+  isItemDone,
+  itemMode,
+  itemModePatch,
+  showsStreakPips,
+  streakClickProgress,
+  streakLengthPatch,
+  STREAK_MIN,
+  STREAK_MAX,
+} from "./overlayUtils";
 import { useWcShell } from "./ui/shellContext";
 import GameCoverPicker from "./ui/GameCoverPicker";
+import TimerPanel from "./ui/TimerPanel";
+import StreakBoxes from "./ui/StreakBoxes";
+import { PANEL, LABEL, INPUT, BTN_PRIMARY } from "./ui/editorStyles";
 import {
-  Play,
-  Pause,
   RotateCcw,
-  Eye,
-  EyeOff,
   Pin,
   Trash2,
   Plus,
-  Minus,
   Check,
   MessageSquare,
   ShieldAlert,
   Hash,
-  Clock,
   Type,
   ListChecks,
+  Flame,
 } from "lucide-react";
 
-/** "HH:MM:SS" oder "MM:SS" → Millisekunden (null bei ungültigem Format) */
-function parseClockInput(str) {
-  const m = String(str || "")
-    .trim()
-    .match(/^(\d{1,3}):(\d{1,2})(?::(\d{1,2}))?$/);
-  if (!m) return null;
-  const hasHours = m[3] != null;
-  const h = hasHours ? parseInt(m[1], 10) : 0;
-  const min = hasHours ? parseInt(m[2], 10) : parseInt(m[1], 10);
-  const s = hasHours ? parseInt(m[3], 10) : parseInt(m[2], 10);
-  if (hasHours && min > 59) return null;
-  if (s > 59) return null;
-  return (h * 3600 + min * 60 + s) * 1000;
-}
-
-// Schrittweiten für „Zeit anpassen“ — dieselbe Bedienung wie im Editor (WinChallenge.jsx)
-const TIMER_STEPS_MS = [60000, 600000, 3600000];
-
-const INPUT = "bg-black/40 border border-white/10 rounded-sm text-white focus:border-violet-500 focus:outline-none transition-colors";
-const HEADING = "text-sm font-bold text-white flex items-center gap-2 mb-4";
+// Art einer Challenge: abhaken, Zähler oder Serie (B2B, B3B …) — wie im Editor
+const ITEM_MODES = [
+  { mode: "check", Icon: Check, stroke: 3, labelKey: "modeCheck" },
+  { mode: "counter", Icon: Hash, stroke: 2.5, labelKey: "modeCounter" },
+  { mode: "streak", Icon: Flame, stroke: 2.5, labelKey: "modeStreak", titleKey: "modeStreakHint" },
+];
 
 export default function WinChallengeControl() {
   const { controlKey } = useParams();
@@ -54,9 +50,6 @@ export default function WinChallengeControl() {
   const [now, setNow] = useState(Date.now());
   const [saving, setSaving] = useState(false);
   const [localTitle, setLocalTitle] = useState("");
-  const [manualTime, setManualTime] = useState("");
-  const [manualTimeError, setManualTimeError] = useState(false);
-  const [timerStep, setTimerStep] = useState(TIMER_STEPS_MS[0]);
 
   // Initial laden + Polling für externe Änderungen
   useEffect(() => {
@@ -111,9 +104,7 @@ export default function WinChallengeControl() {
 
   const perms = doc.controlPermissions || {};
   const timer = doc.timer || {};
-  const running = !!timer.running;
   const timerVisible = timer.visible !== false;
-  const elapsed = running ? now - (timer.startedAt || 0) : timer.elapsedMs || 0;
 
   const chatCommands = doc.chatCommands || {};
   const chatChannels =
@@ -160,23 +151,18 @@ export default function WinChallengeControl() {
 
   /* ───────────── Timer Actions ───────────── */
 
-  const startTimer = () => perms.allowModsTimer && sendPatch({ action: "timerStart" });
-  const pauseTimer = () => perms.allowModsTimer && sendPatch({ action: "timerStop" });
-  const resetTimer = () => perms.allowModsTimer && sendPatch({ action: "timerReset" });
-  const toggleTimerVisible = () =>
-    perms.allowModsTimer && sendPatch({ action: "timerToggleVisible", visible: !timerVisible });
-  const adjustTimer = (deltaMs) => perms.allowModsTimer && sendPatch({ action: "timerAdjust", deltaMs });
-
-  const applyManualTime = () => {
-    if (!perms.allowModsTimer) return;
-    const ms = parseClockInput(manualTime);
-    if (ms == null) {
-      setManualTimeError(true);
-      return;
-    }
-    setManualTimeError(false);
-    sendPatch({ action: "timerSet", elapsedMs: ms });
-    setManualTime("");
+  // Bedienung des Timers für ui/TimerPanel.jsx — jede Aktion geht an den Server, der rechnet.
+  // Angezeigt wird das Feld nur mit der Berechtigung „Timer steuern“.
+  const timerActions = {
+    start: () => sendPatch({ action: "timerStart" }),
+    pause: () => sendPatch({ action: "timerStop" }),
+    reset: () => sendPatch({ action: "timerReset" }),
+    adjust: (deltaMs) => sendPatch({ action: "timerAdjust", deltaMs }),
+    // Name "elapsedMs" historisch — gemeint ist die angezeigte Zeit
+    setDisplay: (ms) => sendPatch({ action: "timerSet", elapsedMs: ms }),
+    setMode: (mode) => sendPatch({ action: "timerMode", mode }),
+    setDuration: (ms) => sendPatch({ action: "timerDuration", durationMs: ms }),
+    toggleVisible: () => sendPatch({ action: "timerToggleVisible", visible: !timerVisible }),
   };
 
   /* ───────────── Titel Actions ───────────── */
@@ -252,18 +238,25 @@ export default function WinChallengeControl() {
       (c.perm === "timer" && perms.allowModsTimer) ||
       (c.perm === "challenges" && perms.allowModsChallenges)
   );
+  const showCommands = !!chatCommands.enabled && visibleCommands.length > 0;
 
   const hostKnown = doc.hostName && doc.hostName !== "Unknown";
+
+  // Aufteilung wie im Editor: links, was man ständig bedient (Timer, Titel), rechts die
+  // Challenges. Fehlt eine Seite (keine Rechte dafür), bleibt es bei einer Spalte.
+  const hasSide = !!perms.allowModsTimer || !!perms.allowModsTitle;
+  const hasMain = !!perms.allowModsChallenges || showCommands || !hasAnyPerm;
+  const twoCols = hasSide && hasMain;
 
   /* ───────────── Render ───────────── */
 
   return (
     <div className="h-full overflow-y-auto custom-scrollbar text-white">
       <SEO title="Control" noindex />
-      <div className="max-w-2xl mx-auto px-4 sm:px-6 py-6 md:py-10">
+      <div className={`mx-auto px-3 sm:px-6 py-5 md:py-8 ${twoCols ? "max-w-5xl" : "max-w-2xl"}`}>
 
         {/* Kopf: wessen Overlay, und ob gerade gespeichert wird */}
-        <div className="flex items-end justify-between gap-4 mb-5">
+        <div className="flex items-end justify-between gap-4 mb-4">
           <div className="min-w-0">
             <h1 className="font-display text-2xl font-bold tracking-tight truncate">{t.modTitle}</h1>
             <p className="text-sm text-white/50 mt-1 truncate">
@@ -275,334 +268,293 @@ export default function WinChallengeControl() {
           </span>
         </div>
 
-        {/* Wie der Editor: eine Fläche, Abschnitte nur durch Linien getrennt */}
-        <div className="bg-[#0d0d14] border border-white/10 rounded-md divide-y divide-white/10">
+        <div className={`grid gap-3 ${twoCols ? "lg:grid-cols-[20rem_minmax(0,1fr)] lg:items-start" : ""}`}>
 
-          {/* Timer */}
-          {perms.allowModsTimer && (
-            <section className="p-5">
-              <div className="flex items-center justify-between mb-1">
-                <div className="flex items-center gap-2.5">
-                  <Clock size={16} className="text-white/40" />
-                  <h2 className="text-sm font-bold text-white">{t.timer}</h2>
-                  <span className={`text-xs font-bold ${running ? "text-green-400" : "text-white/35"}`}>
-                    {running ? t.running : t.paused}
-                  </span>
-                </div>
-                <button
-                  onClick={toggleTimerVisible}
-                  className={`flex items-center gap-1.5 text-xs font-bold transition-colors ${
-                    timerVisible ? "text-white/50 hover:text-white" : "text-amber-300 hover:text-amber-200"
-                  }`}
-                >
-                  {timerVisible ? <Eye size={14} /> : <EyeOff size={14} />}
-                  {timerVisible ? t.timerVisible : t.timerHidden}
-                </button>
-              </div>
-
-              <div className="text-center text-5xl font-semibold tabular-nums tracking-wide py-4">
-                {msToClock(elapsed)}
-              </div>
-
-              <div className="grid grid-cols-2 gap-2">
-                {!running ? (
-                  <button
-                    onClick={startTimer}
-                    className="bg-green-600 hover:bg-green-500 text-white py-3 rounded-sm text-sm font-bold transition-colors flex items-center justify-center gap-2"
-                  >
-                    <Play size={16} fill="currentColor" /> {t.start}
-                  </button>
-                ) : (
-                  <button
-                    onClick={pauseTimer}
-                    className="bg-amber-500 hover:bg-amber-400 text-black py-3 rounded-sm text-sm font-bold transition-colors flex items-center justify-center gap-2"
-                  >
-                    <Pause size={16} fill="currentColor" /> {t.pause}
-                  </button>
-                )}
-                <button
-                  onClick={resetTimer}
-                  className="border border-white/15 hover:bg-white/5 text-white/80 hover:text-white py-3 rounded-sm text-sm font-bold transition-colors flex items-center justify-center gap-2"
-                >
-                  <RotateCcw size={15} /> {t.reset}
-                </button>
-              </div>
-
-              {/* Zeit anpassen — Schrittweite wählen, dann ± */}
-              <div className="grid grid-cols-[auto_1fr_auto] gap-2 mt-3">
-                <button
-                  onClick={() => adjustTimer(-timerStep)}
-                  title={t.subtractTime}
-                  aria-label={t.subtractTime}
-                  className="px-3 border border-white/10 hover:bg-white/5 rounded-sm text-white/60 hover:text-white transition-colors flex items-center"
-                >
-                  <Minus size={16} />
-                </button>
-                <div className="flex border border-white/10 rounded-sm overflow-hidden" role="group" aria-label={t.stepAria}>
-                  {TIMER_STEPS_MS.map((ms, i) => (
-                    <button
-                      key={ms}
-                      onClick={() => setTimerStep(ms)}
-                      aria-pressed={timerStep === ms}
-                      className={`flex-1 py-2 text-xs font-bold transition-colors ${
-                        timerStep === ms ? "bg-white/10 text-white" : "text-white/40 hover:text-white"
-                      }`}
-                    >
-                      {t.steps[i]}
-                    </button>
-                  ))}
-                </div>
-                <button
-                  onClick={() => adjustTimer(timerStep)}
-                  title={t.addTime}
-                  aria-label={t.addTime}
-                  className="px-3 border border-white/10 hover:bg-white/5 rounded-sm text-white/60 hover:text-white transition-colors flex items-center"
-                >
-                  <Plus size={16} />
-                </button>
-              </div>
-
-              {/* Manuelle Zeit-Eingabe */}
-              <div className="flex gap-2 mt-3">
-                <input
-                  type="text"
-                  value={manualTime}
-                  onChange={(e) => {
-                    setManualTime(e.target.value);
-                    setManualTimeError(false);
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      applyManualTime();
-                    }
-                  }}
-                  placeholder="01:30:00"
-                  className={`${INPUT} flex-1 min-w-0 px-3 py-2 text-sm text-center tabular-nums ${
-                    manualTimeError ? "!border-red-500/60" : ""
-                  }`}
-                />
-                <button
-                  onClick={applyManualTime}
-                  disabled={!manualTime.trim()}
-                  className="px-4 border border-white/10 hover:bg-white/5 disabled:opacity-30 disabled:cursor-not-allowed rounded-sm text-white/80 text-xs font-bold transition-colors"
-                >
-                  {t.setTime}
-                </button>
-              </div>
-              {manualTimeError && (
-                <p className="text-[11px] text-red-400 mt-1.5">{t.timeFormat}</p>
-              )}
-            </section>
-          )}
-
-          {/* Titel */}
-          {perms.allowModsTitle && (
-            <section className="p-5">
-              <h2 className={HEADING}><Type size={16} className="text-white/40" /> {t.editTitle}</h2>
-              <input
-                className={`${INPUT} w-full px-4 py-2.5 text-sm`}
-                value={localTitle}
-                onChange={(e) => setLocalTitle(e.target.value)}
-                onBlur={commitTitle}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    commitTitle();
-                    e.target.blur();
-                  }
-                }}
-                placeholder={t.newTitle}
-              />
-              <p className="text-xs text-white/40 mt-2">{t.titleSaveHint}</p>
-            </section>
-          )}
-
-          {/* Challenges */}
-          {perms.allowModsChallenges && (
-            <section className="p-5">
-              <h2 className={HEADING}><ListChecks size={16} className="text-white/40" /> {t.tabChallenges}</h2>
-
-              {currentItems.length === 0 && (
-                <p className="text-xs text-white/40 mb-3">{t.noChallenges}</p>
+          {/* LINKS: Timer und Titel — bleiben beim Scrollen durch eine lange Liste stehen */}
+          {hasSide && (
+            <div className={`flex flex-col gap-3 ${twoCols ? "lg:sticky lg:top-0" : ""}`}>
+              {perms.allowModsTimer && (
+                <section className={`${PANEL} p-4`}>
+                  <TimerPanel timer={timer} now={now} t={t} actions={timerActions} />
+                </section>
               )}
 
-              {currentItems.length > 0 && (
-                <div className="border border-white/10 bg-[#171722] rounded-sm divide-y divide-white/10">
-                  {currentItems.map((it) => {
-                    const done = it.useWins
-                      ? (it.progress || 0) >= (it.target || 0)
-                      : !!it.done;
+              {perms.allowModsTitle && (
+                <section className={`${PANEL} p-4`}>
+                  <label htmlFor="wc-mod-title" className={`${LABEL} flex items-center gap-2 mb-2`}>
+                    <Type size={14} /> {t.editTitle}
+                  </label>
+                  <input
+                    id="wc-mod-title"
+                    className={INPUT}
+                    value={localTitle}
+                    onChange={(e) => setLocalTitle(e.target.value)}
+                    onBlur={commitTitle}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        commitTitle();
+                        e.target.blur();
+                      }
+                    }}
+                    placeholder={t.newTitle}
+                  />
+                  <p className="text-xs text-white/40 mt-2">{t.titleSaveHint}</p>
+                </section>
+              )}
+            </div>
+          )}
 
-                    return (
-                      <div
-                        key={it.id}
-                        className={`border-l-2 px-3 py-3 flex flex-col gap-2.5 ${
-                          done ? "border-green-500/60" : "border-transparent"
-                        }`}
-                      >
-                        {/* Kopfzeile: Name + Pin + Löschen */}
-                        <div className="flex items-center gap-1.5">
-                          <GameCoverPicker
-                            icon={it.icon}
-                            onChange={(icon) => patchChallenge(it.id, { icon })}
-                            t={t}
-                            controlKey={controlKey}
-                          />
-                          <input
-                            className="flex-1 min-w-0 bg-transparent text-base font-bold placeholder-white/20 focus:outline-none text-white px-1"
-                            defaultValue={it.name}
-                            onBlur={(e) =>
-                              patchChallenge(it.id, { name: e.target.value })
-                            }
-                            placeholder={t.modNamePlaceholder}
-                          />
-                          <button
-                            onClick={() => patchChallenge(it.id, { pinned: !it.pinned })}
-                            className={`p-2 rounded-sm transition-colors ${
-                              it.pinned
-                                ? "text-violet-400 bg-violet-500/10"
-                                : "text-white/20 hover:text-white hover:bg-white/5"
-                            }`}
-                            title={it.pinned ? t.unpin : t.pin}
-                          >
-                            <Pin size={15} />
-                          </button>
-                          <button
-                            onClick={() => removeChallenge(it.id)}
-                            className="p-2 text-white/20 hover:text-red-400 hover:bg-red-500/10 rounded-sm transition-colors"
-                            title={t.removeChallenge}
-                          >
-                            <Trash2 size={15} />
-                          </button>
-                        </div>
+          {/* RECHTS: Challenges, Chat-Befehle */}
+          {hasMain && (
+            <div className="flex flex-col gap-3 min-w-0">
 
-                        {/* Zweite Zeile: Zähler / Ziel / Fortschritt */}
-                        <div className="flex flex-wrap items-center gap-3 pl-1">
-                          <label className="flex items-center gap-2 text-xs font-bold text-white/50 hover:text-white transition-colors cursor-pointer select-none">
-                            <input
-                              type="checkbox"
-                              className="accent-violet-500"
-                              checked={!!it.useWins}
-                              onChange={(e) =>
-                                patchChallenge(it.id, {
-                                  useWins: e.target.checked,
-                                })
-                              }
-                            />
-                            {t.counter}
-                          </label>
+              {perms.allowModsChallenges && (
+                <section className={`${PANEL} p-4`}>
+                  <h2 className={`${LABEL} flex items-center gap-2 mb-3`}><ListChecks size={14} /> {t.tabChallenges}</h2>
 
-                          {it.useWins ? (
-                            <>
-                              <div className="flex items-center border border-white/10 rounded-sm px-2 py-1">
-                                <span className="text-[10px] uppercase text-white/30 font-bold mr-2">
-                                  {t.target}
-                                </span>
-                                <input
-                                  type="number"
-                                  min={1}
-                                  className="w-10 bg-transparent text-right text-sm tabular-nums focus:outline-none text-white"
-                                  defaultValue={it.target || 1}
-                                  onBlur={(e) =>
-                                    setChallengeTarget(it.id, e.target.value)
-                                  }
-                                />
-                              </div>
+                  {currentItems.length === 0 && (
+                    <p className="text-xs text-white/40 mb-3">{t.noChallenges}</p>
+                  )}
 
-                              <div className="flex items-center border border-white/10 rounded-sm overflow-hidden ml-auto">
-                                <button
-                                  onClick={() => adjustChallengeProgress(it.id, -1)}
-                                  className="px-3.5 py-1.5 hover:bg-white/10 text-white/50 hover:text-white transition-colors"
-                                  title="−1"
-                                >
-                                  −
-                                </button>
-                                <span className="w-16 text-center text-sm font-bold tabular-nums">
-                                  {it.progress || 0} / {it.target || 0}
-                                </span>
-                                <button
-                                  onClick={() => adjustChallengeProgress(it.id, 1)}
-                                  className="px-3.5 py-1.5 hover:bg-white/10 text-white/50 hover:text-white transition-colors"
-                                  title="+1"
-                                >
-                                  +
-                                </button>
-                              </div>
-                            </>
-                          ) : (
+                  {currentItems.length > 0 && (
+                    <div className="space-y-1.5">
+                      {currentItems.map((it) => {
+                        const done = isItemDone(it);
+                        const mode = itemMode(it);
+                        // Serie mit gültiger Länge: Kästchen zum Abhaken statt −/+
+                        const streakBoxes = showsStreakPips(it);
+                        let tone = "border-white/10 bg-white/[0.04]";
+                        if (done) tone = "border-green-500/70 bg-green-500/[0.06]";
+                        else if (it.pinned) tone = "border-violet-500/80 bg-white/[0.04]";
+                        // Zähler: steht bei „Zähler“ rechts neben der Art, bei einer Serie mit
+                        // ungültiger Länge an der Stelle der Kästchen
+                        const counter = (
+                          <div className="shrink-0 flex items-center bg-black/30 rounded-sm overflow-hidden">
                             <button
-                              onClick={() => toggleChallengeDone(it.id, !done)}
-                              className={`flex items-center gap-2 px-3 py-1.5 rounded-sm border transition-colors text-xs font-bold ml-auto ${
-                                done
-                                  ? "bg-green-500/15 border-green-500/30 text-green-400"
-                                  : "border-white/10 text-white/40 hover:text-white"
-                              }`}
+                              type="button"
+                              onClick={() => adjustChallengeProgress(it.id, -1)}
+                              className="px-3.5 py-1.5 hover:bg-white/10 text-white/50 hover:text-white transition-colors"
+                              title="−1"
                             >
-                              {done ? (
-                                <Check size={14} />
-                              ) : (
-                                <span className="w-3.5 h-3.5 rounded-sm border border-white/30" />
-                              )}
-                              {done ? t.done : t.open}
+                              −
                             </button>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
+                            <span className={`w-16 text-center text-sm font-bold tabular-nums ${done ? "text-green-400" : ""}`}>
+                              {it.progress || 0} / {it.target || 0}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => adjustChallengeProgress(it.id, 1)}
+                              className="px-3.5 py-1.5 hover:bg-white/10 text-white/50 hover:text-white transition-colors"
+                              title="+1"
+                            >
+                              +
+                            </button>
+                          </div>
+                        );
 
-              <button
-                onClick={addChallenge}
-                className="w-full mt-3 py-3 bg-violet-600 hover:bg-violet-500 rounded-sm text-white text-sm font-bold transition-colors flex justify-center items-center gap-2"
-              >
-                <Plus size={16} /> {t.modAddChallenge}
-              </button>
-            </section>
-          )}
+                        return (
+                          <div key={it.id} className={`rounded-sm border-l-2 px-3 py-2.5 flex flex-col gap-2 ${tone}`}>
+                            {/* Kopfzeile: Cover + Name + Pin + Löschen */}
+                            <div className="flex items-center gap-1.5">
+                              <GameCoverPicker
+                                icon={it.icon}
+                                onChange={(icon) => patchChallenge(it.id, { icon })}
+                                t={t}
+                                controlKey={controlKey}
+                              />
+                              <input
+                                className="flex-1 min-w-0 bg-transparent text-base font-semibold placeholder-white/25 focus:outline-none text-white px-1"
+                                defaultValue={it.name}
+                                onBlur={(e) =>
+                                  patchChallenge(it.id, { name: e.target.value })
+                                }
+                                placeholder={t.modNamePlaceholder}
+                              />
+                              <button
+                                type="button"
+                                onClick={() => patchChallenge(it.id, { pinned: !it.pinned })}
+                                aria-pressed={!!it.pinned}
+                                className={`p-2 rounded-sm transition-colors ${
+                                  it.pinned
+                                    ? "text-violet-300 bg-violet-500/15"
+                                    : "text-white/35 hover:text-white hover:bg-white/[0.08]"
+                                }`}
+                                title={it.pinned ? t.unpin : t.pin}
+                                aria-label={it.pinned ? t.unpin : t.pin}
+                              >
+                                <Pin size={15} />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => removeChallenge(it.id)}
+                                className="p-2 text-white/35 hover:text-red-400 hover:bg-red-500/10 rounded-sm transition-colors"
+                                title={t.removeChallenge}
+                                aria-label={t.removeChallenge}
+                              >
+                                <Trash2 size={15} />
+                              </button>
+                            </div>
 
-          {/* Chat-Befehle — Referenz für Mods */}
-          {chatCommands.enabled && visibleCommands.length > 0 && (
-            <section className="p-5">
-              <h2 className={HEADING}><MessageSquare size={16} className="text-white/40" /> {t.chatCommands}</h2>
-              {chatChannels.length > 0 && (
-                <div className="flex flex-wrap gap-2 mb-4">
-                  {chatChannels.map((c) => (
-                    <span
-                      key={c}
-                      className="flex items-center gap-1 border border-white/10 rounded-sm px-2 py-1 text-xs text-white/70"
-                    >
-                      <Hash size={12} className="text-white/30" />
-                      {c}
-                    </span>
-                  ))}
-                </div>
-              )}
-              <div>
-                {visibleCommands.map((c) => (
-                  <div
-                    key={c.cmd}
-                    className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 py-2 border-b border-white/5 last:border-b-0"
+                            {/* Zweite Zeile: Art der Challenge, daneben ihr Stand */}
+                            <div className="flex flex-wrap items-center gap-x-2 gap-y-2">
+                              <div role="radiogroup" aria-label={t.modeAria} className="flex p-0.5 rounded-sm bg-black/30">
+                                {ITEM_MODES.map((m) => {
+                                  const on = mode === m.mode;
+                                  return (
+                                    <button
+                                      key={m.mode}
+                                      type="button"
+                                      role="radio"
+                                      aria-checked={on}
+                                      title={m.titleKey ? t[m.titleKey] : t[m.labelKey]}
+                                      onClick={() => { if (!on) patchChallenge(it.id, itemModePatch(it, m.mode)); }}
+                                      className={`h-7 px-2 flex items-center gap-1 rounded-[2px] text-[11px] font-bold transition-colors ${on ? "bg-violet-500/30 text-white" : "text-white/40 hover:text-white"}`}
+                                    >
+                                      {/* Auf dem Handy trägt nur die gewählte Art ihren Namen */}
+                                      <m.Icon size={12} strokeWidth={m.stroke} />
+                                      <span className={on ? "" : "sr-only sm:not-sr-only"}>{t[m.labelKey]}</span>
+                                    </button>
+                                  );
+                                })}
+                              </div>
+
+                              {mode === "streak" && (
+                                // Länge der Serie: B2B bis B10 — rechts, wo bei den anderen Arten der Stand steht
+                                <div role="group" aria-label={t.streakLength} title={t.streakLength} className="ml-auto flex items-center h-8 rounded-sm bg-black/30">
+                                  <button
+                                    type="button"
+                                    onClick={() => patchChallenge(it.id, streakLengthPatch(it, (it.target || 0) - 1))}
+                                    disabled={(it.target || 0) <= STREAK_MIN}
+                                    aria-label={t.streakShorter}
+                                    className="w-8 h-8 text-white/50 hover:text-white disabled:opacity-30 disabled:pointer-events-none transition-colors"
+                                  >−</button>
+                                  <span className="min-w-[3.25rem] text-center text-xs font-bold text-white/80 tabular-nums whitespace-nowrap">{t.streakWins(it.target || 0)}</span>
+                                  <button
+                                    type="button"
+                                    onClick={() => patchChallenge(it.id, streakLengthPatch(it, (it.target || 0) + 1))}
+                                    disabled={(it.target || 0) >= STREAK_MAX}
+                                    aria-label={t.streakLonger}
+                                    className="w-8 h-8 text-white/50 hover:text-white disabled:opacity-30 disabled:pointer-events-none transition-colors"
+                                  >+</button>
+                                </div>
+                              )}
+
+                              {mode === "counter" && (
+                                <label className="flex items-center h-8 bg-black/30 rounded-sm px-2">
+                                  <span className="text-[10px] uppercase text-white/35 font-bold mr-2">{t.target}</span>
+                                  <input
+                                    type="number"
+                                    min={1}
+                                    className="w-10 bg-transparent text-right text-sm tabular-nums focus:outline-none text-white [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                                    defaultValue={it.target || 1}
+                                    onBlur={(e) => setChallengeTarget(it.id, e.target.value)}
+                                  />
+                                </label>
+                              )}
+
+                              {/* Stand — rechtsbündig. Eine Serie hat dafür ihre eigene Zeile darunter. */}
+                              {mode === "counter" && <div className="ml-auto">{counter}</div>}
+                              {mode === "check" && (
+                                <button
+                                  type="button"
+                                  onClick={() => toggleChallengeDone(it.id, !done)}
+                                  aria-pressed={done}
+                                  className={`ml-auto h-8 px-3 flex items-center gap-1.5 rounded-sm text-xs font-bold transition-colors ${
+                                    done
+                                      ? "bg-green-500/20 text-green-400 hover:bg-green-500/30"
+                                      : "bg-black/30 text-white/50 hover:text-white hover:bg-white/10"
+                                  }`}
+                                >
+                                  <Check size={14} strokeWidth={3} className={done ? "" : "opacity-40"} />
+                                  {done ? t.done : t.open}
+                                </button>
+                              )}
+                            </div>
+
+                            {/* Dritte Zeile, nur bei einer Serie: ein großes Kästchen je Win und „Auf 0“
+                                für die gerissene Serie — wie im Editor. Die Kästchen brechen bei wenig
+                                Platz in sich um, „Auf 0“ bleibt rechts stehen. */}
+                            {mode === "streak" && (
+                              <div className="flex items-center justify-between gap-3 rounded-sm bg-black/25 px-2.5 py-2">
+                                {streakBoxes ? (
+                                  <StreakBoxes
+                                    size="lg"
+                                    total={it.target || 0}
+                                    filled={Math.min(it.progress || 0, it.target || 0)}
+                                    onPick={(i) => patchChallenge(it.id, { progress: streakClickProgress(it, i) })}
+                                    t={t}
+                                  />
+                                ) : counter}
+                                <button
+                                  type="button"
+                                  onClick={() => patchChallenge(it.id, { progress: 0 })}
+                                  disabled={!(it.progress > 0)}
+                                  title={t.streakResetTitle}
+                                  className="shrink-0 h-8 px-2 flex items-center gap-1.5 rounded-sm text-xs font-bold text-white/45 hover:text-white hover:bg-white/[0.08] disabled:opacity-30 disabled:pointer-events-none transition-colors"
+                                >
+                                  <RotateCcw size={14} /> {t.streakReset}
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={addChallenge}
+                    className={`${BTN_PRIMARY} w-full mt-3 py-2.5 text-sm flex justify-center items-center gap-2`}
                   >
-                    <span className="text-xs font-semibold text-violet-300 sm:w-52 shrink-0">
-                      {c.cmd}
-                    </span>
-                    <span className="text-xs text-white/60">{c.desc}</span>
-                  </div>
-                ))}
-              </div>
-              <p className="text-xs text-white/40 mt-4">{t.modFuzzy}</p>
-            </section>
-          )}
+                    <Plus size={16} /> {t.modAddChallenge}
+                  </button>
+                </section>
+              )}
 
-          {/* Hinweis, falls keine Rechte */}
-          {!hasAnyPerm && (
-            <section className="p-5 flex items-start gap-3">
-              <ShieldAlert size={16} className="text-amber-400 shrink-0 mt-0.5" />
-              <p className="text-sm text-white/60">{t.noPerms}</p>
-            </section>
+              {/* Chat-Befehle — Referenz für Mods */}
+              {showCommands && (
+                <section className={`${PANEL} p-4`}>
+                  <h2 className={`${LABEL} flex items-center gap-2 mb-3`}><MessageSquare size={14} /> {t.chatCommands}</h2>
+                  {chatChannels.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 mb-3">
+                      {chatChannels.map((c) => (
+                        <span
+                          key={c}
+                          className="flex items-center gap-1 bg-white/[0.06] rounded-sm px-2 py-1 text-xs text-white/70"
+                        >
+                          <Hash size={12} className="text-white/30" />
+                          {c}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  <div>
+                    {visibleCommands.map((c) => (
+                      <div
+                        key={c.cmd}
+                        className="flex flex-col sm:flex-row sm:items-baseline gap-0.5 sm:gap-4 py-1.5"
+                      >
+                        <span className="text-xs font-semibold text-violet-300 sm:w-52 shrink-0">
+                          {c.cmd}
+                        </span>
+                        <span className="text-xs text-white/60">{c.desc}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-xs text-white/40 mt-3">{t.modFuzzy}</p>
+                </section>
+              )}
+
+              {/* Hinweis, falls keine Rechte */}
+              {!hasAnyPerm && (
+                <section className={`${PANEL} p-4 flex items-start gap-3`}>
+                  <ShieldAlert size={16} className="text-amber-400 shrink-0 mt-0.5" />
+                  <p className="text-sm text-white/60">{t.noPerms}</p>
+                </section>
+              )}
+            </div>
           )}
         </div>
       </div>

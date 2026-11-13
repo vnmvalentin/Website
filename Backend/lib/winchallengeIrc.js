@@ -19,6 +19,7 @@ try {
 }
 
 const createWinchallengeRouter = require("../winchallenge/winchallengeRoutes");
+const timerMath = require("../winchallenge/timerMath");
 const streamToolRaids = require("../streamTool/lib/streamToolRaids");
 const streamToolStats = require("../streamTool/lib/streamToolStats");
 const streamToolScenes = require("../streamTool/lib/streamToolScenes");
@@ -457,17 +458,41 @@ function findUserIdForChannel(channelName) {
   return channelOwnerIndex.get(name) || null;
 }
 
-function isAllowedSender(tags, doc, isOwner) {
-  const req = doc?.chatCommands?.requireModOrBroadcaster !== false;
-  if (!req) return true;
-  if (isOwner) return true;
-  if (tags.mod === true || tags.mod === "1") return true;
-  const userType = tags["user-type"] || tags.userType;
-  if (userType === "mod" || userType === "global_mod") return true;
-  // tmi.js: badges oft { broadcaster: "1" } — String(badges) === "[object Object]" → vormals false
+/** Hat der Absender dieses Abzeichen? tmi.js liefert badges als Objekt, manchmal als "name/1,…"-Text. */
+function hasBadge(tags, name) {
   const b = tags.badges;
-  if (b && typeof b === "object" && b.broadcaster != null) return true;
-  if (typeof b === "string" && b.includes("broadcaster")) return true;
+  if (b && typeof b === "object") return b[name] != null;
+  if (typeof b === "string") return b.split(",").some((x) => x.split("/")[0] === name);
+  return false;
+}
+
+const isTagOn = (v) => v === true || v === "1" || v === 1;
+
+/**
+ * Darf der Absender Befehle nutzen? Streamer und Overlay-Besitzer immer, sonst je
+ * nach den im Editor gewählten Rollen (chatCommands.allowedRoles).
+ */
+function isAllowedSender(tags, doc, isOwner) {
+  if (isOwner) return true;
+  if (hasBadge(tags, "broadcaster")) return true;
+  const cc = doc?.chatCommands || {};
+  // Bestandsdaten ohne Rollen: alter Schalter "Nur Mods und Streamer"
+  const roles = cc.allowedRoles && typeof cc.allowedRoles === "object"
+    ? cc.allowedRoles
+    : { mod: true, everyone: cc.requireModOrBroadcaster === false };
+  if (roles.everyone === true) return true;
+
+  if (roles.mod !== false) {
+    if (isTagOn(tags.mod)) return true;
+    const userType = tags["user-type"] || tags.userType;
+    if (userType === "mod" || userType === "global_mod") return true;
+    if (hasBadge(tags, "moderator")) return true;
+  }
+  if (roles.vip === true && (isTagOn(tags.vip) || hasBadge(tags, "vip"))) return true;
+  // Gründer-Abzeichen ersetzt bei Twitch das Sub-Abzeichen
+  if (roles.sub === true && (isTagOn(tags.subscriber) || hasBadge(tags, "subscriber") || hasBadge(tags, "founder"))) {
+    return true;
+  }
   return false;
 }
 
@@ -540,6 +565,8 @@ const CHAT_REPLIES = {
     alreadyZero: (n) => `"${n}" steht bereits bei 0.`,
     stillOpen: (n) => `"${n}" ist noch offen.`,
     reopened: (n) => `"${n}" wieder offen.`,
+    streakWin: (n, k, total) => `"${n}": Win ${k} von ${total}`,
+    counterReset: (n, total) => `"${n}" zurückgesetzt (0/${total}).`,
     timerStarted: "Timer wurde gestartet.",
     timerPaused: "Timer wurde pausiert.",
     timerReset: "Timer wurde zurückgesetzt.",
@@ -561,6 +588,8 @@ const CHAT_REPLIES = {
     alreadyZero: (n) => `"${n}" is already at 0.`,
     stillOpen: (n) => `"${n}" is still open.`,
     reopened: (n) => `"${n}" reopened.`,
+    streakWin: (n, k, total) => `"${n}": win ${k} of ${total}`,
+    counterReset: (n, total) => `"${n}" reset (0/${total}).`,
     timerStarted: "Timer started.",
     timerPaused: "Timer paused.",
     timerReset: "Timer reset.",
@@ -573,7 +602,11 @@ const CHAT_REPLIES = {
 const repliesFor = (lang) => CHAT_REPLIES[lang] || CHAT_REPLIES.de;
 
 /**
- * !pin / !unpin / !+ / !- auf eine Challenge anwenden.
+ * !pin / !unpin / !+ / !- / !reset auf eine Challenge anwenden.
+ *
+ * Eine Serie (B2B, B3B …) ist ein Zähler mit `streak: true` (siehe overlayUtils.js im
+ * Frontend): !+ hakt den nächsten Win ab und bleibt am Ende der Serie stehen, !reset
+ * setzt sie nach einer Niederlage zurück auf 0.
  * @returns {{ itemId: string|null, patch: object|null, reply: string|null, changed: boolean }}
  */
 function resolveChallengeCommand(items, kind, query, r = CHAT_REPLIES.de) {
@@ -608,6 +641,18 @@ function resolveChallengeCommand(items, kind, query, r = CHAT_REPLIES.de) {
     return { itemId: it.id, patch: { pinned: false }, changed: true, reply: r.unpinned(it.name) };
   }
   if (kind === "plus") {
+    if (it.useWins && it.streak) {
+      const total = it.target || 0;
+      if ((it.progress || 0) >= total)
+        return { itemId: null, patch: null, changed: false, reply: r.alreadyDone(it.name) };
+      const next = (it.progress || 0) + 1;
+      return {
+        itemId: it.id,
+        patch: { progress: next },
+        changed: true,
+        reply: `${r.streakWin(it.name, next, total)}${next >= total ? r.completedSuffix : ""}`,
+      };
+    }
     if (it.useWins) {
       const next = (it.progress || 0) + 1;
       const doneNow = next >= (it.target || 0);
@@ -632,6 +677,22 @@ function resolveChallengeCommand(items, kind, query, r = CHAT_REPLIES.de) {
         patch: { progress: next },
         changed: true,
         reply: `"${it.name}": ${next}/${it.target || 0}`,
+      };
+    }
+    if (!it.done)
+      return { itemId: null, patch: null, changed: false, reply: r.stillOpen(it.name) };
+    return { itemId: it.id, patch: { done: false }, changed: true, reply: r.reopened(it.name) };
+  }
+  if (kind === "reset") {
+    // Zähler und Serie zurück auf 0 (Serie gerissen); eine abgehakte Challenge wird wieder offen
+    if (it.useWins) {
+      if (!(it.progress > 0))
+        return { itemId: null, patch: null, changed: false, reply: r.alreadyZero(it.name) };
+      return {
+        itemId: it.id,
+        patch: { progress: 0 },
+        changed: true,
+        reply: r.counterReset(it.name, it.target || 0),
       };
     }
     if (!it.done)
@@ -663,24 +724,20 @@ async function applyChatLine(userId, msg, { isOwner = false } = {}) {
   if (lower === "!starttimer") {
     if (!canTimer) return { changed: false, reply: null };
     if (!doc.timer.running) {
-      doc.timer.running = true;
-      doc.timer.startedAt = Date.now() - (doc.timer.elapsedMs || 0);
+      doc.timer = timerMath.start(doc.timer);
       changed = true;
       reply = r.timerStarted;
     }
   } else if (lower === "!stoptimer" || lower === "!pausetimer") {
     if (!canTimer) return { changed: false, reply: null };
     if (doc.timer.running) {
-      doc.timer.running = false;
-      doc.timer.elapsedMs = Date.now() - (doc.timer.startedAt || Date.now());
+      doc.timer = timerMath.pause(doc.timer);
       changed = true;
       reply = r.timerPaused;
     }
   } else if (lower === "!resettimer") {
     if (!canTimer) return { changed: false, reply: null };
-    doc.timer.running = false;
-    doc.timer.startedAt = 0;
-    doc.timer.elapsedMs = 0;
+    doc.timer = timerMath.reset(doc.timer);
     changed = true;
     reply = r.timerReset;
   } else if (lower === "!hidetimer" || lower === "!timerhide") {
@@ -703,13 +760,13 @@ async function applyChatLine(userId, msg, { isOwner = false } = {}) {
     if (ms == null) {
       reply = r.timerFormat;
     } else {
-      doc.timer.elapsedMs = ms;
-      if (doc.timer.running) doc.timer.startedAt = Date.now() - ms;
+      // Beim Countdown wird die Restzeit gesetzt
+      doc.timer = timerMath.setDisplay(doc.timer, ms);
       changed = true;
       reply = r.timerSet(msToClock(ms));
     }
   } else {
-    // ---- Challenge-Befehle: !pin / !unpin / !+ / !- mit unscharfer Suche ----
+    // ---- Challenge-Befehle: !pin / !unpin / !+ / !- / !reset mit unscharfer Suche ----
     let kind = null;
     let query = "";
     let m;
@@ -718,6 +775,10 @@ async function applyChatLine(userId, msg, { isOwner = false } = {}) {
       query = m[1];
     } else if ((m = raw.match(/^!unpin\s+(.+)$/i))) {
       kind = "unpin";
+      query = m[1];
+    } else if ((m = raw.match(/^!reset\s+(.+)$/i))) {
+      // Braucht das Leerzeichen — "!resettimer" ist oben längst behandelt
+      kind = "reset";
       query = m[1];
     } else if ((m = raw.match(/^!\+\s*(.+)$/))) {
       kind = "plus";
@@ -1195,8 +1256,11 @@ module.exports = {
   getIrcStatus,
   // Sichtbare Chatzeile über die Sendewarteschlange (Murmelbahn-Ansagen)
   say: queueChatReply,
+  // Eine Chatzeile auf das Overlay eines Nutzers anwenden (für Tests)
+  applyChatLine,
   // pure Helfer (u. a. für Tests)
   findChallengeMatches,
+  isAllowedSender,
   parseClockToMs,
   resolveChallengeCommand,
 };

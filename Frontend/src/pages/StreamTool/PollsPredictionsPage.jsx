@@ -8,13 +8,13 @@
 // Die Widgets kommen aus OverlayWidgets.jsx und sind identisch mit dem, was die
 // OBS-Quelle rendert.
 import React, { useCallback, useContext, useEffect, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
-import { Link } from 'react-router-dom';
+import { ToolHeader, ToolScroll } from '../../components/toolShell/ToolParts';
+import { Button } from '../../components/ui';
 import {
   Copy, Check, Eye, EyeOff, RefreshCw, BarChart3, Scale, Crosshair, Grid3x3,
   LogOut, TriangleAlert, Info, Users, Star, ArrowRight, Clapperboard, Play, Square,
   Activity, RotateCcw, TrainFront, Plane, UsersRound, CircleDot,
-  ChevronDown, FlaskConical, Link2, ArrowLeft, Lock,
+  ChevronDown, FlaskConical, Link2, Lock, Palette,
 } from 'lucide-react';
 import PremiumDialog from '../../components/PremiumDialog';
 import { PREMIUM_INCLUDES, openPortal, untilText } from '../../utils/billingApi';
@@ -28,7 +28,7 @@ import { TwitchAuthContext } from '../../components/TwitchAuthContext';
 import * as api from './streamToolApi';
 import { STREAM_TOOL_SCOPES, MARBLE_REWARD_SCOPE } from './streamToolApi';
 import {
-  defaultConfig, mergeConfig, toPollView, toPredictionView, toGoalView, toRaidView, toStatsView,
+  defaultConfig, mergeConfig, effectiveModules, THEME_DEFAULTS, THEMED_IDS, toPollView, toPredictionView, toGoalView, toRaidView, toStatsView,
   useDemoSim, useLinger, paintDemo, MODULE_DEFAULTS, TWITCH_GOAL_TYPES, TWITCH_GOAL_FAMILY,
   resolveTwitchGoal, STAT_METRICS, SCENE_IDS, DEMO_HYPE, demoMarbles, planeMessages,
 } from './streamToolConfig';
@@ -149,27 +149,27 @@ const GOAL_TYPE_LABEL = (id, value) =>
 /* ── kleine Bausteine ─────────────────────────────────────────────────────── */
 
 const Label = ({ children, htmlFor }) => (
-  <label htmlFor={htmlFor} className="block text-[11px] font-bold uppercase tracking-wider text-gray-500">
+  <label htmlFor={htmlFor} className="block text-[11px] font-bold uppercase tracking-wider text-white/45">
     {children}
   </label>
 );
 
 /** Erklärung unter einem Feld. Bewusst knapp — die Seite soll nicht zutexten. */
 const Note = ({ children }) => (
-  <p className="text-[11px] text-gray-500 leading-relaxed mt-1.5">{children}</p>
+  <p className="text-[11px] text-white/45 leading-relaxed mt-1.5">{children}</p>
 );
 
 const Field = (props) => (
   <input
     {...props}
-    className={`w-full bg-[#1a1a20] border border-white/10 rounded-lg px-3 py-2 text-white placeholder-gray-600 focus:border-violet-400 outline-none text-sm transition-colors ${props.className || ''}`}
+    className={`w-full bg-[#1a1a20] border border-white/10 rounded-lg px-3 py-2 text-white placeholder-white/30 focus:border-accent outline-none text-sm transition-colors ${props.className || ''}`}
   />
 );
 
 const Select = ({ children, ...props }) => (
   <select
     {...props}
-    className="w-full mt-1.5 bg-[#1a1a20] border border-white/10 rounded-lg px-3 py-2 text-white outline-none text-sm focus:border-violet-400"
+    className="w-full mt-1.5 bg-[#1a1a20] border border-white/10 rounded-lg px-3 py-2 text-white outline-none text-sm focus:border-accent"
   >
     {children}
   </select>
@@ -183,8 +183,8 @@ function Choice({ value, options, onChange, cols = 2 }) {
         <button key={val} onClick={() => onChange(val)}
           className={`px-3 py-2 rounded-lg text-[12px] font-bold border transition-colors ${
             value === val
-              ? 'bg-violet-500/15 text-white border-violet-400/30'
-              : 'bg-white/[0.03] text-gray-500 border-white/10 hover:text-white'
+              ? 'bg-accent/15 text-white border-accent-soft/30'
+              : 'bg-white/[0.03] text-white/45 border-white/10 hover:text-white'
           }`}>
           {text}
         </button>
@@ -198,12 +198,12 @@ function ToggleRow({ label, description, checked, onChange }) {
     <label className="flex items-center gap-3 cursor-pointer py-1">
       <span className="relative shrink-0">
         <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} className="peer sr-only" />
-        <span className="block w-9 h-5 rounded-full bg-white/10 peer-checked:bg-violet-500/40 transition-colors" />
-        <span className="absolute top-[3px] left-[3px] w-3.5 h-3.5 rounded-full bg-gray-400 peer-checked:bg-violet-400 peer-checked:translate-x-4 transition-transform" />
+        <span className="block w-9 h-5 rounded-full bg-white/10 peer-checked:bg-accent/40 transition-colors" />
+        <span className="absolute top-[3px] left-[3px] w-3.5 h-3.5 rounded-full bg-white/60 peer-checked:bg-accent-soft peer-checked:translate-x-4 transition-transform" />
       </span>
       <span className="min-w-0">
         <span className="block text-[13px] font-semibold text-white">{label}</span>
-        {description && <span className="block text-[11px] text-gray-500 leading-snug">{description}</span>}
+        {description && <span className="block text-[11px] text-white/45 leading-snug">{description}</span>}
       </span>
     </label>
   );
@@ -212,7 +212,7 @@ function ToggleRow({ label, description, checked, onChange }) {
 /** Kompakte Variante für Listen, in denen mehrere Haken nebeneinander stehen. */
 function CheckItem({ label, checked, onChange }) {
   return (
-    <label className="flex items-center gap-2.5 cursor-pointer py-[3px] text-[12.5px] font-semibold text-gray-300 hover:text-white transition-colors">
+    <label className="flex items-center gap-2.5 cursor-pointer py-[3px] text-[12.5px] font-semibold text-white/75 hover:text-white transition-colors">
       <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)}
         className="w-3.5 h-3.5 accent-violet-500 shrink-0" />
       {label}
@@ -250,7 +250,7 @@ function Callout({ tone = 'warn', children }) {
 function MiniButton({ icon: Icon, children, spin, ...props }) {
   return (
     <button {...props}
-      className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-[12px] font-bold bg-white/[0.03] border border-white/10 hover:border-white/25 text-gray-300 hover:text-white disabled:text-gray-600 disabled:hover:border-white/10 transition-colors">
+      className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-[12px] font-bold bg-white/[0.03] border border-white/10 hover:border-white/25 text-white/75 hover:text-white disabled:text-white/30 disabled:hover:border-white/10 transition-colors">
       <Icon size={13} className={spin ? 'animate-spin' : ''} />
       {children}
     </button>
@@ -268,7 +268,7 @@ function MiniButton({ icon: Icon, children, spin, ...props }) {
 function Section({ title, children }) {
   return (
     <section className="border-t border-white/[0.08] pt-3.5">
-      <h3 className="text-[10.5px] font-bold uppercase tracking-wider text-gray-500 mb-2.5">{title}</h3>
+      <h3 className="text-[10.5px] font-bold uppercase tracking-wider text-white/45 mb-2.5">{title}</h3>
       <div className="grid gap-2 [&>*]:min-w-0 [&>*]:rounded-md [&>*]:border [&>*]:border-white/10 [&>*]:bg-white/[0.03] [&>*]:p-3">
         {children}
       </div>
@@ -391,7 +391,7 @@ function ColorRow({ meta, module, set, labels }) {
       <div className="flex items-center justify-between mb-2">
         <Label>Farben</Label>
         <button onClick={() => set({ colors: [...MODULE_DEFAULTS[meta.id].colors] })}
-          className="text-[11px] font-semibold text-gray-500 hover:text-violet-300 transition-colors">
+          className="text-[11px] font-semibold text-white/45 hover:text-accent-soft transition-colors">
           Standard
         </button>
       </div>
@@ -540,7 +540,7 @@ function PlaneSettings({ meta, module, set, tab }) {
         <Label htmlFor={`${meta.id}-msg`}>Nachricht</Label>
         <textarea id={`${meta.id}-msg`} rows={4} maxLength={1500} value={module.messages}
           onChange={(e) => set({ messages: e.target.value })}
-          className="w-full mt-1.5 bg-[#1a1a20] border border-white/10 rounded-lg px-3 py-2 text-white placeholder-gray-600 focus:border-violet-400 outline-none text-sm transition-colors resize-y"
+          className="w-full mt-1.5 bg-[#1a1a20] border border-white/10 rounded-lg px-3 py-2 text-white placeholder-white/30 focus:border-accent outline-none text-sm transition-colors resize-y"
           placeholder="Eine Nachricht je Zeile" />
         <Note>
           {count > 1
@@ -600,7 +600,7 @@ function RewardSettings({ module, tools }) {
           <p className="text-[13px] font-semibold text-white">
             Aktiv{module.rewardTitle ? `: „${module.rewardTitle}“` : ''}
           </p>
-          <p className="text-[12px] text-gray-500 leading-relaxed mt-1">
+          <p className="text-[12px] text-white/45 leading-relaxed mt-1">
             Die Einlösung öffnet die Anmeldung und meldet den Einlösenden gleich an.
             Ist die Anmeldung schon offen, tritt er nur bei.
           </p>
@@ -638,7 +638,7 @@ function RewardSettings({ module, tools }) {
     <>
       <Section title="Belohnung von hier anlegen">
         <div>
-          <p className="text-[12px] text-gray-400 leading-relaxed">
+          <p className="text-[12px] text-white/55 leading-relaxed">
             Die Seite legt die Belohnung in deinem Kanal an. Zuschauer lösen sie einfach ein — ohne
             etwas einzutippen — und bekommen ihre Punkte zurück, wenn kein Rennen zustande kommt.
           </p>
@@ -677,7 +677,7 @@ function RewardSettings({ module, tools }) {
 
       <Section title="Oder: vorhandene Belohnung erkennen">
         <div>
-          <p className="text-[12px] text-gray-400 leading-relaxed">
+          <p className="text-[12px] text-white/55 leading-relaxed">
             Ohne zusätzliches Recht, über den Chat-Bot. Die Belohnung braucht dafür in Twitch die Einstellung
             „Zuschauer muss Text eingeben“ — was die Zuschauer hineinschreiben, ist egal.
           </p>
@@ -702,7 +702,7 @@ function MarbleSettings({ meta, module, set, tools, tab }) {
   const command = module.joinCommand || '!murmel';
   const setup = tools?.setup;
   const top = setup?.top || [];
-  const cmd = 'text-gray-300 font-semibold';
+  const cmd = 'text-white/75 font-semibold';
 
   return (
     <>
@@ -716,7 +716,7 @@ function MarbleSettings({ meta, module, set, tools, tab }) {
             {phase
               ? `${MARBLE_PHASE_TEXT[phase]} · ${state.players.length} ${state.players.length === 1 ? 'Murmel' : 'Murmeln'}`
               : 'Kein Rennen offen'}
-            {state?.winner && <span className="text-violet-300"> · Sieger: {state.winner.name}</span>}
+            {state?.winner && <span className="text-accent-soft"> · Sieger: {state.winner.name}</span>}
           </p>
           <div className="grid grid-cols-3 gap-1.5 mt-2.5">
             <MiniButton icon={Play} onClick={() => tools?.onAction('open')} disabled={tools?.busy || phase === 'race'}>
@@ -771,14 +771,14 @@ function MarbleSettings({ meta, module, set, tools, tab }) {
             <ol className="divide-y divide-white/[0.06]">
               {top.map((e, i) => (
                 <li key={`${i}-${e.name}`} className="flex items-center gap-2.5 py-1.5 text-[13px]">
-                  <span className="w-5 text-gray-500 tabular-nums">{i + 1}</span>
+                  <span className="w-5 text-white/45 tabular-nums">{i + 1}</span>
                   <span className="flex-1 min-w-0 truncate font-semibold text-white">{e.name}</span>
-                  <span className="tabular-nums text-gray-300">{e.wins} {e.wins === 1 ? 'Sieg' : 'Siege'}</span>
+                  <span className="tabular-nums text-white/75">{e.wins} {e.wins === 1 ? 'Sieg' : 'Siege'}</span>
                 </li>
               ))}
             </ol>
           ) : (
-            <p className="text-[12px] text-gray-500">Noch hat niemand gewonnen. Testmurmeln zählen nicht.</p>
+            <p className="text-[12px] text-white/45">Noch hat niemand gewonnen. Testmurmeln zählen nicht.</p>
           )}
           <Note>
             Im Chat zeigt <span className={cmd}>!murmeltop</span> die besten fünf — für alle, höchstens alle 15 Sekunden.
@@ -997,7 +997,7 @@ function GoalSettings({ meta, module, set, tools }) {
             Kommt sonst alle 30 Sekunden von selbst.
             {tools.detected?.length > 0 && (
               <> Twitch meldet gerade:{' '}
-                <span className="text-gray-300 font-semibold">
+                <span className="text-white/75 font-semibold">
                   {tools.detected.map((t) => GOAL_TYPE_LABEL(meta.id, t)).join(', ')}
                 </span>
               </>
@@ -1083,6 +1083,19 @@ function FeedSettings({ meta, module, set }) {
   const head = module.showHead !== false;
   return (
     <Section title="Anzeige" cols={2}>
+      <div>
+        <Label>Form</Label>
+        <Choice
+          value={module.layout === 'bar' ? 'bar' : 'card'}
+          options={[['card', 'Karte'], ['bar', 'Leiste']]}
+          onChange={(v) => set({ layout: v })}
+        />
+        <Note>
+          {module.layout === 'bar'
+            ? 'Eine schmale Zeile über die Breite: Frage, Antworten und Zeit nebeneinander. Verdeckt wenig vom Bild.'
+            : 'Eine Zeile je Antwort. Den Stil (Modern oder Klassisch) wählst du oben unter „Design“.'}
+        </Note>
+      </div>
       <div className="space-y-1">
         <ToggleRow
           label="Kopfzeile anzeigen"
@@ -1125,6 +1138,11 @@ function ModuleSettings({ meta, module, onChange, warning, goalTools, raidTools,
   const tabs = SETTING_TABS[meta.kind] || DEFAULT_SETTING_TABS;
   const [tab, setTab] = useState('main');
   const main = tab === 'main';
+  // Karten im gemeinsamen Design zeigen Farbe, Deckkraft und Glas nur, wenn
+  // das Modul ausdrücklich ein eigenes Aussehen hat. Die Murmelbahn gehört
+  // nicht zum Design und behält ihre Regler immer.
+  const themed = THEMED_IDS.includes(meta.id);
+  const ownLook = !themed || !!module.ownLook;
 
   return (
     <div>
@@ -1133,7 +1151,7 @@ function ModuleSettings({ meta, module, onChange, warning, goalTools, raidTools,
         {tabs.map(([id, label]) => (
           <button key={id} type="button" role="tab" aria-selected={tab === id} onClick={() => setTab(id)}
             className={`h-10 -mb-px border-b-2 text-[12.5px] font-bold transition-colors ${
-              tab === id ? 'border-violet-400 text-white' : 'border-transparent text-gray-500 hover:text-gray-200'
+              tab === id ? 'border-accent-soft text-white' : 'border-transparent text-white/45 hover:text-white/85'
             }`}>
             {label}
           </button>
@@ -1141,7 +1159,7 @@ function ModuleSettings({ meta, module, onChange, warning, goalTools, raidTools,
       </div>
 
     <div className="p-4 space-y-4">
-      {main && <p className="text-[11.5px] text-gray-500 leading-relaxed max-w-3xl">{meta.hint}</p>}
+      {main && <p className="text-[11.5px] text-white/45 leading-relaxed max-w-3xl">{meta.hint}</p>}
       {warning && <Callout>{warning}</Callout>}
 
       {main && meta.kind === 'feed' && <FeedSettings meta={meta} module={module} set={set} />}
@@ -1171,21 +1189,34 @@ function ModuleSettings({ meta, module, onChange, warning, goalTools, raidTools,
         <div className="space-y-4">
           <Slider label="Größe" value={Math.round(module.scale * 100)} min={50} max={180} step={5} unit=" %"
             onChange={(v) => set({ scale: v / 100 })} />
-          <Slider label="Deckkraft" value={module.opacity} min={0} max={100} step={5} unit=" %"
-            onChange={(v) => set({ opacity: v })} />
+          {ownLook && (
+            <Slider label="Deckkraft" value={module.opacity} min={0} max={100} step={5} unit=" %"
+              onChange={(v) => set({ opacity: v })} />
+          )}
         </div>
 
         <div>
-          <Label htmlFor={`${meta.id}-accent`}>Akzentfarbe</Label>
-          <div className="flex items-center gap-2 mt-1.5">
-            <input id={`${meta.id}-accent`} type="color" value={module.accent}
-              onChange={(e) => set({ accent: e.target.value })}
-              className="w-9 h-9 shrink-0 rounded-lg border border-white/10 bg-transparent cursor-pointer p-0" />
-            <Field value={module.accent} maxLength={7} className="!text-xs tabular-nums"
-              onChange={(e) => /^#[0-9a-fA-F]{0,6}$/.test(e.target.value) && set({ accent: e.target.value })} />
-          </div>
+          {themed && (
+            <div className="mb-4">
+              <ToggleRow label="Eigenes Aussehen"
+                description="Sonst gelten Akzentfarbe, Deckkraft und Glas aus „Design“ oben in der Leiste."
+                checked={ownLook} onChange={(v) => set({ ownLook: v })} />
+            </div>
+          )}
+          {ownLook && (
+            <>
+              <Label htmlFor={`${meta.id}-accent`}>Akzentfarbe</Label>
+              <div className="flex items-center gap-2 mt-1.5">
+                <input id={`${meta.id}-accent`} type="color" value={module.accent}
+                  onChange={(e) => set({ accent: e.target.value })}
+                  className="w-9 h-9 shrink-0 rounded-lg border border-white/10 bg-transparent cursor-pointer p-0" />
+                <Field value={module.accent} maxLength={7} className="!text-xs tabular-nums"
+                  onChange={(e) => /^#[0-9a-fA-F]{0,6}$/.test(e.target.value) && set({ accent: e.target.value })} />
+              </div>
+            </>
+          )}
 
-          <div className="mt-4">
+          <div className={ownLook ? 'mt-4' : ''}>
             <Label htmlFor={`${meta.id}-anim`}>Einblenden</Label>
             <Select id={`${meta.id}-anim`} value={module.anim} onChange={(e) => set({ anim: e.target.value })}>
               <option value="up">Slide hoch</option>
@@ -1200,7 +1231,7 @@ function ModuleSettings({ meta, module, onChange, warning, goalTools, raidTools,
           <div className="flex items-center justify-between mb-2">
             <Label>Farben</Label>
             <button onClick={() => set({ colors: [...MODULE_DEFAULTS[meta.id].colors] })}
-              className="text-[11px] font-semibold text-gray-500 hover:text-violet-300 transition-colors">
+              className="text-[11px] font-semibold text-white/45 hover:text-accent-soft transition-colors">
               Standard
             </button>
           </div>
@@ -1216,7 +1247,7 @@ function ModuleSettings({ meta, module, onChange, warning, goalTools, raidTools,
           {/* Beim Raid-Clip nicht anbieten: die Unschärfe hinter der Karte
               hindert Twitch daran, den Clip von allein zu starten. Die
               Murmelbahn ist ebenfalls immer flach (großer Canvas). */}
-          {meta.id !== 'raidClip' && meta.id !== 'marbleRun' && (
+          {ownLook && meta.id !== 'raidClip' && meta.id !== 'marbleRun' && (
             <div className="mt-4">
               <ToggleRow label="Glassmorphism" description="Weiche Unschärfe hinter der Karte."
                 checked={module.glass} onChange={(v) => set({ glass: v })} />
@@ -1236,8 +1267,8 @@ const BAR_BUTTON =
   'inline-flex items-center gap-1.5 h-8 px-2.5 rounded-md border text-[12px] font-bold transition-colors';
 const barButton = (active) =>
   `${BAR_BUTTON} ${active
-    ? 'border-violet-400/40 bg-violet-500/15 text-white'
-    : 'border-white/10 text-gray-300 hover:text-white hover:border-white/25'}`;
+    ? 'border-accent-soft/40 bg-accent/15 text-white'
+    : 'border-white/10 text-white/75 hover:text-white hover:border-white/25'}`;
 
 /** Knopf in der Kopfleiste, der ein Menü darunter aufklappt. */
 function BarMenu({ label, icon: Icon, width = 340, mark, children }) {
@@ -1248,7 +1279,7 @@ function BarMenu({ label, icon: Icon, width = 340, mark, children }) {
         <Icon size={14} />
         <span className="hidden md:inline">{label}</span>
         {mark && <span className="w-1.5 h-1.5 rounded-sm bg-amber-400" />}
-        <ChevronDown size={12} className="text-gray-500" />
+        <ChevronDown size={12} className="text-white/45" />
       </button>
       {open && (
         <>
@@ -1266,6 +1297,56 @@ function BarMenu({ label, icon: Icon, width = 340, mark, children }) {
   );
 }
 
+/**
+ * Gemeinsames Design aller Karten. Stil und Ecken gelten immer für alle;
+ * Farbe, Deckkraft und Glas für jedes Modul, das nicht „Eigenes Aussehen“ hat.
+ */
+function ThemeMenu({ theme, set, ownCount }) {
+  const ownNote = ownCount === 1
+    ? ' Ein Modul hat ein eigenes Aussehen — das stellst du im Modul unter „Aussehen“ um.'
+    : ' ' + ownCount + ' Module haben ein eigenes Aussehen — das stellst du im Modul unter „Aussehen“ um.';
+  return (
+    <div className="p-3.5 space-y-4">
+      <div>
+        <Label>Stil</Label>
+        <Choice
+          value={theme.style === 'classic' ? 'classic' : 'clean'}
+          options={[['clean', 'Modern'], ['classic', 'Klassisch']]}
+          onChange={(v) => set({ style: v })}
+        />
+        <Note>
+          {theme.style === 'classic'
+            ? 'Die ursprünglichen Karten mit Schildern, schmalen Balken und Fußzeile.'
+            : 'Große Zeilen mit dem Balken hinter dem Text, schlichte Kopfzeile, flache Balken.'}
+        </Note>
+      </div>
+
+      <div>
+        <Label htmlFor="theme-accent">Akzentfarbe</Label>
+        <div className="flex items-center gap-2 mt-1.5">
+          <input id="theme-accent" type="color" value={theme.accent}
+            onChange={(e) => set({ accent: e.target.value })}
+            className="w-9 h-9 shrink-0 rounded-lg border border-white/10 bg-transparent cursor-pointer p-0" />
+          <Field value={theme.accent} maxLength={7} className="!text-xs tabular-nums"
+            onChange={(e) => /^#[0-9a-fA-F]{6}$/.test(e.target.value) && set({ accent: e.target.value })} />
+        </div>
+      </div>
+
+      <Slider label="Ecken" value={theme.radius} min={0} max={24} step={2} unit=" px"
+        onChange={(v) => set({ radius: v })} />
+      <Slider label="Deckkraft" value={theme.opacity} min={0} max={100} step={5} unit=" %"
+        onChange={(v) => set({ opacity: v })} />
+      <ToggleRow label="Glassmorphism" description="Weiche Unschärfe hinter den Karten."
+        checked={theme.glass} onChange={(v) => set({ glass: v })} />
+
+      <Note>
+        Gilt für Abstimmung, Vorhersage, Ziele, Statistik und Raid-Clip.
+        {ownCount > 0 && ownNote}
+      </Note>
+    </div>
+  );
+}
+
 /** Eine Zeile im Test-Menü: was passiert, Start, Stopp. */
 function TestItem({ title, text, off, busy, onStart, onStop, children }) {
   return (
@@ -1273,16 +1354,16 @@ function TestItem({ title, text, off, busy, onStart, onStop, children }) {
       <div className="flex items-center gap-2">
         <div className="min-w-0 flex-1">
           <p className="text-[13px] font-bold text-white">{title}</p>
-          <p className="text-[11px] text-gray-500 leading-snug">{off ? 'Modul ist ausgeschaltet.' : text}</p>
+          <p className="text-[11px] text-white/45 leading-snug">{off ? 'Modul ist ausgeschaltet.' : text}</p>
         </div>
         {onStop && (
           <button type="button" onClick={onStop} title="Beenden" disabled={off}
-            className="w-8 h-8 shrink-0 inline-flex items-center justify-center rounded-md border border-white/10 text-gray-500 hover:text-white hover:border-white/25 disabled:opacity-40 transition-colors">
+            className="w-8 h-8 shrink-0 inline-flex items-center justify-center rounded-md border border-white/10 text-white/45 hover:text-white hover:border-white/25 disabled:opacity-40 transition-colors">
             <Square size={12} />
           </button>
         )}
         <button type="button" onClick={onStart} disabled={off || busy}
-          className="h-8 px-3 shrink-0 inline-flex items-center gap-1.5 rounded-md bg-violet-600 hover:bg-violet-500 disabled:bg-white/5 disabled:text-gray-600 text-white text-[12px] font-bold transition-colors">
+          className="h-8 px-3 shrink-0 inline-flex items-center gap-1.5 rounded-md bg-accent hover:bg-accent-hover disabled:bg-white/5 disabled:text-white/30 text-white text-[12px] font-bold transition-colors">
           <Play size={12} />
           Start
         </button>
@@ -1300,7 +1381,7 @@ function TestItem({ title, text, off, busy, onStart, onStop, children }) {
 function TestMenu({ modules, busy, note, demoOn, setDemoOn, demoOutcomes, setDemoOutcomes, onScene, onStopScene, onRaid, onStopRaid, onMarbles }) {
   const [viewers, setViewers] = useState(40);
   const [channel, setChannel] = useState('');
-  const small = 'mt-2 w-full bg-[#1a1a22] border border-white/10 rounded-md px-2.5 py-1.5 text-white placeholder-gray-600 focus:border-violet-400 outline-none text-[12px]';
+  const small = 'mt-2 w-full bg-[#1a1a22] border border-white/10 rounded-md px-2.5 py-1.5 text-white placeholder-white/30 focus:border-accent outline-none text-[12px]';
 
   return (
     <div className="divide-y divide-white/[0.08]">
@@ -1310,11 +1391,11 @@ function TestMenu({ modules, busy, note, demoOn, setDemoOn, demoOutcomes, setDem
           checked={demoOn} onChange={setDemoOn} />
         {demoOn && (
           <div className="flex items-center gap-2 mt-2 pl-12">
-            <span className="text-[11px] text-gray-500">Vorhersage mit</span>
+            <span className="text-[11px] text-white/45">Vorhersage mit</span>
             {[2, 4].map((n) => (
               <button key={n} type="button" onClick={() => setDemoOutcomes(n)}
                 className={`h-6 px-2 rounded-sm border text-[11px] font-bold transition-colors ${
-                  demoOutcomes === n ? 'border-violet-400/40 bg-violet-500/15 text-white' : 'border-white/10 text-gray-500 hover:text-white'
+                  demoOutcomes === n ? 'border-accent-soft/40 bg-accent/15 text-white' : 'border-white/10 text-white/45 hover:text-white'
                 }`}>
                 {n} Optionen
               </button>
@@ -1330,7 +1411,7 @@ function TestMenu({ modules, busy, note, demoOn, setDemoOn, demoOutcomes, setDem
       <TestItem title="Raid-Ansturm" text="Eine Menge rennt durchs Bild, vorneweg dein eigener Kanal."
         off={!modules.raidStorm.enabled} busy={busy}
         onStart={() => onScene('storm', viewers)} onStop={() => onStopScene('storm')}>
-        <label className="flex items-center gap-2 text-[11px] text-gray-500">
+        <label className="flex items-center gap-2 text-[11px] text-white/45">
           <span className="mt-2 shrink-0">Zuschauer</span>
           <input type="number" min={1} max={5000} value={viewers} className={small}
             onChange={(e) => setViewers(Math.max(1, Number(e.target.value) || 1))} />
@@ -1371,18 +1452,18 @@ function ObsLinkSection({ overlayKey, onRegenerate }) {
     }).catch(() => {});
   };
 
-  const iconButton = 'w-8 h-8 shrink-0 inline-flex items-center justify-center rounded-md border border-white/10 text-gray-500 hover:text-white hover:border-white/25 transition-colors';
+  const iconButton = 'w-8 h-8 shrink-0 inline-flex items-center justify-center rounded-md border border-white/10 text-white/45 hover:text-white hover:border-white/25 transition-colors';
 
   return (
     <div className="p-3.5 space-y-3">
       <div>
         <p className="text-[13px] font-bold text-white">OBS-Browserquelle</p>
-        <p className="text-[11px] text-gray-500 leading-relaxed mt-0.5">
+        <p className="text-[11px] text-white/45 leading-relaxed mt-0.5">
           Eine Quelle für alle Module, Breite 1920 und Höhe 1080. Den Link nicht im Stream zeigen.
         </p>
       </div>
       <div className="flex items-center gap-1.5">
-        <div className={`flex-1 min-w-0 h-8 flex items-center bg-[#1a1a22] border border-white/10 rounded-md px-2.5 text-gray-400 text-[11px] truncate ${hidden ? 'blur-sm select-none' : ''}`}>
+        <div className={`flex-1 min-w-0 h-8 flex items-center bg-[#1a1a22] border border-white/10 rounded-md px-2.5 text-white/55 text-[11px] truncate ${hidden ? 'blur-sm select-none' : ''}`}>
           <span className="truncate">{link || 'Lade…'}</span>
         </div>
         <button type="button" onClick={() => setHidden((v) => !v)} title={hidden ? 'Anzeigen' : 'Verbergen'} className={iconButton}>
@@ -1390,14 +1471,14 @@ function ObsLinkSection({ overlayKey, onRegenerate }) {
         </button>
       </div>
       <button type="button" onClick={copy} disabled={!link}
-        className="w-full h-8 inline-flex items-center justify-center gap-2 rounded-md bg-violet-600 hover:bg-violet-500 disabled:bg-white/5 disabled:text-gray-600 text-white text-[12px] font-bold transition-colors">
+        className="w-full h-8 inline-flex items-center justify-center gap-2 rounded-md bg-accent hover:bg-accent-hover disabled:bg-white/5 disabled:text-white/30 text-white text-[12px] font-bold transition-colors">
         {copied ? <Check size={13} /> : <Copy size={13} />}
         {copied ? 'Kopiert' : 'Link kopieren'}
       </button>
       <div className="flex items-center justify-between gap-2 pt-1">
-        <p className="text-[11px] text-gray-500">Zum Ausrichten <span className="text-gray-300">?demo=1</span> anhängen.</p>
+        <p className="text-[11px] text-white/45">Zum Ausrichten <span className="text-white/75">?demo=1</span> anhängen.</p>
         <button type="button" onClick={onRegenerate} disabled={!overlayKey}
-          className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-gray-500 hover:text-red-400 transition-colors">
+          className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-white/45 hover:text-red-400 transition-colors">
           <RefreshCw size={11} />
           Neuen Link erzeugen
         </button>
@@ -1518,18 +1599,29 @@ export default function PollsPredictionsPage() {
   // Live-Abruf zeigt das neue Ziel also ohne Zutun. Deshalb wird hier die
   // gesamte Konfiguration übergeben (inkl. Version), nicht nur die Module.
   const saveTimer = useRef(0);
+  const saveSoon = useCallback((next) => {
+    clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(() => {
+      api.saveConfig(next)
+        .then((r) => { if (r?.chatWatch) setChatWatch(r.chatWatch); })
+        .catch(() => {});
+    }, SAVE_DEBOUNCE_MS);
+  }, []);
   const patchModule = useCallback((id, patch) => {
     setConfig((prev) => {
       const next = { ...prev, modules: { ...prev.modules, [id]: { ...prev.modules[id], ...patch } } };
-      clearTimeout(saveTimer.current);
-      saveTimer.current = setTimeout(() => {
-        api.saveConfig(next)
-          .then((r) => { if (r?.chatWatch) setChatWatch(r.chatWatch); })
-          .catch(() => {});
-      }, SAVE_DEBOUNCE_MS);
+      saveSoon(next);
       return next;
     });
-  }, []);
+  }, [saveSoon]);
+  /** Gemeinsames Design aller Karten (Stil, Farbe, Ecken, Deckkraft). */
+  const patchTheme = useCallback((patch) => {
+    setConfig((prev) => {
+      const next = { ...prev, theme: { ...THEME_DEFAULTS, ...prev.theme, ...patch } };
+      saveSoon(next);
+      return next;
+    });
+  }, [saveSoon]);
 
   /* ── Live-Stand ─────────────────────────────────────────────────────────── */
   useEffect(() => {
@@ -1854,7 +1946,8 @@ export default function PollsPredictionsPage() {
   }, [snapOn, gridOn, patchModule]);
 
   /* ── Anzeigedaten ───────────────────────────────────────────────────────── */
-  const m = config.modules;
+  // Mit eingerechnetem Design — die Einstellungen unten lesen dagegen config.modules
+  const m = effectiveModules(config);
   const now = Date.now() + clockOffset.current;
   const sim = useDemoSim(demoOn, demoOutcomes);
 
@@ -1995,32 +2088,34 @@ export default function PollsPredictionsPage() {
      wenn derselbe Text sichtbar auf der Seite steht. */
   if (!user) {
     return (
-      <div className="page-fade max-w-6xl mx-auto">
-        <SEO
-          title={ST_TITLE}
-          description={ST_DESCRIPTION}
-          keywords={ST_KEYWORDS}
-          path="/twitch-tools"
-          jsonLd={buildStreamToolJsonLd()}
-        />
-        <StreamToolSeoContent>
-          <div className="flex flex-col items-center gap-2">
-            <button onClick={() => login(false, loginScopes)}
-              className="inline-flex items-center gap-2 bg-[#9146FF] hover:bg-[#7c3aed] text-white font-bold px-6 py-3 rounded-lg text-sm transition-colors">
-              <TwitchGlyph size={15} />
-              Mit Twitch anmelden und Overlay einrichten
-            </button>
-            <p className="text-white/30 text-xs">Kostenlos · nur Twitch-Login nötig</p>
-          </div>
-        </StreamToolSeoContent>
-      </div>
+      <ToolScroll>
+        <div className="page-fade max-w-6xl mx-auto">
+          <SEO
+            title={ST_TITLE}
+            description={ST_DESCRIPTION}
+            keywords={ST_KEYWORDS}
+            path="/twitch-tools"
+            jsonLd={buildStreamToolJsonLd()}
+          />
+          <StreamToolSeoContent>
+            <div className="flex flex-col items-center gap-2">
+              <Button variant="twitch" size="lg" icon={TwitchGlyph} onClick={() => login(false, loginScopes)}>
+                Mit Twitch anmelden und Overlay einrichten
+              </Button>
+              <p className="text-white/30 text-xs">Kostenlos · nur Twitch-Login nötig</p>
+            </div>
+          </StreamToolSeoContent>
+        </div>
+      </ToolScroll>
     );
   }
 
   const needsRights = connected && (missingGoalScopes.length > 0 || !hasTwitchGoalScope || sceneScopeMissing);
+  // Ohne eigenes display: wer den Knopf auf dem Handy ausblenden will, setzt `hidden sm:inline-flex`
+  // davor — ein inline-flex hier hätte das `hidden` überstimmt.
   const iconToggle = (on) =>
-    `w-8 h-8 inline-flex items-center justify-center rounded-md border transition-colors ${
-      on ? 'border-violet-400/40 bg-violet-500/15 text-violet-200' : 'border-white/10 text-gray-500 hover:text-white hover:border-white/25'
+    `w-8 h-8 items-center justify-center rounded-md border transition-colors ${
+      on ? 'border-accent-soft/40 bg-accent/15 text-accent-soft' : 'border-white/10 text-white/45 hover:text-white hover:border-white/25'
     }`;
 
   /** Eine Zeile der Modul-Liste. */
@@ -2034,12 +2129,12 @@ export default function PollsPredictionsPage() {
     const locked = premiumModules.includes(meta.id) && premium && !premium.active;
     return (
       <div key={meta.id}
-        className={`relative flex items-center transition-colors ${isActive ? 'bg-violet-500/[0.12]' : 'hover:bg-white/[0.04]'}`}>
-        <span aria-hidden className={`absolute left-0 top-0 bottom-0 w-[2px] ${isActive ? 'bg-violet-400' : 'bg-transparent'}`} />
+        className={`relative flex items-center transition-colors ${isActive ? 'bg-accent/[0.12]' : 'hover:bg-white/[0.04]'}`}>
+        <span aria-hidden className={`absolute left-0 top-0 bottom-0 w-[2px] ${isActive ? 'bg-accent-soft' : 'bg-transparent'}`} />
         <button type="button" onClick={() => setSelected(meta.id)} aria-pressed={isActive}
           className="flex items-center gap-2.5 flex-1 min-w-0 text-left h-10 pl-3.5 pr-1">
-          <Icon size={15} className={`shrink-0 ${isActive ? 'text-violet-300' : (module.enabled ? 'text-gray-300' : 'text-gray-600')}`} />
-          <span className={`text-[13px] font-semibold truncate ${isActive ? 'text-white' : (module.enabled ? 'text-gray-200' : 'text-gray-500')}`}>
+          <Icon size={15} className={`shrink-0 ${isActive ? 'text-accent-soft' : (module.enabled ? 'text-white/75' : 'text-white/30')}`} />
+          <span className={`text-[13px] font-semibold truncate ${isActive ? 'text-white' : (module.enabled ? 'text-white/85' : 'text-white/45')}`}>
             {meta.label}
           </span>
           {hint && <span title="Aktion nötig" className="w-1.5 h-1.5 shrink-0 rounded-sm bg-amber-400" />}
@@ -2048,15 +2143,15 @@ export default function PollsPredictionsPage() {
           // Solange noch nicht verkauft wird (config/legal.js), ist das Schloss nur ein Hinweis
           <button type="button" onClick={() => setPremiumOpen(true)} disabled={!salesVisible()}
             title={salesVisible() ? 'Gehört zum Abo' : 'Bald verfügbar'}
-            className="shrink-0 mx-2 w-9 h-7 inline-flex items-center justify-center rounded-sm text-violet-300 bg-violet-500/10 enabled:hover:bg-violet-500/20 disabled:text-gray-600 disabled:bg-white/5 transition-colors">
+            className="shrink-0 mx-2 w-9 h-7 inline-flex items-center justify-center rounded-sm text-accent-soft bg-accent/10 enabled:hover:bg-accent/20 disabled:text-white/30 disabled:bg-white/5 transition-colors">
             <Lock size={13} />
           </button>
         ) : (
           <label className="relative shrink-0 cursor-pointer px-3 py-2.5" title={module.enabled ? 'Ausschalten' : 'Einschalten'}>
             <input type="checkbox" checked={module.enabled} className="peer sr-only"
               onChange={(e) => patchModule(meta.id, { enabled: e.target.checked })} />
-            <span className="block w-8 h-[18px] rounded-full bg-white/10 peer-checked:bg-violet-500/50 transition-colors" />
-            <span className="absolute top-[13px] left-[15px] w-3 h-3 rounded-full bg-gray-400 peer-checked:bg-white peer-checked:translate-x-[14px] transition-transform" />
+            <span className="block w-8 h-[18px] rounded-full bg-white/10 peer-checked:bg-accent/50 transition-colors" />
+            <span className="absolute top-[13px] left-[15px] w-3 h-3 rounded-full bg-white/60 peer-checked:bg-white peer-checked:translate-x-[14px] transition-transform" />
           </label>
         )}
       </div>
@@ -2065,42 +2160,34 @@ export default function PollsPredictionsPage() {
 
   const railGroup = (title, list) => (
     <section>
-      <p className="text-[10.5px] font-bold uppercase tracking-wider text-gray-500 px-3.5 pt-3.5 pb-1.5">{title}</p>
+      <p className="text-[10.5px] font-bold uppercase tracking-wider text-white/45 px-3.5 pt-3.5 pb-1.5">{title}</p>
       {list.map(railItem)}
     </section>
   );
 
-  // Die Seite legt sich als eigene Oberfläche über das ganze Fenster — ohne die
-  // Kopfzeile der Website, damit die Bühne den Platz bekommt. Als Portal, weil
-  // der Inhaltsbereich des Layouts einen eigenen Stapelkontext hat und die
-  // Kopfzeile sonst darüber läge. Die Anmelde-Fassung oben bleibt bewusst im
-  // normalen Layout: sie ist die Seite, die Besucher und Suchmaschinen sehen.
-  return createPortal(
-    <div className="fixed inset-0 z-[200] flex flex-col bg-[#0b0b11] text-white overflow-y-auto lg:overflow-hidden">
+  // Arbeitsfläche über die ganze Höhe der Tool-Hülle (components/toolShell), damit die Bühne den
+  // Platz bekommt. Verbindung, Raster, Testen und OBS-Link stehen in deren Kopfleiste (ToolHeader).
+  return (
+    <div className="h-full flex flex-col bg-[#0b0b11] text-white overflow-y-auto lg:overflow-hidden">
       {seo}
+      <h1 className="sr-only">Twitch-Overlays</h1>
 
-      {/* ══════════ Kopfleiste ══════════ */}
-      <header className="relative z-30 shrink-0 h-12 flex items-center gap-2 px-3 border-b border-white/10 bg-[#0f0f16]">
-        <Link to="/tools" title="Zurück zur Website"
-          className="w-8 h-8 inline-flex items-center justify-center rounded-md text-gray-500 hover:text-white hover:bg-white/5 transition-colors">
-          <ArrowLeft size={16} />
-        </Link>
-        <h1 className="text-[14px] font-bold text-white whitespace-nowrap">Twitch-Overlays</h1>
-
+      {/* ══════════ Kopfleiste (in der Leiste der Tool-Hülle) ══════════ */}
+      <ToolHeader>
         {connected ? (
-          <span className="hidden sm:inline-flex items-center gap-1.5 ml-2 text-[12px] text-gray-400 min-w-0">
+          <span className="hidden sm:inline-flex items-center gap-1.5 text-[12px] text-white/55 min-w-0">
             <span className="w-1.5 h-1.5 rounded-full bg-green-400 shrink-0" />
             <span className="truncate">{twitchLogin || 'verbunden'}</span>
             <button type="button" onClick={disconnect} title="Verbindung trennen"
-              className="p-1 rounded-sm text-gray-600 hover:text-red-400 transition-colors">
+              className="p-1 rounded-sm text-white/30 hover:text-red-400 transition-colors">
               <LogOut size={12} />
             </button>
           </span>
         ) : (
-          <button type="button" onClick={connect} disabled={busy}
-            className="ml-2 h-8 px-3 inline-flex items-center gap-2 rounded-md bg-violet-600 hover:bg-violet-500 disabled:bg-white/5 disabled:text-gray-600 text-white text-[12px] font-bold transition-colors">
+          <button type="button" onClick={connect} disabled={busy} title="Kanal verbinden" aria-label="Kanal verbinden"
+            className="h-8 px-2.5 sm:px-3 shrink-0 whitespace-nowrap inline-flex items-center gap-2 rounded-md bg-accent hover:bg-accent-hover disabled:bg-white/5 disabled:text-white/30 text-white text-[12px] font-bold transition-colors">
             <TwitchGlyph size={13} />
-            {busy ? 'Verbinde…' : 'Kanal verbinden'}
+            <span className="hidden sm:inline">{busy ? 'Verbinde…' : 'Kanal verbinden'}</span>
           </button>
         )}
 
@@ -2112,6 +2199,14 @@ export default function PollsPredictionsPage() {
             className={`hidden sm:inline-flex ${iconToggle(snapOn)}`}>
             <Crosshair size={14} />
           </button>
+
+          <BarMenu label="Design" icon={Palette} width={340}>
+            <ThemeMenu
+              theme={{ ...THEME_DEFAULTS, ...config.theme }}
+              set={patchTheme}
+              ownCount={THEMED_IDS.filter((id) => config.modules[id].ownLook).length}
+            />
+          </BarMenu>
 
           <BarMenu label="Testen" icon={FlaskConical} width={360}>
             <TestMenu
@@ -2136,13 +2231,13 @@ export default function PollsPredictionsPage() {
             }} />
           </BarMenu>
         </div>
-      </header>
+      </ToolHeader>
 
       {/* Meldungen: eine schmale Zeile je Sache, nur wenn es etwas zu sagen gibt */}
       {(error || live.notice || needsRights || aboNote) && (
         <div className="shrink-0 border-b border-white/10 divide-y divide-white/[0.06]">
           {aboNote && (
-            <p className="flex items-center gap-2 px-4 py-2 text-[12px] text-violet-200 bg-violet-500/10">{aboNote}</p>
+            <p className="flex items-center gap-2 px-4 py-2 text-[12px] text-accent-soft bg-accent/10">{aboNote}</p>
           )}
           {error && (
             <p className="flex items-center gap-2 px-4 py-2 text-[12px] text-red-300 bg-red-500/10">
@@ -2182,14 +2277,14 @@ export default function PollsPredictionsPage() {
           {/* Abo: Hinweis unter den Szenen — abschließen oder verwalten */}
           {premium && !premium.active && salesVisible() && (
             <button type="button" onClick={() => setPremiumOpen(true)}
-              className="mx-3 mt-3 w-[calc(100%-1.5rem)] h-9 inline-flex items-center justify-center gap-2 rounded-md bg-violet-600 hover:bg-violet-500 text-white text-[12px] font-bold transition-colors">
+              className="mx-3 mt-3 w-[calc(100%-1.5rem)] h-9 inline-flex items-center justify-center gap-2 rounded-md bg-accent hover:bg-accent-hover text-white text-[12px] font-bold transition-colors">
               <Lock size={13} /> Szenen freischalten
             </button>
           )}
           {premium?.source === 'subscription' && (
-            <p className="px-3.5 mt-3 text-[11px] text-gray-500">
+            <p className="px-3.5 mt-3 text-[11px] text-white/45">
               {premium.cancelAtPeriodEnd ? `Abo läuft bis ${untilText(premium.until)}.` : `Abo aktiv bis ${untilText(premium.until)}.`}{' '}
-              <button type="button" onClick={() => openPortal('/twitch-tools').catch((e) => flash(e.message))} className="text-violet-300 hover:text-violet-200">Verwalten</button>
+              <button type="button" onClick={() => openPortal('/twitch-tools').catch((e) => flash(e.message))} className="text-accent-soft hover:text-white">Verwalten</button>
             </p>
           )}
           <PremiumDialog open={premiumOpen} onClose={() => setPremiumOpen(false)} includes={PREMIUM_INCLUDES} returnPath="/twitch-tools" />
@@ -2241,7 +2336,7 @@ export default function PollsPredictionsPage() {
             </div>
           </div>
 
-          <p className="shrink-0 px-4 pb-3 text-[11px] text-gray-500 flex flex-wrap gap-x-4 gap-y-1">
+          <p className="shrink-0 px-4 pb-3 text-[11px] text-white/45 flex flex-wrap gap-x-4 gap-y-1">
             <span className="tabular-nums">1920 × 1080 · {Math.round(scale * 100)} %</span>
             <span>Karten mit der Maus verschieben. Das Karomuster bleibt im Stream durchsichtig.</span>
             {!connected && <span className="text-amber-300/80">Kanal verbinden, damit echte Daten erscheinen.</span>}
@@ -2252,16 +2347,16 @@ export default function PollsPredictionsPage() {
         {activeMeta && (
           <aside className="min-w-0 lg:min-h-0 flex flex-col border-t lg:border-t-0 lg:border-l border-white/10 bg-[#0f0f16]">
             <div className="shrink-0 h-12 flex items-center gap-2.5 px-3.5 border-b border-white/10">
-              <activeMeta.icon size={15} className="text-violet-300 shrink-0" />
+              <activeMeta.icon size={15} className="text-accent-soft shrink-0" />
               <p className="text-[13.5px] font-bold text-white truncate">{activeMeta.label}</p>
               <div className="ml-auto flex items-center gap-1.5">
                 {/* Eine Szene hat keine Karte, die sich mittig setzen ließe */}
                 {!activeMeta.scene && (
-                  <button type="button" onClick={() => centerWidget(activeMeta.id)} title="Auf der Bühne zentrieren" className={iconToggle(false)}>
+                  <button type="button" onClick={() => centerWidget(activeMeta.id)} title="Auf der Bühne zentrieren" className={`inline-flex ${iconToggle(false)}`}>
                     <Crosshair size={14} />
                   </button>
                 )}
-                <button type="button" title="Auf Standard zurücksetzen" className={iconToggle(false)}
+                <button type="button" title="Auf Standard zurücksetzen" className={`inline-flex ${iconToggle(false)}`}
                   onClick={() => patchModule(activeMeta.id, { ...MODULE_DEFAULTS[activeMeta.id] })}>
                   <RefreshCw size={14} />
                 </button>
@@ -2308,7 +2403,6 @@ export default function PollsPredictionsPage() {
           </aside>
         )}
       </div>
-    </div>,
-    document.body,
+    </div>
   );
 }

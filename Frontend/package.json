@@ -22,6 +22,8 @@
     "preview": "vite preview",
     "tailwind:init": "tailwindcss init -p",
     "test:flick": "node --test \"src/pages/FlickSoccer/**/*.test.js\"",
+    "flick:tricks": "node src/pages/FlickSoccer/tools/trickGen.mjs",
+    "test:worldflip": "node --test \"src/pages/Worldflip/**/*.test.js\"",
     "test:adventure": "node --test \"src/pages/Adventure/**/*.test.js\""
   },
   "dependencies": {

@@ -4,107 +4,149 @@
 // Preisrechnungen hier müssen zu handleBuyTool & Co. passen.
 import React from "react";
 import {
-    GardenModal, GoldTag, TimerTag, TabBar, PrimaryButton, RarityLabel, Abschnitt, LeerHinweis, FensterZeile, NebenKnopf,
+    GoldTag, TimerTag,
 } from "../gardenUi";
 import { formatGold } from "../gardenTokens";
-import { ItemIcon } from "../ItemIcon";
 import { DEKO_KATEGORIEN, dekoNachKategorie } from "../deko";
 import {
     giesskanneMinuten, KISTE_MAX, VITRINE_MAX, EGG_SHOP_CATALOGUE, getToolImage, getPickaxePrice,
     STEINFELDER_GESAMT, normalizeToolInventory, BACKPACK_MAX_LEVEL, BUY_ALL_WERKZEUGE,
-    getBackpackUpgradePrice, normalizePlotUnlockedCells, ShopSeedCard,
+    getBackpackUpgradePrice, normalizePlotUnlockedCells, withVisuals, SeedFacts,
 } from "../../engine/gameConstants";
+import { ARCHETYPE_LABELS, getPlantArchetypeKey } from "../../engine/PlantSystem";
+import { istSaisonSorte, SAISON_ERLOES } from "../../engine/Tageszeit";
+import { versionedAsset } from "../../engine/assetVersion";
+import { StandFenster, StandReiter, Regal, WarenKachel, WarenBild, KaufKnopf, Marke } from "./Marktstand";
 
 // Ab welcher Seltenheit ein Samen im Laden oben im eigenen Abschnitt steht.
 const SELTENE_STUFEN = new Set(["EPIC", "LEGENDARY", "MYTHIC"]);
+
+/**
+ * Samen-Shop im Marktstand-Look (06.11.). Zwei Reiter statt drei: „Lohnt sich" war
+ * nur das Angebot ohne die Samen, die bei deinem Gold kaum etwas bringen — bei wenig
+ * Gold zeigten beide Reiter dasselbe. Jetzt stehen diese Samen blass im eigenen Regal
+ * unten im Angebot (ladenWert.js entscheidet weiter, was sich lohnt).
+ */
+function SamenKachel({ seed, stock, gold, rucksackVoll, xpJeSorte, onBuy, onBuyAll, blass }) {
+    const visual = withVisuals(seed);
+    const inactive = !seed.active && seed.active !== undefined;
+    const outOfStock = (stock ?? (seed.active ? 1 : 0)) <= 0;
+    const canAfford = gold >= seed.shopPrice;
+    const clickable = canAfford && !outOfStock && !inactive && !rucksackVoll;
+    // Warum ein Kauf gerade nicht geht — steht dort, wo sonst „Kaufen" steht (wie ShopSeedCard)
+    const hinderung = inactive ? "Nicht da"
+        : outOfStock ? "Leer"
+            : rucksackVoll ? "Voll"
+                : !canAfford ? "Zu teuer" : null;
+    const archetyp = ARCHETYPE_LABELS[getPlantArchetypeKey(seed.seedId)] || "Pflanze";
+    return (
+        <WarenKachel
+            blass={blass || inactive}
+            raritaet={seed.rarity}
+            name={seed.name}
+            zeile={`${archetyp} · ${seed.singleUse ? "Einmalernte" : "Dauerträger"}`}
+            bild={(
+                <div className="relative">
+                    <WarenBild src={visual.harvestImage} alt={seed.name} />
+                    <img src={versionedAsset(visual.plantedSeedImage)} alt="" draggable={false}
+                        className="absolute -bottom-2 -left-7 h-11 w-11 object-contain drop-shadow-[2px_2px_0_rgba(59,37,22,0.35)]" style={{ imageRendering: "pixelated" }} />
+                </div>
+            )}
+            abzeichen={istSaisonSorte(seed.seedId) ? (
+                <Marke title="Saisonsorte: in dieser Jahreszeit geerntet bringt sie mehr Gold">Saison +{Math.round((SAISON_ERLOES - 1) * 100)} %</Marke>
+            ) : null}
+            vorrat={seed.active && !outOfStock ? stock : null}
+            preis={seed.shopPrice}
+            leistbar={canAfford}
+            details={<SeedFacts seed={seed} xpJeSorte={xpJeSorte} />}
+            aktionen={(
+                <>
+                    {clickable && <KaufKnopf klein title="So viele kaufen, wie Vorrat und Gold hergeben" onClick={() => onBuyAll(seed)}>Alle</KaufKnopf>}
+                    <KaufKnopf disabled={!clickable} onClick={() => onBuy(seed)}>{hinderung || "Kaufen"}</KaufKnopf>
+                </>
+            )}
+        />
+    );
+}
 
 export function SamenLaden({
     onClose, countdown, gold, shopFilter, setShopFilter, lohnendeShopSeeds, shopRotation,
     visibleShopSeeds, ladenBestand, rucksackVoll, xpJeSorte, onBuy, onBuyAll,
 }) {
+    const katalog = shopFilter === "all";
+    const lohnend = new Set((lohnendeShopSeeds || []).map((s) => s.seedId));
+    const kachel = (seed, blass = false) => (
+        <SamenKachel
+            key={seed.seedId}
+            seed={seed}
+            stock={ladenBestand[seed.seedId] ?? (seed.active ? (seed.stock ?? 0) : 0)}
+            gold={gold}
+            rucksackVoll={rucksackVoll}
+            xpJeSorte={xpJeSorte}
+            onBuy={onBuy}
+            onBuyAll={onBuyAll}
+            blass={blass}
+        />
+    );
+    const selten = visibleShopSeeds.filter((s) => SELTENE_STUFEN.has(s.rarity) && (katalog || lohnend.has(s.seedId)));
+    const normal = visibleShopSeeds.filter((s) => !SELTENE_STUFEN.has(s.rarity) && (katalog || lohnend.has(s.seedId)));
+    const kaum = katalog ? [] : visibleShopSeeds.filter((s) => !lohnend.has(s.seedId));
     return (
-        <GardenModal
-            title="Samen-Shop"
+        <StandFenster
+            titel="Samen-Shop"
+            untertitel={katalog ? "Alle Sorten, die es geben kann" : "Frische Ware — wechselt mit jeder Lieferung"}
+            farbe="gruen"
+            bild="/garden-assets/world/seed_shop.png"
             onClose={onClose}
-            headerRight={
+            kopfRechts={(
                 <>
-                    <TimerTag title="Nächste Rotation" label={countdown} />
+                    <TimerTag title="Nächste Lieferung" label={countdown} />
                     <GoldTag gold={gold} />
                 </>
-            }
+            )}
+            reiter={(
+                <StandReiter
+                    aktiv={katalog ? "all" : "available"}
+                    onWaehlen={setShopFilter}
+                    reiter={[
+                        { key: "available", label: "Angebot", anzahl: shopRotation?.seeds.filter((s) => s.active).length ?? 0 },
+                        { key: "all", label: "Gesamter Katalog", anzahl: shopRotation?.seeds.length ?? 0 },
+                    ]}
+                />
+            )}
         >
-            <TabBar
-                active={shopFilter}
-                onSelect={setShopFilter}
-                tabs={[
-                    { key: "lohnend", label: "Lohnt sich", count: lohnendeShopSeeds.length },
-                    { key: "available", label: "Im Angebot", count: shopRotation?.seeds.filter(s => s.active).length ?? 0 },
-                    { key: "all", label: "Gesamter Katalog", count: shopRotation?.seeds.length ?? 0 },
-                ]}
-            />
-
-            <div className="space-y-1.5">
-                {/* Seltene Samen (Epic und höher) stehen als eigener Abschnitt
-                    oben — sie sind der Grund, den Laden zu öffnen, und gingen
-                    vorher zwischen den Commons unter. Nur bei Angeboten, im
-                    Gesamtkatalog bleibt die gewohnte Liste. */}
-                {(() => {
-                    const karte = (seed) => (
-                        <ShopSeedCard
-                            key={seed.seedId}
-                            seed={seed}
-                            stock={ladenBestand[seed.seedId] ?? (seed.active ? (seed.stock ?? 0) : 0)}
-                            canAfford={gold >= seed.shopPrice}
-                            rucksackVoll={rucksackVoll}
-                            xpJeSorte={xpJeSorte}
-                            onBuy={onBuy}
-                            onBuyAll={onBuyAll}
-                        />
-                    );
-                    if (shopFilter === "all") return visibleShopSeeds.map(karte);
-                    const selten = visibleShopSeeds.filter((s) => SELTENE_STUFEN.has(s.rarity));
-                    const rest = visibleShopSeeds.filter((s) => !SELTENE_STUFEN.has(s.rarity));
-                    if (selten.length === 0) return rest.map(karte);
-                    return (
-                        <>
-                            <Abschnitt ton="selten" className="px-1 pb-1">Seltene Samen in dieser Runde</Abschnitt>
-                            <div className="space-y-1.5 rounded-2xl border border-amber-700/50 bg-amber-950/20 p-1.5">
-                                {selten.map(karte)}
-                            </div>
-                            {rest.length > 0 && <Abschnitt>Weitere Samen</Abschnitt>}
-                            {rest.map(karte)}
-                        </>
-                    );
-                })()}
-                {(!shopRotation?.seeds || shopRotation.seeds.length === 0) && (
-                    <LeerHinweis>Shop wird geladen…</LeerHinweis>
-                )}
-                {shopFilter === "lohnend" && shopRotation?.seeds?.length > 0 && visibleShopSeeds.length === 0 && (
-                    <LeerHinweis>
-                        Diese Runde ist nichts dabei, was sich bei deinem Gold lohnt. Alles Übrige steht unter „Im Angebot“.
-                    </LeerHinweis>
-                )}
-            </div>
-        </GardenModal>
+            {(!shopRotation?.seeds || shopRotation.seeds.length === 0) && (
+                <div className="py-10 text-center text-sm text-[#f3e3c3]">Die Ware wird ausgepackt…</div>
+            )}
+            {selten.length > 0 && <Regal titel={katalog ? "Selten" : "Seltene Ware dieser Lieferung"} ton="selten">{selten.map((s) => kachel(s))}</Regal>}
+            {normal.length > 0 && <Regal titel={katalog ? "Weitere Sorten" : selten.length > 0 ? "Weitere Samen" : "Im Angebot"}>{normal.map((s) => kachel(s))}</Regal>}
+            {kaum.length > 0 && (
+                <Regal titel="Bringt bei deinem Gold kaum etwas" ton="blass">{kaum.map((s) => kachel(s, true))}</Regal>
+            )}
+        </StandFenster>
     );
 }
+
 
 export function WerkzeugLaden({
     onClose, countdown, gold, toolShopRotation, toolInventory, skillWirkung, skillStufe,
     plotUnlockedCells, toolShopStock, onBuy, onBuyAll,
 }) {
     return (
-        <GardenModal
-            title="Werkzeug-Shop"
+        <StandFenster
+            titel="Werkzeug-Shop"
+            untertitel="Alles, was eine Farm braucht"
+            farbe="blau"
+            bild="/garden-assets/world/tool_shop.png"
             onClose={onClose}
-            headerRight={
+            kopfRechts={
                 <>
                     <TimerTag title="Neue Lieferung" label={countdown} />
                     <GoldTag gold={gold} />
                 </>
             }
         >
-            <div className="space-y-1.5">
+            <Regal titel="Werkzeuge">
                 {(toolShopRotation?.items || []).map(tool => {
                     const toolInv = normalizeToolInventory(toolInventory);
                     // Muss zur Rechnung in handleBuyTool passen — sonst zeigt der
@@ -134,6 +176,8 @@ export function WerkzeugLaden({
                     const isPermanentOwned = (tool.id === "shovel" && toolInv.hasShovel)
                         || (tool.id === "chest" && toolInv.hasChest)
                         || (tool.id === "vitrine" && toolInv.hasVitrine)
+                        || (tool.id === "angel" && toolInv.hasAngel)
+                        || (tool.id === "profiangel" && toolInv.hasProfiAngel)
                         // Voll ausgebauter Rucksack: der Knopf blieb aktiv und
                         // hat weiter Gold gekostet, ohne Plätze zu geben.
                         || (tool.id === "backpack_upgrade" && (toolInv.backpackLevel || 0) >= BACKPACK_MAX_LEVEL)
@@ -142,7 +186,9 @@ export function WerkzeugLaden({
                     // vorrätig, gebremst allein durch ihren steigenden Preis.
                     const hasRotationStock = tool.type === "single";
                     const singleStock = hasRotationStock ? (toolShopStock[tool.id] ?? 0) : null;
-                    const canBuy = gold >= price && !isPermanentOwned && (!hasRotationStock || (singleStock ?? 0) > 0);
+                    // Profi-Angel nur mit einfacher Angel (wie werkzeug.js „braucht“)
+                    const fehltAngel = tool.id === "profiangel" && !toolInv.hasAngel;
+                    const canBuy = gold >= price && !isPermanentOwned && !fehltAngel && (!hasRotationStock || (singleStock ?? 0) > 0);
                     const description = {
                         pickaxe: offeneSteine === 0
                             ? "Dein Grundstück ist komplett freigelegt."
@@ -157,79 +203,89 @@ export function WerkzeugLaden({
                         watering_can: `Einmalig · verkürzt das Wachstum um ${giesskanneMinuten(skillStufe("giesskanne"))} Minuten · wirkt auf alle Fruchtstände`,
                         chest: `Dauerhaft · ${KISTE_MAX} Plätze für Ernte, ohne Rucksack zu belegen`,
                         vitrine: `Dauerhaft · ${VITRINE_MAX} Schauplätze, für alle in der Welt sichtbar`,
+                        angel: "Dauerhaft · damit angelst du am Steg des Dorfteichs",
+                        profiangel: toolInv.hasAngel ? "Dauerhaft · mehr Zeit, um die Ringe zu treffen" : "Braucht zuerst eine einfache Angel",
+                        koeder_wurm: `10 Stück · einfacher Köder, ohne Köder beißt nichts · du hast ${toolInv.koederWurm || 0}`,
+                        koeder_teig: `10 Stück · seltene Fische öfter, beißt schneller · du hast ${toolInv.koederTeig || 0}`,
+                        koeder_leucht: `5 Stück · epische und legendäre Fische öfter, beißt am schnellsten · du hast ${toolInv.koederLeucht || 0}`,
                     }[tool.id] || "";
                     return (
-                        <FensterZeile
+                        <WarenKachel
                             key={tool.id}
-                            hoverbar={canBuy}
-                            bild={<ItemIcon item={{ ...tool, image: getToolImage(tool.id) }} className="w-10 h-10" emojiClassName="text-2xl" />}
-                            titel={tool.name}
+                            blass={isPermanentOwned && !hackenGedeckt}
+                            band={{ text: "", farbe: "transparent", hell: "#dde8f2" }}
+                            bild={<WarenBild src={getToolImage(tool.id)} alt={tool.name} />}
+                            name={tool.name}
                             text={description}
-                            wert={formatGold(price)}
-                            unterWert={hasRotationStock ? `${singleStock ?? 0} auf Lager` : null}
+                            preis={isPermanentOwned ? undefined : price}
+                            leistbar={gold >= price}
+                            vorrat={hasRotationStock ? (singleStock ?? 0) : null}
                             aktionen={
                                 <>
                                     {/* Buy-All (v2, Punkt 12): nur bei Werkzeugen, die man
                                         sinnvoll mehrfach kauft — bei Schaufel/Kiste/Vitrine
                                         wäre "Alle" dasselbe wie "Kaufen", nur verwirrender. */}
                                     {canBuy && BUY_ALL_WERKZEUGE.has(tool.id) && (
-                                        <NebenKnopf onClick={() => onBuyAll(tool)} title="So viele kaufen, wie Vorrat/Deckel und Gold hergeben">
+                                        <KaufKnopf klein onClick={() => onBuyAll(tool)} title="So viele kaufen, wie Vorrat/Deckel und Gold hergeben">
                                             Alle
-                                        </NebenKnopf>
+                                        </KaufKnopf>
                                     )}
-                                    <PrimaryButton onClick={() => onBuy(tool)} disabled={!canBuy}>
-                                        {hackenGedeckt ? "Gedeckt" : isPermanentOwned ? "Im Besitz" : "Kaufen"}
-                                    </PrimaryButton>
+                                    <KaufKnopf onClick={() => onBuy(tool)} disabled={!canBuy}>
+                                        {hackenGedeckt ? "Gedeckt" : isPermanentOwned ? "Im Besitz" : fehltAngel ? "Erst Angel" : gold < price ? "Zu teuer" : "Kaufen"}
+                                    </KaufKnopf>
                                 </>
                             }
                         />
                     );
                 })}
-            </div>
-        </GardenModal>
+            </Regal>
+        </StandFenster>
     );
 }
 
 export function EierLaden({ onClose, countdown, gold, eggShopStock, onBuy }) {
     return (
-        <GardenModal
-            title="Eier-Shop"
+        <StandFenster
+            titel="Eier-Shop"
+            untertitel="Was schlüpft wohl daraus?"
+            farbe="orange"
+            bild="/garden-assets/world/egg_shop.png"
             onClose={onClose}
-            headerRight={
+            kopfRechts={
                 <>
                     <TimerTag title="Neues Angebot" label={countdown} />
                     <GoldTag gold={gold} />
                 </>
             }
         >
-            <div className="space-y-1.5">
+            <Regal titel="Eier dieser Lieferung">
                 {EGG_SHOP_CATALOGUE.map(egg => {
                     const stock = eggShopStock[egg.id] ?? 0;
                     const available = stock > 0;
                     return (
-                        <FensterZeile
+                        <WarenKachel
                             key={egg.id}
-                            zustand={available ? "normal" : "gedimmt"}
-                            hoverbar={available && gold >= egg.price}
-                            bild={<ItemIcon item={egg} className="w-10 h-10" emojiClassName="text-2xl" />}
-                            titel={egg.name}
-                            marke={<RarityLabel rarity={egg.rarity} />}
+                            blass={!available}
+                            raritaet={egg.rarity}
+                            bild={<WarenBild src={egg.image} alt={egg.name} />}
+                            name={egg.name}
                             text={egg.hatchTable.map(h => `${h.type} ${h.chance} %`).join(" · ")}
-                            wert={formatGold(egg.price)}
-                            unterWert={`${stock} auf Lager`}
+                            preis={egg.price}
+                            leistbar={gold >= egg.price}
+                            vorrat={stock}
                             aktionen={
-                                <PrimaryButton onClick={() => onBuy(egg)} disabled={gold < egg.price || stock <= 0}>
-                                    Kaufen
-                                </PrimaryButton>
+                                <KaufKnopf onClick={() => onBuy(egg)} disabled={gold < egg.price || stock <= 0}>
+                                    {stock <= 0 ? "Leer" : gold < egg.price ? "Zu teuer" : "Kaufen"}
+                                </KaufKnopf>
                             }
                         />
                     );
                 })}
-                {Object.values(eggShopStock).every(v => (v || 0) <= 0) && (
-                    <LeerHinweis>Diese Rotation führt keine Eier.</LeerHinweis>
-                )}
-            </div>
-        </GardenModal>
+            </Regal>
+            {Object.values(eggShopStock).every(v => (v || 0) <= 0) && (
+                <div className="py-4 text-center text-sm text-[#f3e3c3]">Diese Lieferung bringt keine Eier.</div>
+            )}
+        </StandFenster>
     );
 }
 
@@ -237,64 +293,58 @@ export function DekoLaden({ onClose, gold, dekoKategorie, setDekoKategorie, onBu
         const kategorie = DEKO_KATEGORIEN.find((k) => k.id === dekoKategorie) || DEKO_KATEGORIEN[0];
         const sichtbar = dekoNachKategorie(kategorie.id);
         return (
-        <GardenModal
-            title="Deko-Shop"
-            subtitle={kategorie.hinweis
+        <StandFenster
+            titel="Deko-Shop"
+            untertitel={kategorie.hinweis
                 ? `${kategorie.name} — ${kategorie.hinweis}`
-                : "Platzierbar auf den Grasflächen deiner Farm — beim Setzen mit R spiegelbar"}
+                : "Für die Wiese deiner Farm — beim Setzen mit R spiegelbar"}
+            farbe="rot"
+            bild="/garden-assets/world/deco_shop.png"
             onClose={onClose}
-            headerRight={<GoldTag gold={gold} />}
-            /* Feste Höhe UND feststehende Reiter. Vorher wuchs das Fenster mit
-               seinem Inhalt und sass dabei mittig — jeder Kategoriewechsel
-               verschob es also auf dem Bildschirm, und die Reiter sprangen
-               unter dem Mauszeiger weg. Dazu scrollten sie beim Blättern aus
-               dem Bild, sodass man zum Wechseln erst wieder hochfahren musste. */
-            feste
-            toolbar={
-                <TabBar
-                    className="-mb-2"
-                    active={kategorie.id}
-                    onSelect={setDekoKategorie}
-                    tabs={DEKO_KATEGORIEN.map((k) => ({ key: k.id, label: k.name }))}
+            kopfRechts={<GoldTag gold={gold} />}
+            reiter={
+                <StandReiter
+                    aktiv={kategorie.id}
+                    onWaehlen={setDekoKategorie}
+                    reiter={DEKO_KATEGORIEN.map((k) => ({ key: k.id, label: k.name }))}
                 />
             }
         >
-            {/* Eine Spalte wie in den anderen Läden — zwei Spalten ließen für Preis
-                und zwei Knöpfe zu wenig Platz. */}
-            <div className="space-y-1.5">
+            <Regal titel={kategorie.name}>
                 {sichtbar.map((deco) => {
                     const canBuy = gold >= deco.price;
                     return (
-                        <FensterZeile
+                        <WarenKachel
                             key={deco.id}
-                            hoverbar={canBuy}
-                            bild={<ItemIcon item={deco} className="w-10 h-10" emojiClassName="text-2xl" />}
-                            titel={deco.name}
-                            marke={<RarityLabel rarity={deco.rarity} />}
-                            text={`${deco.width}×${deco.height} Felder`}
-                            wert={formatGold(deco.price)}
+                            raritaet={deco.rarity}
+                            bild={<WarenBild src={deco.image} alt={deco.name} />}
+                            name={deco.name}
+                            zeile={`${deco.width}×${deco.height} Felder${deco.licht ? " · leuchtet nachts" : ""}`}
+                            preis={deco.price}
+                            leistbar={canBuy}
                             aktionen={
                                 <>
                                     {/* Zehnerkauf nur bei Belägen: von einer Statue will
                                         niemand zehn, von Steinplatten fast immer. */}
                                     {deco.ebene === "boden" && (
-                                        <NebenKnopf
+                                        <KaufKnopf
+                                            klein
                                             title={`10× ${deco.name} für ${formatGold(deco.price * 10)}`}
                                             onClick={(e) => { e.currentTarget.blur(); onBuy(deco, 10); }}
                                             disabled={gold < deco.price * 10}
                                         >
                                             ×10
-                                        </NebenKnopf>
+                                        </KaufKnopf>
                                     )}
-                                    <PrimaryButton onClick={() => onBuy(deco)} disabled={!canBuy}>
-                                        Kaufen
-                                    </PrimaryButton>
+                                    <KaufKnopf onClick={(e) => { e.currentTarget.blur(); onBuy(deco); }} disabled={!canBuy}>
+                                        {canBuy ? "Kaufen" : "Zu teuer"}
+                                    </KaufKnopf>
                                 </>
                             }
                         />
                     );
                 })}
-            </div>
-        </GardenModal>
+            </Regal>
+        </StandFenster>
         );
 }

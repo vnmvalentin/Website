@@ -319,16 +319,18 @@ export default function useWerkzeuge({
             notify("Zielfeld ist bereits belegt.", "error");
             return;
         }
+        // Topf serverseitig abbuchen, BEVOR die Pflanze umzieht (11.11.: vorher zog sie
+        // schon vor der Antwort um und blieb bei einem Fehler am falschen Platz stehen).
+        const quelle = movingPlantSource;
+        if (!(await verbraucheWerkzeug("plantPots"))) return;
         setPlotPlants(prev => {
-            const src = prev[movingPlantSource];
-            if (!src) return prev;
+            const src = prev[quelle];
+            if (!src || prev[targetKey]) return prev;
             const next = { ...prev };
-            delete next[movingPlantSource];
+            delete next[quelle];
             next[targetKey] = { ...src, cellX: targetX, cellY: targetY };
             return next;
         });
-        // Topf serverseitig abbuchen, bevor die Pflanze umzieht.
-        if (!(await verbraucheWerkzeug("plantPots"))) return;
         setMovingPlantSource(null);
         notify("Pflanze erfolgreich umgesetzt.");
         // Ohne das lief die Aenderung erst mit dem 5-Sekunden-Autosave zum Server —

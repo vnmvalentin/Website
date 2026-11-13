@@ -48,7 +48,7 @@ import { createHoverStore } from './ui/hoverStore';
 import MailboxModal from './ui/MailboxModal';
 import LogbuchModal from './ui/LogbuchModal';
 import SkillTreeModal from './ui/SkillTreeModal';
-import WardrobeModal from './ui/WardrobeModal';
+import Umkleide from './ui/Umkleide';
 import QuestBoardModal from './ui/QuestBoardModal';
 import GoldShopModal from './ui/GoldShopModal';
 import { SHED_RESKIN_BILD } from './ui/reskins';
@@ -95,10 +95,17 @@ import { ItemIcon } from './ui/ItemIcon';
 import { formatGroesse } from './ui/groesse';
 import { TwitchAuthContext } from "../../components/TwitchAuthContext";
 import { GardenAdminBrowser } from "./GardenAdminPanel";
+import { isLowGfx } from "../../utils/lowGfx";
+import HausInnen from "./ui/HausInnen";
+import AngelFenster from "./ui/fenster/AngelFenster";
+import { zeigeTeichling } from "./engine/teichLeben";
+import { setzeTierFutter, istSatt } from "./engine/PetSystem";
+import { HinweisLeiste, Taste } from "./ui/pergament";
+import { standMarken } from "./ui/auftragPasst";
 
 import {
     TwitchGlyph, START_GOLD, GIESSKANNE_MINUTEN,
-    WAGEN_VERSATZ_X, 
+    stelleStaendeAuf,
     SHOP_ROTATION_MS, TOOL_EGG_ROTATION_MS, 
     MAX_PLOT_EXPANSIONS, ACKERRASTER_MARKE, MUSIK_BASIS, THEME_TRACKS, THEME_STANDARD,
     PARTY_TRACKS, FARM_SEO, WORLD_SLOTS,
@@ -166,7 +173,8 @@ export default function GameContainer() {
     const [toolShopStock, setToolShopStock] = useState({});
     const [eggShopStock, setEggShopStock] = useState({});
     const [ladenBestand, setLadenBestand] = useState({}); // { seedId: count }
-    const [shopFilter, setShopFilter] = useState("lohnend"); // "lohnend" | "available" | "all"
+    // 06.11.: nur noch "available" | "all" — „Lohnt sich" ist ein Regal im Angebot (SamenLaden)
+    const [shopFilter, setShopFilter] = useState("available");
     const [plotPlants, setPlotPlants] = useState({}); // "cx_cy" → plant
     const [plotExpansions, setPlotExpansions] = useState(0);
     const [plotUnlockedCells, setPlotUnlockedCells] = useState([]);
@@ -201,10 +209,28 @@ export default function GameContainer() {
     const [isTrashOpen, setTrashOpen] = useState(false);
     /** Schuppen-Auswahl (Kiste/Vitrine/Mülleimer) — siehe activateInteractable "shed". */
     const [isShedOpen, setShedOpen] = useState(false);
+    /** Im eigenen Haus (06.11.): eigener Raum mit Kiste/Vitrine/Mülleimer/Inkubator, siehe ui/HausInnen.jsx. */
+    const [imHaus, setImHaus] = useState(false);
+    /** Im Gold-Shop (11.11.): derselbe begehbare Raum, Regale öffnen den Gold-Shop auf ihrem Reiter. */
+    const [imGoldShop, setImGoldShop] = useState(false);
+    const [goldShopTab, setGoldShopTab] = useState(null);
+    /** Zu Besuch im Haus eines Nachbarn (11.11.): { slotIndex, wirt, snap } — snap = dessen Momentaufnahme. */
+    const [besuch, setBesuch] = useState(null);
+    // Angeln (06.11., Backend core/angeln.js): Fenster, Fischeimer, Fischbuch, satte Tiere
+    const [angelnOffen, setAngelnOffen] = useState(false);
+    const [fische, setFische] = useState([]);
+    const [fischbuch, setFischbuch] = useState({});
+    const [tierFutter, setTierFutter] = useState({});
+    useEffect(() => { setzeTierFutter(tierFutter); }, [tierFutter]);
+    const tierFuetternRef = useRef(null);
+    const tierFuettern = useCallback((pet, fischId) => tierFuetternRef.current?.(pet, fischId), []);
+    // Aus dem Haus heraus geöffnete Fenster: „Zurück“ führt in den Raum, nicht in die alte Schuppen-Auswahl.
+    const schuppenZurueck = useCallback((offen) => { if (!offen) setShedOpen(false); }, []);
     // ── Missionsbrett (Feedback 30.08.) ────────────────────────────────────────
     // Katalog UND Fortschritt kommen vom Server (GET /rechte-Nachfolger GET
     // /quests), wie beim Fähigkeitsbaum: die Route entscheidet, was gilt.
-    const [isQuestBoardOpen, setQuestBoardOpen] = useState(false);
+    // false | "brett" | "haendler" | "erntefest" — ein Fenster, drei Stände (05.11.)
+    const [questBoardModus, setQuestBoardOpen] = useState(false);
     const [questDaten, setQuestDaten] = useState({ taeglich: [], woechentlich: [], auftraege: null, erntefest: null });
     // ── Gold-Shop (Feedback 01.09.) ─────────────────────────────────────────────
     // Rein kosmetische Reskins für Schuppen/Briefkasten/Werkzeug/Nameplate —
@@ -230,6 +256,11 @@ export default function GameContainer() {
     const [editorAktiv, setEditorAktiv] = useState(false);
     const editorAktivRef = useRef(false);
     useEffect(() => { editorAktivRef.current = editorAktiv; }, [editorAktiv]);
+    // Eingerichtet wird draußen — wer aus dem Haus heraus umstellt, steht wieder vor der Tür.
+    useEffect(() => { if (editorAktiv) { setImHaus(false); setImGoldShop(false); setBesuch(null); } }, [editorAktiv]);
+    // Solange man drinnen ist, ruht die Welt (useSpielschleife): kein Laufen, kein E draußen.
+    // engine.imHaus hält die Welt an — gilt für jeden Innenraum (Haus, Gold-Shop, Haus eines Nachbarn).
+    useEffect(() => { engineRef.current.imHaus = imHaus || imGoldShop || Boolean(besuch); }, [imHaus, imGoldShop, besuch]);
     /** "chest" | "vitrine" | null — offene eigene Ablage. */
     const [ablageOffen, setAblageOffen] = useState(null);
     /** Vitrine eines anderen: { owner, items } — nur ansehen. */
@@ -342,6 +373,29 @@ export default function GameContainer() {
         const saved = localStorage.getItem("garden_farms_theme");
         return THEME_TRACKS.some((t) => t.id === saved) ? saved : THEME_STANDARD;
     });
+    // 3D-Ansicht (Fahrplan Phase 7, im Aufbau): vorerst nur der Admin, und nie
+    // auf Geräten ohne Grafikkarte (utils/lowGfx.js) — dort bleibt die Draufsicht.
+    // 06.11. (Feedback „kann kein 2,5D auswählen, er hat automatisch 2D gewählt“):
+    // gemerkt wird nur noch, was man SELBST in den Einstellungen wählt (eigener Schlüssel,
+    // der alte speicherte auch jedes automatische Zurückfallen auf 2D für immer). Ohne
+    // eigene Wahl: 2,5D, nur bei erkannter Software-Grafik die Draufsicht. Auswählbar
+    // ist 2,5D immer — die Erkennung kann sich irren.
+    const ANSICHT_KEY = "garden_ansicht_wahl";
+    const [ansicht3d, setAnsicht3d] = useState(() => {
+        try {
+            const wahl = localStorage.getItem(ANSICHT_KEY);
+            if (wahl === "3d") return true;
+            if (wahl === "2d") return false;
+        } catch { /* kein Speicher */ }
+        return !isLowGfx();
+    });
+    const waehleAnsicht = useCallback((an) => {
+        try { localStorage.setItem(ANSICHT_KEY, an ? "3d" : "2d"); } catch { /* egal */ }
+        setAnsicht3d(Boolean(an));
+    }, []);
+    const canvas3dRef = useRef(null);
+    const darf3d = true;
+    const sparGrafik = isLowGfx();
     /**
      * Tageszeit und Party fürs HUD. Einmal je Sekunde — der Renderer liest beides
      * direkt aus der Uhr (siehe drawState), hier geht es nur um Uhrzeit und Countdown.
@@ -664,7 +718,7 @@ export default function GameContainer() {
     // Ausgerüstete Gold-Shop-Reskins (core/reskins.js) — EIN Ref für alle vier
     // Kategorien, aus demselben Grund wie playerBadgeRef: der Renderer braucht
     // sie jedes Bild, ohne dafür einen Re-Render auszulösen.
-    const meineReskinsRef = useRef({ shed: null, mailbox: null, werkzeug: null, nameplate: null });
+    const meineReskinsRef = useRef({ shed: null, mailbox: null, werkzeug: null, nameplate: null, hut: null, tierhut: null });
     const localPlayerNameRef = useRef("Spieler");
     const readyEggsCount = incubator.slots.filter(s => s && Date.now() >= s.hatchAt).length;
     /**
@@ -792,7 +846,7 @@ export default function GameContainer() {
      * anderes als alle anderen.
      *
      * „admin" verdrängt „subscriber": der Streamer IST für die Wirtschaft ein
-     * Abonnent (siehe ensureSubStatus im Backend, er bekommt die 50 %), tragen soll
+     * Abonnent (siehe ensureSubStatus im Backend, er bekommt die 25 %), tragen soll
      * er aber das Admin-Abzeichen. Der Server setzt es ohnehin selbst noch einmal
      * anhand der Twitch-ID — hier steht es, damit der eigene Kopf sofort stimmt.
      */
@@ -819,6 +873,7 @@ export default function GameContainer() {
         chatVerlauf,
         sendChat,
         sendShotgun,
+        sendRaum,
     } = useGardenLobby({
         enabled: !showLobbyScreen,
         worldCode: pendingWorldCode,
@@ -837,12 +892,16 @@ export default function GameContainer() {
 
     const lastRotationSoundRef = useRef(0);
     const {
-        effectVolume, setEffectVolume, musicVolume, setMusicVolume, laufenderPartyTitel, playSound, spieleErnteTon,
+        effectVolume, setEffectVolume, musicVolume, setMusicVolume, laufenderPartyTitel, playSound, spieleErnteTon, spielePflanzTon,
     } = useFarmSound({ showLobbyScreen, tagesInfo, themeId });
 
 
     // ── Engine ref (canvas state, no re-renders) ──────────────────────────────
-    const layout = useRef(generatePlotSlots(WORLD_SLOTS));
+    // Nur EINMAL bauen (06.11., Leistung): useRef(generatePlotSlots(…)) rechnete die ganze
+    // Weltkarte bei jedem Neuzeichnen der Oberfläche neu und warf sie gleich wieder weg.
+    const layoutStart = useRef(null);
+    if (layoutStart.current === null) layoutStart.current = generatePlotSlots(WORLD_SLOTS);
+    const layout = layoutStart;
     const engineRef = useRef({
         renderer: null,
         input: null, // wird im Game-Loop erstellt + bei Unmount zerstört (kein globaler Leak)
@@ -864,12 +923,58 @@ export default function GameContainer() {
             // dass jedes einzeln auf dem Grundstück steht.
             shed: { x: 0, y: 0, label: "Schuppen", type: "shed" },
             questBoard: { x: 0, y: 0, label: "Missionen", type: "questBoard" },
+            // Seit 04.11. ein Stand auf dem Dorfplatz statt eines HUD-Knopfs.
+            goldShop: { x: 0, y: 0, label: "Gold-Shop", type: "goldShop" },
+            // Seit 05.11. eigene Stände — vorher Reiter am Missionsbrett.
+            haendler: { x: 0, y: 0, label: "Händler", type: "haendler" },
+            erntefest: { x: 0, y: 0, label: "Erntefest", type: "erntefest" },
+            // 06.11.: Angelstelle am Steg — kein Gebäude, nur ein Ziel für E (ui/fenster/AngelFenster.jsx)
+            angeln: { x: 0, y: 0, label: "Angeln", type: "angeln" },
         },
         plotPlants: {}, // mirror for canvas reads without stale closure
         petPlacements: [],
         decoPlacements: [],
     });
     useEffect(() => { engineRef.current.stoerer = stoerer; }, [stoerer]);
+
+    // 3D-Ansicht laden, solange sie an ist und man in der Welt steht. three.js kommt
+    // erst hier per import() — wer bei 2D bleibt, lädt es nie.
+    const ansicht3dAn = ansicht3d && darf3d && !showLobbyScreen;
+    // Ladeschirm bis die 2,5D-Ansicht steht (06.11., Feedback „Laden ruckelt und ist
+    // komisch rausgezoomt“): vorher sah man nach dem Laden erst ein paar Sekunden die
+    // Draufsicht, dann sprang das Bild um. Das Modul wird schon im Menü vorgeladen.
+    const [welt3dBereit, setWelt3dBereit] = useState(false);
+    useEffect(() => {
+        if (ansicht3d && darf3d) import("./engine/welt3d").catch(() => { /* Fehler meldet der Start unten */ });
+    }, [ansicht3d, darf3d]);
+    useEffect(() => {
+        if (!ansicht3dAn) { setWelt3dBereit(false); return undefined; }
+        let welt = null;
+        let abgebrochen = false;
+        import("./engine/welt3d").then(({ default: Welt3D }) => {
+            if (abgebrochen || !canvas3dRef.current) return;
+            try {
+                welt = new Welt3D(canvas3dRef.current);
+                engineRef.current.welt3d = welt;
+                // Zwei Bilder abwarten: das erste baut Boden und Licht auf (der Ruckler)
+                requestAnimationFrame(() => requestAnimationFrame(() => { if (!abgebrochen) setWelt3dBereit(true); }));
+            } catch (e) {
+                console.error("3D-Ansicht", e);
+                notify("Die 2,5D-Ansicht startet auf diesem Gerät nicht — du siehst die Draufsicht.", "error");
+                setAnsicht3d(false);
+            }
+        }).catch(() => {
+            if (abgebrochen) return;
+            notify("Die 2,5D-Ansicht konnte nicht geladen werden — du siehst die Draufsicht.", "error");
+            setAnsicht3d(false);
+        });
+        return () => {
+            abgebrochen = true;
+            setWelt3dBereit(false);
+            if (engineRef.current.welt3d === welt) engineRef.current.welt3d = null;
+            welt?.dispose();
+        };
+    }, [ansicht3dAn, notify]);
 
     // ── Shotgun-Treffer ───────────────────────────────────────────────────────
     // Nachgereicht, weil die Lobby-Verbindung weiter oben aufgebaut wird, der
@@ -914,18 +1019,9 @@ export default function GameContainer() {
         engineRef.current.player.hopping = false;
         const a = engineRef.current.areas;
 
-        // Dieselbe Rechnung wie in updateAreaPositions — die Werte standen hier
-        // doppelt und konnten auseinanderlaufen.
-        const yWagen = {
-            seedShop: l.centerPathTopY + 92, toolShop: l.centerPathTopY + 92,
-            eggShop: l.centerPathBottomY - 140, decoShop: l.centerPathBottomY - 140,
-            market: l.centerY, petMarket: l.centerY, questBoard: l.centerY,
-        };
-        for (const [art, versatz] of Object.entries(WAGEN_VERSATZ_X)) {
-            a[art].x = l.centerX + versatz;
-            a[art].y = yWagen[art];
-            a[art].image = AREA_IMAGES[art];
-        }
+        // Dieselbe Funktion wie in updateAreaPositions — die Plätze kommen aus der
+        // Weltkarte (layout.standorte).
+        stelleStaendeAuf(a, l);
 
         // Startplatz des Schuppens. Bewusst über dieselbe Funktion wie später der
         // Effekt mit dem gespeicherten Versatz — als das hier eine eigene Rechnung
@@ -1098,14 +1194,24 @@ export default function GameContainer() {
         } else if (target.type === "shed") {
             // v2 (Feedback 29.08.): EIN Gebäude für Kiste, Vitrine und Mülleimer —
             // die Auswahl dazwischen übernimmt das Schuppen-Modal, siehe dort.
-            setShedOpen(true);
-        } else if (target.type === "questBoard") {
-            setQuestBoardOpen(true);
+            // 06.11.: Stattdessen betritt man das Haus, die Möbel darin öffnen dieselben Fenster.
+            // 11.11.: Die Figur läuft wirklich zur Tür hinein — den Ablauf fährt die
+            // Spielschleife (useSpielschleife „INS HAUS“) und meldet sich über engine.onEintritt.
+            engineRef.current.eintrittWunsch = "haus";
+        } else if (target.type === "questBoard" || target.type === "haendler" || target.type === "erntefest") {
+            setQuestBoardOpen(target.type === "questBoard" ? "brett" : target.type);
             ladeQuestsRef.current?.();
-        } else if (target.type === "fremdeVitrine") {
-            // Die Momentaufnahme trägt nur Werte, keine Bildpfade (der Server kennt
-            // keine Assets) — ohne Nachziehen bliebe die fremde Vitrine bildlos.
-            setFremdeVitrine({ owner: target.owner, items: hydrateHarvestedItems(target.items) });
+        } else if (target.type === "angeln") {
+            setAngelnOffen(true);
+        } else if (target.type === "goldShop") {
+            // 11.11.: Der Gold-Shop ist ein Laden zum Hineingehen (wie das Haus, siehe oben).
+            engineRef.current.eintrittWunsch = "goldshop";
+            // Über eine Ref: ladeGoldShop steht weiter unten in der Komponente.
+            ladeGoldShopRef.current?.();
+        } else if (target.type === "fremdesHaus") {
+            // 11.11.: Das Haus eines Nachbarn betritt man wie das eigene (Spielschleife
+            // „INS HAUS“); drinnen steht seine Vitrine zum Ansehen.
+            engineRef.current.eintrittWunsch = `fremd:${target.slotIndex}`;
         } else if (target.type === "mailbox") {
             // Eigener Kasten → Posteingang, fremder → Sendeformular mit Empfänger.
             if (target.isOwn) {
@@ -1426,6 +1532,9 @@ export default function GameContainer() {
         if (Array.isArray(saved.harvestedItems)) setHarvestedItems(hydrateHarvestedItems(saved.harvestedItems));
         if (Array.isArray(saved.chestItems)) setChestItems(hydrateHarvestedItems(saved.chestItems));
         if (Array.isArray(saved.vitrineItems)) setVitrineItems(hydrateHarvestedItems(saved.vitrineItems));
+        if (Array.isArray(saved.fische)) setFische(saved.fische);
+        if (saved.fischbuch && typeof saved.fischbuch === "object") setFischbuch(saved.fischbuch);
+        if (saved.tierFutter && typeof saved.tierFutter === "object") setTierFutter(saved.tierFutter);
         if (saved.logbuch && typeof saved.logbuch === "object") setLogbuch(saved.logbuch);
         if (Array.isArray(saved.eggInventory)) setEggInventory(saved.eggInventory);
         if (Array.isArray(saved.petInventory)) setPetInventory(hydratePets(saved.petInventory));
@@ -1548,12 +1657,25 @@ export default function GameContainer() {
         ladeQuestsRef.current = ladeQuests;
     }, [ladeQuests]);
 
+    // Marken über Händler, Missionsbrett und Erntefest (06.11.): was man dort gerade
+    // abgeben oder abholen kann. Das Brett wird dafür beim Start und jede Minute geladen.
+    useEffect(() => {
+        if (showLobbyScreen) return undefined;
+        ladeQuests();
+        const t = setInterval(ladeQuests, 60 * 1000);
+        return () => clearInterval(t);
+    }, [showLobbyScreen, ladeQuests]);
+    useEffect(() => {
+        engineRef.current.standMarken = standMarken(questDaten, harvestedItems);
+    }, [questDaten, harvestedItems]);
+
     /**
      * Gold-Shop neu laden — beim Öffnen UND nach jedem Kauf/Ausrüsten, damit
      * "schon gekauft"/"ausgerüstet" sofort stimmt. `meineReskinsRef` zieht
      * gleich mit: der Renderer liest von dort (Schuppenbild, Briefkasten,
      * Nameplate-Farbe), nicht aus dem React-State selbst.
      */
+    const ladeGoldShopRef = useRef(null);
     const ladeGoldShop = useCallback(async () => {
         try {
             const data = await apiCall("/reskins");
@@ -1566,6 +1688,8 @@ export default function GameContainer() {
                 mailbox: data?.ausgeruestet?.mailbox || null,
                 werkzeug: data?.ausgeruestet?.werkzeug || null,
                 nameplate: data?.ausgeruestet?.nameplate || null,
+                hut: data?.ausgeruestet?.hut || null,
+                tierhut: data?.ausgeruestet?.tierhut || null,
             };
             // KEIN einmaliges area.shed.image = ... hier — die Positions-Effekte
             // (a.shed.image = AREA_IMAGES.shed, siehe useEffect oben) laufen
@@ -1574,6 +1698,51 @@ export default function GameContainer() {
             // Briefkasten/Nameplate JEDEN Frame in der Spielschleife (siehe dort).
         } catch { /* Laden bleibt beim letzten bekannten Stand */ }
     }, [apiCall]);
+    ladeGoldShopRef.current = ladeGoldShop;
+    // Die Spielschleife meldet, wenn die Figur durch die Tür ist (Haus oder Gold-Shop).
+    useEffect(() => {
+        const engine = engineRef.current;
+        engine.onEintritt = (ziel) => {
+            if (ziel === "goldshop") { setImGoldShop(true); ladeGoldShopRef.current?.(); }
+            else if (typeof ziel === "string" && ziel.startsWith("fremd:")) {
+                const slotIndex = Number(ziel.slice(6));
+                const snap = plotsRef.current.get(slotIndex);
+                // Besitzer inzwischen gegangen: wieder vor die Tür
+                if (!snap?.ownerTwitchId) { engine.austrittWunsch = true; engine.imHaus = false; return; }
+                setBesuch({ slotIndex, wirt: String(snap.ownerTwitchId), snap });
+            } else setImHaus(true);
+        };
+        // Wer ohne E einfach gegen die Tür läuft, hört sie trotzdem aufgehen
+        engine.tuerTon = () => playSound("open", 0.4);
+        return () => { engine.onEintritt = null; engine.tuerTon = null; };
+    }, [playSound, plotsRef]);
+
+    // Zu Besuch: Geht der Besitzer aus der Welt, steht man wieder vor der Tür. Ändert er
+    // etwas (Tapete, Vitrine), zieht der Raum nach.
+    useEffect(() => {
+        if (!besuch) return undefined;
+        const t = setInterval(() => {
+            const snap = plotsRef.current.get(besuch.slotIndex);
+            if (!snap || String(snap.ownerTwitchId) !== besuch.wirt) {
+                setBesuch(null);
+                setFremdeVitrine(null);
+                engineRef.current.austrittWunsch = true;
+                notify(`${besuch.snap?.owner || "Der Besitzer"} hat die Welt verlassen.`);
+            } else if (snap !== besuch.snap) {
+                setBesuch((alt) => (alt ? { ...alt, snap } : alt));
+            }
+        }, 500);
+        return () => clearInterval(t);
+    }, [besuch, plotsRef, notify]);
+    // Draußen: dem Server melden, dass man in keinem Raum mehr steht
+    useEffect(() => {
+        if (!imHaus && !imGoldShop && !besuch) sendRaum(null);
+    }, [imHaus, imGoldShop, besuch, sendRaum]);
+    // Vitrine des Gastgebers mit Bildern (die Momentaufnahme trägt nur Werte, keine Bildpfade)
+    const besuchVitrine = useMemo(
+        () => hydrateHarvestedItems(besuch?.snap?.vitrine?.items || []),
+        [besuch?.snap?.vitrine?.items],
+    );
 
     // Einmal beim Betreten laden — sonst zeigt der eigene Schuppen/Briefkasten
     // erst nach dem ersten Öffnen des Gold-Shops das ausgerüstete Reskin.
@@ -1696,6 +1865,9 @@ export default function GameContainer() {
     useEffect(() => {
         if (layout.current && layout.current.slots[mySlotRef.current]) {
             layout.current.slots[mySlotRef.current].hasMail = mailbox.length > 0;
+            // Anzahl für das Zeichen am Briefkasten — seit 04.11. gibt es keinen
+            // Briefkasten-Knopf im HUD mehr, die Post sieht man nur noch dort.
+            layout.current.slots[mySlotRef.current].postAnzahl = mailbox.length;
 
         }
     }, [mailbox]);
@@ -1821,6 +1993,7 @@ export default function GameContainer() {
 
     useEffect(() => {
         movingPlantSourceRef.current = movingPlantSource;
+        engineRef.current.umtopfQuelle = movingPlantSource || null;
     }, [movingPlantSource]);
 
     useEffect(() => {
@@ -2103,6 +2276,18 @@ export default function GameContainer() {
         setPlotPlants, notify, debouncedSave, ackerRasterMigriert, setAckerRasterMigriert,
     });
 
+    // Füttern (06.11., Backend core/angeln.js): Fisch weg, Tier satt
+    tierFuetternRef.current = async (pet, fischId) => {
+        try {
+            const data = await apiCall("/action", { method: "POST", body: JSON.stringify({ action: "tierFuettern", petId: pet?.id || pet?.instanceId, fischId }) });
+            if (Array.isArray(data?.fische)) setFische(data.fische);
+            if (data?.tierFutter) setTierFutter(data.tierFutter);
+            playSound("plant", 0.5);
+            notify(`${pet?.customName || pet?.name || "Dein Tier"} ist satt.`);
+        } catch (e) {
+            notify(e?.message || "Füttern hat nicht geklappt.", "error");
+        }
+    };
     const { flushSave, payServer, applyEconomy, questAbholen, auftragLiefern, erntefestAbholen, auftragAblehnen, reskinKaufen, reskinAusruesten } = useServerAktionen({
         saveTimeoutRef, flushFarmStateToServerRef, apiCall, goldRef, setGold, setLogbuch, notify,
         playSound, setGoldGesamt, setSkillStand, setHarvestedItems, setPlotPlants,
@@ -2129,7 +2314,7 @@ export default function GameContainer() {
         notify, ernteLaeuftRef, ernteWarteschlangeRef, apiCall, kreuzungenAufnehmen,
         isDragHarvestingRef, applyEconomy, hydratePlantVisuals, letzteErnteRef, uebernimmVomServer,
         farmStateRef, flushSave, handleHarvestRef, dragErnteFlushTimerRef, dragErnteSammlungRef,
-        spieleErnteTon,
+        spieleErnteTon, spielePflanzTon,
     });
 
     const { handleBuyTool, handleBuyToolAll, handleMineRock, handleWaterPlant, handleMovePlantWithPot } = useWerkzeuge({
@@ -2187,7 +2372,7 @@ export default function GameContainer() {
         if (showLobbyScreen) return;
 
         const meineGoldfinder = () => farmStateRef.current.petPlacements
-            .filter((p) => p.slotIndex === mySlotRef.current && p.ability?.type === "goldfinder");
+            .filter((p) => p.slotIndex === mySlotRef.current && p.ability?.type === "goldfinder" && istSatt(p));
 
         // Takt richtet sich nach dem höchsten Goldfinder-Level. Werte liegen in
         // engine/PetSystem, damit das Tier-Modal dasselbe anzeigt.
@@ -2400,11 +2585,9 @@ export default function GameContainer() {
     ), [shopRotation?.seeds, gold]);
     const visibleShopSeeds = useMemo(() => {
         const seeds = shopRotation?.seeds || [];
-        const gefiltert = shopFilter === "lohnend"
-            ? lohnendeShopSeeds
-            : seeds.filter((s) => shopFilter === "all" || s.active);
+        const gefiltert = seeds.filter((s) => shopFilter === "all" || s.active);
         return sortiere(gefiltert, SHOP_SORTIERUNGEN, shopSortierung);
-    }, [shopRotation?.seeds, shopFilter, shopSortierung, lohnendeShopSeeds]);
+    }, [shopRotation?.seeds, shopFilter, shopSortierung]);
     // Samen und Ernte teilen sich die Rucksackplätze. Ist kein Platz mehr, sperrt
     // der Laden die Zeilen — sonst klickt man weiter ins Leere.
     const rucksackVoll = (inventory.length + harvestedItems.length) >= inventoryMaxSlots;
@@ -2507,6 +2690,33 @@ export default function GameContainer() {
             oeffne: (typ) => activateInteractable({ type: typ, isOwn: true }),
             acker: () => JSON.parse(JSON.stringify(engineRef.current.plotPlants || {})),
             spieler: () => { const p = engineRef.current.player; return { x: p.x, y: p.y, tileX: p.tileX, tileY: p.tileY, zoom: zoomRef.current }; },
+            // Karten-Prüfstand: Figur auf eine Kachel setzen, Zoom frei wählen.
+            // Lage eines Gebäudes (Tür-Prüfstand) und Marken über den Ständen von Hand setzen
+            gebaeude: (key) => { const a = engineRef.current.areas?.[key]; return a ? { x: a.x, y: a.y, fussY: a.fussY ?? null, bild: a._bild ? { ...a._bild } : null } : null; },
+            marken: (m) => { engineRef.current.standMarken = m; },
+            ablauf: () => { const e = engineRef.current; return { ein: Boolean(e.eintritt), aus: Boolean(e.austritt), sperreBis: e.eintrittSperreBis || 0, drin: Boolean(e.drin), imHaus: Boolean(e.imHaus), jetzt: performance.now() }; },
+            setze: (x, y) => setzePlayerPosition(x, y),
+            springe: (kx, ky) => setzePlayerPosition(kx * TILE_SIZE + TILE_SIZE / 2, ky * TILE_SIZE + TILE_SIZE / 2),
+            zoom: (z) => { zoomRef.current = z; },
+            begehbar: (kx, ky) => layout.current.begehbar?.(kx, ky),
+            // Ziel, das E gerade öffnen würde, samt gezeichneter Bildfläche (Ring-Prüfstand)
+            ziel: () => { const z = activeTargetRef.current; return z ? { type: z.type, x: z.x, y: z.y, bild: z._bild ? { ...z._bild } : null } : null; },
+            welt3d: () => engineRef.current.welt3d || null,
+            // Besuchs-Prüfstand (11.11.): Haus eines Nachbarn betreten, wer steht in welchem Raum
+            besuche: (slotIndex) => activateInteractable({ type: "fremdesHaus", slotIndex }),
+            mitspieler: () => [...remotePlayersRef.current.values()].map((r) => ({ name: r.name, slot: r.slotIndex, raum: r.raum || null })),
+            // Teich/Party-Prüfstand (10.11.): Teichling zeigen, Party und Wetter von Hand
+            teichling: () => zeigeTeichling(),
+            // Angel-Prüfstand (11.11.): laufende Szene samt Ring, damit ein Bot im Takt drücken kann
+            angelSzene: () => { const s = engineRef.current.angelSzene; return s ? JSON.parse(JSON.stringify(s)) : null; },
+            tiere: () => (engineRef.current.petPlacements || []).map((t) => ({ name: t.name, x: Math.round(t.x), y: Math.round(t.y), tut: t.tut || null, slot: t.slotIndex })),
+            party: (minuten = 5) => setWeltUebersteuerung((w) => ({ ...w, partyBis: Date.now() + minuten * 60000 })),
+            wetter: (typ) => { weatherStateRef.current = { ...weatherStateRef.current, type: typ, intensity: 1 }; },
+            // Weltmitte eines eigenen Ackerfelds (für Klicks in der 3D-Ansicht)
+            zelleWelt: (cx, cy) => {
+                const w = getDirtCellWorldPos(layout.current.slots[mySlotRef.current], cx, cy);
+                return { x: w.x + TILE_SIZE / 2, y: w.y + TILE_SIZE / 2 };
+            },
             // Bildschirmposition der Mitte eines eigenen Ackerfelds (Umkehrung von toWorld).
             zelle: (cx, cy) => {
                 const slot = layout.current.slots[mySlotRef.current];
@@ -2524,7 +2734,7 @@ export default function GameContainer() {
             },
         };
         return () => { delete window.__farmTest; };
-    }, [activateInteractable]);
+    }, [activateInteractable, setzePlayerPosition]);
 
     if (showLobbyScreen) {
         return (
@@ -2547,8 +2757,13 @@ export default function GameContainer() {
         // Nunito statt 'Courier New': die Schreibmaschinenschrift mit ihren harten
         // Kanten passte nicht zu einem Farmspiel. Zahlen bleiben über `tabular-nums`
         // an ihren Stellen stehen, dafür ist die Schrift nicht mehr dicktengleich.
-        <div className="relative w-full h-full min-h-0 flex-1 bg-slate-950 overflow-hidden" style={{ fontFamily: "'Baloo 2', 'Nunito', 'Segoe UI', system-ui, sans-serif" }}>
+        <div className="relative w-full h-full min-h-0 flex-1 bg-slate-950 overflow-hidden" style={{ fontFamily: "var(--gf-font, 'Baloo 2', 'Nunito', sans-serif)" }}>
             <SEO {...FARM_SEO} />
+            {/* 3D-Ansicht liegt UNTER der 2D-Leinwand: 3D malt Boden und Licht, die
+                2D-Leinwand ist dann durchsichtig und malt alles Stehende darüber
+                (Renderer.draw3dStehend). Klicks landen weiter auf der 2D-Leinwand,
+                toWorld rechnet sie per Strahl um. */}
+            {ansicht3dAn && <canvas ref={canvas3dRef} className="absolute inset-0 w-full h-full pointer-events-none" />}
             <canvas ref={canvasRef} className="absolute inset-0" />
             {zweitkontoText && (
                 <div className="absolute inset-0 z-[200] bg-slate-950 flex items-center justify-center p-6">
@@ -2562,29 +2777,30 @@ export default function GameContainer() {
             {/* Feedback 01.09.: "besserer Ladebildschirm, richtig erst fertig wenn alles geladen hat" —
                 der Balken bleibt unter 100 %, bis Bilder UND Serverdaten da sind (hooks/useWorldBoot.js).
                 Seit 04.11. im Stil des Hauptmenüs statt eines Bildes mit eingebranntem Titel. */}
-            {worldBootState.active && (
-                <Ladebildschirm label={worldBootState.label} progress={worldBootState.progress} />
+            {(worldBootState.active || (ansicht3dAn && !welt3dBereit)) && (
+                <Ladebildschirm label={worldBootState.active ? worldBootState.label : "Baue die Welt auf …"} progress={worldBootState.active ? worldBootState.progress : 96} />
             )}
             
 
             {/* ── Tutorial Overlay ──────────────────────────────────────── */}
             {!tutorialCompleted && !showLobbyScreen && (
-                <div className={`absolute top-24 left-1/2 -translate-x-1/2 z-40 ${HUD_SURFACE} p-4 max-w-sm pointer-events-auto`}>
-                    <h3 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-violet-300 mb-2">
+                <div className="pointer-events-auto absolute left-1/2 top-24 z-40 max-w-sm -translate-x-1/2 border-[3px] p-4"
+                    style={{ borderColor: "#3b2516", background: "#f3e3c3", boxShadow: "0 4px 0 0 #3b2516" }}>
+                    <h3 className="mb-2 inline-flex items-center gap-2 border-2 bg-[#fff3c4] px-2 py-0.5 text-xs font-bold uppercase tracking-wider text-[#3f7a35]" style={{ borderColor: "#3b2516" }}>
                         <Sprout size={14} /> Erste Schritte
                     </h3>
-                    <div className="text-sm text-slate-300 leading-relaxed">
+                    <div className="text-sm leading-relaxed text-[#3b2516]">
                         {inventory.length === 0 && Object.keys(plotPlants).length === 0 && harvestedItems.length === 0 && gold <= START_GOLD && (
-                            <p>Willkommen. Geh zum <span className="text-white font-medium">Samen-Shop</span> und kauf deinen ersten Samen.</p>
+                            <p>Willkommen. Geh zum <span className="font-bold text-[#8a3a2a]">Samen-Shop</span> und kauf deinen ersten Samen.</p>
                         )}
                         {inventory.length > 0 && Object.keys(plotPlants).length === 0 && harvestedItems.length === 0 && (
-                            <p>Wähl den Samen in deinem <span className="text-white font-medium">Inventar</span> aus und klick auf ein freies Ackerfeld, um ihn zu pflanzen.</p>
+                            <p>Wähl den Samen in deinem <span className="font-bold text-[#8a3a2a]">Inventar</span> aus und klick auf ein freies Ackerfeld, um ihn zu pflanzen.</p>
                         )}
                         {Object.keys(plotPlants).length > 0 && harvestedItems.length === 0 && (
                             <p>Die Pflanze wächst. Fahr mit der Maus darüber, um Restzeit und Wert zu sehen — klick sie an, sobald sie reif ist.</p>
                         )}
                         {harvestedItems.length > 0 && (
-                            <p>Geh zum <span className="text-white font-medium">Marktstand</span> und verkauf deine Ernte.</p>
+                            <p>Geh zum <span className="font-bold text-[#8a3a2a]">Marktstand</span> und verkauf deine Ernte.</p>
                         )}
                         {gold > START_GOLD && harvestedItems.length === 0 && Object.keys(plotPlants).length === 0 && inventory.length === 0 && (
                             <p>Geschafft — das war der Einstieg.</p>
@@ -2592,7 +2808,8 @@ export default function GameContainer() {
                     </div>
                     <button
                         type="button"
-                        className="mt-3 w-full py-1.5 border border-slate-700 hover:border-slate-600 text-slate-300 hover:text-white rounded-2xl text-xs font-medium transition-colors"
+                        className="mt-3 w-full border-[3px] bg-[#fffaf0] py-1 text-xs font-bold text-[#6e4426] hover:bg-[#fff3c4]"
+                        style={{ borderColor: "#3b2516", boxShadow: "0 3px 0 0 #3b2516" }}
                         onClick={() => setTutorialCompleted(true)}
                     >
                         Nicht mehr anzeigen
@@ -2604,23 +2821,28 @@ export default function GameContainer() {
             {notification && (
                 <div
                     key={notification.id}
-                    className={`absolute top-24 left-1/2 -translate-x-1/2 z-[300] px-4 py-2.5 rounded-2xl text-sm font-medium border backdrop-blur-sm ${
-                        notification.type === "error"
-                            ? "bg-rose-950/95 border-rose-800 text-rose-200"
-                            : "bg-slate-900/95 border-slate-700 text-slate-100"
-                    }`}
+                    // Holzschild-Meldung (06.11.): Fehler rot unterlegt, sonst Pergament
+                    className="absolute left-1/2 top-[7.6rem] z-[300] flex max-w-[min(92vw,560px)] -translate-x-1/2 items-center gap-2 border-[3px] px-4 py-2 text-sm font-bold"
+                    style={{
+                        borderColor: "#3b2516",
+                        background: notification.type === "error" ? "#f6c8b8" : "#f3e3c3",
+                        color: notification.type === "error" ? "#8a2420" : "#3b2516",
+                        boxShadow: "0 4px 0 0 #3b2516",
+                    }}
                 >
+                    <span className="h-3 w-3 shrink-0 border-2" style={{ borderColor: "#3b2516", background: notification.type === "error" ? "#e8403a" : "#5faa45" }} />
                     {notification.msg}
                 </div>
             )}
             {/* ── Zweiter Tab: dieser hier speichert nicht mehr ────────────────── */}
             {nurZuschauen && (
-                <div className="absolute bottom-5 left-1/2 z-[290] w-[min(94vw,520px)] -translate-x-1/2 rounded-2xl border border-amber-800 bg-amber-950/95 px-4 py-3 backdrop-blur-sm">
+                <div className="absolute bottom-5 left-1/2 z-[290] w-[min(94vw,520px)] -translate-x-1/2 border-[3px] px-4 py-3"
+                    style={{ borderColor: "#3b2516", background: "#ffe9a8", boxShadow: "0 4px 0 0 #3b2516" }}>
                     <div className="flex items-start gap-3">
-                        <Info className="mt-0.5 h-4 w-4 shrink-0 text-amber-400" />
-                        <div className="flex-1 text-sm text-amber-100">
-                            <p className="font-medium">Die Farm ist in einem anderen Tab offen.</p>
-                            <p className="mt-1 text-xs text-amber-200/80">
+                        <Info className="mt-0.5 h-4 w-4 shrink-0 text-[#a8740f]" />
+                        <div className="flex-1 text-sm text-[#3b2516]">
+                            <p className="font-bold">Die Farm ist in einem anderen Tab offen.</p>
+                            <p className="mt-1 text-xs text-[#6e4426]">
                                 Dieser Tab speichert nicht mehr — sonst würde er den anderen überschreiben.
                                 Was du hier noch machst, wird nicht gespeichert. Zum Weiterspielen
                                 erst den aktuellen Stand holen.
@@ -2634,7 +2856,8 @@ export default function GameContainer() {
                                     setNurZuschauen(false);
                                 }
                             }}
-                            className="shrink-0 rounded-xl border border-amber-700 bg-amber-900/60 px-3 py-1.5 text-xs font-medium text-amber-100 transition-colors hover:bg-amber-900"
+                            className="shrink-0 border-[3px] bg-[#5faa45] px-3 py-1 text-xs font-bold text-white hover:bg-[#6fbb55]"
+                            style={{ borderColor: "#3b2516", boxShadow: "0 3px 0 0 #3b2516" }}
                         >
                             Hier weiterspielen
                         </button>
@@ -2647,7 +2870,8 @@ export default function GameContainer() {
                     {rotationBanners.map((b) => (
                         <div
                             key={b.id}
-                            className="rounded-2xl border border-slate-700 bg-slate-900/95 px-4 py-2 text-center text-sm font-medium text-slate-100 backdrop-blur-sm"
+                            className="border-[3px] px-4 py-1.5 text-center text-sm font-bold text-[#3b2516]"
+                            style={{ borderColor: "#3b2516", background: "#fff3c4", boxShadow: "0 3px 0 0 #3b2516" }}
                         >
                             {b.msg}
                         </div>
@@ -2678,8 +2902,9 @@ export default function GameContainer() {
             {/* Admin-Menü. Breiter als die übrigen Fenster, weil links die Spielerliste
                 steht und rechts die Einträge mit ihren Werten. */}
             {adminPanelOffen && istGartenAdmin && (
-                <div className="absolute inset-0 z-[60] bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
-                    <div className="w-full max-w-6xl h-[86vh] flex flex-col bg-slate-900 border border-slate-700 rounded-2xl p-4">
+                <div className="absolute inset-0 z-[60] bg-[#140a04]/75 flex items-center justify-center p-4">
+                    {/* 07.11.: dunkles Holz statt Schiefer — Farben in theme.css (.gf-adminholz) */}
+                    <div className="gf-pixelpanel gf-adminholz w-full max-w-6xl h-[86vh] flex flex-col p-5 text-[#f3e3c3]">
                         <GardenAdminBrowser
                             eigeneId={authUser?.id}
                             onClose={() => setAdminPanelOffen(false)}
@@ -2705,6 +2930,10 @@ export default function GameContainer() {
                     setChangelogOpen={setChangelogOpen}
                     flushFarmStateToServer={flushFarmStateToServer}
                     setShowLobbyScreen={setShowLobbyScreen}
+                    darf3d={darf3d}
+                    sparGrafik={sparGrafik}
+                    ansicht3d={ansicht3d}
+                    setAnsicht3d={waehleAnsicht}
                 />
             )}
 
@@ -2713,7 +2942,6 @@ export default function GameContainer() {
                 als der Rest, ohne dass alles andere mitwächst. */}
             <HudObenRechts
                 tagesInfo={tagesInfo}
-                ernteRausch={ernteRausch}
                 nachfrage={nachfrage}
                 setProfilOffen={setProfilOffen}
                 isProfilOffen={isProfilOffen}
@@ -2721,12 +2949,6 @@ export default function GameContainer() {
                 skillStand={skillStand}
                 localPlayerNameRef={localPlayerNameRef}
                 gold={gold}
-                setMailboxMode={setMailboxMode}
-                setMailboxRecipient={setMailboxRecipient}
-                setMailboxOpen={setMailboxOpen}
-                mailbox={mailbox}
-                setGoldShopOpen={setGoldShopOpen}
-                ladeGoldShop={ladeGoldShop}
                 plotPlants={plotPlants}
                 skillWirkung={skillWirkung}
                 setVielfaltOffen={setVielfaltOffen}
@@ -2758,88 +2980,56 @@ export default function GameContainer() {
                 notify={notify}
             />
 
+            {/* Hinweisleisten oben (06.11. Holz-und-Pergament-Look, ui/pergament.jsx HinweisLeiste) */}
             {/* Umstell-Modus: ohne Hinweis wüsste niemand, dass der nächste Klick zählt. */}
             {verschiebtGebaeude && (
-                <div className={`absolute top-16 left-1/2 -translate-x-1/2 z-40 ${HUD_SURFACE} px-4 py-2.5 flex items-center gap-3 text-xs`}>
+                <HinweisLeiste onAbbrechen={() => setVerschiebtGebaeude(null)}>
                     <HudIcon.reposition size={14} className="shrink-0" />
-                    <span className="text-slate-200">
-                        {GEBAEUDE_NAMEN[verschiebtGebaeude] || "Gebäude"} umstellen — auf eine Wiesenfläche
-                        deines Grundstücks klicken
-                    </span>
-                    <button
-                        type="button"
-                        onClick={() => setVerschiebtGebaeude(null)}
-                        className="text-amber-100 hover:text-white transition-colors font-semibold underline"
-                    >
-                        Abbrechen
-                    </button>
-                </div>
+                    <span className="font-bold">{GEBAEUDE_NAMEN[verschiebtGebaeude] || "Gebäude"} umstellen</span>
+                    <span className="text-[#6e4426]">· auf eine Wiesenfläche deines Grundstücks klicken</span>
+                </HinweisLeiste>
             )}
 
-            {/* ── Selected seed indicator ──────────────────────────────────── */}
+            {/* ── Werkzeug in der Hand ──────────────────────────────────── */}
             {selectedTool && (
-                <div className={`absolute top-16 left-1/2 -translate-x-1/2 ${HUD_SURFACE} px-3 py-2 text-xs text-slate-200 flex items-center gap-2`}>
-                    {React.createElement(toolIcon(selectedTool), { size: 14, className: "text-violet-400 shrink-0" })}
-                    <span className="font-medium">
+                <HinweisLeiste onAbbrechen={() => { setSelectedTool(null); setMovingPlantSource(null); setShovelHoldState({ active: false, progress: 0 }); setSelectedDecoToPlace(null); }}>
+                    {React.createElement(toolIcon(selectedTool), { size: 14, className: "shrink-0" })}
+                    <span className="font-bold">
                         {selectedTool === "pickaxe" ? "Spitzhacke" : selectedTool === "pot" ? "Pflanztopf" : selectedTool === "watering" ? "Gießkanne" : "Schaufel"}
                     </span>
-                    {selectedTool === "pot" && movingPlantSource && <span className="text-slate-400">· Quelle gewählt</span>}
-                    {selectedTool === "shovel" && <span className="text-slate-400">· gedrückt halten zum Entfernen</span>}
-                    <button
-                        type="button"
-                        aria-label="Werkzeug weglegen"
-                        onClick={() => { setSelectedTool(null); setMovingPlantSource(null); setShovelHoldState({ active: false, progress: 0 }); setSelectedDecoToPlace(null); }}
-                        className="ml-1 text-slate-500 hover:text-white transition-colors"
-                    >
-                        <HudIcon.close size={14} />
-                    </button>
-                </div>
+                    {selectedTool === "pot" && movingPlantSource && <span className="text-[#6e4426]">· Quelle gewählt</span>}
+                    {selectedTool === "shovel" && <span className="text-[#6e4426]">· gedrückt halten zum Entfernen</span>}
+                </HinweisLeiste>
             )}
             {selectedDecoToPlace && (
-                <div className={`absolute top-16 left-1/2 -translate-x-1/2 ${HUD_SURFACE} px-3 py-2 text-xs text-slate-200 flex items-center gap-2`}>
-                    <ItemIcon item={selectedDecoToPlace} className="w-4 h-4" emojiClassName="text-sm" />
-                    <span className="font-medium">{selectedDecoToPlace.name}</span>
-                    <span className="text-slate-400">· Klick setzt die untere linke Ecke</span>
-                    <span className="text-slate-400 flex items-center gap-1">
-                        ·
-                        <kbd className="bg-slate-800 border border-slate-700 px-1 rounded-xl text-[10px]">R</kbd>
+                <HinweisLeiste onAbbrechen={() => setSelectedDecoToPlace(null)}>
+                    <ItemIcon item={selectedDecoToPlace} className="h-5 w-5" emojiClassName="text-sm" />
+                    <span className="font-bold">{selectedDecoToPlace.name}</span>
+                    <span className="text-[#6e4426]">· Klick setzt die untere linke Ecke</span>
+                    <span className="flex items-center gap-1 text-[#6e4426]">
+                        · <Taste>R</Taste>
                         <span>
                             {istBoden(selectedDecoToPlace)
                                 ? (decoRotiert ? "hochkant" : "drehen")
                                 : (decoGespiegelt ? "gespiegelt" : "spiegeln")}
                         </span>
                     </span>
-                    <button
-                        type="button"
-                        aria-label="Deko weglegen"
-                        onClick={() => setSelectedDecoToPlace(null)}
-                        className="ml-1 text-slate-500 hover:text-white transition-colors"
-                    >
-                        <HudIcon.close size={14} />
-                    </button>
-                </div>
+                </HinweisLeiste>
             )}
             {selectedPetToPlace && (
-                <div className={`absolute top-16 left-1/2 -translate-x-1/2 ${HUD_SURFACE} px-3 py-2 text-xs text-slate-200 flex items-center gap-2`}>
+                <HinweisLeiste onAbbrechen={() => setSelectedPetToPlace(null)}>
                     <TabIcon.pet size={14} className="shrink-0" />
-                    <span className="font-medium">{selectedPetToPlace.name}</span>
-                    <span className="text-slate-400">· auf dein Grundstück klicken</span>
-                    <button
-                        type="button"
-                        aria-label="Tier weglegen"
-                        onClick={() => setSelectedPetToPlace(null)}
-                        className="ml-1 text-slate-500 hover:text-white transition-colors"
-                    >
-                        <HudIcon.close size={14} />
-                    </button>
-                </div>
+                    <span className="font-bold">{selectedPetToPlace.name}</span>
+                    <span className="text-[#6e4426]">· auf dein Grundstück klicken</span>
+                </HinweisLeiste>
             )}
             {selectedTool === "shovel" && shovelHoldState.active && (
-                <div className="absolute bottom-24 left-1/2 -translate-x-1/2 z-40 w-44">
-                    <div className="h-1.5 w-full rounded-xl bg-slate-800 overflow-hidden">
-                        <div className="h-full bg-rose-500 transition-[width] duration-75" style={{ width: `${Math.round(shovelHoldState.progress * 100)}%` }} />
+                <div className="absolute bottom-24 left-1/2 z-40 w-48 -translate-x-1/2 border-[3px] px-2 py-1.5"
+                    style={{ borderColor: "#3b2516", background: "#f3e3c3", boxShadow: "0 3px 0 0 #3b2516" }}>
+                    <div className="h-3 w-full border-2" style={{ borderColor: "#3b2516", background: "#d8c08a" }}>
+                        <div className="h-full transition-[width] duration-75" style={{ width: `${Math.round(shovelHoldState.progress * 100)}%`, background: "#e8403a" }} />
                     </div>
-                    <div className="text-[10px] text-slate-400 text-center mt-1">Pflanze entfernen…</div>
+                    <div className="mt-1 text-center text-[10px] font-bold text-[#6e4426]">Pflanze entfernen …</div>
                 </div>
             )}
             <SkillTreeModal
@@ -2852,7 +3042,8 @@ export default function GameContainer() {
                 onZuruecksetzen={setzeSkillsZurueck}
             />
             <QuestBoardModal
-                offen={isQuestBoardOpen}
+                offen={Boolean(questBoardModus)}
+                modus={questBoardModus || "brett"}
                 onClose={() => setQuestBoardOpen(false)}
                 daten={questDaten}
                 onAbholen={questAbholen}
@@ -2866,6 +3057,7 @@ export default function GameContainer() {
             />
             <GoldShopModal
                 offen={isGoldShopOpen}
+                startTab={goldShopTab}
                 onClose={() => setGoldShopOpen(false)}
                 daten={goldShopDaten}
                 gold={gold}
@@ -2922,7 +3114,6 @@ export default function GameContainer() {
                     gold={gold}
                     goldGesamt={goldGesamt}
                     setSkillsOffen={setSkillsOffen}
-                    setWardrobeOpen={setWardrobeOpen}
                     setLogbuchOpen={setLogbuchOpen}
                     logbuch={logbuch}
                     wettbewerbSiege={wettbewerbSiege}
@@ -2938,6 +3129,96 @@ export default function GameContainer() {
                     notify={notify}
                     stand={prestigeStand}
                     onClose={() => setNeueSaatOffen(false)}
+                />
+            )}
+
+            {angelnOffen && (
+                <AngelFenster
+                    onClose={() => setAngelnOffen(false)}
+                    apiCall={apiCall}
+                    applyEconomy={applyEconomy}
+                    fische={fische}
+                    setFische={setFische}
+                    fischbuch={fischbuch}
+                    setFischbuch={setFischbuch}
+                    notify={notify}
+                    playSound={playSound}
+                    toolInventory={normalizeToolInventory(toolInventory)}
+                    setzeWerkzeug={setzeWerkzeug}
+                    lage={{ nacht: Boolean(tagesInfo.nacht), saison: tagesInfo.saison, wetter: weatherState?.type || "sun" }}
+                    engineRef={engineRef}
+                    layoutRef={layout}
+                    lautstaerke={effectVolume}
+                />
+            )}
+
+            {imHaus && (
+                <HausInnen
+                    skin={playerAppearance?.skin}
+                    thema={goldShopDaten.ausgeruestet?.tapete || goldShopDaten.ausgeruestet?.shed || null}
+                    hut={goldShopDaten.ausgeruestet?.hut || null}
+                    nacht={Boolean(tagesInfo.nacht)}
+                    hatKiste={normalizeToolInventory(toolInventory).hasChest}
+                    hatVitrine={normalizeToolInventory(toolInventory).hasVitrine}
+                    vitrineItems={vitrineItems}
+                    eierFertig={readyEggsCount}
+                    pausiert={Boolean(ablageOffen || isTrashOpen || isIncubatorOpen || isBackpackOpen || isShedOpen || activeShop || isMailboxOpen || isWardrobeOpen)}
+                    onOeffnen={(id) => {
+                        playSound("open", 0.4);
+                        if (id === "kiste") setAblageOffen("chest");
+                        else if (id === "vitrine") setAblageOffen("vitrine");
+                        else if (id === "muell") setTrashOpen(true);
+                        else if (id === "brut") { setIncubatorTargetSlot(null); setIncubatorOpen(true); }
+                        else if (id === "schrank") setWardrobeOpen(true);
+                    }}
+                    onVerlassen={() => { setImHaus(false); engineRef.current.austrittWunsch = true; }}
+                    onUmstellen={() => { setImHaus(false); setEditorAktiv(true); setVerschiebtGebaeude("shed"); }}
+                    wirt={authUser?.id ? String(authUser.id) : null}
+                    andereRef={remotePlayersRef}
+                    sendeRaum={sendRaum}
+                />
+            )}
+
+            {/* Zu Besuch im Haus eines Nachbarn: sein Raum, seine Tapete, seine Vitrine zum Ansehen */}
+            {besuch && (
+                <HausInnen
+                    gast
+                    besitzer={besuch.snap?.owner || "Nachbar"}
+                    skin={playerAppearance?.skin}
+                    thema={besuch.snap?.reskins?.tapete || besuch.snap?.reskins?.shed || null}
+                    hut={goldShopDaten.ausgeruestet?.hut || null}
+                    nacht={Boolean(tagesInfo.nacht)}
+                    hatKiste={besuch.snap?.hasChest === true}
+                    hatVitrine={Boolean(besuch.snap?.vitrine)}
+                    vitrineItems={besuchVitrine}
+                    pausiert={Boolean(fremdeVitrine || isBackpackOpen)}
+                    onOeffnen={(id) => {
+                        if (id !== "vitrine") return;
+                        playSound("open", 0.4);
+                        setFremdeVitrine({ owner: besuch.snap?.owner, items: besuchVitrine });
+                    }}
+                    onVerlassen={() => { setBesuch(null); setFremdeVitrine(null); engineRef.current.austrittWunsch = true; }}
+                    wirt={besuch.wirt}
+                    andereRef={remotePlayersRef}
+                    sendeRaum={sendRaum}
+                />
+            )}
+
+            {imGoldShop && (
+                <HausInnen
+                    art="goldshop"
+                    skin={playerAppearance?.skin}
+                    hut={goldShopDaten.ausgeruestet?.hut || null}
+                    nacht={Boolean(tagesInfo.nacht)}
+                    pausiert={Boolean(isGoldShopOpen || isBackpackOpen)}
+                    onOeffnen={(id) => {
+                        playSound("open", 0.4);
+                        setGoldShopTab(id);
+                        setGoldShopOpen(true);
+                    }}
+                    onVerlassen={() => { setImGoldShop(false); setGoldShopOpen(false); engineRef.current.austrittWunsch = true; }}
+                    andereRef={remotePlayersRef}
+                    sendeRaum={sendRaum}
                 />
             )}
 
@@ -2961,7 +3242,7 @@ export default function GameContainer() {
             {isTrashOpen && (
                 <MuellFenster
                     setTrashOpen={setTrashOpen}
-                    setShedOpen={setShedOpen}
+                    setShedOpen={imHaus ? schuppenZurueck : setShedOpen}
                     inventory={inventory}
                     setInventory={setInventory}
                     setSelectedSeed={setSelectedSeed}
@@ -2986,7 +3267,7 @@ export default function GameContainer() {
                     petInventory={petInventory}
                     ablageBusy={ablageBusy}
                     setAblageOffen={setAblageOffen}
-                    setShedOpen={setShedOpen}
+                    setShedOpen={imHaus ? schuppenZurueck : setShedOpen}
                     handleAblage={handleAblage}
                     setEditorAktiv={setEditorAktiv}
                     setVerschiebtGebaeude={setVerschiebtGebaeude}
@@ -3041,7 +3322,11 @@ export default function GameContainer() {
                 bunter, ohne dass irgendwo eine neue Farbe erfunden werden musste. */}
             {isPetOverlayOpen && (
                 <TierUebersicht
+                    fische={fische}
+                    tierFutter={tierFutter}
+                    onFuettern={(pet, fischId) => tierFuetternRef.current?.(pet, fischId)}
                     petPlacements={petPlacements}
+                    plotPlants={plotPlants}
                     mySlotIndex={mySlotIndex}
                     skillWirkung={skillWirkung}
                     setPetOverlayOpen={setPetOverlayOpen}
@@ -3057,6 +3342,9 @@ export default function GameContainer() {
                     handleStowInspectedPet={handleStowInspectedPet}
                     handleSellInspectedPet={handleSellInspectedPet}
                     handleRenamePet={handleRenamePet}
+                    fische={fische}
+                    onFuettern={tierFuettern}
+                    plotPlants={plotPlants}
                 />
             )}
 
@@ -3092,8 +3380,9 @@ export default function GameContainer() {
                 setSelectedTool={setSelectedTool}
                 setMovingPlantSource={setMovingPlantSource}
                 setItemHoverTooltip={setItemHoverTooltip}
+                ernteRausch={ernteRausch}
             />
-            {currentInteractable && !activeShop && !isBackpackOpen && !isMarketOpen && !isIncubatorOpen && !isMailboxOpen && !isTrashOpen && !isShedOpen && (
+            {currentInteractable && !activeShop && !isBackpackOpen && !isMarketOpen && !isIncubatorOpen && !isMailboxOpen && !isTrashOpen && !isShedOpen && !angelnOffen && (
                 <button
                     type="button"
                     onClick={(e) => {
@@ -3114,7 +3403,7 @@ export default function GameContainer() {
                         editorAktiv ? "bottom-72" : "bottom-32"
                     }`}
                 >
-                    {currentInteractable.label} öffnen
+                    {currentInteractable.type === "shed" ? "Haus betreten" : currentInteractable.type === "fremdesHaus" ? `${currentInteractable.label} betreten` : currentInteractable.type === "angeln" ? "Angel auswerfen" : `${currentInteractable.label} öffnen`}
                     {/* Am eigenen Kasten direkt sehen, ob etwas drin liegt */}
                     {currentInteractable.type === "mailbox" && currentInteractable.isOwn && mailbox.length > 0 && (
                         <span className="px-1.5 rounded-xl bg-white/20 text-[10px] font-semibold tabular-nums">
@@ -3128,15 +3417,22 @@ export default function GameContainer() {
             {/* ── Bottom-Right: Inventory ──────────────────────────────────── */}
             {/* Inventar und Schnellreise sind die Knöpfe, die man am häufigsten
                 trifft — eine Stufe größer als der Rest des HUD. */}
+            {/* 06.11.: nur noch der Rucksack als Bild — wackelt beim Draufzeigen, Klick öffnet ihn */}
             <button
                 type="button"
                 onClick={() => setBackpackOpen(true)}
-                className={`absolute bottom-5 right-5 pl-1.5 pr-4 py-1.5 ${HUD_SURFACE} text-slate-200 hover:text-white transition-colors flex items-center gap-2.5 text-sm font-medium`}
+                title="Rucksack öffnen"
+                aria-label="Rucksack öffnen"
+                className="group absolute bottom-3 right-4 transition-transform duration-100 hover:-translate-y-1 focus:outline-none"
             >
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border-2 border-amber-950/40 bg-amber-50">
-                    <HudIcon.inventory size={24} />
-                </span>
-                Inventar
+                {/* Zu und auf: beim Draufzeigen klappt der Rucksack auf (tools/pixelDeko.mjs) */}
+                <img src={versionedAsset("/garden-assets/tools/rucksack_zu.png")} alt="" draggable={false}
+                    className="h-24 w-24 object-contain drop-shadow-[0_5px_0_rgba(43,29,18,0.6)] group-hover:hidden group-focus-visible:hidden"
+                    style={{ imageRendering: "pixelated" }} />
+                <img src={versionedAsset("/garden-assets/tools/rucksack_auf.png")} alt="" draggable={false}
+                    className="hidden h-24 w-24 object-contain drop-shadow-[0_5px_0_rgba(43,29,18,0.6)] group-hover:block group-focus-visible:block"
+                    style={{ imageRendering: "pixelated", animation: "gfRucksackAuf 220ms steps(3) both" }} />
+                <style>{"@keyframes gfRucksackAuf { from { transform: translateY(5px) } to { transform: none } }"}</style>
             </button>
 
             {/* Der eigene "Level N"-Knopf unten rechts ist raus (Feedback 30.08.:
@@ -3255,7 +3551,7 @@ export default function GameContainer() {
                 <BrutkastenFenster
                     setIncubatorTargetSlot={setIncubatorTargetSlot}
                     setIncubatorOpen={setIncubatorOpen}
-                    setShedOpen={setShedOpen}
+                    setShedOpen={imHaus ? schuppenZurueck : setShedOpen}
                     eggInventory={eggInventory}
                     incubator={incubator}
                     unlockIncubatorSlot={unlockIncubatorSlot}
@@ -3279,10 +3575,10 @@ export default function GameContainer() {
                 setMovingPlantSource={setMovingPlantSource}
             />
             {/* 5. ANPASSUNG: Wardrobe Modal - Jetzt mit Preset-Buttons */}
-            <WardrobeModal
+            {/* 06.11.: Figurenauswahl statt Kachel-Fenster — auch als Kleiderschrank im Haus */}
+            <Umkleide
                 offen={isWardrobeOpen}
                 onClose={() => setWardrobeOpen(false)}
-                onBack={() => { setWardrobeOpen(false); setProfilOffen(true); }}
                 aktuellerSkin={playerAppearance.skin}
                 level={skillStand?.level || 1}
                 onWaehlen={(skin) => setPlayerAppearance({ skin })}

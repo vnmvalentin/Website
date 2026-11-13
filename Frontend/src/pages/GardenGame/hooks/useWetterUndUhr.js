@@ -70,8 +70,8 @@ export default function useWetterUndUhr({
             if (naechste.erntefest !== warFest) {
                 warFest = naechste.erntefest;
                 notify(naechste.erntefest
-                    ? "Das Erntefest hat begonnen! Jede Ernte bringt Punkte für das gemeinsame Ziel — Saisonware zählt doppelt. Stand am Missionsbrett."
-                    : "Das Erntefest ist vorbei. Deine Belohnung wartet am Missionsbrett.");
+                    ? "Das Erntefest hat begonnen! Jede Ernte bringt Punkte für das gemeinsame Ziel — Saisonware zählt doppelt. Stand am Erntefest-Stand auf dem Dorfplatz."
+                    : "Das Erntefest ist vorbei. Deine Belohnung wartet am Erntefest-Stand auf dem Dorfplatz.");
             }
             if (naechste.saison !== warSaison) {
                 warSaison = naechste.saison;

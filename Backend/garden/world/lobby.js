@@ -69,6 +69,10 @@ const DEKO_SNAPSHOT_MAX = 400;
 // Muss zu VITRINE_MAX in garden/core/economy.js passen.
 const VITRINE_SNAPSHOT_MAX = 12;
 
+// Begehbare Innenräume (Browser: ui/HausInnen.jsx, Maße aus ui/hausRaum.js W×H)
+const RAUM_ARTEN = new Set(["haus", "goldshop"]);
+const RAUM_BREITE = 200;
+const RAUM_HOEHE = 130;
 const PUBLIC_CODE = "OEFFENTLICH";
 const CODE_LENGTH = 5;
 // Ohne 0/O und 1/I/L — die verwechselt man beim Vorlesen.
@@ -391,6 +395,8 @@ function publicPlayer(p) {
         appearance: p.appearance,
         badge: p.badge,
         held: p.held || null,
+        // Innenraum (Haus/Gold-Shop), in dem die Figur gerade steht — siehe garden:raum
+        raum: p.raum || null,
         // Für die Bestenliste am Goldstand. Kommt aus dem SERVER-Stand, nicht vom
         // Client — Gold gehört seit v3.0 ohnehin dem Server. Eine Zahl mehr pro
         // Spieler und Tick fällt neben Position und Aussehen nicht ins Gewicht.
@@ -399,6 +405,8 @@ function publicPlayer(p) {
         // Spielerobjekt — dieselbe Quelle wie beim Grundstück (siehe publicSlotView
         // oben), also nie mit ihr auseinanderlaufen kann.
         nameplate: farmStatesRef?.get(String(p.twitchId))?.reskins?.ausgeruestet?.nameplate || null,
+        // Hut der Figur (core/reskins.js, Kategorie hut) — gleiche Quelle wie das Namensschild
+        hut: farmStatesRef?.get(String(p.twitchId))?.reskins?.ausgeruestet?.hut || null,
         // Level für die Online-Liste (Feedback 01.09.: "Level + Gold mit Icons") —
         // dieselbe Rechnung wie skillStand() selbst, nur der eine Wert daraus.
         level: skillStand(farmStatesRef?.get(String(p.twitchId)) || {}).level,
@@ -593,6 +601,7 @@ function joinWorld(socket, session, world) {
         appearance: existing?.appearance ?? null,
         badge: existing?.badge ?? null,
         held: existing?.held ?? null,
+        raum: null,
         lastSeen: Date.now(),
         // Bei einem Doppel-Tab (existing vorhanden) gilt die Eingabezeit des
         // alten Tabs weiter — ein blosser Tab-Wechsel ist keine neue Aktivität.
@@ -745,6 +754,38 @@ function registerGardenSocket(socket, io, getSessionFromSocket, farmStates) {
         player.held = sanitizeHeld(data?.held);
         player.lastSeen = Date.now();
         ioRef?.to(roomName(code)).emit("garden:player_held", { twitchId, held: player.held });
+    });
+
+    // Innenräume (11.11.): Wer im Haus oder im Gold-Shop steht, meldet Raum und Standort
+    // darin. So sehen sich alle, die im selben Raum sind — und draußen verschwindet die
+    // Figur, statt vor der Tür stehen zu bleiben. `wirt` = wessen Haus (eigene oder fremde
+    // Kennung); der Gold-Shop ist für die ganze Welt derselbe Raum. Ohne gültigen Raum
+    // gilt die Figur wieder als draußen.
+    socket.on("garden:raum", (data) => {
+        const twitchId = socket.data.gardenTwitchId;
+        if (!twitchId) return;
+        const code = playerWorld.get(twitchId);
+        const world = code ? worlds.get(code) : null;
+        const player = world?.players.get(twitchId);
+        if (!player) return;
+        const art = RAUM_ARTEN.has(data?.art) ? data.art : null;
+        // Ein Haus gibt es nur, solange sein Besitzer in derselben Welt ist
+        const wirt = art === "haus" ? String(data?.wirt || twitchId) : null;
+        const x = Number(data?.x);
+        const y = Number(data?.y);
+        if (!art || (wirt && !world.players.has(wirt)) || !Number.isFinite(x) || !Number.isFinite(y)) {
+            if (player.raum) { player.raum = null; world.dirty = true; }
+            return;
+        }
+        player.raum = {
+            art, wirt,
+            x: Math.max(0, Math.min(RAUM_BREITE, Math.round(x * 10) / 10)),
+            y: Math.max(0, Math.min(RAUM_HOEHE, Math.round(y * 10) / 10)),
+            rechts: data?.rechts !== false,
+            laeuft: Boolean(data?.laeuft),
+        };
+        player.lastSeen = Date.now();
+        world.dirty = true;
     });
 
     socket.on("garden:appearance", (data) => {

@@ -4,6 +4,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { ArrowRight } from "lucide-react";
+import { SectionHeading } from "./ui";
 
 const formatValue = (v) => (typeof v === "number" ? v.toLocaleString("de-DE") : String(v));
 
@@ -22,9 +23,9 @@ export default function ActivityStrip() {
   if (!items.length) return null;
 
   return (
-    <section aria-label="Gerade los">
-      <p className="text-xs font-bold uppercase tracking-widest text-violet-300/80 mb-3">Gerade los</p>
-      <div className="panel flex flex-col md:flex-row divide-y md:divide-y-0 md:divide-x divide-white/10 overflow-hidden">
+    <section aria-labelledby="home-activity">
+      <SectionHeading id="home-activity" title="Gerade los" />
+      <div className="rounded-lg border border-line flex flex-col md:flex-row divide-y md:divide-y-0 md:divide-x divide-white/10 overflow-hidden">
         {items.map((item) => (
           <Link
             key={item.id}
@@ -34,7 +35,7 @@ export default function ActivityStrip() {
             <span className="font-display text-3xl font-bold text-white tabular-nums leading-none">{formatValue(item.value)}</span>
             <span className="flex items-end justify-between gap-3 text-sm text-white/50 group-hover:text-white/80 transition-colors">
               <span className="leading-snug">{item.label}</span>
-              <ArrowRight size={15} className="shrink-0 text-white/20 group-hover:text-violet-300 transition-colors" />
+              <ArrowRight size={15} className="shrink-0 text-white/20 group-hover:text-white/70 transition-colors" />
             </span>
           </Link>
         ))}

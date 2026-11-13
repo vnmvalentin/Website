@@ -13,7 +13,10 @@
 //   Tiere (art "tier"): schreibt animals/<id>.png (Vorschau) + animals/<id>/1.png und 2.png
 //       (Laufbilder; Bild 2 wird aus dem Standbild berechnet, siehe laufBild).
 //   Bodenbeläge (art "boden"): 256 px, nahtlos gemacht (siehe nahtlos), als JPG.
-//   Schalter: --lora <stärke> (Standard 0.7, wie beim Erzeugen), --dry-run
+//   Schalter: --lora <stärke> (Standard 0.7, wie beim Erzeugen), --dry-run,
+//     --vorschau <ordner> (Unterordner von garden-art-vorschau/, z. B. pixel_welt),
+//     --pixel  echtes Pixelraster (Pixel-Look, 04.11.): 48 Bildpunkte je Kachel Spielgröße,
+//              harte Kanten, begrenzte Palette, zweifach vergrößert gespeichert (siehe pixelBild).
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -28,7 +31,8 @@ const ASSETS = process.env.GARDEN_ASSETS_ZIEL ? path.resolve(process.env.GARDEN_
 const BACKEND_KATALOG = path.resolve(FRONTEND, "../Backend/garden/core/catalogue.js");
 const MAX_PX = 400; // Bildschirmgröße liegt auch mit Zoom deutlich darunter (siehe Deko-Pipeline)
 
-const vorschauDatei = (id, lora, v) => path.join(VORSCHAU, `${id}__${lora > 0 ? `lora${String(lora).replace(".", "")}` : "ohne"}${v ? `_v${v}` : ""}.png`);
+let vorschauOrdner = VORSCHAU;
+const vorschauDatei = (id, lora, v) => path.join(vorschauOrdner, `${id}__${lora > 0 ? `lora${String(lora).replace(".", "")}` : "ohne"}${v ? `_v${v}` : ""}.png`);
 
 async function speichere(buffer, zielRel, dryRun) {
   const ziel = path.join(ASSETS, zielRel);
@@ -41,6 +45,43 @@ async function speichere(buffer, zielRel, dryRun) {
   fs.mkdirSync(path.dirname(ziel), { recursive: true });
   fs.writeFileSync(ziel, buffer);
   console.log(`  → ${zielRel} (${Math.round(buffer.length / 1024)} KB)`);
+}
+
+/**
+ * Pixel-Look: wie groß ein Motiv im Raster wird (längste Seite in Bildpunkten). 48 je
+ * Kachel Spielgröße — ein ackerfüllendes Motiv hat 48 (Wahl des Nutzers am 04.11., siehe
+ * garden-art-vorschau/pixel/_raster_vergleich.png). Welt-Gebäude nach ihrer Zeichengröße
+ * im Renderer: Läden bis 290 px (4,5 Kacheln), Schuppen 192, Missionsbrett 128, Briefkasten ~70.
+ */
+const PIXEL_JE_KACHEL = 48;
+const PIXEL_HOEHE_JE_ART = { pflanze: 48, struktur: 72, frucht: 24, tier: 48, stand: 216, deko: 48, gegenstand: 32, symbol: 32, figur: 64, samen: 24 };
+const PIXEL_HOEHE_JE_MOTIV = { welt_shed: 144, welt_quest_board: 96, welt_mailbox: 56 };
+const PIXEL_FARBEN = 32;
+const PIXEL_VERGROESSERUNG = 2;
+
+/**
+ * Flux malt nur Pixel-OPTIK ohne festes Raster. Hier wird daraus ein echtes Raster:
+ * Freistellrand weg → flächig auf die Zielgröße mitteln (cubic: keine Zufallspixel) →
+ * Alpha hart (0/255) → Palette begrenzen → mit „nearest“ ganzzahlig vergrößern, damit die
+ * Kanten beim Herunterrechnen im Spiel scharf bleiben.
+ */
+async function pixelBild(datei, hoehe) {
+  const { data, info } = await sharp(datei).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+  let x0 = info.width, y0 = info.height, x1 = -1, y1 = -1;
+  for (let y = 0; y < info.height; y++) for (let x = 0; x < info.width; x++) {
+    if (data[(y * info.width + x) * 4 + 3] >= 32) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+  }
+  if (x1 < 0) throw new Error("leeres Bild");
+  const w = x1 - x0 + 1, h = y1 - y0 + 1;
+  const s = hoehe / Math.max(w, h);
+  const zw = Math.max(1, Math.round(w * s)), zh = Math.max(1, Math.round(h * s));
+  const klein = await sharp(datei).ensureAlpha().extract({ left: x0, top: y0, width: w, height: h })
+    .resize(zw, zh, { kernel: "cubic" }).raw().toBuffer();
+  for (let i = 3; i < klein.length; i += 4) klein[i] = klein[i] >= 128 ? 255 : 0;
+  const palette = await sharp(klein, { raw: { width: zw, height: zh, channels: 4 } })
+    .png({ palette: true, colors: PIXEL_FARBEN, dither: 0 }).toBuffer();
+  return sharp(palette).resize(zw * PIXEL_VERGROESSERUNG, zh * PIXEL_VERGROESSERUNG, { kernel: "nearest" })
+    .png({ compressionLevel: 9, palette: true, colors: PIXEL_FARBEN, dither: 0 }).toBuffer();
 }
 
 const alsSpielbild = (input, max = MAX_PX) =>
@@ -236,7 +277,7 @@ async function tuete(seedId, tuetenDatei, dryRun) {
 
 async function main() {
   const argv = process.argv.slice(2);
-  let lora = 0.7, dryRun = false, tueten = [], tuetenVariante = 0;
+  let lora = 0.7, dryRun = false, tueten = [], tuetenVariante = 0, pixel = false;
   const auswahl = [];
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
@@ -244,6 +285,8 @@ async function main() {
     else if (a === "--dry-run") dryRun = true;
     else if (a === "--tueten") tueten = String(argv[++i] || "").split(",").map((s) => s.trim()).filter(Boolean);
     else if (a === "--tuete")tuetenVariante = Math.max(0, Math.floor(Number(argv[++i])) || 0);
+    else if (a === "--pixel") pixel = true;
+    else if (a === "--vorschau") vorschauOrdner = path.join(VORSCHAU, String(argv[++i] || ""));
     else if (/^[a-z0-9_]+=\d+$/i.test(a)) {
       const [id, v] = a.split("=");
       auswahl.push({ id, v: Number(v) });
@@ -258,6 +301,11 @@ async function main() {
     const datei = vorschauDatei(id, lora, v);
     if (!fs.existsSync(datei)) throw new Error(`Vorschau fehlt: ${path.basename(datei)}`);
     console.log(`${id} v${v}`);
+    if (pixel && m.art !== "tier" && m.art !== "boden") {
+      const hoehe = PIXEL_HOEHE_JE_MOTIV[id] ?? PIXEL_HOEHE_JE_ART[m.art] ?? PIXEL_JE_KACHEL;
+      await speichere(await pixelBild(datei, hoehe), m.ziel, dryRun);
+      continue;
+    }
     if (m.art === "tier") {
       await tierBilder(id, datei, m.ziel, dryRun);
       continue;

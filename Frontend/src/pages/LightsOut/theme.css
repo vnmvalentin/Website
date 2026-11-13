@@ -295,40 +295,127 @@
   opacity: 0.92;
 }
 
-/* ── Jumpscare ────────────────────────────────────────────────────── */
+/* ── Erwischt ─────────────────────────────────────────────────────── */
+/* Die Szene spielt in der 3D-Welt; darüber liegen nur rote Ränder und Bildstörungen, dann der Schnitt. */
 .lo-scare {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.lo-scare.is-grab {
+  background:
+    repeating-linear-gradient(to bottom, rgba(0, 0, 0, 0.22) 0, rgba(0, 0, 0, 0.22) 1px, transparent 1px, transparent 4px),
+    radial-gradient(ellipse at center, transparent 30%, rgba(90, 0, 0, 0.55) 78%, rgba(20, 0, 0, 0.95) 100%);
+  animation: lo-scare-pulse 0.09s steps(2) infinite;
+}
+.lo-scare.is-grab::after {
+  /* Bildstörung: ein heller Balken springt über das Bild */
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 9vh;
+  background: rgba(255, 255, 255, 0.07);
+  animation: lo-scare-tear 0.23s steps(5) infinite;
+}
+.lo-scare.is-cut { background: #000; }
+.lo-scare.is-soft.is-grab {
+  background: radial-gradient(ellipse at center, transparent 40%, rgba(40, 0, 0, 0.5) 100%);
+  animation: none;
+}
+.lo-scare.is-soft.is-grab::after { display: none; }
+.lo-scare.is-soft.is-cut { animation: lo-fade-in 0.25s ease-out both; }
+@keyframes lo-scare-pulse {
+  0% { opacity: 1; }
+  100% { opacity: 0.72; }
+}
+@keyframes lo-scare-tear {
+  0% { top: 12%; }
+  20% { top: 71%; }
+  40% { top: 34%; }
+  60% { top: 88%; }
+  80% { top: 3%; }
+  100% { top: 52%; }
+}
+
+/* ── Stimmung: Filmkorn und Angst am Bildrand ─────────────────────── */
+.lo-vignette::after {
+  /* Je näher es ist, desto enger und röter wird der Rand (--fear 0…1 aus dem Spiel) */
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at center, transparent 34%, rgba(46, 0, 0, 0.85) 100%);
+  opacity: var(--fear, 0);
+  transition: opacity 0.5s linear;
+}
+.lo-grain {
+  position: absolute;
+  inset: -60px;
+  pointer-events: none;
+  opacity: 0.085;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 1.4 -0.35'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)'/%3E%3C/svg%3E");
+  animation: lo-grain 0.5s steps(6) infinite;
+}
+@keyframes lo-grain {
+  0% { transform: translate(0, 0); }
+  17% { transform: translate(-31px, 22px); }
+  34% { transform: translate(24px, -37px); }
+  50% { transform: translate(-44px, -12px); }
+  67% { transform: translate(38px, 29px); }
+  84% { transform: translate(-17px, 41px); }
+  100% { transform: translate(0, 0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .lo-grain { animation: none; }
+}
+
+/* ── Notizen ──────────────────────────────────────────────────────── */
+.lo-note-sheet {
+  position: absolute;
+  left: 50%;
+  bottom: 96px;
+  width: min(480px, calc(100% - 32px));
+  padding: 16px 20px 12px;
+  transform: translateX(-50%) rotate(-0.6deg);
+  background: #cfc8b2;
+  color: #1c1915;
+  border-radius: 2px;
+  pointer-events: none;
+  font-family: 'Special Elite', Georgia, serif;
+  animation: lo-fade-in 0.25s ease-out both;
+}
+.lo-note-sheet b { display: block; margin-bottom: 8px; font-size: 13px; letter-spacing: 0.06em; text-transform: uppercase; color: #5a2018; }
+.lo-note-sheet p { margin: 0 0 10px; font-size: 15px; line-height: 1.5; }
+.lo-note-sheet small { display: block; text-align: right; font: 600 11px Inter, system-ui, sans-serif; color: rgba(28, 25, 21, 0.6); }
+.lo-note-sheet kbd { margin-right: 5px; padding: 0 5px; border: 1px solid rgba(28, 25, 21, 0.4); border-radius: 3px; font: inherit; }
+/* Allein steht das Spiel beim Lesen: Blatt groß in der Mitte, Welt dahinter abgedunkelt */
+.lo-note-dim {
   position: absolute;
   inset: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #000;
-  animation: lo-scare-bg 1.5s steps(1) both;
+  padding: 16px;
+  background: rgba(0, 0, 0, 0.62);
+  pointer-events: none;
+  animation: lo-fade-in 0.2s ease-out both;
 }
-.lo-scare canvas {
-  height: 100vh;
-  width: auto;
-  animation: lo-scare-in 0.18s cubic-bezier(0.2, 0.9, 0.3, 1.4) both, lo-shake 0.06s 0.18s 18 linear;
+.lo-note-sheet.is-reading {
+  position: static;
+  width: min(560px, 100%);
+  padding: 26px 30px 16px;
+  transform: rotate(-0.6deg);
 }
-.lo-scare.is-soft { animation: none; }
-.lo-scare.is-soft canvas {
-  opacity: 0.55;
-  animation: lo-soft-in 0.6s ease-out both;
-}
-@keyframes lo-scare-in { from { transform: scale(0.3); } to { transform: scale(1.25); } }
-@keyframes lo-soft-in { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 0.55; } }
-@keyframes lo-shake {
-  0% { transform: scale(1.25) translate(0, 0); }
-  25% { transform: scale(1.27) translate(-14px, 8px); }
-  50% { transform: scale(1.24) translate(12px, -10px); }
-  75% { transform: scale(1.28) translate(-8px, -6px); }
-  100% { transform: scale(1.25) translate(0, 0); }
-}
-@keyframes lo-scare-bg {
-  0% { background: #000; }
-  8% { background: #5a0000; }
-  14% { background: #000; }
-}
+.lo-note-sheet.is-reading b { font-size: 14px; margin-bottom: 12px; }
+.lo-note-sheet.is-reading p { font-size: 18px; line-height: 1.6; }
+.lo-note-sheet.is-reading small { display: flex; align-items: center; justify-content: space-between; margin-top: 14px; }
+.lo-note-state { letter-spacing: 0.08em; text-transform: uppercase; }
+.lo-file ol { display: flex; flex-direction: column; gap: 10px; margin: 0; padding: 0; list-style: none; }
+.lo-file li { padding: 12px 14px; border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 4px; }
+.lo-file li b { display: block; font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: #c9a58c; }
+.lo-file li p { margin: 6px 0 0; font-family: 'Special Elite', Georgia, serif; font-size: 14px; line-height: 1.5; color: #d9d4c7; }
+.lo-file li.is-missing { border-style: dashed; }
+.lo-file li.is-missing b { color: rgba(217, 212, 199, 0.35); }
 
 .lo-kicker {
   margin: 0 0 6px;
@@ -349,6 +436,8 @@
   transition: opacity 0.8s ease;
 }
 .lo-fade.is-on { opacity: 1; }
+.lo-fade.is-hard { transition: none; }
+.lo-fade.is-slow { transition-duration: 2.2s; }
 .lo-skip {
   position: absolute;
   right: 20px;
@@ -358,6 +447,33 @@
   color: rgba(217, 212, 199, 0.5);
   pointer-events: none;
 }
+/* Untertitel des Anrufs in der Anfahrt */
+.lo-subtitle {
+  position: absolute;
+  left: 50%;
+  bottom: 11%;
+  width: min(760px, calc(100% - 32px));
+  margin: 0;
+  transform: translateX(-50%);
+  pointer-events: none;
+  font-family: 'Special Elite', Georgia, serif;
+  font-size: clamp(17px, 2.1vw, 24px);
+  line-height: 1.4;
+  text-align: center;
+  color: #e9e4d6;
+  text-shadow: 0 2px 4px #000, 0 0 12px rgba(0, 0, 0, 0.8);
+  animation: lo-fade-in 0.25s ease-out both;
+}
+.lo-subtitle b {
+  display: block;
+  margin-bottom: 4px;
+  font: 700 11px Inter, system-ui, sans-serif;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(217, 212, 199, 0.55);
+}
+.lo-subtitle.is-call { color: #b9cbe0; }
+.lo-subtitle.is-call b { color: rgba(159, 196, 255, 0.7); }
 .lo-skip kbd {
   margin-right: 6px;
   padding: 1px 6px;

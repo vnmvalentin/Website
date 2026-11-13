@@ -1,0 +1,287 @@
+/*
+ * Worldflip — eigener Look, getrennt von der übrigen Website.
+ *
+ * Tintenschwarzer Grund, cremeweiße Schrift, deckende Flächen mit Haarlinien. Farbe kommt nur von den vier Welten
+ * (Vulkan-Orange, Ozean-Blau, Dschungel-Grün, Kosmos-Violett) — in der Oberfläche als flache Farbfelder, nie als
+ * Verlauf oder Leuchten. Die Bühne gehört dem 3D-Tisch; Anzeigen liegen als kleine deckende Tafeln darüber.
+ *
+ * Schrift: Rubik (eine Familie, 400–900), geladen von der Hülle (ui/Shell.jsx) per <link>. Präfix wf- für alle Klassen.
+ */
+
+.wf-game {
+  --wf-bg: #17161d;
+  --wf-surface: #1f1e27;
+  --wf-surface-2: #292733;
+  --wf-surface-3: #353241;
+  --wf-line: rgb(255 255 255 / 0.09);
+  --wf-line-2: rgb(255 255 255 / 0.18);
+  --wf-text: #f4eedf;
+  --wf-dim: rgb(244 238 223 / 0.7);
+  --wf-faint: rgb(244 238 223 / 0.45);
+  --wf-cream: #f4eedf;
+  --wf-cream-dark: #dcd3bd;
+  --wf-ink: #17161d;
+  --wf-vulkan: #f0562b;
+  --wf-ozean: #2b93f0;
+  --wf-dschungel: #3dbb4f;
+  --wf-kosmos: #9b62f2;
+  --wf-font: "Rubik", "Inter", ui-sans-serif, system-ui, sans-serif;
+
+  color-scheme: dark;
+  min-height: 100vh;
+  min-height: 100dvh;
+  background: var(--wf-bg);
+  color: var(--wf-text);
+  font-family: var(--wf-font);
+  font-size: 15px;
+  line-height: 1.5;
+}
+.wf-game ::selection { background: var(--wf-cream); color: var(--wf-ink); }
+.wf-game :focus-visible { outline: 2px solid var(--wf-cream); outline-offset: 2px; }
+
+/* ── Schrift ─────────────────────────────────────────────────────────────── */
+.wf-display { font-weight: 900; text-transform: uppercase; letter-spacing: -0.02em; line-height: 0.95; }
+.wf-label { font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: 0.14em; color: var(--wf-faint); }
+.wf-dim { color: var(--wf-dim); }
+.wf-faint { color: var(--wf-faint); }
+.wf-num { font-variant-numeric: tabular-nums; }
+
+/* ── Kopfleiste ──────────────────────────────────────────────────────────── */
+.wf-topbar { border-bottom: 1px solid var(--wf-line); background: var(--wf-bg); position: relative; z-index: 5; }
+.wf-logo { display: inline-flex; align-items: center; gap: 10px; font-weight: 900; text-transform: uppercase; font-size: 19px; line-height: 1; letter-spacing: -0.01em; }
+/* Logo-Zeichen: die vier Welten als Windrad, wie auf der Kartenrückseite */
+.wf-logo-mark { width: 20px; height: 20px; display: grid; grid-template-columns: 1fr 1fr; gap: 2px; transform: rotate(45deg); }
+.wf-logo-mark i { display: block; }
+.wf-logo-mark i:nth-child(1) { background: var(--wf-vulkan); }
+.wf-logo-mark i:nth-child(2) { background: var(--wf-ozean); }
+.wf-logo-mark i:nth-child(3) { background: var(--wf-kosmos); }
+.wf-logo-mark i:nth-child(4) { background: var(--wf-dschungel); }
+@media (max-width: 440px) {
+  .wf-logo { font-size: 15px; gap: 8px; }
+  .wf-topbar .wf-btn-sm { padding: 6px 7px; }
+}
+
+/* ── Flächen ─────────────────────────────────────────────────────────────── */
+.wf-card { background: var(--wf-surface); border: 1px solid var(--wf-line); border-radius: 8px; }
+.wf-rows > * + * { border-top: 1px solid var(--wf-line); }
+.wf-section-title { font-weight: 700; font-size: 13px; text-transform: uppercase; letter-spacing: 0.14em; color: var(--wf-dim); }
+
+/* ── Knöpfe ──────────────────────────────────────────────────────────────── */
+.wf-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  padding: 10px 18px; border-radius: 6px; border: 1px solid transparent;
+  font-weight: 800; font-size: 15px; letter-spacing: 0.03em; text-transform: uppercase;
+  background: var(--wf-cream); color: var(--wf-ink);
+  transition: background-color 120ms, color 120ms, border-color 120ms;
+  cursor: pointer; white-space: nowrap; user-select: none;
+}
+.wf-btn:hover:not(:disabled) { background: var(--wf-cream-dark); }
+.wf-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.wf-btn-lg { padding: 14px 24px; font-size: 17px; }
+.wf-btn-sm { padding: 6px 11px; font-size: 13px; gap: 6px; }
+.wf-btn-ghost { background: transparent; color: var(--wf-text); border-color: var(--wf-line-2); }
+.wf-btn-ghost:hover:not(:disabled) { background: var(--wf-surface-2); }
+.wf-btn-quiet { background: var(--wf-surface-3); color: var(--wf-text); }
+.wf-btn-quiet:hover:not(:disabled) { background: #413d50; }
+.wf-icon-btn {
+  display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; border-radius: 6px;
+  color: var(--wf-dim); border: 1px solid var(--wf-line-2); background: transparent; transition: background-color 120ms, color 120ms;
+}
+.wf-icon-btn:hover { background: var(--wf-surface-2); color: var(--wf-text); }
+
+.wf-seg { display: inline-flex; padding: 3px; gap: 3px; border-radius: 7px; background: var(--wf-bg); border: 1px solid var(--wf-line); }
+.wf-seg > button { padding: 5px 13px; border-radius: 4px; font-weight: 600; font-size: 14px; color: var(--wf-dim); transition: background-color 120ms, color 120ms; }
+.wf-seg > button:hover:not(:disabled) { color: var(--wf-text); background: var(--wf-surface-2); }
+.wf-seg > button[aria-pressed="true"] { background: var(--wf-cream); color: var(--wf-ink); }
+.wf-seg > button:disabled { cursor: not-allowed; opacity: 0.5; }
+
+.wf-input {
+  width: 100%; background: var(--wf-bg); color: var(--wf-text);
+  border: 1px solid var(--wf-line-2); border-radius: 6px; padding: 9px 12px; font-size: 15px;
+}
+.wf-input::placeholder { color: var(--wf-faint); }
+.wf-input:focus { outline: none; border-color: var(--wf-cream); }
+
+/* ── Fenster ─────────────────────────────────────────────────────────────── */
+.wf-dialog-backdrop {
+  position: fixed; inset: 0; z-index: 60; display: flex; align-items: center; justify-content: center; padding: 16px;
+  background: rgb(10 9 14 / 0.78);
+}
+.wf-dialog { width: 100%; max-width: 640px; max-height: calc(100dvh - 32px); overflow-y: auto; }
+
+/* ── Karten als Bild (Menü, Regeln) ──────────────────────────────────────── */
+.wf-cardimg { display: block; border-radius: 7.5% / 5.2%; aspect-ratio: 256 / 372; background: var(--wf-surface-2); }
+
+/* Kartenfächer im Menü */
+.wf-fan { position: relative; height: 300px; }
+.wf-fan .wf-cardimg {
+  position: absolute; left: 50%; bottom: 0; width: 150px; margin-left: -75px;
+  transform-origin: 50% 160%; box-shadow: 0 2px 0 rgb(0 0 0 / 0.35);
+  transition: translate 160ms ease-out;
+}
+.wf-fan .wf-cardimg:hover { translate: 0 -14px; }
+@media (max-width: 640px) {
+  .wf-fan { height: 210px; }
+  .wf-fan .wf-cardimg { width: 104px; margin-left: -52px; }
+}
+
+/* Weltfarben als Feld */
+.wf-chip { display: inline-block; width: 12px; height: 12px; border-radius: 3px; flex: none; }
+
+/* ── Bühne (3D-Tisch) ────────────────────────────────────────────────────── */
+.wf-stage { position: relative; flex: 1; min-height: 520px; overflow: hidden; background: var(--wf-bg); }
+.wf-stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+.wf-hud { position: absolute; inset: 0; pointer-events: none; }
+.wf-hud > * { pointer-events: auto; }
+
+.wf-panel { background: rgb(23 22 29 / 0.9); border: 1px solid var(--wf-line-2); border-radius: 8px; }
+
+/* Weltenrad oben in der Mitte: dreht sich wie die Welt (die aktuelle liegt unten), Ringe = Ladung */
+.wf-wheelbox { position: absolute; top: 8px; left: 50%; translate: -50% 0; width: 148px; height: 148px; padding: 8px; border-radius: 50%; background: rgb(23 22 29 / 0.82); border: 1px solid var(--wf-line-2); pointer-events: auto; }
+.wf-wheel { width: 100%; height: 100%; display: block; }
+.wf-wheel-spin { transition: transform 1500ms cubic-bezier(0.65, 0, 0.35, 1); }
+/* Welt-Tafel oben links: Name, Gesetz (gilt immer) und nächstes Ereignis (bei voller Ladung) */
+.wf-world { position: absolute; top: 10px; left: 10px; padding: 10px 14px 12px; width: min(360px, calc(50% - 96px)); font-size: 13px; line-height: 1.35; }
+.wf-world-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 6px; }
+.wf-world-name { font-weight: 900; font-size: 26px; line-height: 1; text-transform: uppercase; letter-spacing: -0.01em; color: var(--wf-w); }
+.wf-world-dir { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 600; color: var(--wf-dim); white-space: nowrap; }
+.wf-world-row { display: grid; grid-template-columns: 96px 1fr; gap: 8px; padding: 5px 0; border-top: 1px solid var(--wf-line); }
+.wf-world-row i { font-style: normal; font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--wf-faint); padding-top: 2px; }
+.wf-world-row b { text-transform: uppercase; font-weight: 800; color: var(--wf-w); }
+.wf-timer { height: 3px; background: var(--wf-surface-3); border-radius: 2px; overflow: hidden; margin-top: 7px; }
+.wf-timer > i { display: block; height: 100%; background: var(--wf-cream); transition: width 250ms linear; }
+@media (max-width: 760px) {
+  .wf-wheelbox { left: auto; right: 8px; translate: 0 0; width: 92px; height: 92px; padding: 5px; }
+  .wf-world { width: calc(100% - 116px); padding: 8px 10px; font-size: 12px; }
+  .wf-world-name { font-size: 19px; }
+  .wf-world-row { grid-template-columns: 1fr; gap: 0; }
+  .wf-splash { top: 30%; }
+}
+@media (prefers-reduced-motion: reduce) { .wf-wheel-spin { transition: none; } }
+
+/* Großes Feld quer über die Mitte: ein Weltereignis wird ausgelöst */
+.wf-splash { position: absolute; left: 0; right: 0; top: 34%; pointer-events: none !important; display: flex; justify-content: center; }
+.wf-splash-band {
+  position: relative; width: 100%; padding: 18px 24px 20px; text-align: center; color: #fff;
+  background: var(--wf-w); border-top: 6px solid var(--wf-cream); border-bottom: 6px solid var(--wf-wd);
+  background-image: repeating-linear-gradient(-55deg, rgb(0 0 0 / 0.09) 0 22px, transparent 22px 44px);
+  animation: wf-splash-in 2600ms cubic-bezier(0.2, 0.9, 0.2, 1) both;
+}
+.wf-splash-kicker { font-weight: 800; font-size: 13px; text-transform: uppercase; letter-spacing: 0.22em; color: var(--wf-wd); }
+.wf-splash-title { font-weight: 900; font-size: clamp(40px, 8vw, 92px); line-height: 0.95; text-transform: uppercase; letter-spacing: -0.03em; animation: wf-splash-title 2600ms cubic-bezier(0.2, 0.9, 0.2, 1) both; }
+.wf-splash-text { margin-top: 6px; font-weight: 600; font-size: clamp(15px, 2.2vw, 22px); }
+.wf-splash-by { margin-top: 4px; font-weight: 700; font-size: 12px; text-transform: uppercase; letter-spacing: 0.14em; color: var(--wf-wd); }
+@keyframes wf-splash-in { 0% { clip-path: inset(50% 0); } 9% { clip-path: inset(0); } 88% { clip-path: inset(0); opacity: 1; } 100% { clip-path: inset(50% 0); opacity: 0; } }
+@keyframes wf-splash-title { 0% { translate: -60px 0; opacity: 0; } 12% { translate: 0 0; opacity: 1; } 100% { translate: 14px 0; } }
+@media (prefers-reduced-motion: reduce) { .wf-splash-band, .wf-splash-title { animation: none; } }
+
+/* Eigener Zustand: Rahmen ums ganze Bild mit Ansage oben in der Mitte */
+.wf-selfframe { position: absolute; inset: 0; pointer-events: none !important; border: 7px solid var(--wf-s); display: flex; justify-content: center; align-items: flex-start; }
+.wf-selfframe span { margin-top: -1px; padding: 6px 16px 7px; background: var(--wf-s); color: var(--wf-si); font-weight: 800; font-size: 14px; border-radius: 0 0 8px 8px; }
+.wf-selfframe-frozen { --wf-s: #7fd0ff; --wf-si: #06283d; }
+.wf-selfframe-shield { --wf-s: #5fd67a; --wf-si: #07290f; }
+.wf-selfframe-away { --wf-s: #f4eedf; --wf-si: #17161d; }
+/* Du bist dran: heller Streifen am unteren Bildrand */
+.wf-myturn { position: absolute; left: 0; right: 0; bottom: 0; height: 6px; background: var(--wf-cream); pointer-events: none !important; animation: wf-pulse 1100ms ease-in-out infinite alternate; }
+@keyframes wf-pulse { from { opacity: 0.45; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .wf-myturn { animation: none; } }
+
+/* Verlauf: nur ein Reiter unten links; beim Überfahren (oder mit Fokus) klappen die letzten Züge darüber auf */
+.wf-logbox { position: absolute; left: 12px; bottom: 52px; width: min(320px, 26vw); display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
+.wf-logtab { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--wf-dim); cursor: default; }
+.wf-log { display: none; flex-direction: column-reverse; gap: 3px; width: 100%; }
+.wf-logbox:hover .wf-log, .wf-logbox:focus .wf-log, .wf-logbox:focus-within .wf-log { display: flex; }
+.wf-log li { display: flex; align-items: baseline; gap: 7px; padding: 4px 8px; border-radius: 5px; background: rgb(23 22 29 / 0.92); font-size: 12.5px; line-height: 1.3; }
+.wf-log li .wf-chip { translate: 0 -1px; }
+@media (max-width: 760px) { .wf-logbox { display: none; } }
+
+/* Farbschleier über dem Bild bei Weltwechsel und Weltereignis */
+.wf-tint { position: absolute; inset: 0; pointer-events: none !important; animation: wf-tint 900ms ease-out both; }
+@keyframes wf-tint { from { opacity: 0.42; } to { opacity: 0; } }
+
+/* Erklärung der Karte unter dem Zeiger */
+.wf-tip { position: absolute; left: 50%; bottom: calc(31% + 54px); translate: -50% 0; padding: 7px 12px; max-width: min(440px, calc(100% - 24px)); text-align: center; font-size: 14px; pointer-events: none !important; }
+.wf-tip b { font-weight: 800; text-transform: uppercase; margin-right: 6px; }
+@media (max-width: 640px) { .wf-tip { bottom: calc(28% + 48px); font-size: 13px; } }
+
+.wf-status { display: inline-flex; align-items: center; gap: 4px; padding: 2px 7px 2px 5px; border-radius: 4px; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.03em; white-space: nowrap; }
+.wf-status-shield { background: #5fd67a; color: #07290f; }
+.wf-status-frozen { background: #7fd0ff; color: #06283d; }
+.wf-status-away { background: #f4eedf; color: #17161d; }
+
+/* Einblendung zu einem Ereignis */
+.wf-flash {
+  position: absolute; top: 168px; left: 50%; translate: -50% 0; text-align: center; padding: 12px 22px 13px; max-width: calc(100% - 32px);
+  pointer-events: none; animation: wf-flash-in 220ms ease-out both;
+}
+.wf-flash-low { top: auto; bottom: calc(31% + 66px); }
+.wf-flash-title { font-weight: 900; font-size: clamp(22px, 3.4vw, 34px); text-transform: uppercase; line-height: 1; letter-spacing: -0.02em; }
+.wf-flash-text { margin-top: 5px; font-weight: 500; font-size: clamp(14px, 1.8vw, 17px); color: var(--wf-dim); }
+@keyframes wf-flash-in { from { opacity: 0; translate: -50% 10px; } to { opacity: 1; translate: -50% 0; } }
+
+/* Namensschild über einem Mitspieler */
+.wf-plate {
+  position: absolute; left: 0; top: 0; pointer-events: none; will-change: transform;
+  display: flex; flex-direction: column; align-items: center; gap: 4px; width: 0; white-space: nowrap;
+}
+.wf-plate-stack { display: flex; flex-direction: column; align-items: center; gap: 4px; translate: 0 -100%; }
+.wf-plate-status { display: flex; gap: 4px; }
+.wf-plate-box { display: inline-flex; align-items: center; gap: 8px; padding: 4px 9px; font-weight: 700; font-size: 14px; transition: padding 160ms, font-size 160ms; }
+.wf-plate-box[data-turn="true"] { padding: 7px 12px; font-size: 17px; font-weight: 800; border-width: 2px; }
+.wf-plate-turn { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; }
+.wf-plate-box[data-turn="true"] { background: var(--wf-cream); color: var(--wf-ink); border-color: var(--wf-cream); }
+.wf-plate-count { font-weight: 800; font-size: 13px; padding: 0 6px; border-radius: 4px; background: var(--wf-surface-3); color: var(--wf-text); }
+.wf-plate-box[data-turn="true"] .wf-plate-count { background: var(--wf-ink); color: var(--wf-cream); }
+.wf-plate-count[data-last="true"] { background: var(--wf-vulkan); color: #fff; }
+
+/* Zeile über der eigenen Hand */
+.wf-turnbar { position: absolute; left: 50%; bottom: 31%; translate: -50% 0; display: flex; align-items: center; gap: 10px; padding: 7px 12px; font-weight: 700; max-width: calc(100% - 24px); }
+.wf-turnbar[data-mine="true"] { background: var(--wf-cream); color: var(--wf-ink); border-color: var(--wf-cream); font-size: 18px; font-weight: 800; padding: 10px 16px; }
+.wf-turnbar .wf-btn { background: var(--wf-ink); color: var(--wf-cream); }
+.wf-turnbar .wf-btn:hover:not(:disabled) { background: #2b2936; }
+@media (max-width: 640px) { .wf-turnbar { font-size: 13px; bottom: 28%; } }
+
+.wf-me { position: absolute; left: 12px; bottom: 12px; padding: 6px 10px; font-weight: 700; font-size: 14px; display: flex; align-items: center; gap: 8px; pointer-events: none; }
+@media (max-width: 640px) {
+  .wf-me { display: none; }
+}
+
+/* Auswahl (Welt, Tauschpartner), Ende, Lobby: mittig über dem Tisch */
+.wf-center { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgb(10 9 14 / 0.55); }
+.wf-center-clear { background: transparent; pointer-events: none; }
+.wf-center-clear > * { pointer-events: auto; }
+.wf-worldbtn {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 14px 16px; border-radius: 6px; color: #fff; text-align: left;
+  font-weight: 900; font-size: 19px; text-transform: uppercase; border: 2px solid transparent; transition: border-color 120ms;
+}
+.wf-worldbtn:hover { border-color: #fff; }
+.wf-worldbtn small { font-weight: 500; font-size: 12px; text-transform: none; opacity: 0.9; letter-spacing: 0; }
+
+.wf-seat { display: flex; align-items: center; gap: 10px; padding: 9px 12px; }
+.wf-seat-dot { width: 12px; height: 12px; border-radius: 3px; flex: none; }
+
+.wf-toast {
+  position: absolute; left: 50%; top: 96px; translate: -50% 0; padding: 7px 13px; font-size: 14px; font-weight: 600; pointer-events: none;
+  animation: wf-flash-in 180ms ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wf-flash, .wf-toast { animation: none; }
+  .wf-tint { display: none; }
+}
+
+/* Einblendung sitzt unter dem Weltenrad; am Handy unter der Welt-Tafel */
+@media (max-width: 640px) {
+  .wf-flash { top: 176px; }
+}
+
+/* Blob-Editor im Menü */
+.wf-skin { display: grid; grid-template-columns: 150px 1fr; gap: 14px; align-items: start; }
+.wf-skin-canvas { width: 150px; height: 190px; display: block; border-radius: 6px; background: var(--wf-surface-2); }
+.wf-swatches { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+.wf-swatches button { aspect-ratio: 1; border-radius: 5px; border: 2px solid transparent; transition: border-color 120ms; }
+.wf-swatches button:hover { border-color: var(--wf-line-2); }
+.wf-swatches button[aria-pressed="true"] { border-color: var(--wf-cream); outline: 2px solid var(--wf-ink); outline-offset: -4px; }
+.wf-stepper { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.wf-stepper-name { min-width: 104px; text-align: center; font-weight: 700; }
+@media (max-width: 420px) { .wf-skin { grid-template-columns: 1fr; } .wf-skin-canvas { width: 100%; } }

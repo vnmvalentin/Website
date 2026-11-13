@@ -135,7 +135,7 @@ export default function GameCoverPicker({ icon, onChange, t, controlKey, size = 
         // Der leere Platz ist gestrichelt umrandet: man soll ihm ansehen, dass hier
         // etwas hingehört — als bloßes Symbol hat ihn niemand gefunden.
         className={`shrink-0 flex items-center justify-center rounded-sm overflow-hidden transition-colors ${
-          size === "lg" ? "w-9 h-12" : "w-[27px] h-9"
+          size === "lg" ? "w-9 h-12 sm:w-12 sm:h-16" : "w-[27px] h-9"
         } ${
           currentUrl && !thumbBroken
             ? "ring-1 ring-white/10 hover:ring-white/40"
@@ -153,7 +153,7 @@ export default function GameCoverPicker({ icon, onChange, t, controlKey, size = 
             className="w-full h-full object-cover"
           />
         ) : (
-          <Gamepad2 size={size === "lg" ? 18 : 15} />
+          <Gamepad2 size={size === "lg" ? 20 : 15} />
         )}
       </button>
 

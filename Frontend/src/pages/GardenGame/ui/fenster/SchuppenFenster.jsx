@@ -2,22 +2,21 @@
 // Schuppen und alles, was darin wohnt: Auswahl, Mülleimer, Kiste/Vitrine (Ablage), fremde Vitrine, Brutkasten.
 // Reine Anzeige — Zustand und Aktionen kommen aus GameContainer.jsx.
 import React from "react";
-import { GardenModal, RarityLabel, PrimaryButton, Abschnitt, LeerHinweis, FensterZeile, NebenKnopf } from "../gardenUi";
 import { normalizeToolInventory, KISTE_MAX, VITRINE_MAX, INCUBATOR_UNLOCK_COSTS, buildPetPreviewImage } from "../../engine/gameConstants";
 import { HudIcon, TabIcon } from "../gameIcons";
 import { ItemIcon } from "../ItemIcon";
 import AblageModal, { FremdeVitrineModal } from "../AblageModal";
 import { formatGold } from "../gardenTokens";
-import { Package } from "lucide-react";
+import { StandFenster, Regal, WarenKachel, KaufKnopf, NebenKnopfHolz } from "../laden/Marktstand";
 
 export function SchuppenAuswahl({
     setShedOpen, setAblageOffen, toolInventory, setTrashOpen, setIncubatorTargetSlot,
     setIncubatorOpen, readyEggsCount, setEditorAktiv, setVerschiebtGebaeude,
 }) {
     return (
-        <GardenModal
-            title="Schuppen"
-            subtitle="Was möchtest du öffnen?"
+        <StandFenster markise={false} inhaltHintergrund="#f3e3c3"
+            titel="Schuppen"
+            untertitel="Was möchtest du öffnen?"
             onClose={() => setShedOpen(false)}
             breite="klein"
         >
@@ -26,33 +25,33 @@ export function SchuppenAuswahl({
                     type="button"
                     onClick={() => { setShedOpen(false); setAblageOffen("chest"); }}
                     disabled={!normalizeToolInventory(toolInventory).hasChest}
-                    className="flex items-center gap-3 px-4 py-3 rounded-2xl border border-slate-800 bg-slate-900/60 text-left transition-colors hover:border-slate-600 hover:bg-slate-800/60 disabled:cursor-default disabled:opacity-40 disabled:hover:border-slate-800 disabled:hover:bg-slate-900/60"
+                    className="flex items-center gap-3 px-4 py-3 rounded-2xl border border-[#3b2516] bg-[#fffaf0] text-left transition-colors hover:border-[#8a5a32] hover:bg-[#fff3c4] disabled:cursor-default disabled:opacity-40 disabled:hover:border-[#8a5a32] disabled:hover:bg-[#fff3c4]"
                 >
                     <HudIcon.kiste size={18} className="shrink-0" />
-                    <span className="flex-1 text-sm font-medium text-white">Kiste</span>
+                    <span className="flex-1 text-sm font-medium text-[#3b2516]">Kiste</span>
                     {!normalizeToolInventory(toolInventory).hasChest && (
-                        <span className="text-[11px] text-slate-600">nicht gekauft</span>
+                        <span className="text-[11px] text-[#8a7a5a]">nicht gekauft</span>
                     )}
                 </button>
                 <button
                     type="button"
                     onClick={() => { setShedOpen(false); setAblageOffen("vitrine"); }}
                     disabled={!normalizeToolInventory(toolInventory).hasVitrine}
-                    className="flex items-center gap-3 px-4 py-3 rounded-2xl border border-slate-800 bg-slate-900/60 text-left transition-colors hover:border-slate-600 hover:bg-slate-800/60 disabled:cursor-default disabled:opacity-40 disabled:hover:border-slate-800 disabled:hover:bg-slate-900/60"
+                    className="flex items-center gap-3 px-4 py-3 rounded-2xl border border-[#3b2516] bg-[#fffaf0] text-left transition-colors hover:border-[#8a5a32] hover:bg-[#fff3c4] disabled:cursor-default disabled:opacity-40 disabled:hover:border-[#8a5a32] disabled:hover:bg-[#fff3c4]"
                 >
                     <HudIcon.vitrine size={18} className="shrink-0" />
-                    <span className="flex-1 text-sm font-medium text-white">Vitrine</span>
+                    <span className="flex-1 text-sm font-medium text-[#3b2516]">Vitrine</span>
                     {!normalizeToolInventory(toolInventory).hasVitrine && (
-                        <span className="text-[11px] text-slate-600">nicht gekauft</span>
+                        <span className="text-[11px] text-[#8a7a5a]">nicht gekauft</span>
                     )}
                 </button>
                 <button
                     type="button"
                     onClick={() => { setShedOpen(false); setTrashOpen(true); }}
-                    className="flex items-center gap-3 px-4 py-3 rounded-2xl border border-slate-800 bg-slate-900/60 text-left transition-colors hover:border-slate-600 hover:bg-slate-800/60"
+                    className="flex items-center gap-3 px-4 py-3 rounded-2xl border border-[#3b2516] bg-[#fffaf0] text-left transition-colors hover:border-[#8a5a32] hover:bg-[#fff3c4]"
                 >
                     <HudIcon.remove size={18} className="shrink-0" />
-                    <span className="flex-1 text-sm font-medium text-white">Mülleimer</span>
+                    <span className="flex-1 text-sm font-medium text-[#3b2516]">Mülleimer</span>
                 </button>
                 {/* Feedback 30.08.: "Inkubator in den Schuppen packen und aus dem
                     Tiere-Dropdown entfernen" — zieht damit als vierte Tür in dasselbe
@@ -62,12 +61,12 @@ export function SchuppenAuswahl({
                 <button
                     type="button"
                     onClick={() => { setShedOpen(false); setIncubatorTargetSlot(null); setIncubatorOpen(true); }}
-                    className="flex items-center gap-3 px-4 py-3 rounded-2xl border border-slate-800 bg-slate-900/60 text-left transition-colors hover:border-slate-600 hover:bg-slate-800/60"
+                    className="flex items-center gap-3 px-4 py-3 rounded-2xl border border-[#3b2516] bg-[#fffaf0] text-left transition-colors hover:border-[#8a5a32] hover:bg-[#fff3c4]"
                 >
                     <TabIcon.egg size={18} className="shrink-0" />
-                    <span className="flex-1 text-sm font-medium text-white">Inkubator</span>
+                    <span className="flex-1 text-sm font-medium text-[#3b2516]">Inkubator</span>
                     {readyEggsCount > 0 && (
-                        <span className="text-[11px] font-semibold text-violet-300">
+                        <span className="text-[11px] font-semibold text-[#6a40a8]">
                             {readyEggsCount === 1 ? "1 fertig" : `${readyEggsCount} fertig`}
                         </span>
                     )}
@@ -76,11 +75,39 @@ export function SchuppenAuswahl({
             <button
                 type="button"
                 onClick={() => { setShedOpen(false); setEditorAktiv(true); setVerschiebtGebaeude("shed"); }}
-                className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-2xl border border-slate-800 bg-slate-900/60 px-3 py-2 text-xs font-medium text-slate-400 transition-colors hover:border-slate-600 hover:text-white"
+                className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-2xl border border-[#3b2516] bg-[#fffaf0] px-3 py-2 text-xs font-medium text-[#6e4426] transition-colors hover:border-[#8a5a32] hover:text-black"
             >
                 <HudIcon.reposition size={13} /> Schuppen umstellen
             </button>
-        </GardenModal>
+        </StandFenster>
+    );
+}
+
+// 06.11.: statt Markise ein eigener Kopf — der Mülleimer sieht aus wie eine Blechtonne,
+// der Inkubator wie eine Brutmaschine mit Wärmelampen.
+const TONNE = { rand: "#2e3338", flaeche: "#6b737c" };
+const TONNE_KOERPER = "repeating-linear-gradient(90deg, #8a939c 0 14px, #7d858d 14px 18px, #a0a8b0 18px 20px)";
+function TonnenDeckel() {
+    return (
+        <div aria-hidden="true" className="relative h-10 shrink-0">
+            <div className="absolute inset-x-[-4px] bottom-0 h-6 border-[3px]" style={{ borderColor: TONNE.rand, background: "#5d636a", boxShadow: "inset 0 3px 0 0 #8a939c" }} />
+            <div className="absolute left-1/2 top-0 h-5 w-24 -translate-x-1/2 border-[3px] border-b-0" style={{ borderColor: TONNE.rand, background: "#4b5259" }}>
+                <div className="mx-auto mt-1 h-1.5 w-14" style={{ background: "#2e3338" }} />
+            </div>
+        </div>
+    );
+}
+const BRUT = { rand: "#3b2516", flaeche: "#8a5a32" };
+function BrutKopf() {
+    return (
+        <div aria-hidden="true" className="relative flex h-12 shrink-0 items-end justify-around border-b-[4px] px-10" style={{ borderColor: "#3b2516", background: "#6e4426", boxShadow: "inset 0 3px 0 0 #a8743f" }}>
+            {[0, 1, 2, 3].map((i) => (
+                <span key={i} className="relative mb-1 flex flex-col items-center">
+                    <span className="h-3 w-1.5" style={{ background: "#2b1d12" }} />
+                    <span className="h-4 w-8 border-[3px]" style={{ borderColor: "#2b1d12", background: "#f2c14e", boxShadow: "inset 0 -4px 0 0 #e0902a" }} />
+                </span>
+            ))}
+        </div>
     );
 }
 
@@ -88,98 +115,85 @@ export function MuellFenster({
     setTrashOpen, setShedOpen, inventory, setInventory, setSelectedSeed, notify, debouncedSave,
     decoInventory, setDecoInventory, selectedDecoToPlace, setSelectedDecoToPlace,
 }) {
+    // Samen: gleiche Sorten liegen als eine Kachel mit Anzahl da. Wer 40 Löwenzahn
+    // loswerden will, klickt sonst 40-mal.
+    const gruppen = new Map();
+    for (const sd of inventory) {
+        if (!sd?.instanceId) continue;
+        const key = `${sd.seedId}|${sd.rarity}`;
+        const g = gruppen.get(key);
+        if (g) g.ids.push(sd.instanceId);
+        else gruppen.set(key, { key, seed: sd, ids: [sd.instanceId] });
+    }
+    const wirfWeg = (ids, label) => {
+        const weg = new Set(ids);
+        setInventory((prev) => prev.filter((sd) => !weg.has(sd?.instanceId)));
+        setSelectedSeed((prev) => (prev && weg.has(prev.instanceId) ? null : prev));
+        notify(label);
+        debouncedSave();
+    };
+    const blech = { text: "", farbe: "transparent", hell: "#c9ced2" };
     return (
-        <GardenModal
-            title="Mülleimer"
-            subtitle="Endgültig wegwerfen — das lässt sich nicht rückgängig machen"
+        <StandFenster
+            titel="Mülleimer"
+            untertitel="Endgültig wegwerfen — das lässt sich nicht rückgängig machen"
+            oben={<TonnenDeckel />}
+            rahmen={TONNE}
+            inhaltHintergrund={TONNE_KOERPER}
+            bild="/garden-assets/icons/hud/muell_pixel.png"
             onClose={() => setTrashOpen(false)}
             onBack={() => { setTrashOpen(false); setShedOpen(true); }}
         >
-            {/* Kein eigener "Umstellen"-Knopf hier: der Mülleimer wohnt seit dem
-                Schuppen-Umbau (Feedback 29.08.) im selben Gebäude wie Kiste und
-                Vitrine — verschoben wird der Schuppen als Ganzes, entweder aus
-                dem Schuppen-Menü heraus oder aus der Kiste/Vitrine. */}
-            {/* Samen: gleiche Sorten stehen als eine Zeile mit Anzahl da. Wer 40
-                Löwenzahn loswerden will, klickt sonst 40-mal. */}
-            <div className="mb-4">
-                <Abschnitt className="px-1 pb-1">Samen</Abschnitt>
-                {inventory.length === 0 ? (
-                    <LeerHinweis className="py-4">Keine Samen im Rucksack.</LeerHinweis>
-                ) : (
-                    <div className="space-y-1.5">
-                        {(() => {
-                            const gruppen = new Map();
-                            for (const s of inventory) {
-                                if (!s?.instanceId) continue;
-                                const key = `${s.seedId}|${s.rarity}`;
-                                const g = gruppen.get(key);
-                                if (g) g.ids.push(s.instanceId);
-                                else gruppen.set(key, { key, seed: s, ids: [s.instanceId] });
-                            }
-                            const wirfWeg = (ids, label) => {
-                                const weg = new Set(ids);
-                                setInventory((prev) => prev.filter((s) => !weg.has(s?.instanceId)));
-                                setSelectedSeed((prev) => (prev && weg.has(prev.instanceId) ? null : prev));
-                                notify(label);
-                                debouncedSave();
-                            };
-                            return [...gruppen.values()].map((g) => (
-                                <FensterZeile
-                                    key={g.key}
-                                    bild={<ItemIcon item={g.seed} className="w-10 h-10" emojiClassName="text-2xl" />}
-                                    titel={g.ids.length > 1 ? `${g.seed.name} × ${g.ids.length}` : g.seed.name}
-                                    marke={<RarityLabel rarity={g.seed.rarity} />}
-                                    aktionen={
-                                        <>
-                                            <NebenKnopf onClick={() => wirfWeg([g.ids[0]], `${g.seed.name} weggeworfen.`)}>
-                                                Einen
-                                            </NebenKnopf>
-                                            {g.ids.length > 1 && (
-                                                <NebenKnopf ton="gefahr" onClick={() => wirfWeg(g.ids, `${g.ids.length}× ${g.seed.name} weggeworfen.`)}>
-                                                    <HudIcon.remove size={13} /> Alle {g.ids.length}
-                                                </NebenKnopf>
-                                            )}
-                                        </>
-                                    }
-                                />
-                            ));
-                        })()}
-                    </div>
-                )}
-            </div>
-
-            <Abschnitt>Deko</Abschnitt>
-            {decoInventory.length === 0 ? (
-                <LeerHinweis className="py-4">Keine Deko im Inventar.</LeerHinweis>
-            ) : (
-                <div className="space-y-1.5">
-                    {decoInventory.map((deco) => (
-                        <FensterZeile
-                            key={deco.instanceId || deco.id}
-                            bild={<ItemIcon item={deco} className="w-10 h-10" emojiClassName="text-2xl" />}
-                            titel={deco.name}
-                            marke={<RarityLabel rarity={deco.rarity} />}
-                            aktionen={
-                                <NebenKnopf
-                                    ton="gefahr"
-                                    onClick={() => {
-                                        const ziel = deco.instanceId || deco.id;
-                                        setDecoInventory((prev) => prev.filter((d) => (d.instanceId || d.id) !== ziel));
-                                        if ((selectedDecoToPlace?.instanceId || selectedDecoToPlace?.id) === ziel) {
-                                            setSelectedDecoToPlace(null);
-                                        }
-                                        notify(`${deco.name} weggeworfen.`);
-                                        debouncedSave();
-                                    }}
-                                >
-                                    <HudIcon.remove size={13} /> Wegwerfen
-                                </NebenKnopf>
-                            }
+            {/* Kein eigener „Umstellen"-Knopf: der Mülleimer steht im Haus, verschoben
+                wird das Haus als Ganzes (Kiste/Vitrine oder Haus-Ansicht). */}
+            {gruppen.size === 0 && decoInventory.length === 0 && (
+                <div className="py-8 text-center text-sm font-bold text-[#2e3338]">Leer — nichts zum Wegwerfen dabei.</div>
+            )}
+            {gruppen.size > 0 && (
+                <Regal titel="Samen">
+                    {[...gruppen.values()].map((g) => (
+                        <WarenKachel
+                            key={g.key}
+                            band={blech}
+                            bild={<ItemIcon item={g.seed} className="h-16 w-16" emojiClassName="text-4xl" />}
+                            name={g.seed.name}
+                            vorrat={g.ids.length}
+                            aktionen={(
+                                <>
+                                    <KaufKnopf klein gefahr onClick={() => wirfWeg([g.ids[0]], `${g.seed.name} weggeworfen.`)}>1×</KaufKnopf>
+                                    {g.ids.length > 1 && (
+                                        <KaufKnopf gefahr onClick={() => wirfWeg(g.ids, `${g.ids.length}× ${g.seed.name} weggeworfen.`)}>Alle {g.ids.length}</KaufKnopf>
+                                    )}
+                                </>
+                            )}
                         />
                     ))}
-                </div>
+                </Regal>
             )}
-        </GardenModal>
+            {decoInventory.length > 0 && (
+                <Regal titel="Deko">
+                    {decoInventory.map((deco) => (
+                        <WarenKachel
+                            key={deco.instanceId || deco.id}
+                            band={blech}
+                            bild={<ItemIcon item={deco} className="h-16 w-16" emojiClassName="text-4xl" />}
+                            name={deco.name}
+                            aktionen={(
+                                <KaufKnopf gefahr onClick={() => {
+                                    const ziel = deco.instanceId || deco.id;
+                                    setDecoInventory((prev) => prev.filter((d) => (d.instanceId || d.id) !== ziel));
+                                    if ((selectedDecoToPlace?.instanceId || selectedDecoToPlace?.id) === ziel) {
+                                        setSelectedDecoToPlace(null);
+                                    }
+                                    notify(`${deco.name} weggeworfen.`);
+                                    debouncedSave();
+                                }}>Wegwerfen</KaufKnopf>
+                            )}
+                        />
+                    ))}
+                </Regal>
+            )}
+        </StandFenster>
     );
 }
 
@@ -231,104 +245,96 @@ export function BrutkastenFenster({
     placeEggInIncubator,
 }) {
     return (
-        <GardenModal
-            title="Inkubator"
-            subtitle="Eier einlegen, ausbrüten, Tier auf der Farm platzieren"
+        <StandFenster
+            titel="Inkubator"
+            untertitel="Eier einlegen, warm halten, Tier auf der Farm platzieren"
+            oben={<BrutKopf />}
+            rahmen={BRUT}
+            inhaltHintergrund="repeating-linear-gradient(0deg, #a8743f 0 22px, #9c6a3c 22px 24px)"
+            bild="/garden-assets/eggs/common_egg.png"
             onClose={() => { setIncubatorTargetSlot(null); setIncubatorOpen(false); }}
             onBack={() => { setIncubatorTargetSlot(null); setIncubatorOpen(false); setShedOpen(true); }}
-            breite="gross"
-            // Kein eigener "Umstellen"-Knopf: der Inkubator hat kein eigenes
-            // Gebäude mehr, sondern wohnt seit Feedback 30.08. im Schuppen
-            // (dessen "Schuppen umstellen"-Knopf zieht ihn automatisch mit).
-            headerRight={
-                <span className="text-xs text-slate-400 tabular-nums">{eggInventory.length} Eier im Inventar</span>
-            }
+            kopfRechts={(
+                <span className="border-2 bg-[#fff3c4] px-1.5 py-0.5 text-xs font-bold tabular-nums text-[#3b2516]" style={{ borderColor: "#3b2516" }}>
+                    {eggInventory.length} Eier im Rucksack
+                </span>
+            )}
         >
-                <div className="grid grid-cols-5 gap-2">
+                <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
                     {Array(5).fill(null).map((_, idx) => {
                         const unlocked = idx < incubator.unlockedSlots;
                         const slot = incubator.slots[idx];
                         const unlockCost = INCUBATOR_UNLOCK_COSTS[idx - 1];
+                        const leftMs = slot ? Math.max(0, slot.hatchAt - tickNow) : 0;
+                        const isHatching = Boolean(slot) && leftMs > 0;
+                        const fertig = Boolean(slot) && !isHatching;
                         return (
-                            <div key={idx}
-                                className={`rounded-2xl border p-3 flex flex-col min-h-[210px] ${unlocked ? "border-slate-700 bg-slate-900/60" : "border-slate-800 bg-slate-900/30"}`}
-                            >
-                                <div className="text-[10px] text-center mb-1.5 text-slate-500 tabular-nums">Platz {idx + 1}</div>
-                                {!unlocked && (
-                                    <div className="flex flex-col items-center justify-center flex-1 gap-2">
-                                        <HudIcon.locked size={18} />
-                                        <div className="text-[11px] text-slate-400 tabular-nums">{formatGold(unlockCost)}</div>
-                                        <PrimaryButton onClick={unlockIncubatorSlot} disabled={gold < unlockCost} className="px-2 py-1">
-                                            Freischalten
-                                        </PrimaryButton>
+                            <div key={idx} className={`flex flex-col ${unlocked ? "" : "opacity-80"}`}>
+                                {/* Glaskuppel: stufig gezeichnet, warm beleuchtet, solange etwas brütet */}
+                                <div className="relative mx-2 flex h-28 items-end justify-center border-[3px] border-b-0"
+                                    style={{
+                                        borderColor: "#5d636a",
+                                        background: !unlocked ? "#8a7a6a" : slot ? (fertig ? "#dcebc8" : "#fff0c8") : "#dff0f4",
+                                        clipPath: "polygon(18% 0, 82% 0, 100% 22%, 100% 100%, 0 100%, 0 22%)",
+                                    }}>
+                                    <span className="absolute left-[22%] top-3 h-6 w-1.5 bg-white/70" />
+                                    {!unlocked && <HudIcon.locked size={26} className="mb-8" />}
+                                    {unlocked && !slot && <span className="mb-6 text-[11px] font-bold text-[#6e8a90]">leer</span>}
+                                    {unlocked && slot && (isHatching ? (
+                                        <ItemIcon item={slot.egg} className="mb-2 h-16 w-16 object-contain" />
+                                    ) : (
+                                        <img src={slot.hatchResult?.previewImage || buildPetPreviewImage(slot.hatchResult?.type)} alt="" className="mb-2 h-16 w-16 object-contain" style={{ imageRendering: "pixelated" }} />
+                                    ))}
+                                </div>
+                                {/* Holzsockel mit Wärmelampe */}
+                                <div className="relative border-[3px] px-2 pb-2 pt-1.5" style={{ borderColor: "#3b2516", background: "#8a5a32", boxShadow: "0 4px 0 0 #3b2516, inset 0 3px 0 0 #a8743f" }}>
+                                    <span className="absolute right-2 top-1.5 h-2.5 w-2.5 border-2" style={{ borderColor: "#3b2516", background: isHatching ? "#ffd84a" : fertig ? "#7fc25a" : "#6e4426" }} />
+                                    <div className="text-[10px] font-bold uppercase tracking-wider text-[#f3e3c3]">Platz {idx + 1}</div>
+                                    <div className="mt-0.5 min-h-[2.4rem] text-[11px] leading-tight text-[#f3e3c3]">
+                                        {!unlocked ? (
+                                            <span className="inline-flex items-center gap-1 font-bold"><HudIcon.gold size={11} /> {formatGold(unlockCost)}</span>
+                                        ) : !slot ? "Bereit für ein Ei" : (
+                                            <>
+                                                <div className="truncate font-bold">{slot.egg?.name || "Ei"}</div>
+                                                <div className="tabular-nums">{isHatching ? formatDuration(leftMs) : (slot.hatchResult?.type || "Tier") + " ist da!"}</div>
+                                            </>
+                                        )}
                                     </div>
-                                )}
-                                {unlocked && !slot && (
-                                    <>
-                                        <div className="flex-1 flex items-center justify-center border border-dashed border-slate-700 rounded-2xl">
-                                            <Package size={22} className="text-slate-700" />
-                                        </div>
-                                        <PrimaryButton onClick={() => setIncubatorTargetSlot(idx)} className="mt-2 w-full py-1.5">
-                                            Ei einsetzen
-                                        </PrimaryButton>
-                                    </>
-                                )}
-                                {unlocked && slot && (() => {
-                                    const leftMs = Math.max(0, slot.hatchAt - tickNow);
-                                    const isHatching = leftMs > 0;
-                                    return (
-                                    <>
-                                        <div className="flex items-center justify-center">
-                                            {isHatching ? (
-                                                <ItemIcon item={slot.egg} className="w-16 h-16 object-contain rounded-2xl border border-slate-800 bg-slate-950/60" />
-                                            ) : (
-                                                <img src={slot.hatchResult?.previewImage || buildPetPreviewImage(slot.hatchResult?.type)} alt="" className="w-16 h-16 object-contain rounded-2xl border border-slate-800 bg-slate-950/60" />
-                                            )}
-                                        </div>
-                                        {/* Ohne die Absicherung reisst ein Platz ohne `egg` den ganzen
-                                            Spielbildschirm mit — daneben wird `hatchResult` schon so gelesen. */}
-                                        <div className="text-center text-xs font-medium text-white mt-1.5 truncate">{slot.egg?.name || "Ei"}</div>
-                                        <div className="text-center text-[11px] text-slate-400 mt-0.5 truncate">
-                                            {isHatching ? "Ergebnis unbekannt" : (slot.hatchResult?.type || "Tier")}
-                                        </div>
-                                        <div className={`text-center text-[11px] mt-1 font-medium tabular-nums ${leftMs > 0 ? "text-slate-400" : "text-emerald-400"}`}>
-                                            {leftMs > 0 ? formatDuration(leftMs) : "Bereit"}
-                                        </div>
-                                        <PrimaryButton onClick={() => collectHatchedEgg(idx)} disabled={isHatching} className="mt-auto w-full py-1.5">
-                                            Schlüpfen lassen
-                                        </PrimaryButton>
-                                    </>
-                                    );
-                                })()}
+                                    <div className="mt-1.5 flex justify-center">
+                                        {!unlocked ? (
+                                            <KaufKnopf onClick={unlockIncubatorSlot} disabled={gold < unlockCost}>{gold < unlockCost ? "Zu teuer" : "Freischalten"}</KaufKnopf>
+                                        ) : !slot ? (
+                                            <KaufKnopf onClick={() => setIncubatorTargetSlot(idx)}>Ei einlegen</KaufKnopf>
+                                        ) : (
+                                            <KaufKnopf onClick={() => collectHatchedEgg(idx)} disabled={isHatching}>{isHatching ? "Brütet …" : "Schlüpfen lassen"}</KaufKnopf>
+                                        )}
+                                    </div>
+                                </div>
                             </div>
                         );
                     })}
                 </div>
                 {incubatorTargetSlot !== null && (
-                    <div className="mt-4 border border-slate-800 rounded-2xl p-3 bg-slate-950/50">
-                        <div className="flex items-center justify-between mb-2">
-                            <div className="text-xs text-slate-300 font-medium">Ei für Platz {incubatorTargetSlot + 1} wählen</div>
-                            <button
-                                type="button"
-                                onClick={() => setIncubatorTargetSlot(null)}
-                                className="text-[11px] text-slate-500 hover:text-white transition-colors"
-                            >
-                                Abbrechen
-                            </button>
+                    <div className="mt-5 border-[3px] p-3" style={{ borderColor: "#3b2516", background: "#f3e3c3", boxShadow: "0 4px 0 0 #3b2516" }}>
+                        <div className="mb-2 flex items-center justify-between">
+                            <div className="text-sm font-bold text-[#3b2516]">Welches Ei kommt in Platz {incubatorTargetSlot + 1}?</div>
+                            <NebenKnopfHolz onClick={() => setIncubatorTargetSlot(null)}>Abbrechen</NebenKnopfHolz>
                         </div>
                         {eggInventory.length === 0 ? (
-                            <div className="text-[11px] text-slate-500 py-4 text-center">Keine Eier im Inventar.</div>
+                            <div className="py-4 text-center text-xs text-[#6e4426]">Keine Eier im Rucksack — im Eier-Shop gibt es welche.</div>
                         ) : (
-                            <div className="grid grid-cols-6 gap-1.5 max-h-44 overflow-y-auto">
+                            <div className="grid max-h-44 grid-cols-4 gap-1.5 overflow-y-auto sm:grid-cols-8">
                                 {eggInventory.map((egg) => (
                                     <button
                                         key={egg.instanceId}
                                         type="button"
+                                        title={egg.name}
                                         onClick={() => placeEggInIncubator(incubatorTargetSlot, egg.instanceId)}
-                                        className="p-2 rounded-2xl border border-slate-800 hover:border-slate-600 bg-slate-900 transition-colors text-center flex flex-col items-center gap-1"
+                                        className="flex flex-col items-center gap-1 border-[3px] bg-[#fffaf0] p-1.5 transition-transform duration-75 hover:-translate-y-0.5"
+                                        style={{ borderColor: "#3b2516" }}
                                     >
-                                        <ItemIcon item={egg} className="w-8 h-8" emojiClassName="text-xl" />
-                                        <div className="text-[10px] text-slate-400 truncate w-full">{egg.name}</div>
+                                        <ItemIcon item={egg} className="h-10 w-10" emojiClassName="text-2xl" />
+                                        <div className="w-full truncate text-[10px] font-bold text-[#6e4426]">{egg.name}</div>
                                     </button>
                                 ))}
                             </div>
@@ -336,10 +342,10 @@ export function BrutkastenFenster({
                     </div>
                 )}
                 {incubator.unlockedSlots < 5 && (
-                    <div className="mt-3 text-[11px] text-slate-500 text-center tabular-nums">
+                    <div className="mt-4 text-center text-[11px] tabular-nums text-[#e8d7a8]">
                         Nächster Platz kostet {formatGold(INCUBATOR_UNLOCK_COSTS[incubator.unlockedSlots - 1])} Gold
                     </div>
                 )}
-        </GardenModal>
+        </StandFenster>
     );
 }

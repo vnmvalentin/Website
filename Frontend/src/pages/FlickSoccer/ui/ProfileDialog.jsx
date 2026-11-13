@@ -1,12 +1,12 @@
-// ui/ProfileDialog.jsx — Profil in drei Reitern: Profil (Name, Statistik, Spielstil), Designs (Scheibe, Ball, Rasen,
+// ui/ProfileDialog.jsx — Profil in drei Reitern: Profil (Name, Statistik, Spielstil), Designs (Scheibe, Ball,
 // Torjubel) und Erfolge. Alles nur in diesem Browser (prefs.js, stats.js); Kataloge in engine/skins.js und progress.js.
 import React, { useEffect, useState } from "react";
 import { X, Award, Check } from "lucide-react";
 import SkinPicker from "../components/SkinPicker.jsx";
 import LookPicker from "../components/LookPicker.jsx";
 import DiscPreview from "../components/DiscPreview.jsx";
-import { FORMATIONS, SKIN_IDS, unlockedSkins } from "../engine/index.js";
-import { ACHIEVEMENTS, BALLS, TURFS, CELEBRATIONS, achievementDone, itemUnlocked } from "../progress.js";
+import { SKIN_IDS, formationInfo, unlockedSkins } from "../engine/index.js";
+import { ACHIEVEMENTS, BALLS, CELEBRATIONS, achievementDone, itemUnlocked } from "../progress.js";
 import { loadStats, playStyle } from "../stats.js";
 
 const TABS = [["profil", "Profil"], ["designs", "Designs"], ["erfolge", "Erfolge"]];
@@ -18,6 +18,9 @@ const STAT_ROWS = [
   ["cleanSheets", "Zu null"],
   ["onlineWins", "Online-Siege"],
   ["chaosWins", "Chaos-Siege"],
+  ["tourStars", "Tour-Sterne"],
+  ["trickDone", "Trickschüsse"],
+  ["cardsPlayed", "Karten gespielt"],
   ["bankGoals", "Bandentore"],
   ["posts", "Pfostentreffer"],
 ];
@@ -96,7 +99,7 @@ export default function ProfileDialog({ onClose, prefs, updatePrefs }) {
               </dl>
               <p className="fk-dim text-[14px] mt-3">
                 {style.favorite
-                  ? <>Lieblingsaufstellung: <b>{FORMATIONS[style.favorite.id]?.name}</b> — {style.favorite.played}-mal gespielt, {style.favorite.winRate} % gewonnen.</>
+                  ? <>Lieblingsaufstellung: <b>{formationInfo(style.favorite.id).name}</b> — {style.favorite.played}-mal gespielt, {style.favorite.winRate} % gewonnen.</>
                   : "Spiele ein paar Partien, dann steht hier deine Lieblingsaufstellung."}
               </p>
             </section>
@@ -129,7 +132,7 @@ export default function ProfileDialog({ onClose, prefs, updatePrefs }) {
                 </div>
               )}
             </section>
-            {[["ball", "Ball", BALLS], ["turf", "Rasen", TURFS], ["celebration", "Torjubel", CELEBRATIONS]].map(([kind, label, catalog]) => (
+            {[["ball", "Ball", BALLS], ["celebration", "Torjubel", CELEBRATIONS]].map(([kind, label, catalog]) => (
               <section key={kind} className="px-5 py-4">
                 <div className="flex items-baseline justify-between gap-3 mb-3">
                   <h3 className="fk-section-title">{label}</h3>
@@ -138,7 +141,9 @@ export default function ProfileDialog({ onClose, prefs, updatePrefs }) {
                 <LookPicker kind={kind} value={prefs[kind]} onChange={(id) => updatePrefs({ [kind]: id })} stats={stats} />
               </section>
             ))}
-            <p className="fk-faint text-[12.5px] px-5 py-3">Ball, Rasen und Torjubel siehst nur du — online sieht dein Gegner nur deine Scheibe.</p>
+            <p className="fk-faint text-[12.5px] px-5 py-3">
+              Ball und Torjubel siehst nur du — online sieht dein Gegner nur deine Scheibe.
+            </p>
           </div>
         )}
 

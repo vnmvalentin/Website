@@ -1,12 +1,20 @@
 ﻿import React from "react";
-import { Link } from "react-router-dom";
 import { Music, MessageSquare, Monitor, Sparkles, Download, Tv2, SkipForward, Laptop2 } from "lucide-react";
 import SEO from "../../components/SEO";
+import { Page, PageHeader, Section, Button } from "../../components/ui";
 
+const FEATURES = [
+  [MessageSquare, "Songrequest per Command oder Channel Points"],
+  [Monitor, "Anzeige vom Song und Warteschlange + Kontrolle"],
+  [Music, "Hohe Customization der maximalen Länge, geblockte Artists / Nutzer und extra Commands für den Chat"],
+  [Tv2, "OBS Overlay — aktueller Song und Queue direkt im Stream anzeigen"],
+  [SkipForward, "SongSkip per Chat-Command oder Channel Points"],
+  [Laptop2, "Dual PC Unterstützung — Bot läuft auf dem Gaming-PC, OBS auf einem separaten Stream-PC"],
+];
 
 export default function YTMBotPage() {
   return (
-    <div className="page-fade max-w-3xl mx-auto text-white space-y-8 pb-16">
+    <Page width="text" className="py-4 md:py-8 space-y-6">
       <SEO
         title="YouTube Music — Desktop-Bot"
         description="Songrequests mit eigenem Windows-Bot, ohne Streamer.bot."
@@ -14,60 +22,30 @@ export default function YTMBotPage() {
         keywords="YouTube Music, Songrequest, Twitch, Bot, Desktop, GitHub, Deutsch"
       />
 
-      <div className="text-center space-y-3">
-        <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-violet-500/10 border border-violet-400/20 mb-2">
-          <Music className="w-7 h-7 text-violet-300" />
-        </div>
-        <h1 className="font-display text-3xl md:text-4xl font-bold tracking-tight">
-          YouTube Music — Songrequest (Desktop)
-        </h1>
-      </div>
+      <PageHeader
+        icon={Music}
+        kicker="Für Streamer"
+        title="YouTube Music — Songrequest (Desktop)"
+        description="Songrequests mit eigenem Windows-Bot, ohne Streamer.bot."
+        className="!mb-0"
+      />
 
-      <a
-        href="https://github.com/vnmvalentin/YTM_Twitch_Bot"
-        target="_blank"
-        rel="noopener noreferrer"
-        className="flex flex-col sm:flex-row items-center justify-center gap-4 bg-violet-600 hover:bg-violet-500 text-white font-semibold text-base py-4 px-8 rounded-lg transition-colors"
-      >
-        <div className="flex items-center gap-3">
-          <Download className="w-5 h-5 shrink-0" />
-          <span>Bot auf GitHub (Download / Releases)</span>
-        </div>
-      </a>
+      <Button href="https://github.com/vnmvalentin/YTM_Twitch_Bot" size="lg" block icon={Download}>
+        Bot auf GitHub (Download / Releases)
+      </Button>
 
-      <div className="bg-[#12121c] border border-white/10 rounded-xl p-6 space-y-4">
-        <h2 className="font-display text-lg font-bold flex items-center gap-2">
-          <Sparkles className="w-5 h-5 text-violet-300" /> Funktionen
-        </h2>
+      <Section icon={Sparkles} title="Funktionen">
         <ul className="space-y-3 text-sm text-white/80">
-          <li className="flex gap-3">
-            <MessageSquare className="w-5 h-5 text-violet-300/80 shrink-0 mt-0.5" />
-            <span>Songrequest per Command oder Channel Points</span>
-          </li>
-          <li className="flex gap-3">
-            <Monitor className="w-5 h-5 text-violet-300/80 shrink-0 mt-0.5" />
-            <span>Anzeige vom Song und Warteschlange + Kontrolle</span>
-          </li>
-          <li className="flex gap-3">
-            <Music className="w-5 h-5 text-violet-300/80 shrink-0 mt-0.5" />
-            <span>Hohe Customization der maximalen Länge, geblockte Artists / Nutzer und extra Commands für den Chat</span>
-          </li>
-          <li className="flex gap-3">
-            <Tv2 className="w-5 h-5 text-violet-300/80 shrink-0 mt-0.5" />
-            <span>OBS Overlay — aktueller Song und Queue direkt im Stream anzeigen</span>
-          </li>
-          <li className="flex gap-3">
-            <SkipForward className="w-5 h-5 text-violet-300/80 shrink-0 mt-0.5" />
-            <span>SongSkip per Chat-Command oder Channel Points</span>
-          </li>
-          <li className="flex gap-3">
-            <Laptop2 className="w-5 h-5 text-violet-300/80 shrink-0 mt-0.5" />
-            <span>Dual PC Unterstützung — Bot läuft auf dem Gaming-PC, OBS auf einem separaten Stream-PC</span>
-          </li>
+          {FEATURES.map(([Icon, text]) => (
+            <li key={text} className="flex gap-3">
+              <Icon className="w-5 h-5 text-accent-soft/80 shrink-0 mt-0.5" />
+              <span>{text}</span>
+            </li>
+          ))}
         </ul>
-      </div>
+      </Section>
 
-      <div className="rounded-xl overflow-hidden border border-white/10">
+      <div className="rounded-lg overflow-hidden border border-line">
         <img
           src="/media/vorschau_ytmbot.png"
           alt="YTM Bot Vorschau"
@@ -76,6 +54,6 @@ export default function YTMBotPage() {
           className="w-full object-cover"
         />
       </div>
-    </div>
+    </Page>
   );
 }

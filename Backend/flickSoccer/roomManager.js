@@ -6,6 +6,9 @@
 //
 // Ohne socket.io testbar: `send(socketId, event, payload)` wird hereingereicht, die Zeit über `now()`.
 // Alles lebt im Speicher — Partien sind kurzlebig wie bei Connect 4.
+//
+// Turnier-Räume (createLocked, siehe tournamentManager.js): beide Plätze sind fest an die Token der zwei Spieler
+// gebunden, die Regeln sind gesperrt, es gibt keine Revanche, und das Ergebnis geht per onResult an das Turnier.
 
 const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // ohne I/O/0/1
 const RECONNECT_GRACE_MS = 60 * 1000;
@@ -44,6 +47,7 @@ function createRoomManager({ engine, send, now = Date.now }) {
       lastShot: room.lastShot,
       turnEndsAt: room.turnEndsAt,
       forfeit: room.forfeit,
+      locked: room.locked ? { tournament: room.locked.tournament, label: room.locked.label, startBy: room.locked.startBy } : null,
       serverNow: now(),
     };
   }
@@ -87,17 +91,38 @@ function createRoomManager({ engine, send, now = Date.now }) {
     room.turnEndsAt = turnDeadline(room, INTRO_MS);
   }
 
+  // Turnier-Raum: Ergebnis genau einmal melden
+  function report(room) {
+    if (!room.locked || room.reported || room.phase !== 'over') return;
+    room.reported = true;
+    try {
+      room.locked.onResult({ code: room.code, winner: room.match.winner, score: [...room.match.score], forfeit: room.forfeit });
+    } catch (e) {
+      console.error('[flick-soccer] Turnier-Ergebnis:', e);
+    }
+  }
+
   function endByForfeit(room, loserSeat) {
     if (room.phase !== 'playing') return;
     room.match = { ...room.match, winner: 1 - loserSeat };
     room.phase = 'over';
     room.forfeit = loserSeat;
     room.turnEndsAt = null;
+    report(room);
   }
 
   function freeSeat(room, seat) {
     const s = room.seats[seat];
     if (s?.timer) clearTimeout(s.timer);
+    // Turnier-Raum: der Platz bleibt reserviert (Wiederkommen möglich); mitten im Spiel zählt es trotzdem als Aufgabe
+    if (room.locked) {
+      s.timer = null;
+      s.connected = false;
+      s.socketId = null;
+      s.ready = false;
+      if (room.phase === 'playing') endByForfeit(room, seat);
+      return;
+    }
     room.seats[seat] = null;
     // Mitten im Spiel = Aufgabe: Ergebnis bleibt stehen, der Platz ist frei für einen neuen Gegner
     if (room.phase === 'playing') {
@@ -115,7 +140,11 @@ function createRoomManager({ engine, send, now = Date.now }) {
   }
 
   function removeIfEmpty(room) {
-    if (!room.seats[0] && !room.seats[1] && room.spectators.size === 0) {
+    // Turnier-Raum: erst nach dem Abpfiff aufräumen — davor warten die reservierten Plätze auf ihre Spieler
+    const empty = room.locked
+      ? room.phase === 'over' && !room.seats.some((s) => s.connected) && room.spectators.size === 0
+      : !room.seats[0] && !room.seats[1] && room.spectators.size === 0;
+    if (empty) {
       rooms.delete(room.code);
       return true;
     }
@@ -191,6 +220,11 @@ function createRoomManager({ engine, send, now = Date.now }) {
         s.socketId = socketId;
         s.connected = true;
         if (engine.isSkin(p.skin)) s.skin = p.skin;
+        // Turnier-Raum: beim ersten Betreten die eigene Aufstellung mitbringen
+        if (s.fresh) {
+          s.fresh = false;
+          if (engine.isFormation(p.formation)) s.formation = p.formation;
+        }
         attach(room, socketId, seat);
         broadcast(room);
         return { ok: true, code, seat };
@@ -238,7 +272,7 @@ function createRoomManager({ engine, send, now = Date.now }) {
 
   function setSettings(socketId, p) {
     const e = entryOf(socketId);
-    if (!e || e.seat !== 0 || e.room.phase === 'playing') return { ok: false };
+    if (!e || e.seat !== 0 || e.room.phase === 'playing' || e.room.locked) return { ok: false };
     e.room.settings = engine.normalizeSettings({ ...e.room.settings, ...(p.settings || {}) });
     e.room.seats.forEach((s) => {
       if (s) s.ready = false;
@@ -266,8 +300,11 @@ function createRoomManager({ engine, send, now = Date.now }) {
     const played = engine.playShot(room.match, e.seat, p);
     if (!played) return { ok: false, error: 'Nicht dein Zug.' };
     room.seq += 1;
-    // power: Power-up dieses Schusses (Chaos-Modus) — die Browser brauchen es, um den Schuss gleich abzuspielen
-    room.lastShot = { seq: room.seq, team: e.seat, start, shot: played.shot, goal: played.result.goal, power: played.power };
+    // power: gespielte Karte, mods: Karte + Ereignis des Zugs (Chaos-Modus) — die Browser brauchen es, um den Schuss
+    // genauso abzuspielen, wie der Server ihn gerechnet hat
+    room.lastShot = {
+      seq: room.seq, team: e.seat, start, shot: played.shot, goal: played.result.goal, power: played.power, mods: played.mods,
+    };
     room.match = played.match;
     const scored = played.result.goal !== null;
     const animMs = Math.ceil((played.result.steps * engine.PHYS.DT) * 1000)
@@ -276,6 +313,7 @@ function createRoomManager({ engine, send, now = Date.now }) {
     if (room.match.winner !== null) {
       room.phase = 'over';
       room.turnEndsAt = null;
+      report(room);
     } else {
       room.turnEndsAt = turnDeadline(room, animMs);
     }
@@ -299,6 +337,7 @@ function createRoomManager({ engine, send, now = Date.now }) {
     const e = entryOf(socketId);
     if (!e || e.seat === null || e.room.phase !== 'over') return { ok: false };
     const { room } = e;
+    if (room.locked) return { ok: false, error: 'Im Turnier gibt es keine Revanche.' };
     if (!room.seats[0] || !room.seats[1]) return { ok: false, error: 'Warte auf einen Gegner.' };
     room.seats[e.seat].rematch = true;
     if (room.seats[0].rematch && room.seats[1].rematch) {
@@ -364,6 +403,8 @@ function createRoomManager({ engine, send, now = Date.now }) {
         broadcast(room);
       }
       const someone = room.seats.some((s) => s?.connected) || room.spectators.size > 0;
+      // Turnier-Räume vor dem Abpfiff gehören dem Turnier (Frist, Absage) und verfallen hier nicht
+      if (room.locked && room.phase !== 'over') continue;
       if (!someone && t - room.updatedAt > STALE_AFTER_MS) {
         room.seats.forEach((s) => s?.timer && clearTimeout(s.timer));
         rooms.delete(room.code);
@@ -371,7 +412,70 @@ function createRoomManager({ engine, send, now = Date.now }) {
     }
   }
 
+  // ── Turnier-Räume ───────────────────────────────────────────────────────────────────────
+
+  /**
+   * Raum für eine Turnier-Paarung: players = [{ name, token }, { name, token }] (Platz 0 = Rot, 1 = Blau).
+   * code: fester Code (nach einem Neustart derselbe wie vorher), sonst ein neuer.
+   */
+  function createLocked({ code, settings, players, tournament, label, startBy, onResult }) {
+    const c = code && !rooms.has(code) ? code : newCode();
+    const room = {
+      code: c,
+      phase: 'lobby',
+      settings: engine.normalizeSettings(settings),
+      seats: players.map((p) => ({
+        name: cleanName(p.name), token: p.token, socketId: null, connected: false,
+        formation: engine.DEFAULT_FORMATION, skin: engine.DEFAULT_SKIN,
+        ready: false, rematch: false, timer: null, fresh: true,
+      })),
+      spectators: new Set(),
+      match: null,
+      lastShot: null,
+      seq: 0,
+      turnEndsAt: null,
+      forfeit: null,
+      startingTeam: Math.random() < 0.5 ? 0 : 1,
+      matchNo: 0,
+      updatedAt: now(),
+      locked: { tournament, label, startBy, onResult },
+      reported: false,
+    };
+    rooms.set(c, room);
+    return c;
+  }
+
+  /** null, wenn es den Raum nicht gibt; sonst Phase und wer gerade verbunden ist. */
+  function lockedInfo(code) {
+    const room = rooms.get(code);
+    if (!room || !room.locked) return null;
+    return { phase: room.phase, present: room.seats.map((s) => s.connected) };
+  }
+
+  /** Frist abgelaufen und beide da: Anpfiff, auch wenn nicht beide „Bereit" gedrückt haben. */
+  function forceStart(code) {
+    const room = rooms.get(code);
+    if (!room || !room.locked || room.phase !== 'lobby' || !room.seats.every((s) => s.connected)) return false;
+    startMatch(room);
+    broadcast(room);
+    return true;
+  }
+
+  /** Turnier-Raum schließen (kampflos entschieden, vom Veranstalter entschieden, Turnier abgesagt). */
+  function closeLocked(code, reason) {
+    const room = rooms.get(code);
+    if (!room || !room.locked) return;
+    room.reported = true;
+    for (const id of members(room)) {
+      send(id, 'fs:closed', { reason, tournament: room.locked.tournament });
+      sockets.delete(id);
+    }
+    room.seats.forEach((s) => s.timer && clearTimeout(s.timer));
+    rooms.delete(code);
+  }
+
   return {
+    createLocked, lockedInfo, forceStart, closeLocked,
     create, join, setFormation, setSkin, setSettings, setReady, shoot, emote, rematch, leave, disconnect, tick,
     _rooms: rooms,
   };

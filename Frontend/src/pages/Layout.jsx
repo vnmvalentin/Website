@@ -1,7 +1,8 @@
 // src/pages/Layout.jsx
 import React, { useEffect, useState, useContext, useRef, useCallback } from "react";
 import { Outlet, Link, useLocation } from "react-router-dom";
-import LegalFooter from "../components/LegalFooter";
+import SiteFooter from "../components/SiteFooter";
+import { useLiveStatus } from "../utils/useLiveStatus";
 import { TwitchAuthContext } from "../components/TwitchAuthContext";
 import { socket, ensureSocketConnected } from "../utils/socket";
 import AppBackground from "../components/AppBackground";
@@ -10,8 +11,6 @@ import { NAV_CATEGORIES } from "../config/navigation";
 // aber nur 32 px hoch gezeigt — und das auf jeder Seite. Das PNG bleibt für og:image (SEO.jsx).
 import logoHeader from "../assets/logo-header.webp";
 import {
-  Volume2,
-  VolumeX,
   AlertTriangle,
   Info,
   Menu,
@@ -23,7 +22,6 @@ import {
   Lock,
 } from "lucide-react";
 
-const STREAMER_ID = "160224748";
 
 function TwitchGlyph({ className }) {
   return (
@@ -36,6 +34,8 @@ function TwitchGlyph({ className }) {
 export default function Layout() {
   const location = useLocation();
   const { user, login } = useContext(TwitchAuthContext);
+  // Kanal gerade live? Dann steht in der Kopfzeile ein Hinweis (Backend fragt Twitch, siehe utils/useLiveStatus.js)
+  const liveStatus = useLiveStatus();
 
   const [systemBroadcast, setSystemBroadcast] = useState(null);
 
@@ -48,17 +48,12 @@ export default function Layout() {
   const normalizedPath = location.pathname.length > 1
     ? location.pathname.replace(/\/+$/, "")
     : location.pathname;
-  // (Garden, adVentures und die Clash-Royale-Minigames haben seit 27.09.2026 eigene Hüllen außerhalb von Layout)
-  // (die Win Challenge seit 13.10.2026 ebenfalls: WinChallenge/ui/WcShell.jsx)
-  const isFullBleedGame = normalizedPath === "/discord-bot";
+  // Spiele haben eigene Hüllen außerhalb von Layout (seit 27.09.2026), die Streamer-Werkzeuge seit
+  // 11.11.2026 die gemeinsame Tool-Hülle (components/toolShell/ToolShell.jsx) — hier läuft nur noch
+  // die normale, scrollende Seite.
 
-  const [isMuted, setIsMuted] = useState(() => {
-    return localStorage.getItem('globalIsMuted') === 'true';
-  });
-
-  useEffect(() => {
-    localStorage.setItem('globalIsMuted', isMuted);
-  }, [isMuted]);
+  // Den Ton-Knopf in der Kopfzeile gibt es seit 12.11.2026 nicht mehr: er speicherte nur seinen eigenen
+  // Zustand ('globalIsMuted'), keine Seite las ihn. Spiele mit Ton haben eigene Schalter in ihrer Hülle.
 
   const [hasActionableGiveaway, setHasActionableGiveaway] = useState(false);
   const [hasActionableAbstimmung, setHasActionableAbstimmung] = useState(false);
@@ -338,6 +333,19 @@ export default function Layout() {
 
             {/* Rechte Seite */}
             <div className="flex items-center gap-1.5 md:gap-2 shrink-0">
+              {liveStatus.live && (
+                <a
+                  href="https://twitch.tv/vnmvalentin"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-semibold text-white hover:bg-white/5 transition-colors"
+                  title={liveStatus.title ? `Jetzt live: ${liveStatus.title}` : "Jetzt live auf Twitch"}
+                >
+                  <span className="h-2 w-2 rounded-full bg-red-500 shrink-0" aria-hidden="true" />
+                  Live
+                  {liveStatus.game && <span className="hidden xl:inline font-normal text-white/50 max-w-[180px] truncate">{liveStatus.game}</span>}
+                </a>
+              )}
               <Link
                 to="/updates"
                 className={`hidden sm:flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${
@@ -348,15 +356,6 @@ export default function Layout() {
                 <Newspaper size={16} />
                 <span className="text-sm font-medium hidden xl:block">Updates</span>
               </Link>
-
-              <button
-                onClick={() => setIsMuted(!isMuted)}
-                className="p-2 flex items-center justify-center rounded-lg text-white/50 hover:text-white hover:bg-white/5 transition-colors"
-                title={isMuted ? "Sound einschalten" : "Sound ausschalten"}
-                aria-label={isMuted ? "Sound einschalten" : "Sound ausschalten"}
-              >
-                {isMuted ? <VolumeX size={18} className="text-red-400"/> : <Volume2 size={18}/>}
-              </button>
 
               {!user ? (
                 <button
@@ -484,15 +483,9 @@ export default function Layout() {
         )}
 
         {/* ================= PAGE CONTENT ================= */}
-        <section
-          className={
-            isFullBleedGame
-              ? "flex-1 min-h-0 overflow-hidden p-0 relative z-0 flex flex-col"
-              : "flex-1 overflow-y-auto p-4 md:p-8 relative z-0 custom-scrollbar"
-          }
-        >
-          <Outlet context={{ isMuted, openFeedback }} />
-          {!isFullBleedGame && <LegalFooter />}
+        <section className="flex-1 overflow-y-auto p-4 md:p-8 relative z-0 custom-scrollbar">
+          <Outlet context={{ openFeedback }} />
+          <SiteFooter showDirectory={normalizedPath !== "/"} />
         </section>
       </div>
     </div>

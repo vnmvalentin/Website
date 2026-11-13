@@ -15,7 +15,7 @@ import { buildFigure, applyPose, sitPose, neutralPose, figureState } from './cha
 import { loadFigureKit, buildMocapFigure, SIT_BACK, SIT_HIP_Y } from './mocapFigure';
 import { requestChatAvatar } from './chatAvatars';
 import { requestLook, cachedLook } from './sceneLink';
-import { loadPeopleKit, buildPersonFigure, personSeed, PERSON_SIT_HIP_Y, PERSON_SIT_BACK, PERSON_SEATED_TOP } from './peopleFigure';
+import { loadPeopleKit, buildPersonFigure, personSeed, PERSON_SIT_HIP_Y, PERSON_SIT_BACK, PERSON_SEATED_TOP, FESTIVE_HATS } from './peopleFigure';
 
 /** Hüftgelenk über der Sitzfläche (Polster-Oberkante 0,525) und leicht vor der Lehne. */
 const HIP_ON_SEAT = 0.62;
@@ -27,7 +27,12 @@ export const PERSON_SEATED_HEAD_TOP = HIP_ON_SEAT - PERSON_SIT_HIP_Y + PERSON_SE
 function personSitter(kit, opts, seed) {
   // Selbst gebaute Figur (Figurbaukasten) — per ID oder, im Abspann, per Login
   const known = cachedLook(opts.userId, opts.name);
-  const fig = buildPersonFigure(kit, { seed: personSeed(opts.userId || opts.name), popcorn: opts.popcorn, envMap: opts.envMap, look: known });
+  const pSeed = personSeed(opts.userId || opts.name);
+  // Weihnachten: ohne eigene Figur mit Mütze oder Geweih
+  const fig = buildPersonFigure(kit, {
+    seed: pSeed, popcorn: opts.popcorn, envMap: opts.envMap, look: known,
+    festive: opts.festive ? FESTIVE_HATS[(pSeed >>> 3) % FESTIVE_HATS.length] : null,
+  });
   if (!known) requestLook(opts.userId, (lk) => { if (lk) fig.setOutfit(lk); }, opts.name);
   fig.group.rotation.y = Math.PI;
   fig.play(seed % 10 < 3 ? 'sitTalk' : 'sit', { fade: 0, offset: Math.random(), timeScale: 0.85 + Math.random() * 0.3 });
@@ -106,7 +111,7 @@ function hash(str) {
  * @param {{ skip?: string[], envMap?: THREE.Texture|null, figures?: 'people'|'robots' }} opts
  *   skip: Namen, die nie Platz nehmen (Kanal selbst, Bots); figures: Comic-Figuren (Standard) oder Roboter
  */
-export function createAudience(scene, overlay, seats, { skip = [], envMap = null, figures = 'people' } = {}) {
+export function createAudience(scene, overlay, seats, { skip = [], envMap = null, figures = 'people', festive = false } = {}) {
   const people = new Map();              // name (klein) → Person
   const free = seats.map((s, i) => i);
   const skipSet = new Set(skip.map((s) => s.toLowerCase()));
@@ -150,7 +155,7 @@ export function createAudience(scene, overlay, seats, { skip = [], envMap = null
     const seat = seats[seatIdx];
     const seed = hash(key);
     const popcorn = seed % 100 < 35;
-    const opts = { name, userId, color: color || FALLBACK_COLORS[seed % FALLBACK_COLORS.length], popcorn, envMap };
+    const opts = { name, userId, color: color || FALLBACK_COLORS[seed % FALLBACK_COLORS.length], popcorn, envMap, festive };
     const body = peopleKit ? personSitter(peopleKit, opts, seed) : kit ? mocapSitter(kit, opts) : poseSitter(opts, seed);
     const { fig } = body;
     let avatarImg = null;

@@ -4,6 +4,7 @@ import React from "react";
 import { Link } from "react-router-dom";
 import SEO from "../../components/SEO";
 import NotFound from "../NotFound";
+import { Page, PageHeader } from "../../components/ui";
 import { LEGAL, LEGAL_LINKS, legalMissing, salesVisible } from "../../config/legal";
 
 export function Section({ title, children }) {
@@ -36,20 +37,19 @@ export function Operator() {
   );
 }
 
-export const Mail = () => (LEGAL.email ? <a className="text-violet-300 hover:text-violet-200" href={`mailto:${LEGAL.email}`}>{LEGAL.email}</a> : <span>[E-Mail fehlt]</span>);
+export const Mail = () => (LEGAL.email ? <a className="text-accent-soft hover:text-white underline-offset-2 hover:underline" href={`mailto:${LEGAL.email}`}>{LEGAL.email}</a> : <span>[E-Mail fehlt]</span>);
 
 export default function LegalPage({ title, description, path, children }) {
   // Unvollständige Rechtsseiten gibt es auf der veröffentlichten Website nicht (siehe config/legal.js)
   if (!salesVisible()) return <NotFound />;
   const missing = legalMissing();
   return (
-    <div className="max-w-3xl mx-auto px-1 md:px-2 py-6 md:py-10 text-white">
+    <Page width="text" className="py-4 md:py-8">
       <SEO title={title} description={description} path={path} />
-      <h1 className="font-display text-2xl md:text-3xl font-bold tracking-tight">{title}</h1>
-      <p className="text-white/35 text-xs mt-2 mb-8">Stand: {LEGAL.stand}</p>
+      <PageHeader kicker="Rechtliches" title={title} description={`Stand: ${LEGAL.stand}`} />
 
       {missing.length > 0 && (
-        <div className="mb-8 rounded-md border border-amber-500/40 bg-amber-500/10 p-4 text-sm text-amber-100">
+        <div className="mb-8 rounded-lg border border-amber-500/40 bg-amber-500/10 p-4 text-sm text-amber-100">
           <p className="font-bold">Diese Seite ist noch unvollständig.</p>
           <p className="mt-1 text-amber-100/80">Es fehlen: {missing.join(", ")}.</p>
         </div>
@@ -57,11 +57,11 @@ export default function LegalPage({ title, description, path, children }) {
 
       <div className="space-y-8">{children}</div>
 
-      <nav className="mt-12 pt-6 border-t border-white/10 flex flex-wrap gap-x-5 gap-y-2 text-xs text-white/45">
+      <nav className="mt-12 pt-6 border-t border-line flex flex-wrap gap-x-5 gap-y-2 text-xs text-white/45">
         {LEGAL_LINKS.filter((l) => l.to !== path).map((l) => (
           <Link key={l.to} to={l.to} className="hover:text-white transition-colors">{l.label}</Link>
         ))}
       </nav>
-    </div>
+    </Page>
   );
 }

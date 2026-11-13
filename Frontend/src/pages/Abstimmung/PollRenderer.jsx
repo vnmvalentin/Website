@@ -11,17 +11,18 @@ import {
   CheckCircle2,
   Clock
 } from "lucide-react";
+import { Button, Textarea, TwitchLoginButton } from "../../components/ui";
 
-function TwitchGlyph({ className }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden="true">
-      <path d="M11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714zM6 0 1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.286 12V0zm14.571 11.143-3.428 3.428h-3.429l-3 3v-3H6.857V1.714h13.714Z" />
-    </svg>
-  );
-}
+// Antwortzeile: das echte Eingabefeld bleibt per sr-only erreichbar (Tab + Leertaste); früher stand hier
+// `hidden`, damit ließ sich ohne Maus gar nicht abstimmen. focus-within zeigt, wo der Fokus gerade ist.
+const optionRow = (on) =>
+  `flex items-center gap-4 p-3.5 rounded-lg cursor-pointer transition-colors border focus-within:outline-2 focus-within:outline-accent-soft ${
+    on ? "bg-accent/10 border-accent/50" : "bg-white/5 border-transparent hover:bg-white/10 hover:border-white/10"
+  }`;
 
-export default function PollRenderer({ poll: initialPoll }) {
-  const { user, login } = useContext(TwitchAuthContext);
+// showTitle=false: die Seite zeigt den Titel schon selbst (AbstimmungDetail im Bild-Banner) — sonst stünde er doppelt da
+export default function PollRenderer({ poll: initialPoll, showTitle = true }) {
+  const { user } = useContext(TwitchAuthContext);
 
   const [poll, setPoll] = useState(initialPoll);
   const [answers, setAnswers] = useState({});
@@ -138,16 +139,14 @@ export default function PollRenderer({ poll: initialPoll }) {
   if (!user) {
     return (
       <div className="text-center py-6">
-        <div className="inline-flex p-4 bg-violet-500/10 border border-violet-400/20 rounded-2xl mb-4 text-violet-300">
-            <AlertCircle size={28} />
+        <div className="inline-flex p-3 bg-accent/10 border border-accent/25 rounded-lg mb-4 text-accent-soft">
+            <AlertCircle size={24} />
         </div>
-        <h3 className="font-display text-lg font-bold text-white mb-2">Login erforderlich</h3>
-        <p className="text-white/50 text-sm mb-5">
+        <h3 className="font-display text-lg font-bold text-white mb-2">Anmeldung erforderlich</h3>
+        <p className="text-white/55 text-sm mb-5">
           Verbinde dich mit Twitch, um an der Abstimmung teilzunehmen.
         </p>
-        <button onClick={() => login(false)} className="inline-flex items-center gap-2 bg-[#9146FF] hover:bg-[#7c3aed] text-white px-5 py-2.5 rounded-lg text-sm font-semibold transition-colors">
-          <TwitchGlyph className="w-4 h-4" /> Mit Twitch anmelden
-        </button>
+        <TwitchLoginButton />
       </div>
     );
   }
@@ -156,9 +155,9 @@ export default function PollRenderer({ poll: initialPoll }) {
   if (mode === "results") {
     return (
       <div>
-        <div className="text-center mb-8 border-b border-white/10 pb-6">
+        <div className="text-center mb-8 border-b border-line pb-6">
             <h2 className="font-display text-xl md:text-2xl font-bold text-white flex items-center justify-center gap-3">
-                <BarChart2 className="text-violet-400" size={22} /> {poll.title}
+                <BarChart2 className="text-accent-soft" size={22} /> {showTitle ? poll.title : "Ergebnisse"}
             </h2>
             {pollEnded && (
                 <div className="mt-3 inline-flex items-center gap-2 px-3 py-1 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-bold uppercase tracking-wider">
@@ -174,7 +173,7 @@ export default function PollRenderer({ poll: initialPoll }) {
                     : 0;
 
                 return (
-                  <div key={q.id} className="bg-black/20 rounded-xl p-5 md:p-6 border border-white/10">
+                  <div key={q.id} className="bg-black/20 rounded-lg p-5 md:p-6 border border-line">
                     <p className="font-semibold text-white mb-4">{q.question}</p>
 
                     {q.type !== "text" && (
@@ -187,7 +186,7 @@ export default function PollRenderer({ poll: initialPoll }) {
                                     <div key={opt} className="relative group">
                                         <div className="absolute inset-0 bg-white/5 rounded-lg overflow-hidden">
                                             <div
-                                                className="h-full bg-violet-500/25 transition-all duration-1000 ease-out"
+                                                className="h-full bg-accent/25 transition-all duration-1000 ease-out"
                                                 style={{ width: `${percent}%` }}
                                             />
                                         </div>
@@ -196,7 +195,7 @@ export default function PollRenderer({ poll: initialPoll }) {
                                             <span className="font-medium text-white/85">{opt}</span>
                                             <div className="flex items-center gap-3">
                                                 <span className="text-xs font-bold text-white/40">{percent}%</span>
-                                                <span className="font-mono text-sm font-bold text-violet-300 bg-black/30 px-2 py-0.5 rounded-md border border-white/10">
+                                                <span className="font-mono text-sm font-bold text-accent-soft bg-black/30 px-2 py-0.5 rounded-md border border-white/10">
                                                     {count}
                                                 </span>
                                             </div>
@@ -227,16 +226,18 @@ export default function PollRenderer({ poll: initialPoll }) {
 
         {!pollEnded && (
           <div className="flex justify-center mt-8 pt-6 border-t border-white/10">
-            <button
+            <Button
+              variant="secondary"
+              size="lg"
+              icon={Edit3}
               onClick={() => {
                 setIsEditing(true);
                 setMode("form");
                 setAnswers(existingVote || {});
               }}
-              className="flex items-center gap-2 px-6 py-3 rounded-lg bg-white/5 hover:bg-white/10 text-white font-semibold transition-colors border border-white/10 hover:border-white/20"
             >
-              <Edit3 size={16} /> Antwort ändern
-            </button>
+              Antwort ändern
+            </Button>
           </div>
         )}
       </div>
@@ -247,7 +248,7 @@ export default function PollRenderer({ poll: initialPoll }) {
   if (pollEnded) {
     return (
       <div className="text-center py-6">
-        <h2 className="font-display text-2xl font-bold text-white mb-2">{poll.title}</h2>
+        {showTitle && <h2 className="font-display text-2xl font-bold text-white mb-2">{poll.title}</h2>}
         <div className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-red-500/10 text-red-400 font-bold border border-red-500/20 mt-4 text-sm">
             <X size={16} /> Abstimmung beendet
         </div>
@@ -257,10 +258,12 @@ export default function PollRenderer({ poll: initialPoll }) {
 
   return (
     <div>
-      <div className="text-center mb-8">
-          <h2 className="font-display text-2xl md:text-3xl font-bold text-white tracking-tight mb-2">
-            {poll.title}
-          </h2>
+      <div className={`text-center ${showTitle || isEditing ? "mb-8" : ""}`}>
+          {showTitle && (
+            <h2 className="font-display text-2xl md:text-3xl font-bold text-white tracking-tight mb-2">
+              {poll.title}
+            </h2>
+          )}
           {isEditing && (
               <span className="inline-block px-3 py-1 rounded-lg bg-amber-500/10 text-amber-400 text-xs font-bold border border-amber-500/20">
                   Bearbeitungsmodus
@@ -270,8 +273,8 @@ export default function PollRenderer({ poll: initialPoll }) {
 
       <div className="space-y-6">
           {poll.questions.map((q) => (
-            <div key={q.id} className="bg-black/20 rounded-xl p-5 md:p-6 border border-white/10">
-              <p className="font-semibold text-white mb-4 border-l-2 border-violet-400 pl-3">
+            <div key={q.id} className="bg-black/20 rounded-lg p-5 md:p-6 border border-line">
+              <p className="font-semibold text-white mb-4 border-l-2 border-accent-soft pl-3">
                   {q.question}
               </p>
 
@@ -280,17 +283,17 @@ export default function PollRenderer({ poll: initialPoll }) {
                   {q.type === "single" && q.options.map((opt) => {
                       const isSelected = answers?.[q.id] === opt;
                       return (
-                          <label key={opt} className={`flex items-center gap-4 p-3.5 rounded-lg cursor-pointer transition-colors border ${isSelected ? 'bg-violet-500/10 border-violet-400/50' : 'bg-white/5 border-transparent hover:bg-white/10 hover:border-white/10'}`}>
+                          <label key={opt} className={optionRow(isSelected)}>
                             <input
                               type="radio"
                               name={String(q.id)}
                               value={opt}
                               checked={isSelected}
                               onChange={() => handleChange(q.id, opt)}
-                              className="hidden"
+                              className="sr-only"
                             />
-                            <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${isSelected ? 'border-violet-400' : 'border-white/25'}`}>
-                                {isSelected && <div className="w-2.5 h-2.5 rounded-full bg-violet-400" />}
+                            <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${isSelected ? 'border-accent-soft' : 'border-white/25'}`}>
+                                {isSelected && <div className="w-2.5 h-2.5 rounded-full bg-accent-soft" />}
                             </div>
                             <span className={`font-medium ${isSelected ? 'text-white' : 'text-white/60'}`}>{opt}</span>
                           </label>
@@ -303,7 +306,7 @@ export default function PollRenderer({ poll: initialPoll }) {
                       const checked = selected.includes(opt);
 
                       return (
-                        <label key={opt} className={`flex items-center gap-4 p-3.5 rounded-lg cursor-pointer transition-colors border ${checked ? 'bg-violet-500/10 border-violet-400/50' : 'bg-white/5 border-transparent hover:bg-white/10 hover:border-white/10'}`}>
+                        <label key={opt} className={optionRow(checked)}>
                           <input
                             type="checkbox"
                             value={opt}
@@ -314,9 +317,9 @@ export default function PollRenderer({ poll: initialPoll }) {
                                 : selected.filter((o) => o !== opt);
                               handleChange(q.id, newVals);
                             }}
-                            className="hidden"
+                            className="sr-only"
                           />
-                          <div className={`w-5 h-5 rounded flex items-center justify-center shrink-0 transition-colors ${checked ? 'bg-violet-500 text-white' : 'bg-white/10 text-transparent'}`}>
+                          <div className={`w-5 h-5 rounded flex items-center justify-center shrink-0 transition-colors ${checked ? 'bg-accent text-white' : 'bg-white/10 text-transparent'}`}>
                               <Check size={14} strokeWidth={4} />
                           </div>
                           <span className={`font-medium ${checked ? 'text-white' : 'text-white/60'}`}>{opt}</span>
@@ -326,10 +329,10 @@ export default function PollRenderer({ poll: initialPoll }) {
 
                   {/* TEXT INPUT */}
                   {q.type === "text" && (
-                    <textarea
+                    <Textarea
                       value={answers?.[q.id] ?? ""}
                       onChange={(e) => handleChange(q.id, e.target.value)}
-                      className="w-full bg-black/30 border border-white/10 rounded-lg p-4 text-white focus:outline-none focus:border-violet-500 transition-colors placeholder:text-white/20 min-h-[100px]"
+                      aria-label={q.question}
                       placeholder="Deine Antwort..."
                     />
                   )}
@@ -338,24 +341,22 @@ export default function PollRenderer({ poll: initialPoll }) {
           ))}
       </div>
 
-      <div className="flex flex-col sm:flex-row gap-3 mt-8 pt-6 border-t border-white/10">
-        <button
-          onClick={submitVote}
-          className="flex-1 bg-violet-600 hover:bg-violet-500 text-white font-bold py-3.5 rounded-lg transition-colors flex items-center justify-center gap-2"
-        >
-          {isEditing ? <><CheckCircle2 size={19}/> Änderungen speichern</> : <><Send size={19}/> Abstimmen</>}
-        </button>
+      <div className="flex flex-col sm:flex-row gap-3 mt-8 pt-6 border-t border-line">
+        <Button size="lg" className="flex-1" icon={isEditing ? CheckCircle2 : Send} onClick={submitVote}>
+          {isEditing ? "Änderungen speichern" : "Abstimmen"}
+        </Button>
 
         {isEditing && (
-          <button
+          <Button
+            variant="secondary"
+            size="lg"
             onClick={() => {
               setIsEditing(false);
               setMode("results");
             }}
-            className="px-8 py-3.5 bg-white/5 hover:bg-white/10 text-white font-bold rounded-lg border border-white/10 transition-colors"
           >
             Abbrechen
-          </button>
+          </Button>
         )}
       </div>
     </div>

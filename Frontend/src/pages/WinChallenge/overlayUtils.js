@@ -43,6 +43,59 @@ export function msToClock(ms) {
   return `${hh}:${mm}:${ss}`;
 }
 
+// ---- Timer: hoch- oder runterzählend ----
+// Gespeichert wird die verstrichene Zeit; beim Countdown (mode "down") zeigt das
+// Overlay durationMs − verstrichen und bleibt bei 0 stehen. Dieselbe Rechnung im
+// Backend: Backend/winchallenge/timerMath.js — Änderungen an beiden Stellen.
+export const MAX_TIMER_MS = 999 * 3600 * 1000;
+export const DEFAULT_COUNTDOWN_MS = 3600 * 1000;
+
+export const isCountdown = (t) => t?.mode === "down";
+
+export function timerDurationMs(t) {
+  const d = Number(t?.durationMs);
+  return Number.isFinite(d) && d > 0 ? Math.min(d, MAX_TIMER_MS) : DEFAULT_COUNTDOWN_MS;
+}
+
+export function timerElapsedMs(t, now = Date.now()) {
+  const raw = t?.running ? now - (Number(t.startedAt) || now) : Number(t?.elapsedMs) || 0;
+  return isCountdown(t) ? Math.min(raw, timerDurationMs(t)) : raw;
+}
+
+/** Was das Overlay zeigt. */
+export function timerDisplayMs(t, now = Date.now()) {
+  const e = timerElapsedMs(t, now);
+  return Math.max(0, isCountdown(t) ? timerDurationMs(t) - e : e);
+}
+
+function timerWithElapsed(t, elapsed, now) {
+  const next = { ...t, elapsedMs: elapsed };
+  if (next.running) next.startedAt = now - elapsed;
+  return next;
+}
+
+/** Angezeigte Zeit setzen — beim Countdown also die Restzeit. */
+export function timerSetDisplay(t, ms, now = Date.now()) {
+  const v = Math.max(0, Math.min(Number(ms) || 0, MAX_TIMER_MS));
+  return timerWithElapsed(t, isCountdown(t) ? timerDurationMs(t) - v : v, now);
+}
+
+export function timerAdjustDisplay(t, deltaMs, now = Date.now()) {
+  return timerSetDisplay(t, timerDisplayMs(t, now) + deltaMs, now);
+}
+
+export function timerStart(t, now = Date.now()) {
+  if (t.running) return t;
+  // Abgelaufener Countdown: Start beginnt wieder von vorn
+  const base = isCountdown(t) && timerDisplayMs(t, now) <= 0 ? 0 : timerElapsedMs(t, now);
+  return { ...t, running: true, startedAt: now - base, elapsedMs: base };
+}
+
+export function timerPause(t, now = Date.now()) {
+  if (!t.running) return t;
+  return { ...t, running: false, startedAt: 0, elapsedMs: timerElapsedMs(t, now) };
+}
+
 export function clamp01(v, fallback = 1) {
   const n = Number(v);
   if (!Number.isFinite(n)) return fallback;
@@ -95,9 +148,77 @@ export function readableOn(color) {
   return brightness > 150 ? "#0b0b10" : "#ffffff";
 }
 
+/** "HH:MM:SS" oder "MM:SS" → Millisekunden (null bei ungültigem Format) */
+export function parseClockInput(str) {
+  const m = String(str || "")
+    .trim()
+    .match(/^(\d{1,3}):(\d{1,2})(?::(\d{1,2}))?$/);
+  if (!m) return null;
+  const hasHours = m[3] != null;
+  const h = hasHours ? parseInt(m[1], 10) : 0;
+  const min = hasHours ? parseInt(m[2], 10) : parseInt(m[1], 10);
+  const s = hasHours ? parseInt(m[3], 10) : parseInt(m[2], 10);
+  if (hasHours && min > 59) return null;
+  if (s > 59) return null;
+  return (h * 3600 + min * 60 + s) * 1000;
+}
+
 /** Eine Challenge gilt als erledigt: Zähler am Ziel, sonst Haken gesetzt. */
 export function isItemDone(it) {
   return it.useWins ? (it.progress || 0) >= (it.target || 0) : !!it.done;
+}
+
+// ---- Serie (B2B, B3B …) ----
+// Eine Serie ist ein Zähler (useWins) mit `streak: true`: gespeichert und gezählt wird
+// sie genau wie ein Zähler — Chat-Befehle, Gesamtstand und ältere Fassungen des Overlays
+// funktionieren deshalb unverändert. Anders ist nur die Anzeige: statt „2 / 3“ steht
+// ein Kästchen je Win, damit die Zuschauer sehen, der wievielte Win gerade läuft.
+export const STREAK_MIN = 2;
+export const STREAK_MAX = 10;
+const STREAK_DEFAULT = 3;
+
+/** Art einer Challenge: "check" (abhaken), "counter" (Zähler) oder "streak" (Serie). */
+export function itemMode(it) {
+  if (!it?.useWins) return "check";
+  return it.streak ? "streak" : "counter";
+}
+
+/**
+ * Zeichnet das Overlay Kästchen statt einer Zahl? Nur bei einer Serie mit gültiger
+ * Länge — sonst (z. B. Ziel von Hand auf 25 gesetzt) bleibt es bei der Zahl.
+ */
+export function showsStreakPips(it) {
+  const target = it?.target || 0;
+  return itemMode(it) === "streak" && target >= 1 && target <= STREAK_MAX;
+}
+
+/**
+ * Felder, die sich beim Wechsel der Art ändern. Zur Serie: die Länge wird auf
+ * B2B–B10 begrenzt (aus „Abhaken“ kommend B3B), der Stand passt sich an.
+ * @param {object} it    Challenge
+ * @param {"check"|"counter"|"streak"} mode
+ */
+export function itemModePatch(it, mode) {
+  if (mode === "check") return { useWins: false, streak: false };
+  if (mode === "counter") return { useWins: true, streak: false };
+  const wanted = it?.useWins ? parseInt(it.target, 10) || STREAK_DEFAULT : STREAK_DEFAULT;
+  const target = Math.min(STREAK_MAX, Math.max(STREAK_MIN, wanted));
+  return { useWins: true, streak: true, target, progress: Math.min(it?.progress || 0, target) };
+}
+
+/** Länge einer Serie ändern — der Stand bleibt innerhalb der neuen Länge. */
+export function streakLengthPatch(it, length) {
+  const target = Math.min(STREAK_MAX, Math.max(STREAK_MIN, parseInt(length, 10) || STREAK_DEFAULT));
+  return { target, progress: Math.min(it?.progress || 0, target) };
+}
+
+/**
+ * Klick auf das Kästchen `index` (ab 0): füllt bis dorthin. Ein Klick auf das zuletzt
+ * gefüllte nimmt genau diesen Win wieder zurück.
+ */
+export function streakClickProgress(it, index) {
+  const progress = it?.progress || 0;
+  return progress === index + 1 ? index : index + 1;
 }
 
 // Spielcover einer Challenge kommen ausschließlich aus der Twitch-Kategoriesuche.

@@ -177,10 +177,15 @@ async function fetchBattlelog(tag, { safe = false, token } = {}) {
 // verwerfen, und einen Profilwert bis 1000 gegen die echte Rangliste prüfen — sonst stünde zu
 // Saisonbeginn der alte Endrang da, bis der Spieler wieder in den Top 1000 ist.
 const POL_RANK_MAX = 1000;
-const POL_TOP_TTL_MS = 2 * 60 * 1000;
+// Eine Liste für alle Accounts — 60 s reichen, damit die Platzierung kurz nach einem Match mitzieht.
+const POL_TOP_TTL_MS = 60 * 1000;
 let polTopCache = { at: 0, ranks: null };
 
-/** Tag → Platz der globalen Top 1000, kurz zwischengespeichert. null, wenn nicht abrufbar. */
+// Medaillen eines Ranglisten-Eintrags. Das Feld heißt je nach API-Stand eloRating oder trophies;
+// fehlt beides, bleibt es null und die Platzierung wird nicht geschätzt (siehe resolvePolRank).
+const entryMedals = (it) => (typeof it?.eloRating === 'number' ? it.eloRating : typeof it?.trophies === 'number' ? it.trophies : null);
+
+/** Tag → { rank, medals } der globalen Top 1000, kurz zwischengespeichert. null, wenn nicht abrufbar. */
 async function fetchPolTopRanks(token) {
   if (polTopCache.ranks && Date.now() - polTopCache.at < POL_TOP_TTL_MS) return polTopCache.ranks;
   const data = await crApiGetSafe('/locations/global/pathoflegend/players', { token });
@@ -188,19 +193,35 @@ async function fetchPolTopRanks(token) {
   const ranks = new Map();
   for (const it of data.items) {
     const t = normalizeTag(it?.tag);
-    if (t && typeof it.rank === 'number') ranks.set(t, it.rank);
+    if (t && typeof it.rank === 'number') ranks.set(t, { rank: it.rank, medals: entryMedals(it) });
   }
   polTopCache = { at: Date.now(), ranks };
   return ranks;
 }
 
-async function resolvePolRank(tag, pol, token) {
-  const rank = pol?.rank;
-  if (typeof rank !== 'number' || rank < 1 || rank > POL_RANK_MAX) return null;
+/**
+ * Platzierung zu einem Medaillenstand. Die Rangliste hinkt dem Spiel ein Stück hinterher: steht der
+ * Spieler dort noch mit einem älteren Stand, wird der Platz aus den Medaillen der anderen geschätzt
+ * (alle mit mindestens so vielen Medaillen stehen davor — wer den Stand zuerst hatte, liegt vorn).
+ * So springen Medaillen und Platz im Overlay gemeinsam, statt dass der Platz eine Minute nachläuft.
+ * @param {number|null} medals aktueller Stand; null = Profilstand aus `pol` nehmen
+ */
+async function resolvePolRank(tag, pol, token, medals = null) {
+  const profileRank = typeof pol?.rank === 'number' && pol.rank >= 1 && pol.rank <= POL_RANK_MAX ? pol.rank : null;
   const ranks = await fetchPolTopRanks(token);
   // Rangliste nicht abrufbar: Profilwert stehen lassen statt die Platzierung auszublenden.
-  if (!ranks) return rank;
-  return ranks.get(normalizeTag(tag)) ?? null;
+  if (!ranks) return profileRank;
+  const self = normalizeTag(tag);
+  const own = ranks.get(self);
+  const m = typeof medals === 'number' ? medals : (typeof pol?.trophies === 'number' ? pol.trophies : null);
+  if (own && (own.medals === null || own.medals === m)) return own.rank;
+  // Ohne Medaillen in der Liste lässt sich nichts schätzen — dann wie bisher nur der Listenplatz.
+  const withMedals = [...ranks.entries()].filter(([t, e]) => t !== self && e.medals !== null);
+  if (m === null || m <= 0 || !withMedals.length) return own ? own.rank : null;
+  const ahead = withMedals.filter(([, e]) => e.medals >= m).length;
+  const rank = ahead + 1;
+  // Hinter dem letzten Platz der Liste: nicht in den Top 1000.
+  return rank <= POL_RANK_MAX ? rank : null;
 }
 
 /**
@@ -222,6 +243,9 @@ async function fetchPlayerSummary(tag, token) {
     seasonMedals: pol?.trophies || 0,
     leagueNumber: pol?.leagueNumber || 0,
     polRank: await resolvePolRank(tag, pol, token),
+    // Rohwerte fürs Nachrechnen der Platzierung, wenn der Win-Tracker die Medaillen aus dem
+    // Battlelog vorzieht (siehe projectFromBattlelog in crWinTrackerRoutes.js)
+    polProfile: pol ? { rank: pol.rank, trophies: pol.trophies } : null,
     league2v2: extractLeague2v2Progress(data),
     // Clan-Header-Zusatz (Überschrift-Modul im Win-Tracker-Overlay) — steckt schon in derselben
     // /players-Antwort, kein zweiter Request nötig. clan ist null, solange kein Clan (data.clan
@@ -317,4 +341,5 @@ module.exports = {
   fetchPlayerCards,
   fetchBattlelog,
   fetchPlayerSummary,
+  resolvePolRank,
 };

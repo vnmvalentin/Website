@@ -36,7 +36,7 @@ export default function StreamToolSeoContent({ children }) {
           {ST_MODULES.map(({ icon: Icon, title, text }) => (
             <div key={title} className="rounded-xl border border-white/5 bg-black/20 p-4">
               <div className="flex items-start gap-3">
-                <Icon size={16} className="text-violet-400 shrink-0 mt-0.5" />
+                <Icon size={16} className="text-accent-soft shrink-0 mt-0.5" />
                 <div className="min-w-0">
                   <h3 className="text-white font-semibold text-sm mb-1">{title}</h3>
                   <p className="text-white/45 text-xs leading-relaxed">{text}</p>
@@ -55,7 +55,7 @@ export default function StreamToolSeoContent({ children }) {
         <ol className="space-y-3">
           {ST_STEPS.map((step, i) => (
             <li key={step.name} className="flex items-start gap-3">
-              <span className="flex items-center justify-center w-6 h-6 rounded-lg bg-violet-500/10 border border-violet-400/20 text-violet-300 text-xs font-bold shrink-0">
+              <span className="flex items-center justify-center w-6 h-6 rounded-lg bg-accent/10 border border-accent-soft/20 text-accent-soft text-xs font-bold shrink-0">
                 {i + 1}
               </span>
               <div className="min-w-0">

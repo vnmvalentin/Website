@@ -4,6 +4,7 @@ import { TwitchAuthContext } from "../../components/TwitchAuthContext";
 import { createSession, deleteSession, getMySessions, getThemes } from "../../utils/bingoApi";
 import { parseJoinKey } from "./bingoUtils";
 import SEO from "../../components/SEO";
+import { TwitchLoginButton } from "../../components/ui";
 
 export default function BingoPage() {
   const navigate = useNavigate();
@@ -91,13 +92,13 @@ export default function BingoPage() {
         <h1 className="font-display text-4xl font-bold tracking-tight mb-6">Bingo</h1>
         <div className="flex border-b border-white/10">
           <button 
-            className={`pb-3 px-4 font-medium transition-colors border-b-2 -mb-px ${tab === "create" ? "border-violet-500 text-white" : "border-transparent text-white/50 hover:text-white"}`} 
+            className={`pb-3 px-4 font-medium transition-colors border-b-2 -mb-px ${tab === "create" ? "border-accent text-white" : "border-transparent text-white/50 hover:text-white"}`} 
             onClick={() => setTab("create")}
           >
             Neue Session
           </button>
           <button 
-            className={`pb-3 px-4 font-medium transition-colors border-b-2 -mb-px ${tab === "my" ? "border-violet-500 text-white" : "border-transparent text-white/50 hover:text-white"}`} 
+            className={`pb-3 px-4 font-medium transition-colors border-b-2 -mb-px ${tab === "my" ? "border-accent text-white" : "border-transparent text-white/50 hover:text-white"}`} 
             onClick={() => setTab("my")}
           >
             Deine Bingos ({my.length})
@@ -113,14 +114,14 @@ export default function BingoPage() {
           {/* STEP 1: MODE */}
           <div className="space-y-4">
              <div className="flex items-center gap-3">
-                <span className="flex items-center justify-center w-8 h-8 rounded-full bg-white/10 border border-white/10 font-bold text-sm">1</span>
+                <span className="flex items-center justify-center w-8 h-8 rounded-md bg-white/10 border border-line font-bold text-sm">1</span>
                 <h2 className="text-xl font-bold">Session Typ wählen</h2>
              </div>
              
              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <button 
                     onClick={() => setMode("single")}
-                    className={`relative p-5 rounded-lg border text-left transition-colors ${mode === "single" ? "bg-violet-500/20 border-violet-500/50 ring-1 ring-violet-500/30" : "bg-black/30 border-white/10 hover:border-white/20"}`}
+                    className={`relative p-5 rounded-lg border text-left transition-colors ${mode === "single" ? "bg-accent/20 border-accent/50 ring-1 ring-accent/30" : "bg-black/30 border-white/10 hover:border-white/20"}`}
                 >
                     <div className="font-bold text-lg mb-1">Singleplayer</div>
                     <div className="text-sm text-white/60">Du spielst alleine. Perfekt für Content Creation oder Just Chatting.</div>
@@ -141,7 +142,7 @@ export default function BingoPage() {
           {/* STEP 2: THEME */}
           <div className="space-y-4">
              <div className="flex items-center gap-3">
-                <span className="flex items-center justify-center w-8 h-8 rounded-full bg-white/10 border border-white/10 font-bold text-sm">2</span>
+                <span className="flex items-center justify-center w-8 h-8 rounded-md bg-white/10 border border-line font-bold text-sm">2</span>
                 <h2 className="text-xl font-bold">Thema wählen</h2>
              </div>
 
@@ -168,9 +169,7 @@ export default function BingoPage() {
           {/* ACTION AREA */}
           <div className="pt-4">
             {!user ? (
-                <button onClick={login} className="w-full py-4 rounded-lg font-bold text-lg bg-[#9146FF] hover:bg-[#772ce8] transition-colors text-white">
-                    Login mit Twitch zum Erstellen
-                </button>
+                <TwitchLoginButton size="lg" block>Mit Twitch anmelden und Bingo erstellen</TwitchLoginButton>
             ) : (
                 <button
                     disabled={creating || !selectedThemeId || sessionLimitReached}
@@ -178,7 +177,7 @@ export default function BingoPage() {
                     className={`w-full py-4 rounded-lg font-bold text-lg transition-colors ${
                         creating || !selectedThemeId || sessionLimitReached
                         ? "bg-white/5 text-white/20 cursor-not-allowed border border-white/5"
-                        : "bg-violet-600 hover:bg-violet-500 text-white"
+                        : "bg-accent hover:bg-accent-hover text-white"
                     }`}
                 >
                     {creating ? "Erstelle Lobby..." : sessionLimitReached ? "Limit erreicht" : "Session starten"}
@@ -223,7 +222,7 @@ export default function BingoPage() {
                           <div>
                               <h3 className="text-lg font-bold text-white mb-1">{s.themeName || "Unbekanntes Thema"}</h3>
                               <div className="flex gap-2 text-xs font-mono uppercase tracking-wide text-white/50">
-                                  <span className={s.mode === "group" ? "text-emerald-400" : "text-violet-400"}>{s.mode}</span>
+                                  <span className={s.mode === "group" ? "text-emerald-400" : "text-accent-soft"}>{s.mode}</span>
                                   <span>•</span>
                                   <span>{s.role}</span>
                               </div>
@@ -234,7 +233,7 @@ export default function BingoPage() {
                                       Löschen
                                   </button>
                               )}
-                              <button onClick={() => navigate(`/Bingo/${s.sessionId}`)} className="px-5 py-2 rounded-lg bg-violet-600 hover:bg-violet-500 text-white font-bold text-sm transition-colors">
+                              <button onClick={() => navigate(`/Bingo/${s.sessionId}`)} className="px-5 py-2 rounded-lg bg-accent hover:bg-accent-hover text-white font-bold text-sm transition-colors">
                                   Öffnen
                               </button>
                           </div>

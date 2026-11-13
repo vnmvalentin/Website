@@ -1,4 +1,6 @@
-// Beach 3D — Spielrechnung für Blobby auf einem echten Feld.
+// Ego-Volleyball — Spielrechnung für Blobby aus der Ich-Sicht auf einem echten Feld.
+// (Ordner und Einstellungswert heißen weiter "beach": Das Feld hat "Beach 3D" ersetzt, und
+// der Server kennt den Wert aus gespeicherten Räumen.)
 //
 // Läuft NICHT auf dem Server, sondern im Browser des Hosts (beach/hostWorker.js). Der
 // Server verwaltet nur Raum, Plätze und Punktestand und vermittelt die Verbindung.
@@ -7,15 +9,24 @@
 // z quer dazu, y nach oben (Sand bei y = 0). Einheiten wie im klassischen Blobby
 // (Pixel des Originals), damit die Sprunghöhe gleich bleibt.
 //
-// Das Herzstück ist dieselbe Blob-Form wie im 2D-Spiel: konvexe Hülle aus zwei Kugeln.
-// Weil der Blob drehsymmetrisch um die Hochachse ist, reduziert sich jede Abstandsfrage
-// auf das bekannte 2D-Problem in der Ebene "Abstand von der Achse / Höhe".
+// Blick: yaw = Drehung um die Hochachse (0 schaut nach +x, wächst nach rechts = +z),
+// pitch = nach oben positiv. Vorwärts ist (cos yaw · cos pitch, sin pitch, sin yaw · cos pitch).
 //
-// Bewusst LEICHTER als das Original (Wunsch: "einfacher, Ball leichter"):
-//   · Der Ball fällt langsamer (BALL_GRAVITATION) — mehr Zeit zum Hinlaufen in 2D-Fläche.
-//   · Zielhilfe: Ein Treffer wird ein Stück Richtung gegnerisches Feld gelenkt und geht
-//     nie steil in den Sand. In 3D trifft man den Ball selten genau mittig; ohne Hilfe
-//     flöge er bei jedem leicht versetzten Treffer seitlich ins Aus.
+// Die Regel, die das Spiel trägt: DER BALL FLIEGT DORTHIN, WO MAN HINSCHAUT.
+//   · Schlag (Linksklick): hart in Blickrichtung, im Sprung härter (Schmettern).
+//   · Zuspiel (Rechtsklick): hoch und ein Stück nach vorn — für sich selbst oder den Partner.
+//   · Ohne Klick passiert nichts: Der Ball fliegt durch den Körper hindurch. Gespielt wird
+//     nur mit Schlägen — so entscheidet immer der Blick, nie ein zufälliger Treffpunkt.
+//   · Ein Schlag im Sprung VOR der Angriffslinie ist ein Schmetterball: schneller und mit
+//     Vorwärtsdrall — der Ball taucht hinter dem Netz ab, statt bis an die Rückwand zu fliegen.
+// Ein Klick öffnet ein kurzes Zeitfenster (SWING_FRAMES) mit großer Reichweite: Man muss
+// nicht auf den Frame genau treffen, und ein Klick, der beim Host etwas später ankommt,
+// zählt trotzdem.
+//
+// Der Ball fällt langsam (BALL_GRAVITATION) — in der Ich-Sicht braucht man die Zeit, um ihn
+// zu finden und hinzulaufen. Die Blob-Form ist dieselbe wie im 2D-Spiel (konvexe Hülle aus
+// zwei Kugeln); weil sie drehsymmetrisch um die Hochachse ist, reduziert sich jede
+// Abstandsfrage auf das 2D-Problem "Abstand von der Achse / Höhe".
 
 export const TICK_HZ = 75;
 export const TICK_MS = 1000 / TICK_HZ;
@@ -26,35 +37,54 @@ export const UPPER_RADIUS = 25;
 export const LOWER_SPHERE = 13;
 export const LOWER_RADIUS = 33;
 export const BALL_RADIUS = 38;           // Original 31,5 — größer ist leichter zu treffen und besser zu sehen
-// Unsichtbarer Zuschlag nur für Ball gegen Blob: In 3D schätzt man die Tiefe schlecht, ein
-// knapp danebengehender Schlag soll trotzdem zählen. Gemessen mit Reaktionszeit-Bot:
-// Ball 38 + Zuschlag 16 gibt ~60 % mehr Treffer als vorher (31,5 ohne Zuschlag).
-const BLOB_HIT_PAD = 16;
+// Reichweite eines Schlags über die Körperhülle hinaus (Arme, die man nicht sieht)
+const REACH_PAD = 92;
 export const NET_RADIUS = 14;
 export const NET_TOP = 216;          // wie im Original: 500 - 284
 
-const BLOB_SPEED = 6.2;              // flotter als 4,5: das Feld ist deutlich größer
-const JUMP_ACCELERATION = 15.1;
+const BLOB_SPEED = 7.2;              // flotter als im Original (4,5): das Feld ist viel größer
+const JUMP_ACCELERATION = 17;        // höher als im Original (15,1): Man soll über das Netz schauen können
 const JUMP_BUFFER = 0.44;
 const GRAVITATION = 0.88;
 export const BALL_GRAVITATION = 0.16; // Original 0,287 — der Ball schwebt deutlich länger
 const NET_DAMPING = 0.85;
 const WALL_DAMPING = 0.85;
 
-const BALL_HIT_BASE = 5.5;
-const BLOB_MOMENTUM_TRANSFER = 0.75;
-const BALL_INCOMING_TRANSFER = 0.2;
-const BALL_MIN_HIT_VELOCITY = 5;
-const BALL_MAX_HIT_VELOCITY = 16;
-// Zielhilfe: so stark wird die waagrechte Flugrichtung zum gegnerischen Feld gezogen
-const AIM_ASSIST = 0.45;
-const AIM_ASSIST_BACKWARD = 0.7;     // fliegt er nach hinten, deutlich stärker
-const MIN_UP = 0.3;                  // senkrechter Anteil der Abflugrichtung mindestens
+// Hechtsprung: kurzer Schub in Laufrichtung (ohne Laufrichtung: in Blickrichtung)
+const DASH_SPEED = 19;
+const DASH_FRAMES = 11;
+export const DASH_COOLDOWN = 68;
+// Schlagfenster nach einem Klick und Pause bis zum nächsten
+const SWING_FRAMES = 12;
+const SWING_COOLDOWN = 22;
+// Ein Klick kurz vor Ende der Pause wird gemerkt und danach ausgeführt
+const SWING_QUEUE = 10;
 
-const SERVE_FRAMES = Math.round(1.2 * TICK_HZ);
+// Schlag und Zuspiel
+export const HIT_SPEED = 12.5;
+export const SPIKE_SPEED = 17;     // Schlag im Sprung
+const HIT_RUN_BONUS = 0.35;          // Anlauf in Schlagrichtung zählt mit …
+const HIT_RUN_MAX = 2.5;             // … bis zu diesem Zuschlag
+const HIT_LIFT = 0.16;               // kleiner Auftrieb, damit "geradeaus" nicht sofort im Sand landet
+const SPIKE_AIR = 30;                // so hoch über dem Stand gilt ein Schlag als Sprungschlag
+// Schmetterball: Der Ball fällt mit Drall schneller, bis ihn wieder jemand spielt. Ohne
+// Drall fliegt er bei der geringen Ballschwerkraft fast geradeaus an die Rückwand — man
+// müsste steil nach unten zielen. Eine zusätzliche Neigung nach unten hat sich NICHT
+// bewährt (gemessen: fast alle Schmetterbälle im Netz), der Drall allein genügt.
+export const SPIN_GRAVITY = 2.6;
+// Geschmettert wird nur vorn, zwischen Netz und Angriffslinie (Anteil der halben Feldlänge).
+// Von weiter hinten käme ein Ball mit Drall nicht mehr übers Netz.
+export const ATTACK_ZONE = 0.4;
+export const SET_SPEED = 11.5;
+const SET_FORWARD = 0.3;
+
+const SERVE_FRAMES = Math.round(0.8 * TICK_HZ);
 const POINT_FRAMES = Math.round(1.1 * TICK_HZ);
-const SERVE_BALL_HEIGHT = 280;
-const SERVE_BALL_OFFSET = 26;
+// Aufschlag: Der Ball schwebt vor dem Aufschläger, bis ihn jemand berührt — spätestens
+// nach dieser Zeit fällt er von selbst (lang genug, um vorher noch das Menü zu schließen).
+const SERVE_HOVER_FRAMES = Math.round(12 * TICK_HZ);
+const SERVE_BALL_HEIGHT = 140;       // aus dem Stand zu schlagen, im Sprung zu schmettern
+const SERVE_BALL_OFFSET = 110;       // weit genug vorn, dass er nicht das halbe Bild verdeckt
 const TOUCH_RECOUNT_FRAMES = 10;
 export const SCORE_TO_WIN = 15;
 const WIN_BY = 2;
@@ -73,14 +103,16 @@ const POWERUP_LIFETIME = Math.round(18 * TICK_HZ);
 
 // Halbe Länge (Grundlinie bis Netz) und halbe Breite
 export const COURTS = {
-  "1v1": { L: 700, W: 460 },
-  "2v2": { L: 840, W: 580 },
+  "1v1": { L: 880, W: 540 },
+  "2v2": { L: 1040, W: 700 },
 };
 
 export const teamOf = (slot) => (slot % 2 === 1 ? 1 : 2);
 const otherTeam = (t) => (t === 1 ? 2 : 1);
 export const slotsFor = (mode) => (mode === "2v2" ? [1, 2, 3, 4] : [1, 2]);
 const groundPlane = (s = 1) => BLOBBY_HALF_H * s;
+/** Blick beim Start: übers Netz */
+export const startYaw = (slot) => (teamOf(slot) === 1 ? 0 : Math.PI);
 
 export function startPos(slot, mode) {
   const { L, W } = COURTS[mode] || COURTS["1v1"];
@@ -138,13 +170,13 @@ export function createWorld(mode, serveTeam = 1, maxTouches = 0, powerups = fals
     phaseFrames: SERVE_FRAMES,
     serveTeam,
     ball: null,
-    ballPrev: { x: 0, y: 0, z: 0 },
     blobs: {},
-    touching: {},
     lastTouchFrame: {},
     touches: 0,
     lastHit: 0,
     lastTeam: 0,
+    hover: 0,                 // > 0: Ball schwebt noch (Aufschlag)
+    ev: [0, 0, 0],            // letzte Ballberührung: [laufende Nummer, Art, Platz] — für Ton und Wackler
     score: { 1: 0, 2: 0 },
     lastScorer: 0,
     pointReason: "",
@@ -163,14 +195,22 @@ function resetForServe(w, serveTeam) {
   w.phaseFrames = SERVE_FRAMES;
   w.serveTeam = serveTeam;
   w.ball = serveBall(w);
+  w.hover = SERVE_HOVER_FRAMES;
   for (const slot of [1, 2, 3, 4]) {
     const p = startPos(slot, w.mode);
     const s = blobScale(w, slot);
+    const old = w.blobs[slot];
     w.blobs[slot] = {
       x: p.x, z: p.z, y: groundPlane(s), vx: 0, vy: 0, vz: 0, s,
       grounded: true, jumpWasDown: false,
+      // Blick bleibt über den Punkt hinweg erhalten — sonst springt bei anderen kurz die Figur
+      yaw: old ? old.yaw : startYaw(slot), pitch: old ? old.pitch : 0,
+      // Zähler der Klicks: Der Client zählt hoch, gerechnet wird beim Wechsel. So geht auf
+      // der verlustbehafteten Leitung kein Klick verloren (der Stand wird wiederholt).
+      hitSeen: old ? old.hitSeen : undefined, dashSeen: old ? old.dashSeen : undefined,
+      swing: 0, swingLeft: 0, swingCool: 0, swingDone: false, queued: 0, queuedLeft: 0,
+      dashLeft: 0, dashCool: 0, dashX: 0, dashZ: 0,
     };
-    w.touching[slot] = false;
   }
   w.touches = 0;
   w.lastHit = 0;
@@ -179,25 +219,69 @@ function resetForServe(w, serveTeam) {
 }
 
 // ── Blobs ───────────────────────────────────────────────────────────────────
-const FROZEN = { dx: 0, dz: 0, jump: false };
+const clampNum = (v, lo, hi) => (Number.isFinite(v) ? Math.max(lo, Math.min(hi, v)) : 0);
 
-function stepBlob(b, inp, speed) {
+function stepBlob(b, inp, speed, frozen) {
+  // Blick gilt immer, auch in der Punktpause
+  if (inp) {
+    if (Number.isFinite(inp.yaw)) b.yaw = clampNum(inp.yaw, -1e4, 1e4);
+    if (Number.isFinite(inp.pitch)) b.pitch = clampNum(inp.pitch, -1.5, 1.5);
+  }
+  if (b.swingCool > 0) b.swingCool -= 1;
+  if (b.swingLeft > 0) b.swingLeft -= 1;
+  if (b.queuedLeft > 0) b.queuedLeft -= 1;
+  if (b.dashCool > 0) b.dashCool -= 1;
+
+  const live = !!inp && !frozen;
+  let dx = live ? clampNum(inp.dx, -1, 1) : 0;
+  let dz = live ? clampNum(inp.dz, -1, 1) : 0;
+  const len = Math.hypot(dx, dz);
+  if (len > 1) { dx /= len; dz /= len; }
+  const jump = live && !!inp.jump;
+
+  if (inp) {
+    const hc = inp.hc | 0;
+    if (b.hitSeen !== undefined && hc !== b.hitSeen && live) {
+      b.queued = inp.hk === 2 ? 2 : 1;
+      b.queuedLeft = SWING_QUEUE;
+    }
+    b.hitSeen = hc;
+    if (b.queuedLeft > 0 && live && b.swingCool <= 0) {
+      b.swing = b.queued;
+      b.swingLeft = SWING_FRAMES;
+      b.swingCool = SWING_COOLDOWN;
+      b.swingDone = false;
+      b.queuedLeft = 0;
+    }
+    const dc = inp.dc | 0;
+    if (b.dashSeen !== undefined && dc !== b.dashSeen && live && b.dashCool <= 0) {
+      b.dashLeft = DASH_FRAMES;
+      b.dashCool = DASH_COOLDOWN;
+      if (len > 0.1) { b.dashX = dx / len; b.dashZ = dz / len; }
+      else { b.dashX = Math.cos(b.yaw); b.dashZ = Math.sin(b.yaw); }
+    }
+    b.dashSeen = dc;
+  }
+
   const plane = groundPlane(b.s);
   const onSand = b.y <= plane + 0.001;
   const onGround = b.grounded || onSand;
-  const freshPress = inp.jump && !b.jumpWasDown;
-  const mayJump = inp.jump && onGround && (onSand || freshPress);
-  b.jumpWasDown = !!inp.jump;
+  const freshPress = jump && !b.jumpWasDown;
+  const mayJump = jump && onGround && (onSand || freshPress);
+  b.jumpWasDown = jump;
   b.grounded = false;
   if (mayJump) b.vy = JUMP_ACCELERATION;
-  if (inp.jump && b.vy > 0) b.vy += JUMP_BUFFER;
+  if (jump && b.vy > 0) b.vy += JUMP_BUFFER;
 
-  let dx = Math.sign(inp.dx || 0);
-  let dz = Math.sign(inp.dz || 0);
-  const len = Math.hypot(dx, dz);
-  if (len > 0) { dx /= len; dz /= len; }
-  b.vx = dx * BLOB_SPEED * speed;
-  b.vz = dz * BLOB_SPEED * speed;
+  if (b.dashLeft > 0 && !frozen) {
+    b.dashLeft -= 1;
+    b.vx = b.dashX * DASH_SPEED;
+    b.vz = b.dashZ * DASH_SPEED;
+  } else {
+    b.dashLeft = 0;
+    b.vx = dx * BLOB_SPEED * speed;
+    b.vz = dz * BLOB_SPEED * speed;
+  }
   b.vy -= GRAVITATION;
   b.x += b.vx;
   b.z += b.vz;
@@ -276,47 +360,10 @@ function hullDistance(px, py, pz, b, pad) {
   return { d: q.d, nx: q.nr * ux, ny: q.ny, nz: q.nr * uz };
 }
 
-function sweep(p0, v, b, pad) {
-  let probe = hullDistance(p0.x, p0.y, p0.z, b, pad);
-  if (probe.d <= 0) return { t: 0, ...probe };
-  const len = Math.hypot(v.x, v.y, v.z);
-  if (len < 1e-9) return null;
-  let t = 0;
-  for (let i = 0; i < 32; i++) {
-    t += probe.d / len;
-    if (t > 1) return null;
-    probe = hullDistance(p0.x + v.x * t, p0.y + v.y * t, p0.z + v.z * t, b, pad);
-    if (probe.d <= 0.02) return { t, ...probe };
-  }
-  return null;
-}
-
-// Zielhilfe: waagrechten Anteil der Abflugrichtung zur Mitte des gegnerischen Feldes
-// ziehen, Stärke wie in den Konstanten oben. Senkrecht bleibt es beim Treffpunkt — wer
-// den Ball oben trifft, spielt hoch, wer ihn seitlich trifft, spielt flach.
-function aimAssist(n, ball, slot, court) {
-  const oppSide = teamOf(slot) === 1 ? 1 : -1;
-  let tx = oppSide * court.L * 0.5 - ball.x;
-  let tz = -ball.z * 0.6;
-  const tl = Math.hypot(tx, tz) || 1;
-  tx /= tl; tz /= tl;
-  let ny = Math.max(MIN_UP, n.ny);
-  let hx = n.nx, hz = n.nz;
-  let hl = Math.hypot(hx, hz);
-  // Senkrecht nach oben getroffen: trotzdem ein wenig nach vorn, sonst steht der Ball
-  if (hl < 0.15) { hx = tx; hz = tz; hl = 0.15; }
-  hx /= hl; hz /= hl;
-  const k = hx * tx + hz * tz < 0 ? AIM_ASSIST_BACKWARD : AIM_ASSIST;
-  let ax = hx * (1 - k) + tx * k;
-  let az = hz * (1 - k) + tz * k;
-  const al = Math.hypot(ax, az) || 1;
-  ax /= al; az /= al;
-  const horiz = Math.sqrt(Math.max(0, 1 - ny * ny));
-  // Gesamtlänge 1: waagrecht so viel, wie nach dem Anheben noch übrig ist
-  const out = { nx: ax * horiz, ny, nz: az * horiz };
-  const len = Math.hypot(out.nx, out.ny, out.nz) || 1;
-  return { nx: out.nx / len, ny: out.ny / len, nz: out.nz / len };
-}
+const lookDir = (b) => {
+  const c = Math.cos(b.pitch);
+  return { x: Math.cos(b.yaw) * c, y: Math.sin(b.pitch), z: Math.sin(b.yaw) * c };
+};
 
 function endRally(w, scorer, reason) {
   if (w.phase !== "rally") return;
@@ -341,43 +388,53 @@ function registerTouch(w, slot) {
   if (w.maxTouches > 0 && w.touches > w.maxTouches) endRally(w, otherTeam(team), "touches");
 }
 
-function ballBlob(w, slot, court) {
-  const ball = w.ball;
-  const blob = w.blobs[slot];
-  const p0 = w.ballPrev;
-  const v = { x: ball.x - p0.x, y: ball.y - p0.y, z: ball.z - p0.z };
-  const hit = sweep(p0, v, blob, BALL_RADIUS + BLOB_HIT_PAD);
-  const here = hullDistance(ball.x, ball.y, ball.z, blob, BALL_RADIUS + BLOB_HIT_PAD);
-  const start = hullDistance(p0.x, p0.y, p0.z, blob, BALL_RADIUS + BLOB_HIT_PAD);
-  const blocked = w.touching[slot] && (start.d <= 0.01 || here.d <= 0.01);
+// Art: 1 Schlag, 2 Zuspiel, 3 Schmetterschlag
+function touched(w, slot, kind) {
+  w.hover = 0;
+  w.ev = [w.ev[0] + 1, kind, slot];
+  registerTouch(w, slot);
+}
 
-  if (hit && !blocked) {
-    const cx = p0.x + v.x * hit.t - hit.d * hit.nx;
-    const cy = p0.y + v.y * hit.t - hit.d * hit.ny;
-    const cz = p0.z + v.z * hit.t - hit.d * hit.nz;
-    ball.x = cx; ball.y = cy; ball.z = cz;
-    p0.x = cx; p0.y = cy; p0.z = cz;
-    const blobClosing = Math.max(0, blob.vx * hit.nx + blob.vy * hit.ny + blob.vz * hit.nz);
-    const ballClosing = Math.max(0, -(ball.vx * hit.nx + ball.vy * hit.ny + ball.vz * hit.nz));
-    const speed = Math.max(BALL_MIN_HIT_VELOCITY, Math.min(BALL_MAX_HIT_VELOCITY,
-      BALL_HIT_BASE + blobClosing * BLOB_MOMENTUM_TRANSFER + ballClosing * BALL_INCOMING_TRANSFER));
-    const dir = aimAssist(hit, ball, slot, court);
-    ball.vx = dir.nx * speed;
-    ball.vy = dir.ny * speed;
-    ball.vz = dir.nz * speed;
-    ball.x += ball.vx; ball.y += ball.vy; ball.z += ball.vz;
-    registerTouch(w, slot);
-    w.touching[slot] = true;
-    return;
+/** Steht der Ball in Schlagreichweite dieses Blobs? (auch für Bot und Anzeige) */
+export function inReach(ball, blob) {
+  return hullDistance(ball.x, ball.y, ball.z, blob, BALL_RADIUS + REACH_PAD).d <= 0;
+}
+
+// Schlag oder Zuspiel im offenen Zeitfenster. true = Ball wurde gespielt.
+function swingHit(w, slot) {
+  const blob = w.blobs[slot];
+  if (blob.swingLeft <= 0 || blob.swingDone) return false;
+  const ball = w.ball;
+  if (!inReach(ball, blob)) return false;
+  blob.swingDone = true;
+  ball.spin = false;
+  let kind = blob.swing;
+  if (kind === 2) {
+    const fx = Math.cos(blob.yaw) * SET_FORWARD;
+    const fz = Math.sin(blob.yaw) * SET_FORWARD;
+    const l = Math.hypot(fx, 1, fz);
+    ball.vx = (fx / l) * SET_SPEED;
+    ball.vy = (1 / l) * SET_SPEED;
+    ball.vz = (fz / l) * SET_SPEED;
+  } else {
+    const f = lookDir(blob);
+    const air = blob.y > groundPlane(blob.s) + SPIKE_AIR
+      && Math.abs(blob.x) < COURTS[w.mode].L * ATTACK_ZONE;
+    const run = Math.max(0, Math.min(HIT_RUN_MAX, (blob.vx * f.x + blob.vz * f.z) * HIT_RUN_BONUS));
+    const speed = (air ? SPIKE_SPEED : HIT_SPEED) + run;
+    let dy = f.y + HIT_LIFT;
+    if (air) {
+      kind = 3;
+      ball.spin = true;
+      dy = f.y;
+    }
+    const l = Math.hypot(f.x, dy, f.z) || 1;
+    ball.vx = (f.x / l) * speed;
+    ball.vy = (dy / l) * speed;
+    ball.vz = (f.z / l) * speed;
   }
-  if (here.d < 0) {
-    ball.x -= here.d * here.nx;
-    ball.y -= here.d * here.ny;
-    ball.z -= here.d * here.nz;
-    w.touching[slot] = true;
-    return;
-  }
-  w.touching[slot] = start.d <= 0.01 || here.d <= 0.01;
+  touched(w, slot, kind);
+  return true;
 }
 
 // Netz: eine Wand bei x = 0 über die ganze Breite, oben eine runde Kante
@@ -462,8 +519,10 @@ export function zuendePowerup(w, slot) {
 }
 
 /**
- * Ein Frame. `inputs[slot] = { dx, dz, jump }` in Weltrichtungen (die Umrechnung aus
- * WASD und Blickrichtung macht der Client). `paused` hält alles an (jemand ist getrennt).
+ * Ein Frame. `inputs[slot] = { dx, dz, jump, yaw, pitch, hc, hk, dc }`: dx/dz in
+ * Weltrichtungen (die Umrechnung aus WASD und Blick macht der Client), hc = Klickzähler
+ * mit hk = Art (1 Schlag, 2 Zuspiel), dc = Zähler für den Hechtsprung.
+ * `paused` hält alles an (jemand ist getrennt).
  */
 export function stepWorld(w, inputs, paused = false) {
   if (paused || w.winner) return;
@@ -473,11 +532,12 @@ export function stepWorld(w, inputs, paused = false) {
 
   stepPowerups(w, slots, court);
 
-  const listening = w.phase === "rally";
+  // In der Punktpause steht man; beim Aufschlag darf man sich schon bewegen
+  const frozen = w.phase === "point";
   for (const slot of slots) {
     const b = w.blobs[slot];
     b.s = blobScale(w, slot);
-    stepBlob(b, listening ? (inputs[slot] || FROZEN) : FROZEN, speedFactor(w, slot));
+    stepBlob(b, inputs[slot], speedFactor(w, slot), frozen);
     clampBlob(b, slot, court);
   }
   for (let i = 0; i < slots.length; i++) {
@@ -499,11 +559,14 @@ export function stepWorld(w, inputs, paused = false) {
   }
 
   const ball = w.ball;
-  w.ballPrev.x = ball.x; w.ballPrev.y = ball.y; w.ballPrev.z = ball.z;
-  ball.vy -= BALL_GRAVITATION;
-  ball.x += ball.vx; ball.y += ball.vy; ball.z += ball.vz;
+  if (w.hover > 0) {
+    w.hover -= 1;
+  } else {
+    ball.vy -= BALL_GRAVITATION * (ball.spin ? SPIN_GRAVITY : 1);
+    ball.x += ball.vx; ball.y += ball.vy; ball.z += ball.vz;
+  }
 
-  for (const slot of slots) ballBlob(w, slot, court);
+  for (const slot of slots) swingHit(w, slot);
   if (w.phase !== "rally") return;
   ballNet(ball, netTop(w));
   ballWalls(ball, court);
@@ -523,8 +586,12 @@ export function encodeSnapshot(w) {
   const pl = {};
   for (const slot of slotsFor(w.mode)) {
     const b = w.blobs[slot];
-    // x, y, z, steht, Maßstab, eingesammeltes Powerup (-1 = leer)
-    pl[slot] = [r1(b.x), r1(b.y), r1(b.z), b.grounded ? 1 : 0, r2(b.s), w.held[slot] ?? -1];
+    // x, y, z, steht, Maßstab, eingesammeltes Powerup (-1 = leer), Blick (yaw, pitch),
+    // laufender Schlag (0 = keiner), Frames bis zum nächsten Hechtsprung
+    pl[slot] = [
+      r1(b.x), r1(b.y), r1(b.z), b.grounded ? 1 : 0, r2(b.s), w.held[slot] ?? -1,
+      r2(b.yaw), r2(b.pitch), b.swingLeft > 0 ? b.swing : 0, b.dashCool,
+    ];
   }
   const ball = w.ball;
   const p = w.powerup;
@@ -538,6 +605,8 @@ export function encodeSnapshot(w) {
     sc: [w.score[1], w.score[2]],
     tc: w.touches,
     lh: w.lastHit,
+    hv: w.hover > 0 ? 1 : 0,
+    ev: w.ev,
     wn: w.winner,
     nt: netTop(w),
     pu: p ? [r1(p.x), r1(p.y), r1(p.z), p.t] : null,
@@ -547,14 +616,15 @@ export function encodeSnapshot(w) {
 
 /**
  * Wo landet der Ball, wenn ihn niemand mehr berührt? Reine Flugbahn mit Bande und
- * Netzwand — für den Landepunkt-Ring. Gibt null zurück, wenn er schon liegt.
+ * Netzwand — für den Übungs-Bot. Gibt null zurück, wenn der Ball liegt oder schwebt.
  */
 export function predictLanding(ballIn, mode, top = NET_TOP) {
   const court = COURTS[mode] || COURTS["1v1"];
   const ball = { ...ballIn };
   if (Math.abs(ball.vx) + Math.abs(ball.vy) + Math.abs(ball.vz) < 0.01) return null;
-  for (let i = 0; i < 600; i++) {
-    ball.vy -= BALL_GRAVITATION;
+  const g = BALL_GRAVITATION * (ball.spin ? SPIN_GRAVITY : 1);
+  for (let i = 0; i < 900; i++) {
+    ball.vy -= g;
     ball.x += ball.vx; ball.y += ball.vy; ball.z += ball.vz;
     if (ball.y < top && Math.abs(ball.x) < BALL_RADIUS + NET_RADIUS) {
       ball.x = ball.x < 0 ? -NET_RADIUS - BALL_RADIUS : NET_RADIUS + BALL_RADIUS;

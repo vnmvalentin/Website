@@ -20,8 +20,17 @@ export const STILE = {
   },
   pixel: {
     objekt: "detailed 16-bit pixel art sprite, limited color palette, crisp hard pixels, cozy farming game, isolated on a plain white background",
+    // Gebäude: gerade Vorderansicht wie in klassischen 2D-Farmspielen, sonst malt Flux
+    // glänzende 3D-Isometrie (Probe 04.11.).
+    gebaeude: "16-bit pixel art in the style of a classic SNES farming game, seen straight from the front as a flat 2D side view, chunky clearly visible square pixels, flat colors with simple pixel shading and dithering, dark pixel outline, small limited color palette, isolated on a plain white background",
     // 04.11.: die erste Fassung malte gerahmte Kacheln mit dunkler Vignette — die ließen sich
     // nicht aneinanderlegen. Jetzt ausdrücklich randlos und überall gleich hell.
+    boden: "seamless repeating pixel art texture, limited color palette, crisp hard pixels, no border, no frame, no vignette, the same brightness and density from edge to edge, cozy farming game, flat even lighting",
+  },
+  // 05.11.: zweiter Durchgang für Motive, die mit „pixel“ zu glatt oder verschwommen kamen.
+  // Gleicher Text wie bei den Gebäuden (die gelangen): flache 2D-Vorderansicht, grobe Pixel.
+  pixelgrob: {
+    objekt: "16-bit pixel art sprite in the style of a classic SNES farming game, seen straight from the front as a flat 2D side view, chunky clearly visible square pixels, flat colors without smooth gradients, simple pixel shading and dithering, dark pixel outline, small limited color palette, isolated on a plain white background",
     boden: "seamless repeating pixel art texture, limited color palette, crisp hard pixels, no border, no frame, no vignette, the same brightness and density from edge to edge, cozy farming game, flat even lighting",
   },
 };

@@ -6,7 +6,7 @@
 // (ui/menu/Ladebildschirm.jsx) und sind deshalb in Spielersprache.
 import { useState, useEffect, useRef, useCallback } from "react";
 import { generatePlotSlots } from "../engine/MapConfig";
-import { WORLD_SLOTS, WORLD_BOOT_MIN_MS, WAGEN_VERSATZ_X, AREA_IMAGES } from "../engine/gameConstants";
+import { WORLD_SLOTS, WORLD_BOOT_MIN_MS, stelleStaendeAuf } from "../engine/gameConstants";
 
 export default function useWorldBoot({ engineRef, layout, preloadCriticalAssets, showLobbyScreen, setIsInitialLoadDone }) {
     const [worldBootState, setWorldBootState] = useState({ active: false, label: "", progress: 0 });
@@ -45,18 +45,8 @@ export default function useWorldBoot({ engineRef, layout, preloadCriticalAssets,
     }, [tryCompleteWorldBoot]);
 
     const updateAreaPositions = useCallback((l) => {
-        const a = engineRef.current.areas;
-        // Siehe WAGEN_VERSATZ_X: die Werte halten Abstand zu den Grundstücksschildern.
-        const y = {
-            seedShop: l.centerPathTopY + 92, toolShop: l.centerPathTopY + 92,
-            eggShop: l.centerPathBottomY - 140, decoShop: l.centerPathBottomY - 140,
-            market: l.centerY, petMarket: l.centerY, questBoard: l.centerY,
-        };
-        for (const [art, versatz] of Object.entries(WAGEN_VERSATZ_X)) {
-            a[art].x = l.centerX + versatz;
-            a[art].y = y[art];
-            a[art].image = AREA_IMAGES[art];
-        }
+        // Plätze aus der Weltkarte (layout.standorte, engine/MapConfig.js).
+        stelleStaendeAuf(engineRef.current.areas, l);
     }, []);
 
     const startWorldBoot = useCallback((mode) => {

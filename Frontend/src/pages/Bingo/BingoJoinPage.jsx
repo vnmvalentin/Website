@@ -66,7 +66,7 @@ export default function BingoJoinPage() {
   }, [joinKey, user, authLoaded]);
 
   return (
-    <div className="page-fade relative z-10 max-w-xl mx-auto panel p-6 mt-12">
+    <div className="page-fade relative z-10 max-w-xl mx-auto rounded-lg border border-line bg-surface/80 p-6 mt-12">
       <h1 className="font-display text-2xl font-bold">Bingo Session beitreten</h1>
 
       {status === "checking" && (

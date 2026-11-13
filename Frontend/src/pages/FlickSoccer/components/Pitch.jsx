@@ -8,8 +8,8 @@
 // summary = { power, ballHit, ballWall, posts } — was der Schuss bewirkt hat (für Statistik und Erfolge).
 
 import React, { useEffect, useRef } from "react";
-import { AIM, PHYS, PIECE, REPLAY, createSim, stepSim } from "../engine/index.js";
-import { WORLD, drawScene, goalEffects, impactRing, makeView, toWorld } from "../render.js";
+import { AIM, BALL, EVENT_FX, PHYS, PIECE, POWERUP_FX, REPLAY, createSim, stepSim } from "../engine/index.js";
+import { WORLD, bombEffects, drawScene, goalEffects, impactRing, makeView, portalRings, toWorld } from "../render.js";
 import { playImpact, playShot } from "../sound.js";
 
 const TRAIL_LEN = 14;
@@ -18,6 +18,11 @@ const RATIO = WORLD.w / WORLD.h;
 const HARD_SHOT = 0.9;
 // Ab dieser Aufprallgeschwindigkeit gibt es einen Staubring
 const RING_SPEED = 750;
+// Zielen nahe am Bildschirmrand (maxDragToward): so viele Pixel vor dem Rand gilt schon volle Kraft — ganz an den Rand
+// kommt man mit dem Finger schlecht —, und kürzer als MIN_FULL_DRAG (Feld-Einheiten) wird der Zugweg nie, sonst wäre
+// die Kraft kaum noch zu dosieren.
+const EDGE_MARGIN = 14;
+const MIN_FULL_DRAG = 50;
 
 export default function Pitch({
   state,
@@ -27,9 +32,9 @@ export default function Pitch({
   onShoot,
   ghostAim = null, // Pfeil ohne Eingabe (Computer zielt)
   skins = null, // [Design Team 0, Design Team 1] (engine/skins.js)
-  look = null, // { turf, ball } — eigener Rasen und Ball (progress.js)
+  look = null, // { ball } — eigener Ball (progress.js)
   celebrations = null, // [Torjubel bei Toren von Team 0, von Team 1]
-  turnPower = null, // { power, team } — Power-up des laufenden Zugs (Chaos), für die Anzeige im Ruhezustand
+  turnPower = null, // { power, team, event } — gewählte Karte und Ereignis des laufenden Zugs (Chaos), für die Anzeige im Ruhezustand
   maxHeightOffset = 200,
   fill = false, // Spielbildschirm: füllt den Kasten der Bühne (GameStage) statt sich an der Fensterhöhe zu messen
   children,
@@ -42,7 +47,7 @@ export default function Pitch({
   const aimRef = useRef(null); // { piece, sx, sy, drag, pointerId }
   const hoverRef = useRef(null);
   const trailRef = useRef([]);
-  const fxRef = useRef({ particles: [], rings: [], netFlash: null, shakeStart: -1, shakeAmp: 0, shakeMs: 0, shake: { x: 0, y: 0 } });
+  const fxRef = useRef({ particles: [], rings: [], netFlash: null, bumperHits: {}, shakeStart: -1, shakeAmp: 0, shakeMs: 0, shake: { x: 0, y: 0 } });
   const propsRef = useRef({});
   propsRef.current = { state, playback, onPlaybackEnd, aimTeam, onShoot, ghostAim, skins, look, celebrations, turnPower };
 
@@ -147,6 +152,20 @@ export default function Pitch({
             if ((ev.type === "wall" || ev.type === "post") && ev.speed >= RING_SPEED && fx.rings.length < 24) {
               fx.rings.push(impactRing(ev.x, ev.y, ev.speed, t));
             }
+            if (ev.type === "bumper") {
+              fx.bumperHits[ev.index] = t;
+              if (ev.ball) run.summary.ballWall = true;
+            } else if (ev.type === "bomb") {
+              const add = bombEffects(ev.x, ev.y, t);
+              fx.particles.push(...add.particles);
+              fx.rings.push(...add.rings);
+              fx.shakeStart = t;
+              fx.shakeAmp = 12;
+              fx.shakeMs = 380;
+            } else if (ev.type === "portal") {
+              fx.rings.push(...portalRings(ev, t));
+              if (ev.ball) trailRef.current = [];
+            }
           }
           run.sim.events.length = 0;
         }
@@ -165,7 +184,7 @@ export default function Pitch({
             fx.rings.push(...add.rings);
             fx.netFlash = { side, team: run.sim.goal, start: t };
             fx.shakeStart = t;
-            fx.shakeAmp = 9;
+            fx.shakeAmp = add.shake || 9;
             fx.shakeMs = 450;
           }
           propsRef.current.onPlaybackEnd?.(run.id, run.sim.goal, run.sim.steps, run.summary);
@@ -180,8 +199,10 @@ export default function Pitch({
             p.delay -= dt;
             continue;
           }
-          p.vx *= 1 - 2.2 * dt;
-          p.vy *= 1 - 2.2 * dt;
+          // drag: Luftwiderstand (Standard 2,2), g: Fall nach unten (Fontänen, Münzen)
+          const drag = p.drag === undefined ? 2.2 : p.drag;
+          p.vx *= 1 - drag * dt;
+          p.vy = p.vy * (1 - drag * dt) + (p.g || 0) * dt;
           p.x += p.vx * dt;
           p.y += p.vy * dt;
           p.rot += p.vr * dt;
@@ -206,24 +227,36 @@ export default function Pitch({
       const { cssW, cssH, dpr } = sizeRef.current;
       let pieces;
       let ball;
-      let rubber;
+      let power;
+      let event;
+      const aim = run ? null : aimRef.current || p.ghostAim;
       if (run) {
         const b = run.sim.bodies;
-        pieces = run.sim.teams.map((team, i) => ({ x: b[i].x, y: b[i].y, team, scale: b[i].r / PIECE.R, frozen: b[i].frozen }));
-        ball = b[b.length - 1];
-        rubber = run.sim.power === "gummi";
+        pieces = run.sim.teams.map((team, i) => ({ x: b[i].x, y: b[i].y, team, scale: b[i].r / PIECE.R, frozen: b[i].frozen, ghost: b[i].ghost }));
+        const bb = b[b.length - 1];
+        ball = { x: bb.x, y: bb.y, scale: bb.r / BALL.R };
+        power = run.sim.power;
+        event = run.sim.event;
       } else {
-        // Im Ruhezustand zeigen, was das Power-up dieses Zugs bewirken wird
-        const ice = p.turnPower?.power === "eis" ? p.turnPower.team : null;
-        pieces = ice === null ? p.state.pieces : p.state.pieces.map((pc) => (pc.team !== ice ? { ...pc, frozen: true } : pc));
-        ball = p.state.ball;
-        rubber = p.turnPower?.power === "gummi";
+        // Im Ruhezustand zeigen, was die gewählte Karte in diesem Zug bewirken wird
+        power = p.turnPower?.power || null;
+        event = p.turnPower?.event || null;
+        const team = p.turnPower?.team;
+        pieces = p.state.pieces;
+        if (event === "winzlinge") pieces = pieces.map((pc) => ({ ...pc, scale: EVENT_FX.WINZLING_RADIUS }));
+        if (power === "eis") pieces = pieces.map((pc) => (pc.team !== team ? { ...pc, frozen: true } : pc));
+        else if (power === "zwerge") pieces = pieces.map((pc) => (pc.team !== team ? { ...pc, scale: (pc.scale || 1) * POWERUP_FX.ZWERG_RADIUS } : pc));
+        else if ((power === "riese" || power === "geist") && aim && pieces[aim.piece]?.team === team) {
+          // Riese und Geist betreffen die Scheibe, mit der gerade gezielt wird
+          pieces = pieces.map((pc, i) => (i !== aim.piece ? pc : power === "riese" ? { ...pc, scale: (pc.scale || 1) * POWERUP_FX.RIESE_RADIUS } : { ...pc, ghost: true }));
+        }
+        const ballScale = (power === "wasserball" ? POWERUP_FX.BALL_RADIUS : 1) * (event === "murmel" ? EVENT_FX.MURMEL_RADIUS : 1);
+        ball = ballScale !== 1 ? { ...p.state.ball, scale: ballScale } : p.state.ball;
       }
       const selectable = !run && p.aimTeam !== null ? new Set(pieces.map((pc, i) => (pc.team === p.aimTeam ? i : -1)).filter((i) => i >= 0)) : null;
-      const aim = run ? null : aimRef.current || p.ghostAim;
       drawScene(ctx, view, cssW, cssH, dpr, {
         field: fieldId, look: p.look, skins: p.skins, pieces, ball, selectable, hover: hoverRef.current, aim,
-        trail: trailRef.current, rubber, fx, time: t,
+        trail: trailRef.current, rubber: power === "gummi", ice: power === "glatteis" || event === "blitzeis", dark: event === "stromausfall", aimAll: !run && power === "schwarm", fx, time: t,
       });
     };
     raf = requestAnimationFrame(frame);
@@ -252,6 +285,25 @@ export default function Pitch({
     return best;
   };
 
+  // Zugweg für volle Kraft in dieser Richtung (Feld-Einheiten). Normal AIM.MAX_DRAG — steht die Scheibe aber so nah am
+  // Bildschirmrand, dass Maus oder Finger dort gar nicht so weit kommen, zählt der Rand (mit etwas Abstand) als 100 %.
+  // Sonst ließe sich z. B. der Torwart nie voll nach hinten aufziehen, seit das Feld den ganzen Bildschirm füllt.
+  const maxDragToward = (pc, dx, dy, dist) => {
+    const view = viewFor(shownField());
+    if (!view || dist <= 0) return AIM.MAX_DRAG;
+    const rect = canvasRef.current.getBoundingClientRect();
+    const px = rect.left + view.ox + pc.x * view.scale;
+    const py = rect.top + view.oy + pc.y * view.scale;
+    const ux = dx / dist;
+    const uy = dy / dist;
+    let room = Infinity; // Bildschirm-Pixel von der Scheibe bis zum Rand in Zugrichtung
+    if (ux > 0) room = Math.min(room, (window.innerWidth - EDGE_MARGIN - px) / ux);
+    else if (ux < 0) room = Math.min(room, (EDGE_MARGIN - px) / ux);
+    if (uy > 0) room = Math.min(room, (window.innerHeight - EDGE_MARGIN - py) / uy);
+    else if (uy < 0) room = Math.min(room, (EDGE_MARGIN - py) / uy);
+    return Math.max(MIN_FULL_DRAG, Math.min(AIM.MAX_DRAG, room / view.scale - AIM.DEAD_ZONE));
+  };
+
   const updateAim = (w) => {
     const a = aimRef.current;
     const pc = propsRef.current.state.pieces[a.piece];
@@ -259,7 +311,7 @@ export default function Pitch({
     const dy = w.y - pc.y;
     const dist = Math.hypot(dx, dy);
     // Zurück auf die Scheibe gezogen = nichts gezielt; Loslassen bricht dann ab
-    const power = Math.min(1, (dist - AIM.DEAD_ZONE) / AIM.MAX_DRAG);
+    const power = Math.min(1, (dist - AIM.DEAD_ZONE) / maxDragToward(pc, dx, dy, dist));
     a.drag = w;
     if (power <= 0) {
       a.sx = 0;

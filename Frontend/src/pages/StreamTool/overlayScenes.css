@@ -586,13 +586,41 @@
   gap: 8px;
 }
 .sts3-hud-card {
-  min-width: 230px;
-  padding: 10px 14px 12px;
-  background: rgba(14, 14, 20, 0.9);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-top: 3px solid var(--sts3-a);
-  border-radius: 8px;
+  display: flex;
+  align-items: stretch;
+  min-width: 290px;
+  background: rgba(14, 14, 20, 0.92);
+  border-radius: 10px;
   box-shadow: 0 10px 24px rgba(0, 0, 0, 0.45);
+  overflow: hidden;
+  color: #fff;
+}
+/* Farbblock mit dem Level */
+.sts3-hud-lvl {
+  flex: none;
+  min-width: 68px;
+  padding: 0 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: var(--sts3-a);
+}
+.sts3-hud-lvl small {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  opacity: 0.85;
+}
+.sts3-hud-lvl b { font-size: 36px; font-weight: 900; line-height: 1; font-variant-numeric: tabular-nums; }
+/* Gold ist zu hell für weiße Schrift */
+.sts3-hud-card.is-golden .sts3-hud-lvl { color: #14141a; }
+.sts3-hud-body { flex: 1 1 auto; min-width: 0; padding: 10px 14px 12px; }
+.sts3-hud-pct {
+  font-size: 13px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
 }
 .sts3-hud-row {
   display: flex;
@@ -613,13 +641,12 @@
   font-variant-numeric: tabular-nums;
   color: rgba(255, 255, 255, 0.75);
 }
-.sts3-hud-level { font-size: 24px; font-weight: 900; line-height: 1.15; }
 .sts3-hud-people { font-size: 13px; font-weight: 600; color: rgba(255, 255, 255, 0.6); white-space: nowrap; }
 .sts3-prog {
   position: relative;
   margin-top: 8px;
-  height: 16px;
-  border-radius: 4px;
+  height: 8px;
+  border-radius: 3px;
   background: rgba(255, 255, 255, 0.1);
   overflow: hidden;
 }
@@ -628,16 +655,6 @@
   inset: 0 auto 0 0;
   background: var(--sts3-a);
   transition: width 0.8s cubic-bezier(.2,.8,.2,1);
-}
-.sts3-prog span {
-  position: relative;
-  display: block;
-  text-align: center;
-  font-size: 11px;
-  font-weight: 800;
-  line-height: 16px;
-  font-variant-numeric: tabular-nums;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
 }
 .sts3-joined {
   padding: 6px 12px;

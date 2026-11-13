@@ -1,5 +1,5 @@
 // engine/Renderer.js
-import { MAP_CONFIG, TILE_SIZE, STEIN_REIHEN, istSteinfeldWegRow, getSignLayout, getDirtCellWorldPos } from './MapConfig';
+import { MAP_CONFIG, TILE_SIZE, STEIN_REIHEN, istSteinfeldWegRow, getSignLayout, getDirtCellWorldPos, BODEN, weltHash, weltRauschen } from './MapConfig';
 import { versionedAsset } from './assetVersion';
 import {
     getGrowthProgressForRender,
@@ -15,7 +15,14 @@ import { hatKosmetik, TITEL as STERN_TITEL } from '../ui/prestige';
 
 const SPUR_REGENBOGEN = ["#f87171", "#fb923c", "#facc15", "#4ade80", "#60a5fa", "#c084fc"];
 import { DEKO_KATALOG, istBoden } from '../ui/deko';
+import { pixelBodenKachel, pixelZaun } from './pixelBoden';
+import { laternenBild, LATERNE_LICHT, LATERNE_W, LATERNE_H } from './wegLaterne';
+import { zeichneHut, hutHoehe } from './huete';
 import { zeichneSaisonBoden, zeichneSaisonTon, zeichneSaisonLuft, zeichneGluehwuermchen } from './saisonLook';
+import { zeichneFigur } from './figurAnim';
+import { zeichneTeichLeben, zeichneAngelSzene } from './teichLeben';
+import { tuerLage, tuerMass, tuerPfad } from './hausTuer';
+import { partyTakt, tanzSchritt, zeichneFeuerwerk, zeichnePartyWelt } from './partyShow';
 
 // Schädlinge/Unkraut-Sprites (siehe _drawStoerer). Ein Zeichen = ein Pixel, "." leer.
 const KAEFER_MUSTER = [
@@ -124,11 +131,12 @@ const RARITY_COLORS = {
 };
 const ATLAS_IMAGE_SRC = "/garden-assets/atlas/garden_atlas.png";
 const ATLAS_MANIFEST_SRC = "/garden-assets/atlas/garden_atlas.json";
-// Nur Dateinamen — den Ordner entscheidet die Grafik-Einstellung (neu vs. alt).
+// Seit 05.11. nur noch Namen der Varianten: gezeichnet wird im Code (engine/pixelBoden.js),
+// die Ziffer im Namen ist die Variante.
 const TERRAIN_FILES = {
     grass:     ["gras1.png", "gras2.png"],
-    field:     ["acker.png"],
-    rock:      ["stein.png"],
+    field:     ["acker1.png", "acker2.png", "acker3.png", "acker4.png"],
+    rock:      ["stein1.png", "stein2.png", "stein3.png", "stein4.png"],
     path:      ["kiesweg1.png", "kiesweg2.png"],
     tallGrass: ["hohes_gras1.png", "hohes_gras2.png"],
     wood:      ["wood.png"],
@@ -212,6 +220,8 @@ const TOOL_SCHWUNG_MAX_RAD = {
 const TOOL_SCHWUNG_DAUER_MS = 380;
 // Fliegende Ernte-Symbole (spawnItemFlug) — siehe dort.
 const ITEM_FLUG_DAUER_MS = 500;
+/** Wie lange sich die Figur beim Ernten/Pflanzen nach vorn beugt (spawnGriff). */
+const GRIFF_DAUER_MS = 260;
 const ITEM_FLUG_MAX = 24;
 // Fallendes Saat-Tütchen beim Pflanzen (spawnSaatWurf) — siehe dort.
 const SAAT_WURF_DAUER_MS = 420;
@@ -235,6 +245,68 @@ const DEFAULT_RENDER_PROFILE = {
     simplifyPlantUi: false,
 };
 const MERGED_TILE_STRIDE = 2; // permanent 2x2 tile merge
+/** Weltkarte: Kantenlänge eines vorgemalten Stücks in Kacheln, und wie viele Stücke
+ * höchstens im Speicher bleiben (je ~1 MB). */
+const WELT_STUECK = 8;
+const WELT_STUECK_MAX = 64;
+/** Weit herausgezoomt (3D-Ansicht): eine Farbe je Bodenart statt vorgemalter Stücke. */
+const WELT_FERNFARBE = ["#4a7f37", "#1f3a1c", "#3f7ea3", "#b9a77f", "#9b6f43", null, "#3d6b2e"];
+/** Pixel-Look für Wasser und Rundweg: so viele Weltpixel ergeben einen sichtbaren Pixel. */
+const WELT_PIXEL = 4;
+const PIXEL_WASSER = {
+    tief: [47, 106, 143], mitte: [63, 134, 173], flach: [92, 163, 196], welle: [184, 226, 240],
+    ufer: [166, 140, 87], uferDunkel: [122, 101, 57], kiesKante: [111, 100, 80],
+};
+const PIXEL_SEEROSE = {
+    blatt: "#3f8f3a", licht: "#5fb04f", rand: "#2c6a2a", bluete: "#f0a3c8", mitte: "#fde68a",
+    fisch: "rgba(20, 44, 62, 0.42)",
+};
+/** Pixel Überlappung je Stückrand gegen Haarlinien beim Zoomen. */
+const WELT_RAND = 2;
+const WELT_FARBEN = {
+    waldBoden: "#1f3a1c",
+    wiese: "#4f8a3a",
+    // Wiese etwas dunkler und kühler als der Rasen der Grundstücke — so liest
+    // sich jedes Grundstück als gepflegte Fläche in der Landschaft.
+    wieseTon: "rgba(24, 58, 30, 0.22)",
+    kies: "#b9a77f",
+    kiesKante: "rgba(40, 52, 24, 0.22)",
+    wasser: "#4a8db3",
+    wasserTief: "#33698c",
+    welle: "rgba(200, 232, 244, 0.38)",
+    ufer: "#8f7d50",
+    steg: "#9b6f43",
+    stegFuge: "rgba(60, 36, 16, 0.55)",
+    baumSchatten: "rgba(10, 28, 10, 0.32)",
+};
+/** Stände auf dem Dorfplatz für die 3D-Ansicht — dieselben Ersatzfarben wie drawHubAreas. */
+// Pfeile neben der Figur (_drawWegweiser): Farbe je Stand, ab welcher Entfernung (Weltpixel)
+const WEGWEISER_ARTEN = [
+    { key: "questBoard", farbe: "#ffe066" },
+    { key: "haendler", farbe: "#7ab8ff" },
+    { key: "erntefest", farbe: "#ff9a4a" },
+];
+const WEGWEISER_AB = 520;
+
+const HUB_STAND_ARTEN = [
+    { key: "seedShop", farbe: "#2563eb", symbol: "🌱", name: "Samen" },
+    { key: "toolShop", farbe: "#9333ea", symbol: "🛠️", name: "Tools" },
+    { key: "eggShop", farbe: "#0d9488", symbol: "🥚", name: "Eier" },
+    { key: "decoShop", farbe: "#db2777", symbol: "🪴", name: "Deko" },
+    { key: "market", farbe: "#ea580c", symbol: "💰", name: "Verkauf" },
+    { key: "petMarket", farbe: "#b45309", symbol: "🐾", name: "Tier-Verkauf" },
+    { key: "questBoard", farbe: "#92400e", symbol: "📜", name: "Missionen" },
+    { key: "goldShop", farbe: "#ca8a04", symbol: "🪙", name: "Gold-Shop" },
+    { key: "haendler", farbe: "#1d4ed8", symbol: "📦", name: "Händler" },
+    { key: "erntefest", farbe: "#c2410c", symbol: "🎃", name: "Erntefest" },
+];
+const HUB_STAND_NACH_KEY = Object.fromEntries(HUB_STAND_ARTEN.map((a) => [a.key, a]));
+const WELT_BLUMEN = [
+    "/garden-assets/deco/nature/blumen_wiese.png",
+    "/garden-assets/deco/nature/blumen_wiese2.png",
+    "/garden-assets/deco/nature/blumen_wiese3.png",
+    "/garden-assets/deco/nature/blumen_wiese4.png",
+];
 
 /**
  * Deko, die nachts leuchtet — Schlüssel ist die `decoId` der Platzierung.
@@ -367,7 +439,7 @@ export default class Renderer {
         this.canvas = canvas;
         this.ctx = canvas.getContext("2d");
         this.frame = 0;
-        this._groundPattern = null;
+        this._weltCache = new Map(); // "sx_sy" -> { canvas, fertig }, siehe _weltStueck
         this._imageCache = new Map();
         this._plantCache = new Map();
         this._atlasImage = null;
@@ -446,6 +518,7 @@ export default class Renderer {
 
     draw(state, player) {
         this._frameNow = Date.now();
+        this._stehend3d = false;
         const { ctx, canvas } = this;
         const {
             layout,
@@ -471,11 +544,19 @@ export default class Renderer {
             // Jahreszeit-Id aus engine/Tageszeit.js — ebenfalls aus der Uhr.
             saison = null,
         } = state;
-        this._saison = saison;
+        this._setzeSaison(saison);
         this._remotePlayers = remotePlayers;
         // Sterne aus „Neue Saat" (ui/prestige.js) — Fremde tragen sie am Spielerobjekt.
         this._eigeneSterne = Number(state.eigeneSterne) || 0;
         this._readyEggs = state.readyEggsCount || 0;
+        // Eigener Hut und Tierhut (Gold-Shop, engine/huete.js)
+        this._eigeneFigur = player;
+        this._eigenerHut = state.playerHut || null;
+        this._standMarken = state.standMarken || null;
+        // Tür eines begehbaren Gebäudes, die gerade auf- oder zugeht (engine/hausTuer.js)
+        this._tuer = state.tuer || null;
+        this._figurAussehen = state.playerAppearance || null;
+        this._tierhutJeSlot = state.tierhutJeSlot || null;
         // Auf welchem Grundstück das Editor-Raster liegt (slot.id, nicht der Index)
         // — null heisst: Editor aus.
         this._editorSlotId = Number.isInteger(state.editorSlotId) ? state.editorSlotId : null;
@@ -498,16 +579,15 @@ export default class Renderer {
         ctx.scale(zoom, zoom);
         ctx.translate(Math.round(-player.x), Math.round(-player.y));
 
-        // World border
-        ctx.strokeStyle = "rgba(255,80,80,0.4)";
-        ctx.lineWidth = 4;
-        ctx.strokeRect(0, 0, layout.worldWidth, layout.worldHeight);
-
-        // Ground texture (cached pattern)
+        // Weltkarte: Wiese, Platz, Teiche, Wald (in Stücken vorgemalt)
         this._drawGround(layout, player);
-
-        this._drawCenterPath(layout, player);
+        this._maleFische(layout, () => true);
+        // Wetter auf dem Wasser, springende Fische, Teichling (engine/teichLeben.js)
+        const karte = this._karteDraufsicht(player, zoom);
+        this._party = party;
+        zeichneTeichLeben(ctx, layout, karte, this._teichLage(weather, nacht));
         this._drawWeatherGround(layout, player, weather);
+        this._drawWegLaternen(layout, player, nacht);
 
         // Der Spieler wird in die Tiefensortierung des Grundstücks eingereiht, auf dem
         // er steht — damit läuft er hinter hohen Pflanzen vorbei statt immer davor.
@@ -532,8 +612,11 @@ export default class Renderer {
         // "area"-Einträgen) über JEDEM Schuppen auf dem Bildschirm, nicht nur
         // dem eigenen.
         this._ownShed = areas.shed || null;
+        // Editor (05.11.): `player` ist dann nur die Kamera, keine Figur zeichnen
+        // … oder die Figur geht gerade durch eine Tür (dann malt sie _maleTuer im Rahmen)
+        const ohneSpieler = Boolean(state.ohneSpieler || state.spielerVersteckt);
         const playerDrawn = this.drawTerritories(
-            layout, player, petPlacements, decoPlacements, this._playerPayload,
+            layout, player, petPlacements, decoPlacements, ohneSpieler ? null : this._playerPayload,
         );
         this.drawHubAreas(areas, state.readyEggsCount);
         // Wer auf dem Kiesweg oder zwischen den Grundstücken steht, wurde oben nicht
@@ -544,7 +627,7 @@ export default class Renderer {
                 this.drawPlayer(remote, null, remote.held || null, remote.name, remote.appearance || {}, remote.badge, "remote", remote.nameplate);
             }
         }
-        if (!playerDrawn) {
+        if (!playerDrawn && !ohneSpieler) {
             this.drawPlayer(player, selectedTool, heldItem, localPlayerName, playerAppearance, playerBadge, "local", playerNameplate);
         }
 
@@ -560,6 +643,19 @@ export default class Renderer {
         this._drawFeedback();
         this._drawFunken();
         this._drawVerkaufsBlasen();
+        if (state.dekoVorschau) this._drawDekoVorschau(state.dekoVorschau);
+        // Angel, Schnur und Schwimmer im Teich (ui/fenster/AngelFenster.jsx)
+        if (state.angeln) zeichneAngelSzene(ctx, karte, state.angeln, player, this._frameNow);
+
+        // Pfeil mit Namen über dem Ziel, das E gerade öffnen würde — obenauf, damit
+        // ihn kein Dach und keine Figur verdeckt. Feste Bildschirmgröße, egal wie gezoomt.
+        const spitze = this._zielSpitze(state.aktivesZiel);
+        // Während einer Verkaufsblase kein Pfeil — er säße genau auf dem verdienten Gold
+        if (spitze && this._verkaufsBlasen.length === 0) this._maleZielPfeil(state.aktivesZiel, spitze.x, spitze.y, 4 / (ctx.getTransform().a || 1));
+        if (state.wegweiser) {
+            this._drawWegweiser(areas, player, player.x, player.y - 20, 3 / (ctx.getTransform().a || 1),
+                (a) => Math.atan2(a.y - player.y, a.x - player.x));
+        }
 
         ctx.restore();
         // Jahreszeit: Farbton und Partikel UNTER dem Nachtschleier — nachts wird
@@ -571,6 +667,7 @@ export default class Renderer {
         }
         // 1. ANPASSUNG: Player übergeben für Map-relativen Regen
         this._drawWeatherOverlay(weather, player, nacht);
+        this._flushStandMarken();
         // Glühwürmchen sind selbst Licht — nach dem Schleier, wie die Laser.
         if (saison) {
             const scale = Math.max(0.15, Math.min(1, Number(this._renderProfile?.particleScale) || 1));
@@ -578,7 +675,487 @@ export default class Renderer {
         }
         // Discolaser NACH dem Schleier: sie sind selbst Licht und dürfen von keiner
         // Laterne ausgestanzt werden — dieselbe Begründung wie bei den Blitzen.
+        if (party > 0.05) {
+            // Discokugel über dem Dorfteich: steht in der Welt, also noch einmal die Kamera
+            ctx.save();
+            ctx.translate(Math.round(canvas.width / 2), Math.round(canvas.height / 2));
+            ctx.scale(zoom, zoom);
+            ctx.translate(Math.round(-player.x), Math.round(-player.y));
+            zeichnePartyWelt(ctx, layout, karte, this._frameNow, party);
+            ctx.restore();
+        }
         this._drawParty(party);
+    }
+
+    /** Draufsicht: die Kamera steht schon — nur prüfen, ob der Punkt im Bild liegt. */
+    _karteDraufsicht(player, zoom) {
+        const k = this._karte2d || (this._karte2d = { x: 0, y: 0, halbW: 0, halbH: 0, flach: null, aufrecht: null });
+        if (!k.flach) {
+            k.flach = (x, y) => Math.abs(x - k.x) < k.halbW && Math.abs(y - k.y) < k.halbH;
+            k.aufrecht = k.flach;
+        }
+        k.x = player.x; k.y = player.y;
+        k.halbW = this.canvas.width / 2 / (zoom || 1) + 320;
+        k.halbH = this.canvas.height / 2 / (zoom || 1) + 320;
+        return k;
+    }
+
+    /** Was engine/teichLeben.js über Wetter und Tageszeit wissen muss. */
+    _teichLage(weather, nacht) {
+        const l = this._teichLageBuf || (this._teichLageBuf = {});
+        l.now = this._frameNow;
+        l.wetter = weather?.type || "sun";
+        l.intensitaet = l.wetter === "sun" ? 0 : (Number.isFinite(Number(weather?.intensity)) ? Number(weather.intensity) : 1);
+        l.nacht = nacht;
+        l.einfach = Boolean(this._renderProfile?.simplifyPlantUi);
+        return l;
+    }
+
+    /**
+     * 3D-Ansicht (engine/welt3d.js): alles, was STEHT, auf die durchsichtige
+     * 2D-Leinwand über dem 3D-Boden — Pflanzen, Deko, Tiere, Gebäude, Stände,
+     * Schilder, Bäume, Figuren, dazu die Effekte.
+     *
+     * Jedes Stück wird mit genau dem Code gezeichnet wie in der Draufsicht. Nur die
+     * Kamera ist eine andere: sein Fußpunkt wird durch die 3D-Kamera auf den
+     * Bildschirm gerechnet (welt3d.projiziere), und ringsum wird es so groß
+     * gezeichnet, wie eine Weltkachel an dieser Stelle auf dem Schirm ist. Weiter
+     * hinten ist also alles kleiner, und sortiert wird von hinten nach vorn.
+     */
+    draw3dStehend(state, player, welt3d) {
+        this._frameNow = Date.now();
+        this._stehend3d = true;
+        const { ctx, canvas } = this;
+        const {
+            layout, areas, fremdeGebaeude = [], selectedTool = null,
+            petPlacements = [], decoPlacements = [], heldItem = null,
+            weather = { type: "sun" }, renderProfile = DEFAULT_RENDER_PROFILE,
+            localPlayerName = "", playerAppearance = {}, playerBadge = null, playerNameplate = null,
+            remotePlayers = null, nacht = 0, party = 0, saison = null,
+        } = state;
+        this._setzeSaison(saison);
+        this._remotePlayers = remotePlayers;
+        this._eigeneSterne = Number(state.eigeneSterne) || 0;
+        this._readyEggs = state.readyEggsCount || 0;
+        // Eigener Hut und Tierhut (Gold-Shop, engine/huete.js)
+        this._eigeneFigur = player;
+        this._eigenerHut = state.playerHut || null;
+        this._standMarken = state.standMarken || null;
+        // Tür eines begehbaren Gebäudes, die gerade auf- oder zugeht (engine/hausTuer.js)
+        this._tuer = state.tuer || null;
+        this._figurAussehen = state.playerAppearance || null;
+        this._tierhutJeSlot = state.tierhutJeSlot || null;
+        this._editorSlotId = null;
+        this._zoom = state.zoom || 1;
+        this._weather = weather;
+        this._renderProfile = renderProfile || DEFAULT_RENDER_PROFILE;
+        this.frame++;
+        this._lichter.length = 0;
+        this._party = party;
+
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        if (!layout?.slots) return;
+
+        // Sichtbarer Boden in Weltpixeln (Schnitt der Bildschirmecken mit dem Boden)
+        const sicht = welt3d.sichtGrenzen(canvas.width, canvas.height);
+        if (!sicht) return;
+        const { x0, y0, x1, y1 } = sicht;
+        const { territoryWidth, territoryHeight, dirtOffsetX, baseDirtHeight, baseDirtWidth } = MAP_CONFIG;
+        const T = TILE_SIZE;
+
+        this._plotAreas = [areas?.shed, ...fremdeGebaeude].filter((a) => a && a.aktiv !== false);
+        this._ownShed = areas?.shed || null;
+
+        const bucket = this._renderBucket;
+        bucket.length = 0;
+        this._poolUsed = 0;
+        const dekoBySlot = this._gruppiereDekoNachSlot(decoPlacements);
+        for (const slot of layout.slots) {
+            const drawY = slot.isTopRow ? slot.anchorY - territoryHeight : slot.anchorY;
+            const schild = getSignLayout(slot);
+            if (slot.x + territoryWidth < x0 || slot.x > x1 || drawY + territoryHeight + T < y0 || drawY - T > y1) continue;
+            this._collectPlants(bucket, slot, drawY, x0, y0, x1, y1, dirtOffsetX, baseDirtHeight, baseDirtWidth);
+            this._collectDeco(bucket, slot, drawY, dekoBySlot.get(slot.id - 1) || LEERE_DEKO_LISTE, x0, y0, x1, y1);
+            this._collectPets(bucket, slot, petPlacements, drawY);
+            const e = this._poolEntry();
+            e.kind = "schild"; e.ref = slot; e.x = schild.centerX; e.y = schild.centerY;
+            e.baseY = schild.centerY + schild.h;
+            bucket.push(e);
+        }
+        for (const area of this._plotAreas) {
+            const e = this._poolEntry();
+            e.kind = "area"; e.ref = area; e.x = area.x;
+            e.baseY = Number.isFinite(area.fussY) ? area.fussY : area.y + 35;
+            bucket.push(e);
+        }
+        // Stände auf dem Dorfplatz: Bild steht mittig auf area.y, Fuß also darunter
+        for (const art of HUB_STAND_ARTEN) {
+            const area = areas?.[art.key];
+            if (!area || area.aktiv === false) continue;
+            const e = this._poolEntry();
+            e.kind = "hub"; e.ref = area; e.x = area.x; e.size = 0;
+            e.baseY = area.y + (art.key === "questBoard" ? T : 105);
+            e.cacheKey = art.key;
+            bucket.push(e);
+        }
+        const ich = this._poolEntry();
+        ich.kind = "player"; ich.x = player.x; ich.baseY = player.y + 20; ich.ghost = false;
+        bucket.push(ich);
+        if (remotePlayers) {
+            for (const remote of remotePlayers) {
+                if (remote.x < x0 - T || remote.x > x1 + T || remote.y < y0 - T || remote.y > y1 + T) continue;
+                const e = this._poolEntry();
+                e.kind = "remote"; e.ref = remote; e.x = remote.x; e.baseY = remote.y + 20; e.ghost = false;
+                bucket.push(e);
+            }
+        }
+        // Bäume und Büsche: eigene Liste (eine Hülle je Baum wäre zu viel Pool)
+        const baeume = this._baumListe || (this._baumListe = []);
+        let nBaeume = 0;
+        const stehendDazu = (bm) => {
+            const b = baeume[nBaeume] || (baeume[nBaeume] = { kind: "baum", img: null, x: 0, baseY: 0, w: 0, h: 0 });
+            b.img = bm.img; b.x = bm.x; b.baseY = bm.y; b.w = bm.w; b.h = bm.h; b.flach = Boolean(bm.flach);
+            bucket.push(b);
+            nBaeume++;
+        };
+        this._baeumeIm(layout, Math.floor(x0 / T) - 1, Math.floor(y0 / T) - 1, Math.ceil(x1 / T) + 1, Math.ceil(y1 / T) + 3, true, stehendDazu);
+        // 06.11.: Wildblumen und Weglaternen stehen in 3D aufrecht (vorher flach im Boden bzw. gar nicht)
+        this._blumenIm(layout, Math.floor(x0 / T) - 1, Math.floor(y0 / T) - 1, Math.ceil(x1 / T) + 1, Math.ceil(y1 / T) + 2, (bl) => stehendDazu({ ...bl, flach: true }));
+        {
+            const laterne = laternenBild((Number(nacht) || 0) > 0.12);
+            if (laterne) {
+                for (const l of layout?.laternen || []) {
+                    if (l.x < x0 - T || l.x > x1 + T || l.y < y0 - T || l.y > y1 + 2 * T) continue;
+                    // in 3D eine Spur größer, sonst wirkt sie neben den Ständen wie ein Streichholz
+                    stehendDazu({ img: laterne, x: l.x, y: l.y, w: LATERNE_W * 1.4, h: LATERNE_H * 1.4, flach: true });
+                }
+            }
+        }
+        bucket.sort(compareByBaseY);
+
+        const p = this._proj || (this._proj = { sx: 0, sy: 0, s: 1, nebel: 0 });
+        // Fische flach auf dem Wasser (wie der Ring gestaucht, siehe unten)
+        const q3 = this._proj3 || (this._proj3 = { sx: 0, sy: 0, s: 1, nebel: 0 });
+        const flach3d = (x, y) => {
+            if (!welt3d.projiziere(x, y, p, canvas.width, canvas.height)) return false;
+            if (p.sx < -50 || p.sx > canvas.width + 50 || p.sy < -50 || p.sy > canvas.height + 50) return false;
+            welt3d.projiziere(x, y + TILE_SIZE, q3, canvas.width, canvas.height);
+            const k = Math.max(0.2, Math.min(1, (q3.sy - p.sy) / (p.s * TILE_SIZE)));
+            ctx.setTransform(p.s, 0, 0, p.s * k, p.sx - p.s * x, p.sy - p.s * k * y);
+            return true;
+        };
+        this._maleFische(layout, flach3d);
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        const setze = (fx, fy) => {
+            if (!welt3d.projiziere(fx, fy, p, canvas.width, canvas.height)) return false;
+            if (p.sx < -400 || p.sx > canvas.width + 400 || p.sy < -100 || p.sy > canvas.height + 600) return false;
+            ctx.setTransform(p.s, 0, 0, p.s, p.sx - p.s * fx, p.sy - p.s * fy);
+            ctx.globalAlpha = 1 - p.nebel;
+            return p.nebel < 0.98;
+        };
+        // Wetter auf dem Wasser, springende Fische, Teichling (engine/teichLeben.js)
+        const karte = this._karte3d || (this._karte3d = { flach: null, aufrecht: null });
+        karte.flach = flach3d;
+        karte.aufrecht = setze;
+        zeichneTeichLeben(ctx, layout, karte, this._teichLage(weather, nacht));
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.globalAlpha = 1;
+
+        // Wo jede Pflanze auf dem Schirm steht — für Klicks auf die Pflanze selbst
+        // (trefferStehend3d). Reihenfolge = Zeichenreihenfolge, hinten zuerst.
+        const treffer = this._treffer3d || (this._treffer3d = []);
+        let nTreffer = 0;
+        // Durchsicht (05.11.): was VOR der Figur steht und sie verdeckt, wird halb
+        // durchsichtig — in 3D läuft man hinter Ständen und Bäumen entlang.
+        const fuss = player.y + 20;
+        const fp = this._projFigur || (this._projFigur = { sx: 0, sy: 0, s: 1, nebel: 0 });
+        const figurDa = welt3d.projiziere(player.x, fuss, fp, canvas.width, canvas.height);
+        const fl = fp.sx - fp.s * T * 0.45, fr = fp.sx + fp.s * T * 0.45;
+        const fo = fp.sy - fp.s * T * 1.35, fu = fp.sy;
+        const durchsicht = (e, breiteW, hoeheW) => {
+            if (!figurDa || e.baseY <= fuss) return;
+            const l = p.sx - (breiteW / 2) * p.s, r = p.sx + (breiteW / 2) * p.s;
+            const o = p.sy - hoeheW * p.s;
+            if (r < fl || l > fr || p.sy < fo || o > fu) return;
+            ctx.globalAlpha = (1 - p.nebel) * 0.45;
+        };
+        for (let i = 0; i < bucket.length; i++) {
+            const e = bucket[i];
+            switch (e.kind) {
+                case "plant":
+                    if (setze(e.cellX + T / 2, e.baseY)) {
+                        const hoehe = (getPlantArchetype(e.plant.seedId)?.heightTiles || 1) * T;
+                        durchsicht(e, T * 0.9, hoehe);
+                        this._drawPlant(e.plant, e.cellX, e.cellY, e.slotId, e.cacheKey);
+                        const t = treffer[nTreffer] || (treffer[nTreffer] = { sx: 0, sy: 0, halb: 0, hoch: 0, wx: 0, wy: 0 });
+                        t.sx = p.sx; t.sy = p.sy; t.halb = p.s * T * 0.45; t.hoch = p.s * (hoehe + 8);
+                        t.wx = e.cellX + T / 2; t.wy = e.cellY + T / 2;
+                        nTreffer++;
+                    }
+                    break;
+                case "deco":
+                    if (setze(e.x, e.baseY)) {
+                        durchsicht(e, e.size, e.baseY - (e.y - e.size / 2));
+                        this._drawDecoItem(e);
+                    }
+                    break;
+                case "pet":
+                    if (setze(e.x, e.baseY)) this._drawPetItem(e);
+                    break;
+                case "area": {
+                    if (!setze(e.x, e.baseY)) break;
+                    durchsicht(e, 192, 192);
+                    const a = e.ref;
+                    const ersatz = AREA_ERSATZ[bauart(a)] || AREA_ERSATZ.incubator;
+                    this._drawAreaBuilding(a, ersatz.farbe, ersatz.symbol, a.label || "", a === this._ownShed ? this._readyEggs : 0);
+                    break;
+                }
+                case "hub": {
+                    if (!setze(e.x, e.baseY)) break;
+                    durchsicht(e, e.cacheKey === "questBoard" ? 128 : 290, e.cacheKey === "questBoard" ? 128 : 235);
+                    const art = HUB_STAND_NACH_KEY[e.cacheKey];
+                    this._drawAreaBuilding(e.ref, art.farbe, art.symbol, art.name);
+                    break;
+                }
+                case "schild":
+                    if (setze(e.x, e.baseY)) this._drawSign(e.ref, e.x, e.y);
+                    break;
+                case "baum":
+                    if (!setze(e.x, e.baseY)) break;
+                    if (!e.flach) durchsicht(e, e.w * 0.8, e.h);
+                    ctx.fillStyle = WELT_FARBEN.baumSchatten;
+                    ctx.beginPath(); ctx.ellipse(e.x, e.baseY - 3, e.w * (e.flach ? 0.3 : 0.42), e.w * (e.flach ? 0.1 : 0.16), 0, 0, Math.PI * 2); ctx.fill();
+                    ctx.drawImage(e.img, e.x - e.w / 2, e.baseY - e.h, e.w, e.h);
+                    break;
+                case "player":
+                    if (state.spielerVersteckt) break;
+                    if (setze(player.x, player.y + 20)) {
+                        this.drawPlayer(player, selectedTool, heldItem, localPlayerName, playerAppearance, playerBadge, "local", playerNameplate);
+                    }
+                    break;
+                case "remote":
+                    if (setze(e.ref.x, e.ref.y + 20)) {
+                        this.drawPlayer(e.ref, null, e.ref.held || null, e.ref.name, e.ref.appearance || {}, e.ref.badge, "remote", e.ref.nameplate);
+                    }
+                    break;
+                default:
+                    break;
+            }
+        }
+        treffer.length = nTreffer;
+        // Reife-Marker obenauf, jeder an seiner eigenen Pflanze
+        const einzel = this._einzelListe || (this._einzelListe = [null]);
+        for (let i = 0; i < bucket.length; i++) {
+            const e = bucket[i];
+            if (e.kind !== "plant" || !setze(e.cellX + T / 2, e.baseY)) continue;
+            einzel[0] = e;
+            this._drawReadyMarkers(einzel);
+        }
+        einzel[0] = null;
+
+        // Effekte (Ernte-Funken, schwebende Zahlen, Käfer …) liegen alle nahe der
+        // Figur — sie bekommen deren Maßstab statt eines eigenen je Teilchen.
+        this._drawStoerer(state.stoerer, state.stoererSlot, setze);
+        if (setze(player.x, player.y + 20)) {
+            ctx.globalAlpha = 1;
+            this._drawSternenspur();
+            this._drawSplatter();
+            this._drawItemFlug();
+            this._drawSaatWurf();
+            this._drawFeedback();
+            this._drawFunken();
+            this._drawVerkaufsBlasen();
+        }
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.globalAlpha = 1;
+        if (state.angeln) zeichneAngelSzene(ctx, karte, state.angeln, player, this._frameNow);
+        // Pfeil mit Namen über dem Ziel: Fußpunkt projizieren, Bildhöhe im dortigen Maßstab
+        // nach oben — die Gebäude stehen in 3D aufrecht auf ihrem Fuß.
+        const zielJetzt = state.aktivesZiel;
+        const spitze = this._zielSpitze(zielJetzt);
+        if (spitze && this._verkaufsBlasen.length === 0) {
+            const fussY = zielJetzt._bild?.w > 0 ? zielJetzt._bild.y + zielJetzt._bild.h
+                : Number.isFinite(zielJetzt.fussY) ? zielJetzt.fussY : zielJetzt.y;
+            if (welt3d.projiziere(spitze.x, fussY, p, canvas.width, canvas.height)) {
+                this._maleZielPfeil(zielJetzt, p.sx, p.sy - (fussY - spitze.y) * p.s, 4);
+            }
+        }
+        if (state.wegweiser && welt3d.projiziere(player.x, player.y + 20, p, canvas.width, canvas.height)) {
+            const ichX = p.sx;
+            const ichY = p.sy - 40 * p.s;
+            const q = this._projWeg || (this._projWeg = { sx: 0, sy: 0, s: 1, nebel: 0 });
+            this._drawWegweiser(areas, player, ichX, ichY, 3, (a) => (
+                // Stand hinter der Kamera: Richtung auf dem Boden statt im Bild
+                welt3d.projiziere(a.x, a.y + 105, q, canvas.width, canvas.height)
+                    ? Math.atan2(q.sy - ichY, q.sx - ichX)
+                    : Math.atan2(a.y - player.y, a.x - player.x)
+            ));
+        }
+        // Nacht: nur das Gezeichnete abdunkeln (source-atop) — der Boden darunter
+        // wird schon vom 3D-Licht dunkler.
+        // Gleiche Stärke wie das 3D-Licht (welt3d._licht rechnet mit nacht / 0,7):
+        // tiefe Nacht lässt etwa ein Viertel der Taghelligkeit übrig.
+        const n = Math.max(0, Math.min(1, (Number(nacht) || 0) / 0.7));
+        if (n > 0.02) {
+            ctx.save();
+            ctx.globalCompositeOperation = "source-atop";
+            ctx.fillStyle = `rgba(8, 14, 38, ${(n * 0.72).toFixed(3)})`;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.restore();
+        }
+        // Lichtschein der Weglaternen (06.11.) — nach dem Abdunkeln, sonst ginge er unter
+        if ((Number(nacht) || 0) > 0.12 && layout?.laternen?.length) {
+            const q = this._projLicht || (this._projLicht = { sx: 0, sy: 0, s: 1, nebel: 0 });
+            ctx.save();
+            ctx.globalCompositeOperation = "lighter";
+            const [lr, lg, lb] = LATERNE_LICHT.farbe;
+            for (const l of layout.laternen) {
+                if (!welt3d.projiziere(l.x, l.y - LATERNE_LICHT.hoehe * 1.4, q, canvas.width, canvas.height)) continue;
+                const rad = LATERNE_LICHT.radius * q.s * 0.9;
+                if (q.sx < -rad || q.sx > canvas.width + rad || q.sy < -rad || q.sy > canvas.height + rad) continue;
+                const g = ctx.createRadialGradient(q.sx, q.sy, 0, q.sx, q.sy, rad);
+                g.addColorStop(0, `rgba(${lr}, ${lg}, ${lb}, ${(0.42 * (1 - q.nebel)).toFixed(3)})`);
+                g.addColorStop(1, `rgba(${lr}, ${lg}, ${lb}, 0)`);
+                ctx.fillStyle = g;
+                ctx.fillRect(q.sx - rad, q.sy - rad, rad * 2, rad * 2);
+            }
+            ctx.restore();
+        }
+        if (saison) {
+            const scale = Math.max(0.15, Math.min(1, Number(this._renderProfile?.particleScale) || 1));
+            zeichneSaisonLuft(ctx, canvas, saison, this.frame, player, scale, weather?.type);
+        }
+        // Regen/Schnee ohne Nachtschleier (der käme mit der flachen 2D-Kamera)
+        this._drawWeatherOverlay(weather, player, 0);
+        this._flushStandMarken();
+        if (party > 0.05) {
+            zeichnePartyWelt(ctx, layout, karte, this._frameNow, party);
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+            ctx.globalAlpha = 1;
+        }
+        this._drawParty(party);
+    }
+
+    /**
+     * Laternen am Wegrand (06.11., Plätze aus MapConfig.setzeWegLaternen). Nur was auf
+     * dem Schirm liegt; ab der Dämmerung ist das Glas hell und sie werfen Licht wie
+     * leuchtende Deko (this._lichter, über dem Dunkelheits-Schleier ausgewertet).
+     */
+    _drawWegLaternen(layout, kamera, nacht) {
+        const liste = layout?.laternen;
+        if (!liste || liste.length === 0) return;
+        const an = (Number(nacht) || 0) > 0.12;
+        const bild = laternenBild(an);
+        if (!bild) return;
+        const { ctx, canvas } = this;
+        const zoom = this._zoom || 1;
+        const halbW = canvas.width / 2 / zoom + LATERNE_W;
+        const halbH = canvas.height / 2 / zoom + LATERNE_H;
+        const glatt = ctx.imageSmoothingEnabled;
+        ctx.imageSmoothingEnabled = false;
+        // Der Schein reicht weiter als die Laterne: Licht schon eintragen, wenn nur der
+        // Kegel ins Bild ragt — sonst ging er am Bildrand beim Laufen an und aus.
+        const r = LATERNE_LICHT.radius;
+        for (const l of liste) {
+            const dx = Math.abs(l.x - kamera.x);
+            const dy = Math.abs(l.y - kamera.y);
+            if (an && dx < halbW + r && dy < halbH + r) this._lichter.push({ x: l.x, y: l.y - LATERNE_LICHT.hoehe, licht: LATERNE_LICHT });
+            if (dx > halbW || dy > halbH + LATERNE_H) continue;
+            ctx.fillStyle = "rgba(0,0,0,0.22)";
+            ctx.fillRect(Math.round(l.x - LATERNE_W * 0.4), Math.round(l.y - 2), Math.round(LATERNE_W * 0.8), 4);
+            ctx.drawImage(bild, Math.round(l.x - LATERNE_W / 2), Math.round(l.y - LATERNE_H), LATERNE_W, LATERNE_H);
+        }
+        ctx.imageSmoothingEnabled = glatt;
+    }
+
+    /**
+     * Wo der Pfeil über einem ansprechbaren Ziel sitzt (Weltpixel): mittig über der
+     * Oberkante des gezeichneten Bilds. Stände sind mittig auf area.y gezeichnet,
+     * Gebäude auf einem Grundstück stehen auf fussY.
+     */
+    _zielSpitze(ziel) {
+        if (!ziel || !Number.isFinite(ziel.x) || !Number.isFinite(ziel.y)) return null;
+        const b = ziel._bild;
+        let x = ziel.x;
+        let y;
+        if (b && b.w > 0) { x = b.x + b.w / 2; y = b.y; }
+        else if (ziel.type === "mailbox") { x = ziel.x - 20; y = (Number.isFinite(ziel.fussY) ? ziel.fussY : ziel.y) - 86; }
+        else if (Number.isFinite(ziel.fussY)) y = ziel.fussY - 200;
+        else if (ziel.type === "questBoard") y = ziel.y - TILE_SIZE;
+        else y = ziel.y - 150;
+        // Am eigenen Haus über dem „Ei fertig“-Marker, nicht darauf
+        if (ziel.type === "shed" && (this._readyEggs || 0) > 0) y -= 34;
+        return { x, y };
+    }
+
+    /**
+     * Pixelpfeil mit Namensschild (06.11., ersetzt den Ring am Boden): derselbe Pfeil
+     * wie im Haus (ui/HausInnen.jsx). `u` = Größe eines Bildpunkts in den aktuellen
+     * Koordinaten, (sx, sy) = Spitze des Pfeils.
+     */
+    _maleZielPfeil(ziel, sx, sy, u) {
+        const { ctx } = this;
+        // Hohe Stände ragen oft bis unter die Knopfleiste oben — dann rückt der Pfeil
+        // herunter aufs Bild, statt dahinter zu verschwinden: Schild-Oberkante bei ~120 px.
+        const t = ctx.getTransform();
+        const minY = (195 - t.f) / (t.d || 1);
+        if (sy < minY) sy = minY;
+        const wipp = (Math.sin(this.frame * 0.12) > 0 ? 1 : 0) * u;
+        const ax = Math.round(sx);
+        const ay = Math.round(sy - 6 * u - wipp);
+        ctx.save();
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = "#3b2516";
+        ctx.fillRect(ax - 4 * u, ay - u, 8 * u, u);
+        for (let i = 0; i < 4; i++) {
+            ctx.fillStyle = "#3b2516";
+            ctx.fillRect(ax - 4 * u + i * u, ay + i * u, (8 - 2 * i) * u, u);
+            if (6 - 2 * i > 0) {
+                ctx.fillStyle = "#fff3c4";
+                ctx.fillRect(ax - 3 * u + i * u, ay + i * u, (6 - 2 * i) * u, u);
+            }
+        }
+        const name = ziel.type === "shed" ? "Haus"
+            : ziel.type === "mailbox" && ziel.isOwn ? "Briefkasten"
+            : (ziel.label || "");
+        if (name) {
+            const text = `E · ${name}`;
+            ctx.font = `bold ${Math.round(4 * u)}px 'GfZiffern', 'Pixelify Sans', Nunito, sans-serif`;
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            const w = Math.ceil((ctx.measureText(text).width + 4 * u) / u) * u;
+            const h = 7 * u;
+            const bx = Math.round(ax - w / 2);
+            const by = Math.round(ay - 3 * u - h);
+            ctx.fillStyle = "#3b2516";
+            ctx.fillRect(bx - u, by - u, w + 2 * u, h + 2 * u);
+            ctx.fillStyle = "#fff3c4";
+            ctx.fillRect(bx, by, w, h);
+            ctx.fillStyle = "#e8d7a8";
+            ctx.fillRect(bx, by + h - u, w, u);
+            ctx.fillStyle = "#3b2516";
+            ctx.fillText(text, ax, by + h / 2);
+        }
+        ctx.restore();
+    }
+
+    /**
+     * 3D-Ansicht: liegt dieser Punkt der 2D-Leinwand (Pixel) auf einer gezeichneten
+     * Pflanze? Dann zählt ihr Feld — sonst träfe ein Klick auf die Krone das Feld
+     * dahinter, weil der Strahl erst weiter hinten auf den Boden kommt. Vorderste
+     * Pflanze gewinnt. Gibt die Weltmitte des Felds zurück oder null.
+     */
+    trefferStehend3d(px, py) {
+        const liste = this._treffer3d;
+        if (!liste) return null;
+        for (let i = liste.length - 1; i >= 0; i--) {
+            const t = liste[i];
+            if (px < t.sx - t.halb || px > t.sx + t.halb) continue;
+            if (py > t.sy + t.halb * 0.3 || py < t.sy - t.hoch) continue;
+            return { worldX: t.wx, worldY: t.wy };
+        }
+        return null;
     }
 
     /**
@@ -635,6 +1212,7 @@ export default class Renderer {
         ctx.restore();
 
         this._drawPartyNebel(staerke, takt);
+        zeichneFeuerwerk(ctx, canvas, this._frameNow, staerke, detail);
         this._drawKonfetti(staerke, detail);
     }
 
@@ -706,48 +1284,589 @@ export default class Renderer {
         ctx.restore();
     }
 
+    /**
+     * Boden der Weltkarte außerhalb der Grundstücke: Wiese, Kiesplatz, Teiche mit
+     * Ufer, Steg, Wald mit Bäumen, Blumen (Karte aus engine/MapConfig.js).
+     *
+     * Gemalt wird in Stücken zu WELT_STUECK × WELT_STUECK Kacheln, jedes Stück
+     * einmal auf eine eigene Leinwand und danach nur noch als ein Bild kopiert —
+     * Bäume, Ufer und Blumen je Bild neu zu zeichnen wäre bei voller Sicht mehrere
+     * hundert drawImage-Aufrufe. Ein Stück, bei dem noch ein Bild fehlte, wird neu
+     * gemalt, sobald Bilder nachladen (siehe _getImage).
+     *
+     * Stücke gibt es auch AUSSERHALB der Welt: dort ist alles Wald, damit man am
+     * Rand in dichten Wald schaut statt ins Leere.
+     */
     _drawGround(layout, player) {
         const { ctx, canvas } = this;
-        const step = TILE_SIZE * MERGED_TILE_STRIDE;
-        if (!this._groundPattern) {
-            const patternCanvas = document.createElement("canvas");
-            patternCanvas.width = TILE_SIZE * 2;
-            patternCanvas.height = TILE_SIZE * 2;
-            const pctx = patternCanvas.getContext("2d");
-            pctx.fillStyle = "#166534";
-            pctx.fillRect(0, 0, patternCanvas.width, patternCanvas.height);
-            pctx.fillStyle = "rgba(0,0,0,0.08)";
-            pctx.fillRect(0, 0, TILE_SIZE, TILE_SIZE);
-            this._groundPattern = ctx.createPattern(patternCanvas, "repeat");
-        }
-
-        ctx.fillStyle = "#166534";
-        ctx.fillRect(0, 0, layout.worldWidth, layout.worldHeight);
-        if (this._groundPattern) {
-            ctx.fillStyle = this._groundPattern;
-            ctx.fillRect(-canvas.width, -canvas.height, layout.worldWidth + canvas.width * 2, layout.worldHeight + canvas.height * 2);
-        }
-
-        // Halbe Bildschirmbreite/-höhe steht in PIXELN, die Sicht in WELT-Einheiten
-        // ist beim Herauszoomen aber größer als das (1 Welt-Einheit sind bei
-        // zoom < 1 weniger als 1 Bildschirm-Pixel) — ohne die Division bleibt
-        // dieses Fenster beim Herauszoomen zu eng und schneidet sichtbaren Rand ab.
+        if (!layout?.bodenAn) return;
+        const S = WELT_STUECK * TILE_SIZE;
         const zoom = this._zoom || 1;
-        const viewLeft = player.x - canvas.width / 2 / zoom - TILE_SIZE * 2;
-        const viewRight = player.x + canvas.width / 2 / zoom + TILE_SIZE * 2;
-        const viewTop = player.y - canvas.height / 2 / zoom - TILE_SIZE * 2;
-        const viewBottom = player.y + canvas.height / 2 / zoom + TILE_SIZE * 2;
-        const startX = Math.max(0, Math.floor(viewLeft / step) * step);
-        const endX = Math.min(layout.worldWidth, Math.ceil(viewRight / step) * step);
-        const startY = Math.max(0, Math.floor(viewTop / step) * step);
-        const endY = Math.min(layout.worldHeight, Math.ceil(viewBottom / step) * step);
+        const halbW = canvas.width / 2 / zoom + TILE_SIZE;
+        const halbH = canvas.height / 2 / zoom + TILE_SIZE;
+        const maxSX = Math.ceil(layout.worldWidth / S) + 2;
+        const maxSY = Math.ceil(layout.worldHeight / S) + 2;
+        const sx0 = Math.max(-3, Math.floor((player.x - halbW) / S));
+        const sx1 = Math.min(maxSX, Math.floor((player.x + halbW) / S));
+        const sy0 = Math.max(-3, Math.floor((player.y - halbH) / S));
+        const sy1 = Math.min(maxSY, Math.floor((player.y + halbH) / S));
+        // Unter allem die Waldfarbe — falls ein Stück außerhalb der Reichweite liegt
+        ctx.fillStyle = WELT_FARBEN.waldBoden;
+        ctx.fillRect(player.x - halbW, player.y - halbH, halbW * 2, halbH * 2);
+        // Weit herausgezoomt (05.11., Ruckeln): sonst sind mehr Stücke sichtbar, als der
+        // Speicher hält — dann flog jedes Bild ein Stück raus und wurde sofort neu gemalt.
+        // Der Speicher wächst deshalb mit der Sicht, und unter 0,6 reicht halbe Auflösung
+        // (ein Bildpunkt deckt dann ohnehin mehr als einen Weltpixel).
+        this._weltBedarf = (sx1 - sx0 + 1) * (sy1 - sy0 + 1);
+        const grob = zoom < 0.6;
+        for (let sy = sy0; sy <= sy1; sy++) {
+            for (let sx = sx0; sx <= sx1; sx++) {
+                const stueck = this._weltStueck(layout, sx, sy, false, grob);
+                // Mit WELT_RAND Pixeln Überlappung: sonst blieben bei krummem Zoom
+                // feine Haarlinien zwischen zwei Stücken stehen.
+                if (stueck) ctx.drawImage(stueck, sx * S - WELT_RAND, sy * S - WELT_RAND, S + WELT_RAND * 2, S + WELT_RAND * 2);
+            }
+        }
+    }
 
-        // Tall grass texture for dark green ground areas (outside center path) — 1×1 tiles.
-        for (let y = startY; y < endY; y += TILE_SIZE) {
-            for (let x = startX; x < endX; x += TILE_SIZE) {
-                const inCenterPath = y >= layout.centerPathTopY && y < layout.centerPathBottomY;
-                if (inCenterPath) continue;
-                this._drawTerrainTile("tallGrass", x, y, Math.floor(x / TILE_SIZE), Math.floor(y / TILE_SIZE), 9991, TILE_SIZE);
+    /**
+     * Nur den BODEN eines Weltausschnitts in einen fremden Kontext malen: Weltkarte
+     * plus Rasen, Acker, Steinfeld und Bodenbeläge der Grundstücke — ohne Pflanzen,
+     * Deko-Objekte, Tiere und Figuren. Für die 3D-Ansicht (engine/welt3d.js), die
+     * das Ergebnis als Bodentextur nimmt.
+     *
+     * x0/y0/breite/hoehe in Weltpixeln, `massstab` = Zielpixel je Weltpixel. Bei
+     * kleinem Maßstab (weit herausgezoomt) wären es zu viele vorgemalte Stücke —
+     * dann reicht eine Farbe je Kachel, aus der Entfernung sieht man den Unterschied nicht.
+     */
+    maleBodenAusschnitt(zctx, layout, x0, y0, breite, hoehe, massstab, decoPlacements, ohneBaeume = false, nurFarben = false) {
+        if (!layout?.bodenAn) return;
+        const T = TILE_SIZE;
+        zctx.save();
+        zctx.setTransform(massstab, 0, 0, massstab, -x0 * massstab, -y0 * massstab);
+        zctx.fillStyle = WELT_FARBEN.waldBoden;
+        zctx.fillRect(x0, y0, breite, hoehe);
+        const S = WELT_STUECK * T;
+        const sx0 = Math.floor(x0 / S), sx1 = Math.floor((x0 + breite) / S);
+        const sy0 = Math.floor(y0 / S), sy1 = Math.floor((y0 + hoehe) / S);
+        // nurFarben (06.11.): ferne 3D-Kacheln immer im groben Weg — sonst würden sie den
+        // Stück-Speicher der nahen Kacheln verdrängen.
+        if (!nurFarben && (sx1 - sx0 + 1) * (sy1 - sy0 + 1) <= WELT_STUECK_MAX - 8) {
+            for (let sy = sy0; sy <= sy1; sy++) {
+                for (let sx = sx0; sx <= sx1; sx++) {
+                    const stueck = this._weltStueck(layout, sx, sy, ohneBaeume);
+                    if (stueck) zctx.drawImage(stueck, sx * S - WELT_RAND, sy * S - WELT_RAND, S + WELT_RAND * 2, S + WELT_RAND * 2);
+                }
+            }
+        } else {
+            const kx0 = Math.floor(x0 / T), kx1 = Math.ceil((x0 + breite) / T);
+            const ky0 = Math.floor(y0 / T), ky1 = Math.ceil((y0 + hoehe) / T);
+            for (let ky = ky0; ky < ky1; ky++) {
+                for (let kx = kx0; kx < kx1; kx++) {
+                    const f = WELT_FERNFARBE[layout.bodenAn(kx, ky)];
+                    if (!f) continue;
+                    zctx.fillStyle = f;
+                    zctx.fillRect(kx * T, ky * T, T + 1, T + 1);
+                }
+            }
+            // Rundweg und Teiche auch aus der Ferne rund, wie in den Stücken
+            const rw = layout.rundweg;
+            if (rw) {
+                zctx.fillStyle = WELT_FERNFARBE[BODEN.KIES];
+                zctx.beginPath(); zctx.ellipse(rw.cx * T, rw.cy * T, rw.rx * T, rw.ry * T, 0, 0, Math.PI * 2); zctx.fill();
+            }
+            for (const t of layout.teiche || []) {
+                zctx.fillStyle = WELT_FARBEN.ufer;
+                zctx.beginPath(); zctx.ellipse(t.cx * T, t.cy * T, (t.rx + 0.45) * T + 10, (t.ry + 0.45) * T + 10, 0, 0, Math.PI * 2); zctx.fill();
+                zctx.fillStyle = WELT_FARBEN.wasser;
+                zctx.beginPath(); zctx.ellipse(t.cx * T, t.cy * T, (t.rx + 0.45) * T, (t.ry + 0.45) * T, 0, 0, Math.PI * 2); zctx.fill();
+            }
+            for (let ky = ky0; ky < ky1; ky++) {
+                for (let kx = kx0; kx < kx1; kx++) {
+                    if (layout.bodenAn(kx, ky) !== BODEN.STEG) continue;
+                    zctx.fillStyle = WELT_FERNFARBE[BODEN.STEG];
+                    zctx.fillRect(kx * T, ky * T, T, T);
+                }
+            }
+        }
+        const { territoryWidth, territoryHeight } = MAP_CONFIG;
+        const dekoBySlot = this._gruppiereDekoNachSlot(decoPlacements || LEERE_DEKO_LISTE);
+        for (const slot of layout.slots || []) {
+            const drawY = slot.isTopRow ? slot.anchorY - territoryHeight : slot.anchorY;
+            if (slot.x + territoryWidth < x0 || slot.x > x0 + breite || drawY + territoryHeight < y0 || drawY > y0 + hoehe) continue;
+            const unlocked = Array.isArray(slot.unlockedCells) ? slot.unlockedCells : [];
+            const statisch = this._getSlotStaticLayer(slot, drawY, unlocked);
+            if (statisch) zctx.drawImage(statisch, slot.x, drawY);
+            const boden = this._getBodenLayer(slot, drawY, dekoBySlot.get(slot.id - 1) || LEERE_DEKO_LISTE);
+            if (boden) zctx.drawImage(boden, slot.x, drawY);
+            const saison = this._getSaisonBodenLayer(slot, territoryWidth, territoryHeight);
+            if (saison) zctx.drawImage(saison, slot.x, drawY, territoryWidth, territoryHeight);
+        }
+        zctx.restore();
+    }
+
+    _weltStueck(layout, sx, sy, ohneBaeume = false, grob = false) {
+        // Ohne Bäume (3D) ist ein eigenes Stück — beide Sorten liegen im selben Speicher.
+        const key = `${ohneBaeume ? "o" : ""}${grob ? "g" : ""}${sx}_${sy}`;
+        const cache = this._weltCache;
+        const alt = cache.get(key);
+        if (alt) {
+            // Zuletzt benutzt nach hinten — die ältesten fliegen zuerst raus.
+            cache.delete(key);
+            cache.set(key, alt);
+            return alt.canvas;
+        }
+        const S = WELT_STUECK * TILE_SIZE;
+        const massstab = grob ? 0.5 : 1;
+        const leinwand = document.createElement("canvas");
+        leinwand.width = Math.ceil((S + WELT_RAND * 2) * massstab);
+        leinwand.height = Math.ceil((S + WELT_RAND * 2) * massstab);
+        const lctx = leinwand.getContext("2d");
+        if (!lctx) return null;
+        this._weltBildFehlt = false;
+        lctx.save();
+        lctx.scale(massstab, massstab);
+        lctx.translate(-sx * S + WELT_RAND, -sy * S + WELT_RAND);
+        this._maleWeltStueck(lctx, layout, sx * WELT_STUECK, sy * WELT_STUECK, ohneBaeume);
+        lctx.restore();
+        cache.set(key, { canvas: leinwand, fertig: !this._weltBildFehlt });
+        const grenze = Math.max(WELT_STUECK_MAX, (this._weltBedarf || 0) + 24);
+        while (cache.size > grenze) {
+            const aeltester = cache.keys().next().value;
+            cache.delete(aeltester);
+        }
+        return leinwand;
+    }
+
+    /** Kies als Füllmuster: das 256er-Bild auf 2×2 Kacheln, am Weltursprung ausgerichtet. */
+    _kiesMuster(lctx) {
+        const img = this._terrainBild("path", TERRAIN_FILES.path[0]);
+        if (!img) return null;
+        const muster = lctx.createPattern(img, "repeat");
+        if (!muster) return null;
+        const k = (TILE_SIZE * 2) / (img.naturalWidth || img.width);
+        muster.setTransform(new DOMMatrix().scale(k, k));
+        return muster;
+    }
+
+    /**
+     * Kleine Leinwand für Pixel-Flächen (eine Farbe je WELT_PIXEL × WELT_PIXEL
+     * Weltpixel), wird ohne Glättung hochskaliert — daher die Stufenkanten.
+     */
+    _pixelPuffer(breite, hoehe, name) {
+        const key = "_pixPuffer_" + name;
+        let c = this[key];
+        if (!c) { c = document.createElement("canvas"); this[key] = c; }
+        if (c.width < breite || c.height < hoehe) { c.width = Math.max(c.width, breite); c.height = Math.max(c.height, hoehe); }
+        return c;
+    }
+
+    _pixelTeiche(lctx, teiche, x0, y0, w, h) {
+        const P = WELT_PIXEL;
+        const lw = Math.ceil(w / P), lh = Math.ceil(h / P);
+        let bild = null;
+        for (const t of teiche) {
+            const cx = t.cx * TILE_SIZE, cy = t.cy * TILE_SIZE;
+            const RX = (t.rx + 0.45) * TILE_SIZE, RY = (t.ry + 0.45) * TILE_SIZE;
+            const U = 12; // Uferbreite in Weltpixeln
+            const ix0 = Math.max(0, Math.floor((cx - RX - U - x0) / P));
+            const ix1 = Math.min(lw, Math.ceil((cx + RX + U - x0) / P));
+            const iy0 = Math.max(0, Math.floor((cy - RY - U - y0) / P));
+            const iy1 = Math.min(lh, Math.ceil((cy + RY + U - y0) / P));
+            if (ix0 >= ix1 || iy0 >= iy1) continue;
+            if (!bild) bild = this._pixelPuffer(lw, lh, "teich").getContext("2d").createImageData(lw, lh);
+            const d = bild.data;
+            for (let iy = iy0; iy < iy1; iy++) {
+                const wy = y0 + (iy + 0.5) * P;
+                const gy = Math.floor(wy / P);
+                for (let ix = ix0; ix < ix1; ix++) {
+                    const wx = x0 + (ix + 0.5) * P;
+                    const nx = (wx - cx) / RX, ny = (wy - cy) / RY;
+                    const q = nx * nx + ny * ny;
+                    let farbe = null;
+                    if (q < 1) {
+                        const gx = Math.floor(wx / P);
+                        // Wellen: kurze Striche aus 3 Pixeln, fest an der Weltposition
+                        const welle = q < 0.82 && (gx % 4) !== 3 && weltHash(Math.floor(gx / 4), gy, 77) < 0.035;
+                        farbe = welle ? PIXEL_WASSER.welle
+                            : q > 0.9 ? PIXEL_WASSER.flach
+                                : q < 0.55 ? PIXEL_WASSER.tief : PIXEL_WASSER.mitte;
+                    } else {
+                        const sx = (wx - cx) / (RX + U), sy = (wy - cy) / (RY + U);
+                        const qs = sx * sx + sy * sy;
+                        if (qs < 1) farbe = qs > 0.93 ? PIXEL_WASSER.uferDunkel : PIXEL_WASSER.ufer;
+                    }
+                    if (!farbe) continue;
+                    const o = (iy * lw + ix) * 4;
+                    d[o] = farbe[0]; d[o + 1] = farbe[1]; d[o + 2] = farbe[2]; d[o + 3] = 255;
+                }
+            }
+        }
+        if (!bild) return;
+        const pc = this._pixelPuffer(lw, lh, "teich");
+        const pctx = pc.getContext("2d");
+        pctx.clearRect(0, 0, pc.width, pc.height);
+        pctx.putImageData(bild, 0, 0);
+        const glatt = lctx.imageSmoothingEnabled;
+        lctx.imageSmoothingEnabled = false;
+        lctx.drawImage(pc, 0, 0, lw, lh, x0, y0, lw * P, lh * P);
+        lctx.imageSmoothingEnabled = glatt;
+    }
+
+    /**
+     * Seerosen auf den Teichen (05.11.), in Pixeln wie das Wasser: Blatt mit Kerbe,
+     * manche mit Blüte. Fest an der Weltposition (Hash), also in jedem Stück gleich.
+     */
+    _pixelSeerosen(lctx, layout, x0, y0, w, h) {
+        const P = WELT_PIXEL;
+        const T = TILE_SIZE;
+        const teiche = layout.teiche || [];
+        teiche.forEach((t, ti) => {
+            const cx = t.cx * T, cy = t.cy * T, RX = (t.rx + 0.45) * T, RY = (t.ry + 0.45) * T;
+            if (cx + RX < x0 || cx - RX > x0 + w || cy + RY < y0 || cy - RY > y0 + h) return;
+            const anzahl = ti === 0 ? 16 : 5;
+            for (let i = 0; i < anzahl; i++) {
+                // Lage: Winkel + Abstand vom Rand aus dem Hash, nur im Wasser, nicht am Steg
+                const winkel = weltHash(ti, i, 91) * Math.PI * 2;
+                const tiefe = 0.45 + weltHash(ti, i, 92) * 0.35;
+                const px = Math.round((cx + Math.cos(winkel) * RX * tiefe) / P) * P;
+                const py = Math.round((cy + Math.sin(winkel) * RY * tiefe) / P) * P;
+                const art = layout.bodenAn(Math.floor(px / T), Math.floor(py / T));
+                if (art !== BODEN.WASSER) continue;
+                const r = 3 + Math.floor(weltHash(ti, i, 93) * 2); // Radius in Pixeln
+                const kerbe = Math.floor(weltHash(ti, i, 94) * 4);  // Richtung der Kerbe
+                for (let dy = -r; dy <= r; dy++) {
+                    for (let dx = -r; dx <= r; dx++) {
+                        const d = dx * dx + (dy * dy) * 1.6;
+                        if (d > r * r + 1) continue;
+                        // Kerbe: ein schmaler Keil vom Rand zur Mitte
+                        const keil = kerbe === 0 ? (dx > 0 && Math.abs(dy) <= dx * 0.45)
+                            : kerbe === 1 ? (dx < 0 && Math.abs(dy) <= -dx * 0.45)
+                                : kerbe === 2 ? (dy < 0 && Math.abs(dx) <= -dy * 0.6)
+                                    : (dy > 0 && Math.abs(dx) <= dy * 0.6);
+                        if (keil && (dx !== 0 || dy !== 0)) continue;
+                        const rand = d > (r - 1) * (r - 1);
+                        lctx.fillStyle = rand ? PIXEL_SEEROSE.rand : (dx + dy < 0 ? PIXEL_SEEROSE.licht : PIXEL_SEEROSE.blatt);
+                        lctx.fillRect(px + dx * P, py + dy * P, P, P);
+                    }
+                }
+                if (weltHash(ti, i, 95) < 0.4) {
+                    lctx.fillStyle = PIXEL_SEEROSE.bluete;
+                    lctx.fillRect(px - P, py - 2 * P, 3 * P, P);
+                    lctx.fillRect(px - 2 * P, py - P, 5 * P, P);
+                    lctx.fillRect(px - P, py, 3 * P, P);
+                    lctx.fillStyle = PIXEL_SEEROSE.mitte;
+                    lctx.fillRect(px, py - P, P, P);
+                }
+            }
+        });
+    }
+
+    /**
+     * Fischschatten, die durch die Teiche ziehen (05.11.). Jeder Fisch zieht eine
+     * eigene Ellipsenbahn mit eigenem Tempo; die Lage rastet auf das Pixelraster
+     * ein, damit er wie das Wasser aus groben Pixeln besteht.
+     * `aufWelt(x, y)` setzt die Zeichenumgebung für diesen Weltpunkt (2D: nichts,
+     * 3D: Projektion) und gibt false zurück, wenn er nicht zu sehen ist.
+     */
+    _maleFische(layout, aufWelt) {
+        const teiche = layout?.teiche;
+        if (!teiche || this._renderProfile?.simplifyPlantUi) return;
+        const { ctx } = this;
+        const P = WELT_PIXEL;
+        const T = TILE_SIZE;
+        const zeit = this._frameNow / 1000;
+        teiche.forEach((t, ti) => {
+            const anzahl = ti === 0 ? 6 : 2;
+            for (let i = 0; i < anzahl; i++) {
+                const tempo = (0.05 + weltHash(ti, i, 81) * 0.06) * (weltHash(ti, i, 82) < 0.5 ? 1 : -1);
+                const phase = weltHash(ti, i, 83) * Math.PI * 2;
+                const bahn = 0.3 + weltHash(ti, i, 84) * 0.4;
+                const w = zeit * tempo * Math.PI * 2 + phase;
+                const x = Math.round((t.cx * T + Math.cos(w) * t.rx * T * bahn) / P) * P;
+                const y = Math.round((t.cy * T + Math.sin(w * 1.3) * t.ry * T * bahn * 0.8) / P) * P;
+                if (layout.bodenAn(Math.floor(x / T), Math.floor(y / T)) !== BODEN.WASSER) continue;
+                // Blickrichtung aus der Bewegung (Ableitung der x-Bahn)
+                const nachRechts = -Math.sin(w) * tempo > 0;
+                const s = nachRechts ? 1 : -1;
+                if (!aufWelt(x, y)) continue;
+                ctx.fillStyle = PIXEL_SEEROSE.fisch;
+                ctx.fillRect(x - 3 * P, y - P, 6 * P, 2 * P);       // Körper
+                ctx.fillRect(x - 2 * P, y - 2 * P, 4 * P, P);
+                ctx.fillRect(x - 2 * P, y + P, 4 * P, P);
+                // Schwanz hinten, schlägt leicht
+                const schlag = Math.sin(zeit * 6 + phase) > 0 ? 0 : P;
+                ctx.fillRect(x - s * 4 * P - (s > 0 ? P : 0), y - 2 * P + schlag, P, 2 * P);
+                ctx.fillRect(x - s * 5 * P - (s > 0 ? P : 0), y - 3 * P + schlag, P, 4 * P);
+            }
+        });
+    }
+
+    _pixelRundweg(lctx, rw, x0, y0, w, h) {
+        const P = WELT_PIXEL;
+        const T = TILE_SIZE;
+        const cx = rw.cx * T, cy = rw.cy * T, RX = rw.rx * T, RY = rw.ry * T;
+        if (cx + RX < x0 || cx - RX > x0 + w || cy + RY < y0 || cy - RY > y0 + h) return;
+        const lw = Math.ceil(w / P), lh = Math.ceil(h / P);
+        const innen = (wx, wy) => { const nx = (wx - cx) / RX, ny = (wy - cy) / RY; return nx * nx + ny * ny < 1; };
+        // Maske (weiß = Kies) und Kante (dunkle Pixel am Rand) in einem Durchgang
+        const mc = this._pixelPuffer(lw, lh, "rundMaske");
+        const mctx = mc.getContext("2d");
+        const maske = mctx.createImageData(lw, lh);
+        const kc = this._pixelPuffer(lw, lh, "rundKante");
+        const kctx = kc.getContext("2d");
+        const kante = kctx.createImageData(lw, lh);
+        const k = PIXEL_WASSER.kiesKante;
+        let irgendwas = false;
+        for (let iy = 0; iy < lh; iy++) {
+            const wy = y0 + (iy + 0.5) * P;
+            for (let ix = 0; ix < lw; ix++) {
+                const wx = x0 + (ix + 0.5) * P;
+                if (!innen(wx, wy)) continue;
+                irgendwas = true;
+                const o = (iy * lw + ix) * 4;
+                maske.data[o] = 255; maske.data[o + 1] = 255; maske.data[o + 2] = 255; maske.data[o + 3] = 255;
+                if (!innen(wx - P, wy) || !innen(wx + P, wy) || !innen(wx, wy - P) || !innen(wx, wy + P)) {
+                    kante.data[o] = k[0]; kante.data[o + 1] = k[1]; kante.data[o + 2] = k[2]; kante.data[o + 3] = 255;
+                }
+            }
+        }
+        if (!irgendwas) return;
+        mctx.clearRect(0, 0, mc.width, mc.height);
+        mctx.putImageData(maske, 0, 0);
+        kctx.clearRect(0, 0, kc.width, kc.height);
+        kctx.putImageData(kante, 0, 0);
+        // Maske groß ziehen, Kies hineinfüllen (source-in), Kante drauf, dann aufs Stück
+        const tmp = this._pixelPuffer(lw * P, lh * P, "rundGross");
+        const tctx = tmp.getContext("2d");
+        tctx.save();
+        tctx.clearRect(0, 0, tmp.width, tmp.height);
+        tctx.imageSmoothingEnabled = false;
+        tctx.drawImage(mc, 0, 0, lw, lh, 0, 0, lw * P, lh * P);
+        tctx.globalCompositeOperation = "source-in";
+        const img = this._terrainBild("path", TERRAIN_FILES.path[0]);
+        const muster = img ? tctx.createPattern(img, "repeat") : null;
+        if (muster) {
+            const s = (T * 2) / (img.naturalWidth || img.width);
+            muster.setTransform(new DOMMatrix().translate(-x0, -y0).scale(s, s));
+            tctx.fillStyle = muster;
+        } else {
+            tctx.fillStyle = WELT_FARBEN.kies;
+        }
+        tctx.fillRect(0, 0, lw * P, lh * P);
+        tctx.globalCompositeOperation = "source-over";
+        tctx.drawImage(kc, 0, 0, lw, lh, 0, 0, lw * P, lh * P);
+        tctx.restore();
+        lctx.drawImage(tmp, 0, 0, lw * P, lh * P, x0, y0, lw * P, lh * P);
+    }
+
+    /** Bild holen und merken, ob es noch fehlt (dann wird das Stück später neu gemalt). */
+    _weltBild(src) {
+        const img = this._getImage(src);
+        if (!img) this._weltBildFehlt = true;
+        return img;
+    }
+
+    _maleWeltStueck(lctx, layout, stueckKx, stueckKy, ohneBaeume = false) {
+        const T = TILE_SIZE;
+        const art = (x, y) => layout.bodenAn(x, y);
+        // Eine Kachel ringsum mehr malen — der Rand (WELT_RAND) liegt schon darauf.
+        const kx0 = stueckKx - 1, ky0 = stueckKy - 1;
+        const kx1 = stueckKx + WELT_STUECK + 1;
+        const ky1 = stueckKy + WELT_STUECK + 1;
+        const istWasser = (b) => b === BODEN.WASSER || b === BODEN.STEG;
+        // Kies, der nur zum Rundweg gehört, wird nicht kachelweise gemalt, sondern
+        // als glatte Ellipse (Schritt 1b). Standflächen und Straße bleiben Kacheln.
+        const rw = layout.rundweg;
+        const imRund = (kx, ky, plus = 0) => rw
+            && ((kx + 0.5 - rw.cx) / (rw.rx + plus)) ** 2 + ((ky + 0.5 - rw.cy) / (rw.ry + plus)) ** 2 < 1;
+        const inRechteck = (kx, ky) => (layout.kiesRechtecke || []).some((r) => kx >= r.x0 && kx <= r.x1 && ky >= r.y0 && ky <= r.y1);
+        const nurRundweg = (kx, ky) => art(kx, ky) === BODEN.KIES && imRund(kx, ky) && !inRechteck(kx, ky);
+
+        const kies = (kx, ky) => {
+            const files = TERRAIN_FILES.path;
+            const bx = Math.floor(kx / 2), by = Math.floor(ky / 2);
+            const v = this._getTileVariantIndex("path", bx, by, 4407, files.length);
+            const img = this._terrainBild("path", files[v]);
+            if (img) {
+                // Kies wie bisher in 2×2-Blöcken: ein Bild über vier Kacheln, jede
+                // Kachel zeigt ihr Viertel davon.
+                const hw = (img.naturalWidth || img.width) / 2;
+                const hh = (img.naturalHeight || img.height) / 2;
+                lctx.drawImage(img, (kx & 1) * hw, (ky & 1) * hh, hw, hh, kx * T, ky * T, T, T);
+            } else {
+                lctx.fillStyle = WELT_FARBEN.kies;
+                lctx.fillRect(kx * T, ky * T, T, T);
+            }
+        };
+        const gras = (kx, ky, kind, salz) => {
+            const files = TERRAIN_FILES[kind];
+            const v = this._getTileVariantIndex(kind, kx, ky, salz, files.length);
+            const img = this._terrainBild(kind, files[v]);
+            if (img) lctx.drawImage(img, kx * T, ky * T, T, T);
+            else { lctx.fillStyle = WELT_FARBEN.wiese; lctx.fillRect(kx * T, ky * T, T, T); }
+        };
+
+        // 1. Untergrund je Kachel. Unter dem Wasser liegt das Land, das daneben ist —
+        // der Teich wird danach als glatte Ellipse darübergemalt (Schritt 3).
+        for (let ky = ky0; ky < ky1; ky++) {
+            for (let kx = kx0; kx < kx1; kx++) {
+                let a = art(kx, ky);
+                if (istWasser(a)) {
+                    const n = [art(kx - 1, ky), art(kx + 1, ky), art(kx, ky - 1), art(kx, ky + 1)];
+                    a = n.includes(BODEN.KIES) ? BODEN.KIES : BODEN.WIESE;
+                }
+                if (a === BODEN.KIES && nurRundweg(kx, ky)) a = BODEN.WIESE;
+                if (a === BODEN.KIES) kies(kx, ky);
+                else if (a === BODEN.WALD) gras(kx, ky, "tallGrass", 9991);
+                else {
+                    gras(kx, ky, "grass", 5501);
+                    lctx.fillStyle = WELT_FARBEN.wieseTon;
+                    lctx.fillRect(kx * T, ky * T, T, T);
+                }
+            }
+        }
+
+        // 1b. Rundweg als Ellipse mit Pixelkante (Pixel-Look), Kies als Muster im
+        // selben 2×2-Raster wie die Kachel-Wege
+        if (rw) {
+            this._pixelRundweg(lctx, rw, kx0 * T, ky0 * T, (kx1 - kx0) * T, (ky1 - ky0) * T);
+            // Die Standflächen und die Straße liegen über dem Rand der Ellipse
+            for (let ky = ky0; ky < ky1; ky++) {
+                for (let kx = kx0; kx < kx1; kx++) {
+                    if (art(kx, ky) === BODEN.KIES && inRechteck(kx, ky)) kies(kx, ky);
+                }
+            }
+        }
+
+        // 2. Weiche Kante zwischen Kies und Wiese
+        lctx.fillStyle = WELT_FARBEN.kiesKante;
+        for (let ky = ky0; ky < ky1; ky++) {
+            for (let kx = kx0; kx < kx1; kx++) {
+                if (art(kx, ky) !== BODEN.KIES || nurRundweg(kx, ky)) continue;
+                const x = kx * T, y = ky * T;
+                // Zur Rundweg-Ellipse hin keine Kante, die übernimmt ihr eigener Rand
+                const g = (b, nx, ny) => (b === BODEN.WIESE || b === BODEN.WALD || b === BODEN.BUSCH) && !imRund(nx, ny, 0.3);
+                if (g(art(kx, ky - 1), kx, ky - 1)) lctx.fillRect(x, y, T, 4);
+                if (g(art(kx, ky + 1), kx, ky + 1)) lctx.fillRect(x, y + T - 3, T, 3);
+                if (g(art(kx - 1, ky), kx - 1, ky)) lctx.fillRect(x, y, 3, T);
+                if (g(art(kx + 1, ky), kx + 1, ky)) lctx.fillRect(x + T - 3, y, 3, T);
+            }
+        }
+
+        // 3. Teiche in groben Pixeln (Pixel-Look): Ufer, flaches und tiefes Wasser,
+        // Wellenstriche. Etwas größer als die gesperrte Fläche (Kachelmitte in der
+        // Ellipse), damit keine Ecke einer Wasserkachel als Land durchscheint.
+        this._pixelTeiche(lctx, layout.teiche || [], kx0 * T, ky0 * T, (kx1 - kx0) * T, (ky1 - ky0) * T);
+        this._pixelSeerosen(lctx, layout, kx0 * T, ky0 * T, (kx1 - kx0) * T, (ky1 - ky0) * T);
+
+        // 4. Steg: Holz mit Fugen quer, dunkle Ränder, Schatten aufs Wasser
+        const holz = this._terrainBild("wood", "wood.png");
+        for (let ky = ky0; ky < ky1; ky++) {
+            for (let kx = kx0; kx < kx1; kx++) {
+                if (art(kx, ky) !== BODEN.STEG) continue;
+                const x = kx * T, y = ky * T;
+                lctx.fillStyle = "rgba(0, 0, 0, 0.22)";
+                lctx.fillRect(x + 4, y + 6, T, T);
+                if (holz) lctx.drawImage(holz, x, y, T, T);
+                else { lctx.fillStyle = WELT_FARBEN.steg; lctx.fillRect(x, y, T, T); }
+                lctx.fillStyle = WELT_FARBEN.stegFuge;
+                for (let i = 1; i < 4; i++) lctx.fillRect(x, y + i * 16 - 1, T, 2);
+                if (art(kx - 1, ky) !== BODEN.STEG) lctx.fillRect(x, y, 4, T);
+                if (art(kx + 1, ky) !== BODEN.STEG) lctx.fillRect(x + T - 4, y, 4, T);
+                if (art(kx, ky - 1) === BODEN.WASSER) lctx.fillRect(x, y, T, 4);
+            }
+        }
+
+        // 5. Wildblumen auf der Wiese — in 3D nicht flach auf dem Boden, dort stehen sie
+        // aufrecht wie die Bäume (siehe draw3dStehend, _blumenIm)
+        if (!ohneBaeume) {
+            this._blumenIm(layout, kx0, ky0, kx1, ky1, (bl) => lctx.drawImage(bl.img, bl.x - bl.w / 2, bl.y - bl.h, bl.w, bl.h));
+        }
+
+        // 6. Bäume und Büsche (in 3D nicht: dort stehen sie aufrecht, siehe
+        // draw3dStehend). Ein Baum ragt über seine Kachel hinaus (nach oben und zur
+        // Seite) — deshalb werden auch Bäume aus Nachbarkacheln UNTERHALB und
+        // seitlich des Stücks gemalt, in derselben Reihenfolge wie im Nachbarstück
+        // (Reihe für Reihe von oben), damit sich die Kanten decken.
+        if (ohneBaeume) return;
+        this._baeumeIm(layout, kx0 - 1, ky0 - 1, kx1 + 1, ky1 + 3, false, (bm) => {
+            lctx.fillStyle = WELT_FARBEN.baumSchatten;
+            lctx.beginPath(); lctx.ellipse(bm.x, bm.y - 3, bm.w * 0.42, bm.w * 0.16, 0, 0, Math.PI * 2); lctx.fill();
+            lctx.drawImage(bm.img, bm.x - bm.w / 2, bm.y - bm.h, bm.w, bm.h);
+        });
+    }
+
+    /**
+     * Bäume und Büsche der Weltkarte in einem Kachelbereich, Reihe für Reihe von
+     * oben — rein aus dem Kachel-Hash, also bei jedem Aufruf gleich.
+     *
+     * `stehend` (3D): jeder Waldbaum darf groß sein, die Tiefensortierung regelt dort
+     * das Davor/Dahinter. In der Draufsicht nur, wo darüber noch zwei Reihen Wald
+     * stehen — sonst ragte die Krone über einen Weg, auf dem man „über“ dem Baum liefe.
+     */
+/**
+     * Wildblumen der Weltkarte in einem Kachelbereich — aus dem Kachel-Hash, also immer
+     * gleich. `mache` bekommt { img, x, y (Fußpunkt), w, h } in Weltpixeln.
+     */
+    _blumenIm(layout, kx0, ky0, kx1, ky1, mache) {
+        const T = TILE_SIZE;
+        const art = (x, y) => layout.bodenAn(x, y);
+        const rw = layout.rundweg;
+        const imRund = (kx, ky, rand) => rw && ((kx + 0.5 - rw.cx) / (rw.rx + rand)) ** 2 + ((ky + 0.5 - rw.cy) / (rw.ry + rand)) ** 2 < 1;
+        const blumen = WELT_BLUMEN.map((src) => this._weltBild(src));
+        const bl = this._blumenPuffer || (this._blumenPuffer = { img: null, x: 0, y: 0, w: 0, h: 0 });
+        for (let ky = ky0; ky < ky1; ky++) {
+            for (let kx = kx0; kx < kx1; kx++) {
+                if (art(kx, ky) !== BODEN.WIESE || imRund(kx, ky, 0.9)) continue;
+                // Nicht am Wegrand und nicht am Ufer
+                let amRand = false;
+                for (let dy = -1; dy <= 1 && !amRand; dy++) for (let dx = -1; dx <= 1; dx++) {
+                    const b = art(kx + dx, ky + dy);
+                    if (b === BODEN.WASSER || b === BODEN.STEG || (b === BODEN.KIES && (dx === 0 || dy === 0))) { amRand = true; break; }
+                }
+                if (amRand) continue;
+                if (weltHash(kx, ky, 47) > 0.03 + weltRauschen(kx, ky, 5, 5) * 0.16) continue;
+                const img = blumen[Math.floor(weltHash(kx, ky, 48) * blumen.length)];
+                if (!img) continue;
+                bl.img = img;
+                bl.w = 34 + Math.floor(weltHash(kx, ky, 49) * 14);
+                bl.h = bl.w * ((img.naturalHeight || img.height) / (img.naturalWidth || img.width));
+                const ox = 2 + Math.floor(weltHash(kx, ky, 50) * (T - bl.w - 4));
+                bl.x = kx * T + ox + bl.w / 2;
+                bl.y = ky * T + T - Math.floor(weltHash(kx, ky, 51) * 10);
+                mache(bl);
+            }
+        }
+    }
+
+    _baeumeIm(layout, kx0, ky0, kx1, ky1, stehend, mache) {
+        const T = TILE_SIZE;
+        const art = (x, y) => layout.bodenAn(x, y);
+        const baum = this._weltBild("/garden-assets/structure/tree.png");
+        const bluete = this._weltBild("/garden-assets/deco/nature/cherry_blossom.png");
+        const busch = this._weltBild("/garden-assets/deco/nature/hecke_klein.png");
+        const bm = this._baumPuffer || (this._baumPuffer = { img: null, x: 0, y: 0, w: 0, h: 0 });
+        for (let ky = ky0; ky < ky1; ky++) {
+            for (let kx = kx0; kx < kx1; kx++) {
+                const a = art(kx, ky);
+                if (a !== BODEN.WALD && a !== BODEN.BUSCH) continue;
+                const h = weltHash(kx, ky, 21);
+                bm.x = kx * T + T / 2 + (weltHash(kx, ky, 22) - 0.5) * 22;
+                bm.y = ky * T + T - 4 - weltHash(kx, ky, 23) * 10;
+                const gross = a === BODEN.WALD && (stehend || (art(kx, ky - 1) === BODEN.WALD && art(kx, ky - 2) === BODEN.WALD));
+                let img = null;
+                if (gross && h < 0.62) {
+                    img = (h < 0.025 && bluete) ? bluete : baum;
+                    if (!img) continue;
+                    bm.w = T * 1.9 * (0.85 + weltHash(kx, ky, 24) * 0.35);
+                } else if ((a === BODEN.BUSCH || h < 0.85) && busch) {
+                    img = busch;
+                    bm.w = T * (1.0 + weltHash(kx, ky, 25) * 0.25);
+                } else continue;
+                bm.img = img;
+                bm.h = bm.w * ((img.naturalHeight || img.height) / (img.naturalWidth || img.width));
+                mache(bm);
             }
         }
     }
@@ -808,62 +1927,38 @@ export default class Renderer {
                 const ry = rx * 0.42;
 
                 if (bounds && (x < bounds.x0 || x > bounds.x1 || y < bounds.y0 || y > bounds.y1)) continue;
+                // Keine Pfütze auf dem Teich und kein Schneehaufen mitten im Wald
+                if (!bounds && layout.bodenAn) {
+                    const b = layout.bodenAn(Math.floor(x / TILE_SIZE), Math.floor(y / TILE_SIZE));
+                    if (b === BODEN.WASSER || b === BODEN.STEG || b === BODEN.WALD) continue;
+                }
 
+                // 11.11.: eckig auf dem Raster des Pixel-Bodens statt runder Ellipsen
+                const P = WELT_PIXEL;
+                const cx = Math.round(x / P) * P;
+                const cy = Math.round(y / P) * P;
+                const b = Math.max(P * 2, Math.round(rx / P) * P);
+                const hoch = Math.max(P, Math.round(ry / P) * P);
                 if (type === "snow") {
-                    ctx.fillStyle = "rgba(244, 249, 255, " + (0.55 * intensity).toFixed(3) + ")";
-                    ctx.beginPath();
-                    ctx.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2);
-                    ctx.fill();
+                    ctx.fillStyle = "rgba(244, 249, 255, " + (0.6 * intensity).toFixed(3) + ")";
+                    ctx.fillRect(cx - b, cy - P, b * 2, hoch);
+                    ctx.fillRect(cx - b + P * 2, cy - P - hoch / 2, b * 2 - P * 4, hoch / 2);
+                    ctx.fillRect(cx - b + P, cy - P + hoch, b * 2 - P * 2, P);
                     // Kleine hellere Kuppe, damit es als Haufen liest statt als Fleck
-                    ctx.fillStyle = "rgba(255, 255, 255, " + (0.5 * intensity).toFixed(3) + ")";
-                    ctx.beginPath();
-                    ctx.ellipse(x - rx * 0.12, y - ry * 0.45, rx * 0.6, ry * 0.6, 0, 0, Math.PI * 2);
-                    ctx.fill();
+                    ctx.fillStyle = "rgba(255, 255, 255, " + (0.6 * intensity).toFixed(3) + ")";
+                    ctx.fillRect(cx - b + P * 3, cy - P - hoch / 2, Math.max(P, b - P * 2), P);
                 } else {
                     ctx.fillStyle = "rgba(38, 74, 104, " + (0.34 * intensity).toFixed(3) + ")";
-                    ctx.beginPath();
-                    ctx.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2);
-                    ctx.fill();
+                    ctx.fillRect(cx - b, cy - hoch / 2, b * 2, hoch);
+                    ctx.fillRect(cx - b + P * 2, cy - hoch / 2 - P, b * 2 - P * 4, hoch + P * 2);
                     // Schmaler Glanz auf der Wasserfläche
-                    ctx.strokeStyle = "rgba(186, 226, 255, " + (0.3 * intensity).toFixed(3) + ")";
-                    ctx.lineWidth = 1.2;
-                    ctx.beginPath();
-                    ctx.ellipse(x, y - ry * 0.25, rx * 0.55, ry * 0.4, 0, Math.PI * 1.05, Math.PI * 1.95);
-                    ctx.stroke();
+                    ctx.fillStyle = "rgba(186, 226, 255, " + (0.3 * intensity).toFixed(3) + ")";
+                    ctx.fillRect(cx - b / 2, cy - hoch / 2, b, P / 2);
                 }
             }
         }
         ctx.restore();
     }
-    _drawCenterPath(layout, player) {
-        const { ctx, canvas } = this;
-        const step = TILE_SIZE * MERGED_TILE_STRIDE;
-        const pathTop = layout.centerPathTopY;
-        const pathHeight = layout.centerPathBottomY - layout.centerPathTopY;
-        // Siehe _drawGround — ohne die Division ist das Fenster beim Herauszoomen
-        // zu eng.
-        const zoom = this._zoom || 1;
-        const viewLeft = player.x - canvas.width / 2 / zoom - TILE_SIZE * 2;
-        const viewRight = player.x + canvas.width / 2 / zoom + TILE_SIZE * 2;
-        const startX = Math.max(0, Math.floor(viewLeft / step) * step);
-        const endX = Math.min(layout.worldWidth, Math.ceil(viewRight / step) * step);
-
-        for (let y = pathTop; y < pathTop + pathHeight; y += step) {
-            for (let x = startX; x <= endX; x += step) {
-                this._drawTerrainTile("path", x, y, Math.floor(x / TILE_SIZE), Math.floor(y / TILE_SIZE), 4407, step);
-            }
-        }
-
-        ctx.strokeStyle = "rgba(255,255,255,0.05)";
-        ctx.lineWidth = 1;
-        for (let x = startX; x <= endX; x += TILE_SIZE) {
-            ctx.beginPath();
-            ctx.moveTo(x, pathTop);
-            ctx.lineTo(x, pathTop + pathHeight);
-            ctx.stroke();
-        }
-    }
-
     // 1. ANPASSUNG: Player Objekt ergänzt für Parallax Scrolling
     /**
      * Bildschirmposition, Radius und Flackern der sichtbaren Lichtquellen.
@@ -944,17 +2039,24 @@ export default class Renderer {
      */
     _dunkelheitMitLicht(staerke, player, maleSchleier) {
         const { ctx, canvas } = this;
+        // Halbe Auflösung (06.11., Leistung): der Schleier ist ein weicher Verlauf, beim
+        // Hochskalieren sieht man keinen Unterschied — aber nur ein Viertel der Pixel muss
+        // jedes Bild vier Mal gefüllt werden (leeren, Schleier, Mondschein, Lichter).
+        const FAKTOR = 0.5;
         if (!this._nachtLayer) this._nachtLayer = document.createElement("canvas");
         const layer = this._nachtLayer;
-        if (layer.width !== canvas.width || layer.height !== canvas.height) {
-            layer.width = canvas.width;
-            layer.height = canvas.height;
+        const lw = Math.max(1, Math.ceil(canvas.width * FAKTOR)), lh = Math.max(1, Math.ceil(canvas.height * FAKTOR));
+        if (layer.width !== lw || layer.height !== lh) {
+            layer.width = lw;
+            layer.height = lh;
             this._nachtLayerCtx = layer.getContext("2d");
         }
         const lctx = this._nachtLayerCtx || (this._nachtLayerCtx = layer.getContext("2d"));
 
+        lctx.setTransform(1, 0, 0, 1, 0, 0);
         lctx.globalCompositeOperation = "source-over";
-        lctx.clearRect(0, 0, canvas.width, canvas.height);
+        lctx.clearRect(0, 0, lw, lh);
+        lctx.setTransform(FAKTOR, 0, 0, FAKTOR, 0, 0);
         maleSchleier(lctx);
 
         const sichtbar = staerke > 0.01 ? this._sichtbareLichter(player) : [];
@@ -974,7 +2076,10 @@ export default class Renderer {
             lctx.globalCompositeOperation = "source-over";
         }
 
-        ctx.drawImage(layer, 0, 0);
+        const glatt = ctx.imageSmoothingEnabled;
+        ctx.imageSmoothingEnabled = true;
+        ctx.drawImage(layer, 0, 0, lw, lh, 0, 0, lw / FAKTOR, lh / FAKTOR);
+        ctx.imageSmoothingEnabled = glatt;
 
         if (sichtbar.length === 0) return;
         ctx.save();
@@ -1099,14 +2204,16 @@ export default class Renderer {
                 ? `rgba(255,255,255,${0.28 + intensity * 0.42})`
                 : `rgba(167,243,255,${0.16 + intensity * 0.26})`;
             ctx.lineWidth = type === "snow" ? 2 : 1.4;
-            ctx.beginPath();
             if (type === "snow") {
-                ctx.moveTo(x - 1, y - 1);
-                ctx.lineTo(x + 1, y + 1);
-            } else {
-                ctx.moveTo(x, y);
-                ctx.lineTo(x - 3, y + 12);
+                // Flocken als Quadrate in drei Größen (11.11.)
+                const fg = 2 + (i % 3);
+                ctx.fillStyle = ctx.strokeStyle;
+                ctx.fillRect(Math.round(x), Math.round(y), fg, fg);
+                continue;
             }
+            ctx.beginPath();
+            ctx.moveTo(x, y);
+            ctx.lineTo(x - 3, y + 12);
             ctx.stroke();
         }
         ctx.restore();
@@ -1533,6 +2640,53 @@ export default class Renderer {
     }
 
     /**
+     * Editor (11.11.): die Deko in der Hand folgt dem Mauszeiger, eingerastet auf die
+     * Kachel, auf der sie landen würde — gespiegelt bzw. gedreht genau so, wie [R] sie
+     * gerade stellt. So sieht man vor dem Setzen, wie das Stück dort aussieht.
+     * `v` = { deco, x, y } mit (x, y) = Mitte der Ankerkachel unten links (wie platzierte Deko).
+     */
+    _drawDekoVorschau(v) {
+        const deco = v?.deco;
+        if (!deco || !Number.isFinite(v.x) || !Number.isFinite(v.y)) return;
+        const { ctx } = this;
+        const dw = deco.width || 1;
+        const dh = deco.height || 1;
+        const links = v.x - TILE_SIZE / 2;
+        const oben = v.y + TILE_SIZE / 2 - dh * TILE_SIZE;
+        const dick = 2 / (this._zoom || 1);
+        ctx.save();
+        ctx.globalAlpha = 0.82;
+        if (istBoden(deco)) {
+            const img = this._getImage(deco.image);
+            if (img) {
+                for (let cx = 0; cx < dw; cx++) for (let cy = 0; cy < dh; cy++) {
+                    ctx.save();
+                    ctx.translate(v.x + cx * TILE_SIZE, v.y - cy * TILE_SIZE);
+                    if (deco.rotation) ctx.rotate((deco.rotation * Math.PI) / 180);
+                    ctx.drawImage(img, -TILE_SIZE / 2, -TILE_SIZE / 2, TILE_SIZE, TILE_SIZE);
+                    ctx.restore();
+                }
+            }
+        } else {
+            const e = this._vorschauEintrag || (this._vorschauEintrag = { ref: null, x: 0, y: 0, size: 0 });
+            e.ref = deco;
+            e.x = v.x + ((dw - 1) * TILE_SIZE) / 2;
+            e.y = v.y - ((dh - 1) * TILE_SIZE) / 2;
+            e.size = TILE_SIZE * Math.max(dw, dh) * (DEKO_VOLL.has(deco.decoId) ? 1 : 0.9);
+            this._drawDecoItem(e);
+        }
+        // Fußabdruck: welche Kacheln das Stück belegt
+        ctx.globalAlpha = 1;
+        ctx.lineWidth = dick * 2;
+        ctx.strokeStyle = "rgba(43, 29, 18, 0.7)";
+        ctx.strokeRect(links, oben, dw * TILE_SIZE, dh * TILE_SIZE);
+        ctx.lineWidth = dick;
+        ctx.strokeStyle = "#ffd84a";
+        ctx.strokeRect(links, oben, dw * TILE_SIZE, dh * TILE_SIZE);
+        ctx.restore();
+    }
+
+    /**
      * Kachelraster des Editors — pulsiert, damit es sich vom Untergrund abhebt,
      * ohne ihn zuzudecken.
      *
@@ -1545,12 +2699,30 @@ export default class Renderer {
         const { territoryWidth, territoryHeight } = MAP_CONFIG;
         const spalten = Math.round(territoryWidth / TILE_SIZE);
         const reihen = Math.round(territoryHeight / TILE_SIZE);
-        // 0.35 … 0.75 in etwa zwei Sekunden
-        const puls = 0.35 + 0.2 * (1 + Math.sin(this.frame * 0.05));
+        // 0.5 … 0.8 in etwa zwei Sekunden
+        const puls = 0.5 + 0.15 * (1 + Math.sin(this.frame * 0.05));
+        // 11.11.: Das Raster war herausgezoomt kaum zu sehen (ein Strich von einem Weltpunkt
+        // ist bei Zoom 0,5 nur noch ein halber Bildpunkt, dazu Violett auf braunem Acker).
+        // Jetzt immer zwei Bildpunkte dick: dunkel unterlegt, hell obenauf.
+        const dick = 2 / (this._zoom || 1);
 
         ctx.save();
-        ctx.lineWidth = 1;
-        ctx.strokeStyle = `rgba(167, 139, 250, ${puls.toFixed(3)})`;
+        ctx.lineWidth = dick * 2;
+        ctx.strokeStyle = "rgba(43, 29, 18, 0.35)";
+        ctx.beginPath();
+        for (let i = 0; i <= spalten; i++) {
+            const x = Math.round(slot.x + i * TILE_SIZE);
+            ctx.moveTo(x, drawY);
+            ctx.lineTo(x, drawY + territoryHeight);
+        }
+        for (let j = 0; j <= reihen; j++) {
+            const y = Math.round(drawY + j * TILE_SIZE);
+            ctx.moveTo(slot.x, y);
+            ctx.lineTo(slot.x + territoryWidth, y);
+        }
+        ctx.stroke();
+        ctx.lineWidth = dick;
+        ctx.strokeStyle = `rgba(255, 243, 196, ${puls.toFixed(3)})`;
         ctx.beginPath();
         for (let i = 0; i <= spalten; i++) {
             const x = Math.round(slot.x + i * TILE_SIZE) + 0.5;
@@ -1565,7 +2737,7 @@ export default class Renderer {
         ctx.stroke();
 
         // Aussenkante kräftiger — sie sagt, wie weit das eigene Grundstück reicht.
-        ctx.lineWidth = 2;
+        ctx.lineWidth = dick * 2;
         ctx.strokeStyle = `rgba(167, 139, 250, ${Math.min(1, puls + 0.25).toFixed(3)})`;
         ctx.strokeRect(slot.x, drawY, territoryWidth, territoryHeight);
         ctx.restore();
@@ -1613,11 +2785,11 @@ export default class Renderer {
         // territoryWidth + drawW/2 — je zur Hälfte vom Canvas abgeschnitten. Der
         // Zaun stand also faktisch nie sichtbar da, nur ein paar Pixel schmaler
         // Rand blieben übrig. Jetzt bündig INNERHALB der Grenze, wächst nach innen.
-        const fence = this._getImage("/garden-assets/structure/fence_v.png");
+        // 07.11.: Pixelzaun aus engine/pixelBoden.js statt des gemalten fence_v.png.
+        const fence = pixelZaun(this._saison);
         if (fence) {
-            const fw = Math.max(1, fence.naturalWidth || fence.width);
-            const fh = Math.max(1, fence.naturalHeight || fence.height);
-            // Auf Kachelhöhe skalieren, Seitenverhältnis behalten
+            const fw = fence.width;
+            const fh = fence.height;
             const drawH = TILE_SIZE;
             const drawW = fw * (drawH / fh);
             for (let fy = drawY; fy < drawY + territoryHeight; fy += drawH) {
@@ -1641,7 +2813,7 @@ export default class Renderer {
                 const cellX = dirtX + cx * TILE_SIZE;
                 const cellY = dirtY + cy * TILE_SIZE;
                 if (cx === 7 || cy === 7) {
-                    const woodImg = this._getImage(this._terrainSrc("wood", "wood.png"));
+                    const woodImg = this._terrainBild("wood", "wood.png");
                     if (woodImg) {
                         lctx.drawImage(woodImg, cellX, cellY, TILE_SIZE, TILE_SIZE);
                     } else {
@@ -1665,7 +2837,7 @@ export default class Renderer {
                 const logicalY = isTop ? -r : (dirtRows + r - 1);
                 const key = `${cx}_${logicalY}`;
                 if (cx === 7 || istSteinfeldWegRow(r)) {
-                    const woodImg = this._getImage(this._terrainSrc("wood", "wood.png"));
+                    const woodImg = this._terrainBild("wood", "wood.png");
                     if (woodImg) {
                         lctx.drawImage(woodImg, cellX, cellY, TILE_SIZE, TILE_SIZE);
                     } else {
@@ -1771,7 +2943,9 @@ export default class Renderer {
 
         for (const ext of ["png", "jpg"]) {
             const ordner = "/garden-assets/animals/" + slug + "/";
-            const f1 = ordner + "1." + ext;
+            // 07.11.: <id>.png ist byte-gleich mit <id>/1.png (beide schreibt farmArtUebernehmen)
+            // und ohnehin schon geladen — sonst lädt jedes Tier dasselbe Bild zweimal.
+            const f1 = ext === "png" ? "/garden-assets/animals/" + slug + ".png" : ordner + "1." + ext;
             const f2 = ordner + "2." + ext;
             const status = this._bildStatus(f1);
             if (!status) {
@@ -1808,9 +2982,21 @@ export default class Renderer {
         // Laufende Tiere federn schneller und höher als grasende
         const bobSpeed = moving ? 0.22 : 0.06;
         const bobHeight = moving ? 3.2 : 1.1;
-        const bob = Math.sin(frame * bobSpeed + phase) * bobHeight;
-        // Beim Laufen leicht in Bewegungsrichtung kippen
-        const lean = moving ? Math.sin(frame * bobSpeed + phase) * 0.05 : 0;
+        // 10.11.: Tiere bleiben zwischendurch stehen, fressen und schlafen nachts
+        // (pet.tut aus der Spielschleife). Während der Party hüpfen sie im Takt.
+        const tut = moving ? null : (pet.tut || null);
+        const zeit = (this._frameNow || 0) / 1000;
+        const takt = (this._party || 0) > 0.35 && tut !== "schlaeft" ? partyTakt((this._frameNow || 0) + phase * 80) : null;
+        const sprung = takt ? Math.sin(Math.min(1, takt.phase * 1.5) * Math.PI) : 0;
+        const bob = takt ? -sprung * 7 : tut === "schlaeft" ? 0 : Math.sin(frame * bobSpeed + phase) * bobHeight;
+        // Beim Laufen leicht in Bewegungsrichtung kippen; beim Fressen den Kopf senken und nicken
+        const lean = takt ? (takt.schlag % 2 ? 0.1 : -0.1) * sprung
+            : moving ? Math.sin(frame * bobSpeed + phase) * 0.05
+                : tut === "frisst" ? (facingRight ? 1 : -1) * (0.2 + Math.sin(zeit * 7 + phase) * 0.06) : 0;
+        // Laufen: im Schritt leicht strecken und stauchen; Schlafen: flach liegen und langsam atmen
+        const streck = moving ? 1 + Math.sin(frame * bobSpeed * 2 + phase) * 0.035
+            : tut === "schlaeft" ? 0.8 + Math.sin(zeit * 1.3 + phase) * 0.025
+                : takt ? 1 + sprung * 0.06 : 1;
 
         // Laufbilder wechseln nur in Bewegung; im Stand bleibt Bild 1 stehen.
         const frames = this._resolvePetFrames(pet.image);
@@ -1818,7 +3004,7 @@ export default class Renderer {
             ? (moving ? frames[Math.floor(this.frame / 9) % 2] : frames[0])
             : pet.image;
         // Mit echten Laufbildern braucht es kaum Federung — sonst hüpft es doppelt.
-        const bobUsed = frames ? bob * 0.3 : bob;
+        const bobUsed = frames && !takt ? bob * 0.3 : bob;
 
         // Jede Art hat ihre eigene Größe (siehe PET_SIZE_BY_TYPE). Schatten und
         // Namensschild wachsen mit, sonst schwebt ein Drache über einem Hühnerschatten.
@@ -1831,9 +3017,12 @@ export default class Renderer {
         );
 
         ctx.save();
-        ctx.translate(x, y + bobUsed);
-        ctx.rotate(frames ? 0 : lean);
-        ctx.scale(facingRight ? 1 : -1, 1);
+        // Drehen und Strecken um die Füße, nicht um die Bildmitte
+        const fuss = box * 0.42;
+        ctx.translate(x, y + bobUsed + fuss);
+        ctx.rotate(frames && moving ? lean * 0.4 : lean);
+        ctx.scale(facingRight ? 1 : -1, streck);
+        ctx.translate(0, -fuss);
         if (src) {
             // Tiere können wie Pflanzen golden oder regenbogenfarben sein.
             const overlay = this._resolveItemOverlay(null, pet.specialType || null);
@@ -1854,7 +3043,12 @@ export default class Renderer {
             ctx.textBaseline = "middle";
             ctx.fillText(pet.emoji || "", 0, 0);
         }
+        // Tierhut aus dem Gold-Shop (engine/huete.js) — auf dem Kopf, der in Blickrichtung liegt
+        const tierhut = this._tierhutJeSlot?.[pet.slotIndex];
+        if (tierhut) zeichneHut(ctx, tierhut, box * 0.2, -box * 0.3, box * 0.42);
         ctx.restore();
+
+        if (tut === "schlaeft") this._drawSchlafZ(x + (facingRight ? 1 : -1) * box * 0.28, y - box * 0.3, zeit + phase);
 
         // Namensschild — nicht mitspiegeln, deshalb erst nach dem restore().
         // Steht auch auf fremden Grundstücken, damit Besucher die Tiere benennen sehen.
@@ -1864,11 +3058,32 @@ export default class Renderer {
         }
     }
 
+    /** Drei kleine „z“ steigen über einem schlafenden Tier auf. */
+    _drawSchlafZ(x, y, zeit) {
+        const { ctx } = this;
+        ctx.save();
+        for (let i = 0; i < 3; i++) {
+            const u = (zeit * 0.45 + i / 3) % 1;
+            const g = 2 + Math.round(u * 1.2); // Punktgröße wächst beim Aufsteigen
+            const zx = Math.round(x + u * 14 + Math.sin(u * 6 + i) * 3);
+            const zy = Math.round(y - u * 30);
+            ctx.globalAlpha = Math.min(1, (1 - u) * 1.6);
+            // erst dunkel um einen Punkt versetzt (Schatten), dann hell
+            for (const [farbe, v] of [["#2b1d12", g], ["#fff3c4", 0]]) {
+                ctx.fillStyle = farbe;
+                ctx.fillRect(zx + v, zy + v, 3 * g, g);
+                ctx.fillRect(zx + g + v, zy + g + v, g, g);
+                ctx.fillRect(zx + v, zy + 2 * g + v, 3 * g, g);
+            }
+        }
+        ctx.restore();
+    }
+
     _drawPetNameTag(centerX, bottomY, label, specialType) {
         const { ctx } = this;
         const text = label.length > 16 ? `${label.slice(0, 15)}…` : label;
         ctx.save();
-        ctx.font = "bold 10px Nunito, sans-serif";
+        ctx.font = "bold 10px 'GfZiffern', 'Pixelify Sans', Nunito, sans-serif";
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
         const w = Math.ceil(ctx.measureText(text).width) + 12;
@@ -1907,11 +3122,51 @@ export default class Renderer {
      * Läuft nach der sortierten Liste, damit ein hoher Nachbar eine fertige Ernte
      * niemals verstecken kann.
      */
+    /**
+     * Pixelpfeil über reifen Pflanzen (06.11., Wunsch „fertige Pflanzen besser markieren“):
+     * vorher ein kleines blasses Dreieck, das man auf vollem Acker übersah. Jetzt ein
+     * Pfeil mit dunklem Umriss in der Seltenheitsfarbe, der hüpft — und in der Draufsicht
+     * zusätzlich helle Eckmarken auf der Ackerzelle.
+     */
+    _reifPfeil(farbe) {
+        if (!this._reifPfeilCache) this._reifPfeilCache = new Map();
+        const fertig = this._reifPfeilCache.get(farbe);
+        if (fertig) return fertig;
+        const M = [
+            "..xxxxx..",
+            "..xfffx..",
+            "..xfffx..",
+            "xxxfffxxx",
+            "xfffffffx",
+            ".xfffffx.",
+            "..xfffx..",
+            "...xfx...",
+            "....x....",
+        ];
+        const P = 3;
+        const c = document.createElement("canvas");
+        c.width = M[0].length * P; c.height = M.length * P;
+        const g = c.getContext("2d");
+        for (let y = 0; y < M.length; y++) {
+            for (let x = 0; x < M[y].length; x++) {
+                const z = M[y][x];
+                if (z === ".") continue;
+                g.fillStyle = z === "x" ? "#2b1d12" : farbe;
+                g.fillRect(x * P, y * P, P, P);
+            }
+        }
+        // Lichtkante oben links
+        g.fillStyle = "rgba(255,255,255,0.55)";
+        g.fillRect(3 * P, 1 * P, P, 2 * P);
+        this._reifPfeilCache.set(farbe, c);
+        return c;
+    }
+
     _drawReadyMarkers(bucket) {
         if (this._renderProfile?.simplifyPlantUi) return;
         const { ctx } = this;
         const now = this._frameNow;
-        const pulse = 0.5 + 0.5 * Math.sin(this.frame * 0.09);
+        const flach = !this._stehend3d;
         for (let i = 0; i < bucket.length; i++) {
             const entry = bucket[i];
             if (entry.kind !== "plant") continue;
@@ -1919,22 +3174,25 @@ export default class Renderer {
             if (!isPlantReadyForRender(plant, now)) continue;
 
             const profile = getPlantArchetype(plant.seedId);
-            const color = RARITY_COLORS[plant.rarity] || "#94a3b8";
+            const farbe = RARITY_COLORS[plant.rarity] || "#facc15";
             const cx = entry.cellX + TILE_SIZE / 2;
-            const topY = entry.cellY + TILE_SIZE * 0.95 - profile.heightTiles * TILE_SIZE - 10;
-            const float = Math.sin(this.frame * 0.06 + cx * 0.01) * 2.5;
-
-            ctx.save();
-            ctx.globalAlpha = 0.75 + pulse * 0.25;
-            ctx.fillStyle = color;
-            // Nach unten zeigendes Dreieck über der Pflanzenspitze
-            ctx.beginPath();
-            ctx.moveTo(cx - 6, topY + float);
-            ctx.lineTo(cx + 6, topY + float);
-            ctx.lineTo(cx, topY + float + 8);
-            ctx.closePath();
-            ctx.fill();
-            ctx.restore();
+            const topY = entry.cellY + TILE_SIZE * 0.95 - profile.heightTiles * TILE_SIZE - 14;
+            // Hüpfen in ganzen Schritten wirkt pixeliger als ein weiches Schweben
+            const hopser = Math.round(Math.abs(Math.sin(now / 260 + cx * 0.013)) * 5);
+            const bild = this._reifPfeil(farbe);
+            const glatt = ctx.imageSmoothingEnabled;
+            ctx.imageSmoothingEnabled = false;
+            if (flach) {
+                // Eckmarken auf der Zelle
+                const x0 = entry.cellX + 3, y0 = entry.cellY + 3, w = TILE_SIZE - 6, L = 9, D = 3;
+                ctx.fillStyle = "rgba(255, 243, 196, 0.85)";
+                ctx.fillRect(x0, y0, L, D); ctx.fillRect(x0, y0, D, L);
+                ctx.fillRect(x0 + w - L, y0, L, D); ctx.fillRect(x0 + w - D, y0, D, L);
+                ctx.fillRect(x0, y0 + w - D, L, D); ctx.fillRect(x0, y0 + w - L, D, L);
+                ctx.fillRect(x0 + w - L, y0 + w - D, L, D); ctx.fillRect(x0 + w - D, y0 + w - L, D, L);
+            }
+            ctx.drawImage(bild, Math.round(cx - bild.width / 2), Math.round(topY - bild.height - hopser));
+            ctx.imageSmoothingEnabled = glatt;
         }
     }
 
@@ -1961,7 +3219,7 @@ export default class Renderer {
         ctx.strokeRect(cellX, cellY, TILE_SIZE, TILE_SIZE);
         if (isFirstInRow) {
             ctx.fillStyle = "rgba(255,255,255,0.9)";
-            ctx.font = "bold 18px Nunito, sans-serif";
+            ctx.font = "bold 18px 'GfZiffern', 'Pixelify Sans', Nunito, sans-serif";
             ctx.textAlign = "center";
             ctx.textBaseline = "middle";
             ctx.fillText("⛏️", cellX + TILE_SIZE / 2, cellY + TILE_SIZE / 2);
@@ -2098,7 +3356,7 @@ export default class Renderer {
         this._nachtLayer = null;
         this._nachtLayerCtx = null;
         this._atlasImage = null;
-        this._groundPattern = null;
+        this._weltCache.clear();
         this._renderBucket.length = 0;
         this._renderPool.length = 0;
         this._lichter.length = 0;
@@ -2244,7 +3502,10 @@ export default class Renderer {
         const blitY = baseY - (geo.h - geo.pad);
         const spriteH = this._plantVisualHeight(plant, profile, now);
 
-        if (isPlantReadyForRender(plant, now) && !simplifyPlantUi) {
+        // Rahmen auf der Kachel nur in der Draufsicht — in 3D stünde er aufrecht hinter
+        // der Pflanze; dort zeigt das Reife-Dreieck darüber, dass geerntet werden kann.
+        const flachUi = !simplifyPlantUi && !this._stehend3d;
+        if (isPlantReadyForRender(plant, now) && flachUi) {
             const pulse = 0.5 + 0.5 * Math.sin(this.frame * 0.08);
             this.ctx.save();
             this.ctx.strokeStyle = RARITY_COLORS[plant.rarity] || "#94a3b8";
@@ -2263,7 +3524,7 @@ export default class Renderer {
 
         // Reife Früchte mit Sonderform bekommen einen kleinen Ring auf der Kachel,
         // damit man auf einen Blick sieht, dass an DIESEM Strauch etwas Besonderes hängt.
-        if (!simplifyPlantUi && !plant.singleUse && Array.isArray(plant.fruitSlots)) {
+        if (flachUi && !plant.singleUse && Array.isArray(plant.fruitSlots)) {
             let goldene = 0;
             let regenbogen = 0;
             for (const s of plant.fruitSlots) {
@@ -2686,6 +3947,23 @@ export default class Renderer {
      * Pfad einer Terrain-Kachel. Der Ordner haengt an der Grafik-Einstellung:
      * "alt" zieht aus structure/_original/, sonst aus structure/.
      */
+    /**
+     * Bodenkachel im Pixel-Look (engine/pixelBoden.js, 05.11.) statt der gemalten
+     * Bilder — passend zur laufenden Jahreszeit, sofort da (kein Nachladen).
+     */
+    _terrainBild(kind, file) {
+        return pixelBodenKachel(kind, file, this._saison);
+    }
+
+    /** Jahreszeit übernehmen; bei einem Wechsel den vorgemalten Boden neu malen lassen. */
+    _setzeSaison(saison) {
+        if (saison !== this._saison) {
+            this._weltCache.clear();
+            this._slotStaticCache.clear();
+        }
+        this._saison = saison;
+    }
+
     _terrainSrc(kind, file) {
         return file ? STRUCTURE_DIR + file : null;
     }
@@ -2719,9 +3997,12 @@ export default class Renderer {
     _drawTerrainTile(kind, x, y, logicalX, logicalY, slotId, size = TILE_SIZE, targetCtx = this.ctx) {
         const files = TERRAIN_FILES[kind] || [];
         const variantCount = files.length || 1;
-        const variantIdx = this._getTileVariantIndex(kind, logicalX, logicalY, slotId, variantCount);
-        const src = this._terrainSrc(kind, files[variantIdx] || files[0]);
-        const img = this._getImage(src);
+        // Acker und Steinfeld je Feld eine eigene Variante — die Felder haben ohnehin eine
+        // Fuge dazwischen, gleiche Nachbarn sähen wie ein Stempelmuster aus.
+        const variantIdx = kind === "field" || kind === "rock"
+            ? Math.floor(weltHash(logicalX, logicalY, 77) * variantCount) % variantCount
+            : this._getTileVariantIndex(kind, logicalX, logicalY, slotId, variantCount);
+        const img = this._terrainBild(kind, files[variantIdx] || files[0]);
         if (img) {
             targetCtx.drawImage(img, x, y, size, size);
             return;
@@ -2743,6 +4024,7 @@ export default class Renderer {
         img.onload = () => {
             entry.status = "ready";
             this._slotStaticCache.clear();
+            for (const [k, v] of this._weltCache) if (!v.fertig) this._weltCache.delete(k);
             this._plantCache.clear();
             // Sonst bleibt eine Belag-Kachel, deren Bild beim ersten Aufbau des
             // Layers noch nicht geladen war, dauerhaft leer — der Cache-Schlüssel
@@ -2898,7 +4180,7 @@ export default class Renderer {
         ctx.fill(); ctx.stroke();
 
         ctx.fillStyle = reskinFarbe ? reskinFarbe.text : "#fef3c7";
-        ctx.font = "bold 14px Nunito, sans-serif";
+        ctx.font = "bold 14px 'GfZiffern', 'Pixelify Sans', Nunito, sans-serif";
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
         const label = slot.owner ? `${slot.owner}` : "Zu verkaufen";
@@ -2922,12 +4204,30 @@ export default class Renderer {
                 const mbY = centerY + h / 2 - mbHeight + 10;
                 ctx.drawImage(mailboxImg, mbX, mbY, mbWidth, mbHeight);
                 
-                // Draw notification indicator if there's mail
+                // Neue Post: seit es keinen Briefkasten-Knopf im HUD mehr gibt,
+                // ist das hier die einzige Anzeige — deshalb groß, mit Anzahl und
+                // leicht wippend, damit sie im Augenwinkel auffällt.
                 if (slot.hasMail) {
-                    ctx.fillStyle = "#ef4444";
+                    const anzahl = Number(slot.postAnzahl) || 0;
+                    const wipp = Math.sin(this.frame * 0.08) * 2.5;
+                    const bx = mbX + mbWidth - 2;
+                    const by = mbY - 4 + wipp;
+                    ctx.fillStyle = "#dc2626";
+                    ctx.strokeStyle = "#450a0a";
+                    ctx.lineWidth = 2;
                     ctx.beginPath();
-                    ctx.arc(mbX + mbWidth - 5, mbY + 5, 6, 0, Math.PI * 2);
+                    ctx.arc(bx, by, 10, 0, Math.PI * 2);
                     ctx.fill();
+                    ctx.stroke();
+                    if (anzahl > 0) {
+                        ctx.fillStyle = "#fff";
+                        ctx.font = "bold 12px 'GfZiffern', 'Pixelify Sans', 'Baloo 2', sans-serif";
+                        ctx.textAlign = "center";
+                        ctx.textBaseline = "middle";
+                        ctx.fillText(anzahl > 9 ? "9+" : String(anzahl), bx, by + 1);
+                        ctx.textAlign = "left";
+                        ctx.textBaseline = "alphabetic";
+                    }
                 }
             
                 
@@ -2956,6 +4256,9 @@ export default class Renderer {
         // Feedback 30.08.: Missionsbrett. Bekommt noch ein echtes Holzschild-Bild;
         // bis dahin greift derselbe Notbild-Weg wie beim Schuppen vor seinem Bild.
         this._drawAreaBuilding(areas.questBoard, "#92400e", "📜", "Missionen");
+        this._drawAreaBuilding(areas.goldShop, "#ca8a04", "🪙", "Gold-Shop");
+        this._drawAreaBuilding(areas.haendler, "#1d4ed8", "📦", "Händler");
+        this._drawAreaBuilding(areas.erntefest, "#c2410c", "🎃", "Erntefest");
         // Kiste, Vitrine, Mülleimer UND (seit Feedback 30.08.) der Inkubator wohnen
         // alle im selben Schuppen — readyEggsCount reicht durch, damit der Marker
         // weiß, ob über dem Dach ein "Ei fertig"-Schild schweben soll.
@@ -2974,14 +4277,14 @@ export default class Renderer {
         // dass dafür ein Grund erkennbar war. Beide Marktbuden am Kiesweg zählen
         // jetzt zur selben Größe, keine eigene Fallunterscheidung mehr nötig.
         // Der Schuppen (Kiste/Vitrine/Mülleimer) ist als 3×3-Kachel-Gebäude fest
-        // auf 192×192 gedeckelt — muss zu SCHUPPEN_KACHELN in GameContainer.jsx
+        // auf 256×256 gedeckelt (4 Kacheln) — muss zu SCHUPPEN_KACHELN in gameConstants.jsx
         // passen (war 2×2/128, Feedback 30.08.: "sieht klein aus für ein Gebäude").
         const isShed = art === "shed";
         // Missionsbrett (Feedback 31.08.): 2×2-Kachel-Gebäude statt der vollen
         // Marktwagen-Größe — ein Schild an einem Pfosten, kein ganzer Stand.
         const isQuestBoard = art === "questBoard";
-        const maxW = isShed ? 192 : isQuestBoard ? TILE_SIZE * 2 : 290;
-        const maxH = isShed ? 192 : isQuestBoard ? TILE_SIZE * 2 : 235;
+        const maxW = isShed ? 256 : isQuestBoard ? TILE_SIZE * 2 : 290;
+        const maxH = isShed ? 256 : isQuestBoard ? TILE_SIZE * 2 : 235;
 
         if (image) {
             const naturalW = Math.max(1, image.naturalWidth || image.width || maxW);
@@ -2996,7 +4299,13 @@ export default class Renderer {
                 ? area.fussY - drawH
                 : area.y - drawH / 2;
             ctx.drawImage(image, area.x - drawW / 2, oben, drawW, drawH);
+            // Für den Pfeil über dem Ziel (_zielSpitze): wo das Bild wirklich liegt
+            const b = area._bild || (area._bild = { x: 0, y: 0, w: 0, h: 0 });
+            b.x = area.x - drawW / 2; b.y = oben; b.w = drawW; b.h = drawH;
+            if (this._tuer?.area === area) this._maleTuer(area, image);
             if (isShed && readyEggsCount > 0) this._drawEierMarker(area.x, oben - 14, readyEggsCount);
+            const marke = this._standMarken?.[art];
+            if (marke) (this._markenListe || (this._markenListe = [])).push({ m: ctx.getTransform(), x: area.x, y: oben - 10, anzahl: marke, art });
             return;
         }
         const pulse = 0.5 + 0.5 * Math.sin(frame * 0.05);
@@ -3022,11 +4331,141 @@ export default class Renderer {
         ctx.fill();
 
         ctx.fillStyle = "#ffffff";
-        ctx.font = (isShed || isQuestBoard) ? "bold 16px Nunito, sans-serif" : "bold 24px Nunito, sans-serif";
+        ctx.font = (isShed || isQuestBoard) ? "bold 16px 'GfZiffern', 'Pixelify Sans', Nunito, sans-serif" : "bold 24px 'GfZiffern', 'Pixelify Sans', Nunito, sans-serif";
         ctx.textAlign = "center";
         ctx.fillText(`${icon} ${label}`, area.x, area.y + textY);
         ctx.textAlign = "left";
         if (isShed && readyEggsCount > 0) this._drawEierMarker(area.x, area.y - roofY - 14, readyEggsCount);
+    }
+
+    /**
+     * Offene Tür eines begehbaren Gebäudes (11.11., Haus und Gold-Shop): dunkler Innenraum
+     * im Türrahmen, das Türblatt schwingt zur rechten Angel hin auf (das Original-Türbild,
+     * schmaler werdend), und die Figur geht durch den Rahmen hinein bzw. heraus — oben vom
+     * Türsturz abgeschnitten. `this._tuer` = { area, offen 0…1, figur: { weg 0…1, alpha,
+     * phase, rechts } | null } kommt aus der Spielschleife (useSpielschleife, Eintritt).
+     */
+    _maleTuer(area, image) {
+        const zustand = this._tuer;
+        const f = Math.max(0, Math.min(1, Number(zustand?.offen) || 0));
+        const t = tuerLage(area, this._tuerLage || (this._tuerLage = {}));
+        if (!t || (f <= 0 && !zustand.figur)) return;
+        const { ctx } = this;
+        const w = t.x1 - t.x0;
+        const h = t.y1 - t.y0;
+        const glatt = ctx.imageSmoothingEnabled;
+        ctx.save();
+        tuerPfad(ctx, t);
+        ctx.clip();
+        // Innenraum: dunkel, vom Boden her in drei Stufen wärmer (Licht von drinnen)
+        ctx.fillStyle = "#1a100a";
+        ctx.fillRect(t.x0, t.y0, w, h);
+        const stufen = ["#33200f", "#4f321c", "#6e4426"];
+        for (let i = 0; i < stufen.length; i++) {
+            ctx.fillStyle = stufen[i];
+            ctx.fillRect(t.x0, Math.round(t.y1 - h * 0.13 * (stufen.length - i)), w, Math.ceil(h * 0.13 * (stufen.length - i)));
+        }
+        ctx.restore();
+
+        const fig = zustand.figur;
+        if (fig) {
+            const fake = this._tuerFigur || (this._tuerFigur = { x: 0, y: 0, facingRight: true, isMoving: true, laufPhase: 0, hut: null, name: "" });
+            // Füße: vom Platz vor der Tür (VOR_DER_TUER in useSpielschleife + 20) bis hinter die Schwelle
+            const fuss = t.fuss + 40 + ((t.y1 - 10) - (t.fuss + 40)) * fig.weg;
+            fake.x = t.mitteX;
+            fake.y = fuss - 20;
+            fake.facingRight = fig.rechts !== false;
+            fake.laufPhase = fig.phase || 0.01;
+            fake.hut = this._eigenerHut;
+            ctx.save();
+            // Sichtbar im Türrahmen und überall darunter (vor dem Haus) — der Sturz schneidet den Kopf ab
+            tuerPfad(ctx, t);
+            ctx.rect(t.x0 - 80, t.y1, w + 160, 240);
+            ctx.clip();
+            ctx.globalAlpha *= Math.max(0, Math.min(1, fig.alpha));
+            const k = 1 - 0.18 * fig.weg;
+            ctx.translate(fake.x, fuss);
+            ctx.scale(k, k);
+            ctx.translate(-fake.x, -fuss);
+            this.drawPlayer(fake, null, null, "", this._figurAussehen || {}, null, "remote", null);
+            ctx.restore();
+        }
+
+        // Türblatt: klappt zur rechten Angel, bleibt offen als schmale Kante stehen
+        const m = tuerMass(area.image);
+        const blatt = Math.max(w * 0.1, w * (1 - f));
+        ctx.save();
+        tuerPfad(ctx, t);
+        ctx.clip();
+        ctx.imageSmoothingEnabled = false;
+        ctx.drawImage(image, m.x0, m.y0, m.x1 - m.x0, m.y1 - m.y0, t.x1 - blatt, t.y0, blatt, h);
+        ctx.fillStyle = `rgba(20, 12, 6, ${(0.5 * f).toFixed(3)})`;
+        ctx.fillRect(t.x1 - blatt, t.y0, blatt, h);
+        ctx.restore();
+        ctx.imageSmoothingEnabled = glatt;
+    }
+
+    /**
+     * Kleine Pfeile neben der Figur (11.11.): zeigen zu den Ständen, an denen gerade etwas
+     * abzuholen oder abzugeben ist (Missionsbrett, Händler, Erntefest — dieselben Marken wie
+     * die Sprechblasen über den Ständen). Nur solange der Stand weiter weg ist; steht man
+     * davor, reicht die Sprechblase. (cx, cy) = Körpermitte der Figur, `u` = Größe eines
+     * Bildpunkts, `winkelZu(area)` = Richtung zum Stand im Bild.
+     */
+    _drawWegweiser(areas, player, cx, cy, u, winkelZu) {
+        const marken = this._standMarken;
+        if (!marken || !areas || !player) return;
+        const liste = this._wegweiser || (this._wegweiser = WEGWEISER_ARTEN.map(() => ({ w: 0, farbe: "" })));
+        let n = 0;
+        let summe = 0;
+        for (const art of WEGWEISER_ARTEN) {
+            if (!marken[art.key]) continue;
+            const a = areas[art.key];
+            if (!a || a.aktiv === false) continue;
+            if (Math.hypot(a.x - player.x, a.y - player.y) < WEGWEISER_AB) continue;
+            const w = winkelZu(a);
+            if (!Number.isFinite(w)) continue;
+            liste[n].w = w;
+            liste[n].farbe = art.farbe;
+            summe += w;
+            n++;
+        }
+        if (n === 0) return;
+        // Die Stände stehen nebeneinander — Pfeile mit fast gleicher Richtung fächern auf,
+        // die Mitte des Fächers bleibt die echte Richtung.
+        for (let i = 1; i < n; i++) {
+            for (let j = i; j > 0 && liste[j].w < liste[j - 1].w; j--) { const tausch = liste[j]; liste[j] = liste[j - 1]; liste[j - 1] = tausch; }
+        }
+        let neu = liste[0].w;
+        for (let i = 1; i < n; i++) {
+            if (liste[i].w - liste[i - 1].w < 0.42) liste[i].w = liste[i - 1].w + 0.42;
+            neu += liste[i].w;
+        }
+        const versatz = (summe - neu) / n;
+        const { ctx } = this;
+        const schub = (Math.floor((this._frameNow || 0) / 260) % 2) * u;
+        ctx.save();
+        ctx.globalAlpha = 1;
+        ctx.lineJoin = "miter";
+        for (let i = 0; i < n; i++) {
+            const w = liste[i].w + versatz;
+            ctx.save();
+            ctx.translate(cx + Math.cos(w) * (19 * u + schub), cy + Math.sin(w) * (19 * u + schub));
+            ctx.rotate(w);
+            ctx.beginPath();
+            ctx.moveTo(5 * u, 0);
+            ctx.lineTo(-3 * u, -4 * u);
+            ctx.lineTo(-u, 0);
+            ctx.lineTo(-3 * u, 4 * u);
+            ctx.closePath();
+            ctx.lineWidth = 2 * u;
+            ctx.strokeStyle = "#2b1d12";
+            ctx.stroke();
+            ctx.fillStyle = liste[i].farbe;
+            ctx.fill();
+            ctx.restore();
+        }
+        ctx.restore();
     }
 
     /**
@@ -3035,12 +4474,56 @@ export default class Renderer {
      * die sanft auf und ab wippt. Die Bewegung ist der eigentliche Zweck — ein
      * starrer Punkt geht zwischen Pflanzen und Deko unter.
      */
+    /**
+     * Pixel-Sprechblase über einem Stand (06.11.): „hier kannst du etwas abgeben“ —
+     * Händler (lieferbare Aufträge), Missionsbrett (abholbare Missionen), Erntefest
+     * (Belohnung bereit). Wippt in ganzen Schritten, Zahl = wie viele.
+     */
+    /** Gesammelte Stand-Marken nach dem Nachtschleier malen — sonst wären sie nachts grau. */
+    _flushStandMarken() {
+        const liste = this._markenListe;
+        if (!liste || liste.length === 0) return;
+        const { ctx } = this;
+        ctx.save();
+        ctx.globalAlpha = 1;
+        ctx.globalCompositeOperation = "source-over";
+        for (const e of liste) { ctx.setTransform(e.m); this._drawStandMarke(e.x, e.y, e.anzahl, e.art); }
+        ctx.restore();
+        liste.length = 0;
+    }
+
+    _drawStandMarke(x, y, anzahl, art) {
+        const { ctx } = this;
+        const hopser = Math.round(Math.abs(Math.sin((this._frameNow || 0) / 300)) * 6);
+        const text = art === "erntefest" ? "!" : `! ${anzahl}`;
+        ctx.save();
+        ctx.font = "bold 22px 'GfZiffern', 'Pixelify Sans', Nunito, sans-serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        const w = Math.round(Math.max(40, ctx.measureText(text).width + 24));
+        const h = 34;
+        const bx = Math.round(x - w / 2), by = Math.round(y - h - 10 - hopser);
+        // Umriss, Fläche, Lichtkante, Spitze — harte Kanten wie die Holzschilder
+        ctx.fillStyle = "#2b1d12";
+        ctx.fillRect(bx - 3, by - 3, w + 6, h + 6);
+        ctx.fillRect(Math.round(x) - 6, by + h, 12, 6);
+        ctx.fillRect(Math.round(x) - 3, by + h + 6, 6, 4);
+        ctx.fillStyle = "#ffe066";
+        ctx.fillRect(bx, by, w, h);
+        ctx.fillRect(Math.round(x) - 3, by + h, 6, 5);
+        ctx.fillStyle = "#fff7c2";
+        ctx.fillRect(bx, by, w, 3);
+        ctx.fillStyle = "#3b2516";
+        ctx.fillText(text, x, by + h / 2 + 1);
+        ctx.restore();
+    }
+
     _drawEierMarker(x, y, anzahl) {
         const { ctx, frame } = this;
         const bob = Math.sin(frame * 0.1) * 4;
         const text = String(anzahl);
         ctx.save();
-        ctx.font = "bold 15px Nunito, sans-serif";
+        ctx.font = "bold 15px 'GfZiffern', 'Pixelify Sans', Nunito, sans-serif";
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
         const breite = Math.max(26, ctx.measureText(text).width + 20);
@@ -3283,7 +4766,8 @@ export default class Renderer {
             ctx.translate(b.x, y);
             ctx.scale(Math.max(0, scale), Math.max(0, scale));
 
-            ctx.font = "bold 17px Nunito, sans-serif";
+            // Zahl in klarer Schrift — in der Pixel-Schrift war das Gold schwer zu lesen
+            ctx.font = "800 18px Nunito, 'Segoe UI', sans-serif";
             ctx.textAlign = "left";
             ctx.textBaseline = "middle";
             const iconSize = 20;
@@ -3361,8 +4845,17 @@ export default class Renderer {
      * würde das Symbol zappeln statt geradlinig wegzufliegen, aus demselben
      * Grund wie beim Splatter-Tropfen oben.
      */
+    /** Die eigene Figur greift zu: kurzes Vorbeugen, die Hand stößt nach vorn (drawPlayer). */
+    spawnGriff() {
+        const now = this._frameNow || Date.now();
+        // Beim Ziehen über viele Felder nicht jedes Feld neu anstoßen — sonst zittert sie
+        if (this._griffStart && now - this._griffStart < GRIFF_DAUER_MS * 0.6) return;
+        this._griffStart = now;
+    }
+
     spawnItemFlug(x, y, imgSrc, emoji) {
         if (!Number.isFinite(x) || !Number.isFinite(y) || (!imgSrc && !emoji)) return;
+        this.spawnGriff();
         this._itemFlug.push({
             x, y, imgSrc: imgSrc || null, emoji: emoji || "",
             drift: (Math.random() - 0.5) * 30,
@@ -3377,7 +4870,7 @@ export default class Renderer {
      * Käfer krabbeln auf ihrer Pflanze hin und her, Unkraut wiegt sich; beide ploppen
      * beim Erscheinen auf und blinken in den letzten Sekunden.
      */
-    _drawStoerer(liste, slot) {
+    _drawStoerer(liste, slot, setzeJe = null) {
         if (!Array.isArray(liste) || liste.length === 0 || !slot) return;
         const { ctx } = this;
         const now = this._frameNow || Date.now();
@@ -3415,6 +4908,9 @@ export default class Renderer {
                 x += Math.sin(now / 420 + seed) * 9;
                 y += Math.cos(now / 610 + seed) * 4;
             }
+            // 2,5D (06.11.): jeder Störer an seiner eigenen Zelle verankern — vorher
+            // galt der Maßstab der Figur für alle, Unkraut schwebte dann über dem Acker.
+            if (setzeJe && !setzeJe(pos.x + TILE_SIZE / 2, y + hoehe)) continue;
             ctx.save();
             ctx.globalAlpha = blink;
             for (let r = 0; r < muster.length; r++) {
@@ -3461,6 +4957,7 @@ export default class Renderer {
      */
     spawnSaatWurf(x, y, imgSrc, emoji) {
         if (!Number.isFinite(x) || !Number.isFinite(y) || (!imgSrc && !emoji)) return;
+        this.spawnGriff();
         this._saatWurf.push({
             x, y, imgSrc: imgSrc || null, emoji: emoji || "",
             start: this._frameNow || Date.now(),
@@ -3525,7 +5022,7 @@ export default class Renderer {
         const reskinFarbe = NAMEPLATE_RESKIN_FARBEN[nameplateReskin] || null;
 
         ctx.save();
-        ctx.font = "bold 11px Nunito, sans-serif";
+        ctx.font = "bold 11px 'GfZiffern', 'Pixelify Sans', Nunito, sans-serif";
         ctx.textAlign = "center";
         ctx.textBaseline = "bottom";
         const padX = 8;
@@ -3569,7 +5066,7 @@ export default class Renderer {
         }
 
         if (badgeText) {
-            ctx.font = "bold 9px Nunito, sans-serif";
+            ctx.font = "bold 9px 'GfZiffern', 'Pixelify Sans', Nunito, sans-serif";
             const bm = ctx.measureText(badgeText);
             const bw = Math.ceil(bm.width) + 8;
             const bh = 13;
@@ -3661,7 +5158,11 @@ export default class Renderer {
             this._tintScratch.height = Math.max(this._tintScratch.height, sh, 128);
         }
         const sctx = this._tintScratchCtx;
-        sctx.clearRect(0, 0, sw, sh);
+        // Ganze Fläche leeren und ohne Glättung kopieren (06.11.): sonst mischt das
+        // Hochskalieren Reste vom Rand des letzten Bilds mit hinein — bei Rainbow-
+        // Pflanzen in der Hand sah man dadurch einen feinen Rahmen.
+        sctx.clearRect(0, 0, this._tintScratch.width, this._tintScratch.height);
+        sctx.imageSmoothingEnabled = false;
         sctx.drawImage(src, cropX, cropY, cropW, cropH, 0, 0, sw, sh);
         sctx.globalCompositeOperation = "source-atop";
         if (overlay.kind === "solid") {
@@ -3679,7 +5180,10 @@ export default class Renderer {
             sctx.fillRect(0, 0, sw, sh);
         }
         sctx.globalCompositeOperation = "source-over";
+        const glatt = this.ctx.imageSmoothingEnabled;
+        this.ctx.imageSmoothingEnabled = false;
         this.ctx.drawImage(this._tintScratch, 0, 0, sw, sh, dx, dy, dw, dh);
+        this.ctx.imageSmoothingEnabled = glatt;
     }
 
     drawPlayer(player, selectedTool, heldItem = null, localPlayerName = "", playerAppearance = {}, badge = null, nametagStyle = "local", nameplateReskin = null) {
@@ -3710,8 +5214,62 @@ export default class Renderer {
         // v2-Fundament: Kachel-Sprung statt Dauerlauf — player.hopBob kommt fertig
         // aus dem Game-Loop (ein Sinusbogen über die Sprungdauer, siehe dort) und
         // ersetzt das frühere framebasierte Wackeln, das für Dauerbewegung gedacht war.
-        const bob = -(player.hopBob || 0);
-        this._drawImageOrEmojiContain(skinUrl, "", 0, -20 + bob, 80);
+        // Laufanimation (06.11.): die Figuren sind Einzelbilder — beim Laufen kippt die
+        // Figur im Schritttakt um die Füße und wirbelt bei jedem Schritt etwas Staub auf.
+        // Eigene Figur: Phase aus der Spielschleife; Mitspieler: aus dem Bildzähler.
+        // Hut aus dem Gold-Shop (engine/huete.js): eigener aus dem drawState, fremde vom Server
+        const hutId = player === this._eigeneFigur ? this._eigenerHut : (player.hut || null);
+        const laeuft = Boolean(player.isMoving);
+        const phase = laeuft ? (Number.isFinite(player.laufPhase) && player.laufPhase > 0 ? player.laufPhase : ((this._frameNow || performance.now()) / 1000) * MAP_CONFIG.laufSchrittePS * Math.PI) : 0;
+        // 10.11.: Die Figur wird zerlegt gezeichnet (engine/figurAnim.js) — beim Laufen heben
+        // sich die Füße abwechselnd, im Stand atmet und blinzelt sie. Während der Party tanzt,
+        // wer steht, im gemeinsamen Takt (engine/partyShow.js).
+        const jetzt = this._frameNow || Date.now();
+        const saat = hashUnit(player.name || localPlayerName || "ich");
+        const tanz = !laeuft && (this._party || 0) > 0.35 ? tanzSchritt(jetzt, saat > 0.5 ? 0.5 : 0) : null;
+        // Griff (Ernten, Pflanzen): die eigene Figur beugt sich kurz nach vorn
+        let griff = 0;
+        if (player === this._eigeneFigur && this._griffStart) {
+            const g = (jetzt - this._griffStart) / GRIFF_DAUER_MS;
+            if (g >= 0 && g < 1) griff = Math.sin(g * Math.PI);
+            else this._griffStart = 0;
+        }
+        if (laeuft) {
+            const staub = Math.abs(Math.cos(phase));
+            if (staub > 0.55) {
+                const hinten = -1; // die Zeichnung ist schon in Blickrichtung gespiegelt
+                ctx.fillStyle = `rgba(214, 196, 160, ${((staub - 0.55) * 1.6).toFixed(3)})`;
+                const sx = hinten * (16 + (1 - staub) * 18);
+                ctx.fillRect(Math.round(sx - 4), 20, 6, 6);
+                ctx.fillRect(Math.round(sx + hinten * 7), 23, 4, 4);
+            }
+        }
+        const neigung = laeuft ? 0.07 + Math.sin(phase) * 0.03 : tanz ? tanz.neigung : griff * 0.2;
+        const huepf = tanz ? -Math.round(tanz.huepf * 4) : 0;
+        const figurBild = this._getImage(skinUrl);
+        let bob = 0;
+        ctx.save();
+        ctx.translate(0, 20 + huepf);
+        ctx.rotate(neigung);
+        ctx.translate(0, -20);
+        if (figurBild) {
+            const glatt = ctx.imageSmoothingEnabled;
+            ctx.imageSmoothingEnabled = false;
+            bob = zeichneFigur(ctx, figurBild, {
+                mitteY: -20, box: 80, src: skinUrl, zeit: jetzt / 1000, saat,
+                schritt: laeuft ? phase : tanz ? tanz.schritt : null,
+                hub: tanz ? 6 : 5,
+            });
+            ctx.imageSmoothingEnabled = glatt;
+        } else {
+            this._drawImageOrEmojiContain(skinUrl, "", 0, -20, 80);
+        }
+        if (hutId) zeichneHut(ctx, hutId, 0, -44 + bob, 44);
+        ctx.restore();
+        // Was die Figur hält, wippt mit ihr und stößt beim Griff nach vorn
+        const handY = bob + huepf + (laeuft ? Math.round(Math.cos(phase) * 1.5) : 0);
+        const handX = Math.round(griff * 9);
+        ctx.translate(handX, handY);
 
         const selectedToolKey = selectedTool || null;
         const isHeldPlant = heldItem && (heldItem._type === "plant" || heldItem.stage);
@@ -3758,8 +5316,9 @@ export default class Renderer {
         ctx.restore(); // Spiegelung aufheben
 
         // Nametag (darf NICHT gespiegelt werden!)
+        // Mit Hut aus dem Gold-Shop rückt das Schild nach oben — sonst deckte es den Hut zu (11.11.)
         if (localPlayerName) {
-            this._drawPlayerNametag(px, py - 57, localPlayerName, nametagStyle, badge, nameplateReskin, sterne);
+            this._drawPlayerNametag(px, py - (hutId ? 57 + hutHoehe(hutId) : 57), localPlayerName, nametagStyle, badge, nameplateReskin, sterne);
         }
     }
 

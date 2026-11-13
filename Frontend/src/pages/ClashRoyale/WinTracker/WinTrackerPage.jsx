@@ -26,7 +26,7 @@ import ChunkyButton from '../ui/ChunkyButton';
 import ArcadeTitle from '../ui/ArcadeTitle';
 import { SegmentedControl } from '../ui/SettingRow';
 import {
-  CrFriends, CrTv, CrSettings, CrUserAdd, CrTrophy, CrChat, CrCheck, CrCards, CrEye, CrElixir, CrScroll,
+  CrFriends, CrTv, CrSettings, CrUserAdd, CrTrophy, CrChat, CrCheck, CrCards, CrEye, CrElixir, CrScroll, CrUpgrade,
 } from '../ui/CrIcons';
 import { useCrPrefs } from '../ui/crPrefs';
 import LanguageSelect from '../components/LanguageSelect';
@@ -34,6 +34,7 @@ import * as api from './winTrackerApi';
 import { dictForWt, wt, challengeLabel } from './wtI18n';
 import checkIcon from '../../../assets/clashRoyale/ui/check.webp';
 import { ROYALE_PANELS, OVERLAY_TEMPLATES } from './overlayTheme';
+import { OVERLAY_DIM_LIMITS } from './overlayFit';
 import { STREAMER_ID } from '../constants';
 
 const fmt = (n, lang) => (n || 0).toLocaleString(lang === 'en' ? 'en-US' : 'de-DE');
@@ -408,6 +409,26 @@ function SettingsSection({ icon: Icon, title, description, children, defaultOpen
   );
 }
 
+// ── Unter-Reiter der Einstellungen ──────────────────────────────────────────
+// Statt alle Abschnitte untereinander zu stapeln, zeigt die linke Spalte immer nur einen Bereich.
+// Zuletzt gewählter Reiter bleibt pro Browser gemerkt (reine Bequemlichkeit).
+const SUB_TAB_KEY = 'wt-editor-subtab';
+function readSubTab() {
+  try { return localStorage.getItem(SUB_TAB_KEY) || 'look'; } catch { return 'look'; }
+}
+function writeSubTab(id) {
+  try { localStorage.setItem(SUB_TAB_KEY, id); } catch { /* Speicher gesperrt — egal */ }
+}
+
+function SubTabPane({ id, description, children }) {
+  return (
+    <div className="cr-section space-y-5" role="tabpanel" id={`wt-sub-${id}`}>
+      {description && <p className="text-white/50 text-sm leading-relaxed">{description}</p>}
+      {children}
+    </div>
+  );
+}
+
 // Kleines Etikett über einer Gruppe von Optionen.
 function GroupLabel({ children }) {
   return <p className="cr-eyebrow mb-2">{children}</p>;
@@ -423,6 +444,26 @@ function OptionRow({ label, note, checked, onChange, disabled }) {
         {note && <p className="text-white/45 text-xs mt-0.5 leading-snug">{note}</p>}
       </div>
       <Toggle checked={!!checked} onChange={onChange} disabled={disabled} accent="bg-[#34c759]" aria-label={label} />
+    </div>
+  );
+}
+
+// ── Breite oder Höhe des Overlays: automatisch oder fest in Pixeln (0 = automatisch) ─────────
+function DimensionControl({ t, label, value, limits, fallback, onChange }) {
+  const fixed = value > 0;
+  return (
+    <div>
+      <div className="flex items-center justify-between gap-3 mb-2">
+        <p className="cr-eyebrow">{label}</p>
+        <SegmentedControl
+          options={[{ id: 'auto', label: t.dimAuto }, { id: 'fixed', label: t.dimFixed }]}
+          value={fixed ? 'fixed' : 'auto'}
+          onChange={(id) => onChange(id === 'fixed' ? fallback : 0)} />
+      </div>
+      {fixed && (
+        <Slider value={value} min={limits[0]} max={limits[1]} step={10} onChange={onChange}
+          format={(v) => `${v} px`} accent="var(--cr-arcade-gold)" aria-label={label} />
+      )}
     </div>
   );
 }
@@ -564,6 +605,8 @@ function SettingsTab({ t, overlayKey, settings, onSettingsChange, apiConfigured,
   const user = api.getActingAs() ? { login: api.getActingAs().login } : authUser;
   const [hidden, setHidden] = useState(true);
   const [copied, setCopied] = useState(false);
+  const [subTab, setSubTabState] = useState(readSubTab);
+  const setSubTab = (id) => { setSubTabState(id); writeSubTab(id); };
 
   const link = overlayKey ? `${window.location.origin}/clash-royale/win-tracker/overlay/${overlayKey}` : '';
 
@@ -641,12 +684,35 @@ function SettingsTab({ t, overlayKey, settings, onSettingsChange, apiConfigured,
     })),
   ].filter(o => challengeKeyOf(o.id) || !activeAccount.availableModes || activeAccount.availableModes.includes(o.id)) : [];
 
+  // "Modus" gibt es nur mit aktivem Account — sonst (und bei unbekanntem gemerkten Wert) Aussehen.
+  const subTabs = [
+    { id: 'look', icon: CrElixir, label: t.subTabLook },
+    { id: 'format', icon: CrUpgrade, label: t.subTabFormat },
+    { id: 'content', icon: CrCards, label: t.subTabContent },
+    ...(activeAccount ? [{ id: 'tracked', icon: CrTrophy, label: t.subTabTracked }] : []),
+    { id: 'chat', icon: CrChat, label: t.subTabChat },
+  ];
+  const activeSub = subTabs.some(s => s.id === subTab) ? subTab : 'look';
+
   return (
     // Eine Fläche, zwei Spalten: links die Einstellungen, rechts (ab xl) mitlaufend Vorschau +
     // OBS-Link. Kein overflow-* hier, sonst funktioniert sticky nicht.
     <div className="cr-arcade-panel cr-anim-rise grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_400px]">
       <div className="min-w-0 xl:border-r xl:border-[#020814]/60">
-        <SettingsSection icon={CrElixir} title={t.sectionLookTitle} description={t.sectionLookDesc}>
+        <div className="px-5 pt-5">
+          <div className="cr-tabs cr-tabs--sub" role="tablist">
+            {subTabs.map(({ id, icon: Icon, label }) => (
+              <button key={id} type="button" role="tab" aria-selected={activeSub === id} aria-controls={`wt-sub-${id}`}
+                onClick={() => setSubTab(id)}>
+                <Icon size={20} />
+                <span className="cr-tab-label">{label}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {activeSub === 'look' && (
+        <SubTabPane id="look" description={t.sectionLookDesc}>
           <VisualPicker columns={2}
             options={[
               { id: 'classic', label: t.lookClassic, title: t.lookClassicTitle, preview: <LookPreview kind="classic" /> },
@@ -699,24 +765,42 @@ function SettingsTab({ t, overlayKey, settings, onSettingsChange, apiConfigured,
           </div>
           )}
 
+          <OptionRow label={t.squareCornersLabel} note={t.squareCornersNote}
+            checked={!!settings.squareCorners} onChange={toggle('squareCorners')} />
+
           <div>
             <GroupLabel>{t.transparency}</GroupLabel>
             <Slider value={settings.bgOpacity} min={0} max={100} onChange={toggle('bgOpacity')}
               format={(v) => `${v}%`} accent="var(--cr-arcade-gold)" aria-label={t.transparency} />
           </div>
+        </SubTabPane>
+        )}
 
-          <div>
-            <GroupLabel>{t.overlayScaleLabel}</GroupLabel>
-            <Slider value={settings.overlayScale ?? 100} min={100} max={200} step={5} onChange={toggle('overlayScale')}
-              format={(v) => `${v}%`} accent="var(--cr-arcade-gold)" aria-label={t.overlayScaleLabel} />
-            <p className="text-white/45 text-xs mt-1.5 leading-relaxed">{t.overlayScaleNote}</p>
-          </div>
-        </SettingsSection>
+        {activeSub === 'format' && (
+        <SubTabPane id="format" description={t.sectionFormatDesc}>
+          {/* Format: Breite/Höhe fest oder automatisch (overlayFit.js). Die alte Prozent-Größe
+              gilt nur, solange beides automatisch ist. */}
+          <DimensionControl t={t} label={t.overlayWidthLabel} value={settings.overlayWidth || 0}
+            limits={OVERLAY_DIM_LIMITS.width} fallback={400} onChange={toggle('overlayWidth')} />
+          <DimensionControl t={t} label={t.overlayHeightLabel} value={settings.overlayHeight || 0}
+            limits={OVERLAY_DIM_LIMITS.height} fallback={250} onChange={toggle('overlayHeight')} />
+          {!settings.overlayWidth && !settings.overlayHeight ? (
+            <div>
+              <GroupLabel>{t.overlayScaleLabel}</GroupLabel>
+              <Slider value={settings.overlayScale ?? 100} min={100} max={200} step={5} onChange={toggle('overlayScale')}
+                format={(v) => `${v}%`} accent="var(--cr-arcade-gold)" aria-label={t.overlayScaleLabel} />
+              <p className="text-white/45 text-xs mt-1.5 leading-relaxed">{t.overlayScaleNote}</p>
+            </div>
+          ) : (
+            <p className="text-white/45 text-xs leading-relaxed">{t.overlayFormatNote}</p>
+          )}
+        </SubTabPane>
+        )}
 
         {/* Getrackter Wert — rein informativ: der Modus folgt automatisch dem letzten Match
             (autoSwitchTrackMode im Backend), neue Saison-Modi erscheinen von selbst. */}
-        {activeAccount && (
-          <SettingsSection icon={CrTrophy} title={t.trackedValue} description={t.sectionTrackedDesc} defaultOpen={false}>
+        {activeSub === 'tracked' && activeAccount && (
+          <SubTabPane id="tracked" description={t.sectionTrackedDesc}>
             <p className="text-white/50 text-sm leading-relaxed">
               {t.trackedAutoHint} {t.seasonalModesHint}
             </p>
@@ -727,10 +811,11 @@ function SettingsTab({ t, overlayKey, settings, onSettingsChange, apiConfigured,
               onClick={() => onResetSession(activeAccount)}>
               {t.resetSessionBtn}
             </ChunkyButton>
-          </SettingsSection>
+          </SubTabPane>
         )}
 
-        <SettingsSection icon={CrCards} title={t.sectionVisualsTitle} description={t.sectionVisualsDesc}>
+        {activeSub === 'content' && (
+        <SubTabPane id="content" description={t.sectionVisualsDesc}>
           <div>
             <ModuleControlRow t={t}
               label={t.profileHeadLabel} description={t.profileHeadDesc}
@@ -811,10 +896,11 @@ function SettingsTab({ t, overlayKey, settings, onSettingsChange, apiConfigured,
               )}
             </div>
           </div>
-        </SettingsSection>
+        </SubTabPane>
+        )}
 
-        <SettingsSection icon={CrChat} title={t.chatCmdTitle} defaultOpen={false}
-          description={`${t.chatCmdDescPre}${t.chatCmdDescMod}${t.chatCmdDescMid}`}>
+        {activeSub === 'chat' && (
+        <SubTabPane id="chat" description={`${t.chatCmdDescPre}${t.chatCmdDescMod}${t.chatCmdDescMid}`}>
           <OptionRow label={t.chatActiveLabel}
             note={user?.login ? wt(t, 'chatActiveDesc', { channel: user.login }) : t.chatActiveDescEmpty}
             checked={settings.chatEnabled} onChange={toggle('chatEnabled')} />
@@ -827,7 +913,8 @@ function SettingsTab({ t, overlayKey, settings, onSettingsChange, apiConfigured,
             ))}
           </div>
           <p className="text-white/40 text-xs leading-relaxed">{t.chatCmdDescPost}</p>
-        </SettingsSection>
+        </SubTabPane>
+        )}
       </div>
 
       {/* Rechte Spalte: läuft beim Scrollen mit. Unter xl rutscht sie unter die linke Spalte. */}
@@ -891,7 +978,8 @@ export default function WinTrackerPage() {
     last5Style: 'result', last5Direction: 'newestLeft', last5NewBadge: true,
     showDeck: true, showProfile: true, deckPlacement: 'top', language: 'de', chatChannel: '', chatEnabled: false,
     paginateOverlay: false, paginateIntervalS: 6, showClan: false,
-    overlayTheme: 'classic', royalePanel: 'blue', royalePattern: true, overlayScale: 100,
+    overlayTheme: 'classic', royalePanel: 'blue', royalePattern: true, squareCorners: false, overlayScale: 100,
+    overlayWidth: 0, overlayHeight: 0,
   });
   const [apiConfigured, setApiConfigured] = useState(false);
   const [addOpen, setAddOpen] = useState(false);

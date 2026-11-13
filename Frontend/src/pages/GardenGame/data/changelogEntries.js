@@ -7,6 +7,105 @@
 // kein weiterer verschachtelter Block.
 export const CHANGELOG_ENTRIES = [
     {
+        version: "v5.0",
+        title: "Der große Pixel-Umbau: Dorfplatz, Haus, Angeln und Neue Saat",
+        groups: [
+            {
+                heading: "Neue Welt: der Dorfplatz",
+                items: [
+                    "Die Welt ist kein Rechteck mehr: In der Mitte liegt ein großer Dorfplatz mit Teich, Holzsteg und Rundweg, drumherum Rasen, Blumen, Wäldchen und zwei weitere Teiche. In Wald, Wasser und Büsche kann man nicht hineinlaufen.",
+                    "Die Stände sind sortiert: oben links wird eingekauft (Samen, Werkzeug, Eier, Deko), oben rechts verkauft (Markt, Tier-Verkauf) mit dem Missionsbrett. Unten stehen Gold-Shop, Händler (Planwagen) und Erntefest (Herbststand). Die Stände haben genug Abstand, man kommt bequem dazwischen durch.",
+                    "Deine Felder, Pflanzen und Deko sind beim Umzug genau dort geblieben, wo sie waren.",
+                    "Laternen an den Wegen gehen nachts an, auf den Teichen schwimmen Seerosen und Fischschatten.",
+                    "Deine Figur läuft frei und flüssig in alle Richtungen, auch schräg, gleitet an Wasser und Gebäuden entlang und wirbelt beim Laufen etwas Staub auf.",
+                    "Über dem Stand, den du gerade mit E öffnen würdest, wippt ein Pixelpfeil mit seinem Namen. Eine gelbe Sprechblase über Händler, Missionsbrett und Erntefest zeigt, wenn du dort etwas abgeben oder abholen kannst.",
+                    "Die schräge 2,5D-Ansicht ist jetzt Standard, die Draufsicht kannst du in den Einstellungen wählen.",
+                ],
+            },
+            {
+                heading: "Dein Haus",
+                items: [
+                    "Statt des Schuppens steht ein Haus auf 4×4 Feldern, und du kannst hineingehen: Kiste, Vitrine, Mülleimer, Inkubator und Kleiderschrank sind Möbel, die du mit E oder per Klick öffnest.",
+                    "Jedes Haus aus dem Gold-Shop hat seinen eigenen Innenraum, von der Schmiede bis zur Raumstation. Mit Tapeten richtest du es zusätzlich ein.",
+                    "Der Kleiderschrank öffnet die neue Umkleide: deine Katze groß auf einem Podest, mit Pfeilen (oder A/D) blätterst du durch Fellfarben und Kostüme.",
+                ],
+            },
+            {
+                heading: "Neu: Angeln und Tierfutter",
+                items: [
+                    "Am Ende des Stegs kannst du angeln: auswerfen, beim „Anbiss!“ ziehen und den Fisch im Drill im grünen Balken halten. 23 Arten, manche nur nachts, in einer Jahreszeit oder bei bestimmtem Wetter, dazu ein Fischbuch.",
+                    "Die Angel kostet 750.000 Gold, ohne Köder beißt nichts. Würmer, Teigkugeln und Leuchtköder gibt es im Werkzeugladen. Sie werden teurer, je mehr dein Acker abwirft, genau wie die Fische mehr wert werden.",
+                    "Tiere brauchen Futter: Ein verhungertes Tier arbeitet nicht. Ein Fisch hält 3 Stunden satt, seltenere länger, und jedes Tier startet mit 6 Stunden Futter. Im Stall fütterst du alle hungrigen Tiere mit einem Klick.",
+                ],
+            },
+            {
+                heading: "Neue Saat, Level 100 und Ziele",
+                items: [
+                    "Höchstlevel 100, mit drei neuen Fähigkeiten ab Level 52: Sortenkenner, Auftragsprofi und Festkomitee.",
+                    "Neue Saat: Ab Level 100 und genug verdientem Gold fängst du neu an und bekommst einen Stern für immer. Jeder Stern bringt +10 % Gold und Erfahrung, dazu goldener Name, Sternenspur und mehr.",
+                    "Saisonziele: Jede Jahreszeit hat vier Ziele. Wer alle schafft, bekommt ein Namensschild, das man nicht kaufen kann.",
+                    "Wochenwettbewerb „Rekord-Ernte der Woche“: Das größte Stück der Wochensorte gewinnt Gold und ein Abzeichen. Früchte haben dafür eine genauere Größe von 1,0 bis 100,0.",
+                    "Die Bestenliste hat vier Reiter: Gold, Logbuch, Siege und Saison.",
+                ],
+            },
+            {
+                heading: "Ernten",
+                items: [
+                    "Ernte-Rausch: Wer regelmäßig erntet, bekommt nach zehn Minuten +15 % Gold je Ernte.",
+                    "Vielfalt-Bonus: Je mehr verschiedene Sorten auf dem Acker stehen, desto mehr bringt jede Ernte, bis +32 %.",
+                    "Jede Stunde sind drei bis vier Sorten am Markt gefragt und bringen 20 bis 50 % mehr.",
+                    "Käfer und Unkraut tauchen beim Ernten auf. Wegklicken bringt etwas Gold.",
+                    "Das Zuchtbuch zeigt unbekannte Kreuzungen als Umriss mit Hinweisen auf ihre Elternsorten.",
+                    "Schnell-Ernten mit Shift reagiert sofort, mit Ton, Funken und fliegender Frucht. Der Ton steigt beim Drüberziehen wie eine kleine Melodie.",
+                    "In 2,5D kannst du auch Felder hinter hohen Pflanzen bepflanzen und Käfer dahinter anklicken.",
+                ],
+            },
+            {
+                heading: "Pixel-Look",
+                items: [
+                    "Das ganze Spiel ist im Pixel-Look: Pixel-Schrift, Holz- und Pergament-Fenster, Marktstände als Läden, neue Symbole, Himmelsuhr und Titelbildschirm mit der echten Spielwelt.",
+                    "Pflanzen, Samen, Tiere, Figuren, Stände, Häuser, Deko, Werkzeuge und Fische sind neu gezeichnet, alle in derselben Pixelgröße wie Boden und Wasser.",
+                    "Der Boden wechselt mit der Jahreszeit, mit Blüten im Frühling, Laub im Herbst und Raureif im Winter. Der Grundstückszaun trägt im Winter Schnee.",
+                    "Der Chat hat eigene Pixel-Emojis (Kürzel wie „:herz:“), dein Gold steht oben rechts groß, und Ziffern sind besser lesbar.",
+                ],
+            },
+            {
+                heading: "Mehr zum Anpassen",
+                items: [
+                    "Hüte im Gold-Shop für deine Figur und deine Tiere.",
+                    "Acht neue Deko-Stücke: Gänseblümchen, Mohn, Lavendel, Zierkürbis, Sonnenblume, Pilze, Steinhaufen und Bienenkorb. Das Zaunfeld ist raus, gekaufte werden voll erstattet.",
+                ],
+            },
+            {
+                heading: "Balance",
+                items: [
+                    "Tiere sind stärker: Der Goldfinder wächst mit deinem Acker, Erntehelfer bis 30 %, Gärtner bis 40 % schneller, Forscher bis +50 % Erfahrung, Kaufmann bis +20 %.",
+                    "Der Abo-Bonus beim Verkaufen beträgt 25 % statt 50 %.",
+                    "Die Gießkanne kostet am Anfang 5.000 Gold und wird mit dem Wert deines Ackers teurer.",
+                    "Ruhigerer Anfang: Ingwer, Paprika, Mais und Kürbis wachsen länger, Missionen zahlen in den ersten zehn Leveln weniger. Gewöhnliche Samen lohnen sich am Anfang länger.",
+                    "Die Mondblume bringt etwas weniger (115 bis 320 Milliarden). Belohnungen von Missionen, Erntefest und Händler wachsen ab Level 50 nicht weiter.",
+                ],
+            },
+            {
+                heading: "Faires Spiel",
+                items: [
+                    "Eier, Brutkasten, Samen, Felder, Tiere und Wetter-Effekte laufen über den Server und sind gegen Schummeln geschützt.",
+                    "Pro Gerät ist eine Farm spielbar, zwischen Accounts am selben Anschluss gibt es keine Post. Per Post erhaltenes Gold zählt nicht zum gesammelten Gold.",
+                ],
+            },
+            {
+                heading: "Behoben und kleinere Verbesserungen",
+                items: [
+                    "Rucksack-Ausbauten ab Stufe 30 geben wieder zusätzliche Plätze.",
+                    "Die Farm läuft flüssiger, besonders nachts und in 2,5D. Der Ladebildschirm wartet, bis die Welt fertig ist.",
+                    "Nach einem Rechtsklick läuft die Figur nicht mehr endlos weiter, Figuren schauen in die richtige Richtung.",
+                    "Bei „Markt gefragt“ und im Wettbewerb haben Dauerträger wie Rhabarber das richtige Bild.",
+                    "Bilder sind unten nicht mehr ausgefranst, Häuser und Kürbis wieder vollständig.",
+                ],
+            },
+        ],
+    },
+    {
         version: "v4.8",
         title: "Gold-Shop, Chat-Ausbau und der Ernte-Bug endlich gefunden",
         groups: [

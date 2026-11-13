@@ -53,7 +53,7 @@ export default function OverlayView({ doc, timerMs, timeRef }) {
   const itemsSig = items
     .map(
       (i) =>
-        `${i.id}|${i.name}|${i.useWins ? 1 : 0}|${i.progress || 0}|${i.target || 0}|${
+        `${i.id}|${i.name}|${i.useWins ? 1 : 0}|${i.streak ? 1 : 0}|${i.progress || 0}|${i.target || 0}|${
           i.done ? 1 : 0
         }|${i.pinned ? 1 : 0}|${itemIconUrl(i)}`
     )

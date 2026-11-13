@@ -25,6 +25,7 @@ const { erstelleErntefest } = require("../world/erntefest");
 const reskins = require("../core/reskins");
 const rausch = require("../core/rausch");
 const stoerer = require("../core/stoerer");
+const angeln = require("../core/angeln");
 const nachfrage = require("../core/nachfrage");
 const wettbewerb = require("../world/wettbewerb");
 const prestige = require("../core/prestige");
@@ -38,6 +39,8 @@ const { MARKE: SKILL_STAFFEL_MARKE } = require("../migrations/skills");
 const { MARKE: TIERPLATZ_MARKE } = require("../migrations/tierplaetze");
 const { MARKE: SAMEN_KENNUNG_MARKE } = require("../migrations/samenKennung");
 const { MARKE: TIER_KENNUNG_MARKE } = require("../migrations/tierKennung");
+const { MARKE: WELTKARTE_MARKE } = require("../migrations/weltkarte");
+const { MARKE: ZAUNFELD_MARKE } = require("../migrations/zaunfeld");
 const brutkasten = require("../core/brutkasten");
 const wetterVerlauf = require("../core/wetterVerlauf");
 const zweitkonto = require("../world/zweitkonto");
@@ -667,6 +670,12 @@ const TOOL_SHOP_ITEMS = [
     // Beide stehen dauerhaft auf dem Grundstück, deshalb "permanent" mit Bestand 1.
     { id: "chest", name: "Vorratskiste", emoji: "📦", price: 750000, type: "permanent", stock: 1 },
     { id: "vitrine", name: "Vitrine", emoji: "🏆", price: 5000000, type: "permanent", stock: 1 },
+    // Angeln (06.11.) — Preise und Wirkung in core/werkzeug.js bzw. core/angeln.js
+    { id: "angel", name: "Angel", emoji: "", price: 750000, type: "permanent", stock: 1 },
+    { id: "profiangel", name: "Profi-Angel", emoji: "", price: 250000000, type: "permanent", stock: 1 },
+    { id: "koeder_wurm", name: "Würmer (10)", emoji: "", price: 500, type: "uses", uses: 10 },
+    { id: "koeder_teig", name: "Teigkugeln (10)", emoji: "", price: 150000, type: "uses", uses: 10 },
+    { id: "koeder_leucht", name: "Leuchtköder (5)", emoji: "", price: 3000000, type: "uses", uses: 5 },
 ];
 
 /**
@@ -743,6 +752,8 @@ const SHOP_POOL = SEED_CATALOGUE.filter((s) => !s.kreuzung).map((s) => ({
     stockMax:   Math.max(1, Number(s.stockMax) || 1),
 }));
 
+// Seit 30.08. hat jede Sorte ihr eigenes seed.png (06.11. als Pixelbild) — das gemeinsame
+// Bild bleibt nur der Ersatz, falls eins fehlt (der Renderer prüft das).
 const PLANTED_SEED_IMAGE = "/garden-assets/common/planted_seed.png";
 
 function getPlantVisuals(seedId, singleUse = true) {
@@ -750,9 +761,9 @@ function getPlantVisuals(seedId, singleUse = true) {
     return {
         seedImage: `${base}/seed_shop.png`,
         seedShopImage: `${base}/seed_shop.png`,
-        plantedSeedImage: PLANTED_SEED_IMAGE,
+        plantedSeedImage: `${base}/seed.png`,
+        plantedSeedFallbackImage: PLANTED_SEED_IMAGE,
         growthImage: `${base}/plant.png`,
-        structureImage: `${base}/structure.png`,
         fruitImage: `${base}/fruit.png`,
         harvestImage: singleUse ? `${base}/plant.png` : `${base}/fruit.png`,
     };
@@ -797,9 +808,9 @@ function makeSeededRng(seedString) {
  * innerhalb des eigenen Grundstücks. Werte außerhalb werden verworfen — dann
  * steht das Gebäude wieder am Standardplatz, statt irgendwo in der Welt zu
  * landen. Muss zu SCHUPPEN_KACHELN im Frontend passen (war 2, Feedback
- * 30.08.: "sieht klein aus", jetzt 3).
+ * 30.08.: "sieht klein aus", dann 3, seit 06.11. 4).
  */
-const SCHUPPEN_KACHELN = 3;
+const SCHUPPEN_KACHELN = 4;
 function normalizeGebaeudeVersatz(roh) {
     // Grundstück ist 28×33 Kacheln (MAP_CONFIG im Frontend) — hier nur die Grenzen,
     // die Geometrie selbst braucht der Server nicht.
@@ -1014,10 +1025,17 @@ function rotationFuerSpieler(rotation, twitchId) {
 
 function generateGlobalToolShopRotation(now = Date.now()) {
     const windowStart = getRotationWindowStart(now, TOOL_EGG_ROTATION_MS);
-    const items = TOOL_SHOP_ITEMS.map((item) => ({
-        ...item,
-        stock: item.type === "single" ? item.stock : 1,
-    }));
+    // Festpreise einmaliger Käufe kommen aus core/werkzeug.js — dort wird abgebucht.
+    // Zwei Listen mit eigenen Zahlen liefen auseinander: die Angel stand hier mit 50.000,
+    // gekostet hat sie 750.000 (11.11.).
+    const items = TOOL_SHOP_ITEMS.map((item) => {
+        const fest = WERKZEUGE[item.id];
+        return {
+            ...item,
+            price: fest && fest.art === "einmalig" && Number(fest.preis) > 0 ? Number(fest.preis) : item.price,
+            stock: item.type === "single" ? item.stock : 1,
+        };
+    });
     return { items, generatedAt: windowStart, nextRotation: windowStart + TOOL_EGG_ROTATION_MS };
 }
 
@@ -1328,7 +1346,7 @@ module.exports = function ({ requireAuth }) {
         //
         // WARUM: Twitch beantwortet /subscriptions für ihn IMMER mit einer leeren
         // Liste — man kann seinen eigenen Kanal nicht abonnieren. Damit stand der
-        // Streamer als Nicht-Abonnent da und bekam die 50 % Verkaufsbonus nicht,
+        // Streamer als Nicht-Abonnent da und bekam den Verkaufsbonus nicht,
         // die jeder Sub bekommt. Die Abfrage kann das nicht liefern, also steht es
         // hier. Gilt für Abzeichen UND Bonus, weil beide durch diese Funktion gehen.
         if (istAdminId(userId)) return true;
@@ -1490,6 +1508,9 @@ module.exports = function ({ requireAuth }) {
             neu[TIERPLATZ_MARKE] = true;
             neu[SAMEN_KENNUNG_MARKE] = true;
             neu[TIER_KENNUNG_MARKE] = true;
+            // Neue Farm steht schon auf der Weltkarte „Dorfplatz am Teich“.
+            neu[WELTKARTE_MARKE] = true;
+            neu[ZAUNFELD_MARKE] = true;
             if (pruefling.kennzeichen) neu.kennzeichen = pruefling.kennzeichen;
             if (req.twitchLogin) neu.twitchLogin = String(req.twitchLogin).toLowerCase();
             setFarmState(farmStates, userId, neu);
@@ -1758,6 +1779,11 @@ module.exports = function ({ requireAuth }) {
         if (existing.ernteRausch && typeof existing.ernteRausch === "object") compact.ernteRausch = existing.ernteRausch;
         // Schädlinge/Unkraut ebenso (core/stoerer.js).
         if (Array.isArray(existing.stoerer)) compact.stoerer = existing.stoerer;
+        // Angeln (core/angeln.js): Fischeimer, Fischbuch, laufender Wurf, satte Tiere
+        if (Array.isArray(existing.fische)) compact.fische = existing.fische;
+        if (existing.fischbuch && typeof existing.fischbuch === "object") compact.fischbuch = existing.fischbuch;
+        if (existing.angeln && typeof existing.angeln === "object") compact.angeln = existing.angeln;
+        if (existing.tierFutter && typeof existing.tierFutter === "object") compact.tierFutter = existing.tierFutter;
         // Zuchtbuch: entdeckte Kreuzungen (core/economy.js harvestCell).
         if (existing.zuchtbuch && typeof existing.zuchtbuch === "object") compact.zuchtbuch = existing.zuchtbuch;
         // Wochenwettbewerb (world/wettbewerb.js): Rekorde, Siege, Abrechnungsstand.
@@ -1776,6 +1802,11 @@ module.exports = function ({ requireAuth }) {
         if (existing[TIERPLATZ_MARKE]) compact[TIERPLATZ_MARKE] = true;
         if (existing[SAMEN_KENNUNG_MARKE]) compact[SAMEN_KENNUNG_MARKE] = true;
         if (existing[TIER_KENNUNG_MARKE]) compact[TIER_KENNUNG_MARKE] = true;
+        // MUSS mit: die Weltkarten-Verschiebung ist nicht wiederholbar — ginge die
+        // Marke verloren, verschöbe der nächste Serverstart die Deko ein zweites Mal.
+        if (existing[WELTKARTE_MARKE]) compact[WELTKARTE_MARKE] = true;
+        // MUSS mit: sonst erstattete jeder Serverstart das Zaunfeld erneut.
+        if (existing[ZAUNFELD_MARKE]) compact[ZAUNFELD_MARKE] = true;
         // Geräte- und Anschluss-Prüfsummen gehören dem Server (world/zweitkonto.js).
         if (existing.kennzeichen) compact.kennzeichen = existing.kennzeichen;
         // Eier und Brutkasten gehören dem Server (core/brutkasten.js): Kauf, Einlegen
@@ -1997,6 +2028,18 @@ module.exports = function ({ requireAuth }) {
         } else if (aktion === "stoererFangen") {
             // Käfer/Unkraut wegklicken (core/stoerer.js) — der Browser nennt nur die id.
             ergebnis = stoerer.fangen(state, req.body?.id, gutschreiben);
+        } else if (aktion === "angelnWerfen") {
+            // Angeln am Dorfteich (core/angeln.js) — Fisch wird erst beim Ziehen gewürfelt
+            ergebnis = angeln.werfen(state, { koeder: req.body?.koeder || null });
+        } else if (aktion === "angelnZiehen") {
+            ergebnis = angeln.ziehen(state, req.body?.wurfId);
+        } else if (aktion === "angelnEinholen") {
+            // Ende des Drills (core/angeln.js einholen)
+            ergebnis = angeln.einholen(state, req.body?.wurfId, req.body?.geschafft === true);
+        } else if (aktion === "fischVerkaufen") {
+            ergebnis = angeln.verkaufen(state, req.body?.ids === "alle" ? "alle" : req.body?.ids, gutschreiben);
+        } else if (aktion === "tierFuettern") {
+            ergebnis = angeln.fuettern(state, req.body?.petId, req.body?.fischId);
         } else {
             return res.status(400).json({ error: "Unbekannte Aktion." });
         }
@@ -2082,6 +2125,10 @@ module.exports = function ({ requireAuth }) {
             ernteRausch: rausch.anzeige(state),
             stoerer: stoerer.aktive(state),
             zuchtbuch: state.zuchtbuch || {},
+            // Angeln (core/angeln.js): Fischeimer, Fischbuch, satte Tiere
+            fische: state.fische ?? [],
+            fischbuch: state.fischbuch ?? {},
+            tierFutter: angeln.tierFutterAnzeige(state),
             ...(wettbewerbRekord ? { wettbewerbRekord } : {}),
             ...(saisonAbschluss ? { saisonAbschluss } : {}),
             // Ergebnis eines Fangs (Gold, Ort) für die Rückmeldung im Browser.

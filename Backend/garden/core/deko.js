@@ -62,6 +62,14 @@ const DEKO_KATALOG = [
     // Laterne oben — sonst wirkt die Krone gestaucht auf einem 1×1-Feld.
     { id: "cherry_blossom", name: "Kirschblütenbaum", emoji: "🌸", rarity: "COMMON", price: 12000, image: `${BASIS}/nature/cherry_blossom.png`, width: 1, height: 2, kategorie: "nature" },
     { id: "tulpenbett",     name: "Tulpenbeet",        emoji: "🌷", rarity: "COMMON", price: 6000,  image: `${BASIS}/nature/tulpenbett.png`,     width: 1, height: 1, kategorie: "nature" },
+    // 06.11.: selbst gezeichnete Stücke (tools/pixelDeko.mjs) — günstige Einzelpflanzen.
+    { id: "gaensebluemchen", name: "Gänseblümchen", emoji: "🌼", rarity: "COMMON", price: 3000, image: `${BASIS}/nature/gaensebluemchen.png`, width: 1, height: 1, kategorie: "nature" },
+    { id: "mohn",            name: "Mohnblumen",    emoji: "🌺", rarity: "COMMON", price: 3500, image: `${BASIS}/nature/mohn.png`,            width: 1, height: 1, kategorie: "nature" },
+    { id: "lavendel",        name: "Lavendel",      emoji: "💜", rarity: "COMMON", price: 4000, image: `${BASIS}/nature/lavendel.png`,        width: 1, height: 1, kategorie: "nature" },
+    { id: "kuerbis_deko",    name: "Zierkürbis",    emoji: "🎃", rarity: "COMMON", price: 4500, image: `${BASIS}/nature/kuerbis.png`,         width: 1, height: 1, kategorie: "nature" },
+    // Hoch statt breit (1×2) wie der Kirschbaum — sonst stünde die Blüte gestaucht da.
+    { id: "sonnenblume",     name: "Sonnenblume",   emoji: "🌻", rarity: "COMMON", price: 5000, image: `${BASIS}/nature/sonnenblume.png`,     width: 1, height: 2, kategorie: "nature" },
+    { id: "pilze",           name: "Pilze",         emoji: "🍄", rarity: "UNCOMMON", price: 6000, image: `${BASIS}/nature/pilze.png`,         width: 1, height: 1, kategorie: "nature" },
 
     { id: "deco_bench", name: "Gartenbank",  emoji: "🪑", rarity: "COMMON",   price: 8000,   image: `${BASIS}/social/bank.png`,      width: 1, height: 1, kategorie: "social" },
     { id: "stuhl",      name: "Bistrostuhl", emoji: "🪑", rarity: "COMMON",   price: 9000,   image: `${BASIS}/social/chair.png`,     width: 1, height: 1, kategorie: "social" },
@@ -85,9 +93,10 @@ const DEKO_KATALOG = [
     // Renderer._collectDeco), sonst blitzt zwischen zwei Zaunfeldern Gras durch
     // und der Zaun "knüpft" nicht wirklich an — dieses Stück füllt die Kachel
     // deshalb randlos bis an beide Kanten.
-    { id: "zaun_klein",    name: "Zaunfeld",      emoji: "🚧", rarity: "COMMON",    price: 4000,    image: `${BASIS}/objects/fence_1x1.png`,            width: 1, height: 1, kategorie: "objects", voll: true, sichtschutz: true },
     // Feedback 01.09.: neu geliefert. Schlichtes Hofstück, 1×1 wie gewünscht.
     { id: "heuballen",     name: "Heuballen",     emoji: "🌾", rarity: "COMMON",    price: 4000,    image: `${BASIS}/objects/heuballen.png`,            width: 1, height: 1, kategorie: "objects" },
+    { id: "steine",        name: "Steinhaufen",   emoji: "🪨", rarity: "COMMON",    price: 3000,    image: `${BASIS}/objects/steine.png`,               width: 1, height: 1, kategorie: "objects" },
+    { id: "bienenkorb",    name: "Bienenkorb",    emoji: "🐝", rarity: "UNCOMMON",  price: 12000,   image: `${BASIS}/objects/bienenkorb.png`,           width: 1, height: 1, kategorie: "objects" },
     { id: "gnome1",        name: "Gartenzwerg",   emoji: "🧙", rarity: "UNCOMMON",  price: 25000,   image: `${BASIS}/objects/gnome1.png`,               width: 1, height: 1, kategorie: "objects" },
     { id: "gnome2",        name: "Gartenzwerg 2", emoji: "🧙", rarity: "UNCOMMON",  price: 25000,   image: `${BASIS}/objects/gnome2.png`,               width: 1, height: 1, kategorie: "objects" },
     { id: "gnome3",        name: "Gartenzwerg 3", emoji: "🧙", rarity: "UNCOMMON",  price: 25000,   image: `${BASIS}/objects/gnome3.png`,               width: 1, height: 1, kategorie: "objects" },

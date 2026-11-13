@@ -76,21 +76,10 @@ export function zeichneSaisonBoden(ctx, saison, sicht, tile, wetterTyp) {
                     zeichneBlatt(ctx, bx, by, tile * 0.17 * groesse, winkel, LAUB[hh % LAUB.length], 0.95);
                 }
             } else if (saison === "winter") {
-                const rx = tile * 0.6 * groesse;
-                ctx.fillStyle = "rgba(244, 249, 255, 0.55)";
-                ctx.beginPath();
-                ctx.ellipse(x, y, rx, rx * 0.4, 0, 0, Math.PI * 2);
-                ctx.fill();
-                ctx.fillStyle = "rgba(255, 255, 255, 0.5)";
-                ctx.beginPath();
-                ctx.ellipse(x - rx * 0.12, y - rx * 0.16, rx * 0.55, rx * 0.22, 0, 0, Math.PI * 2);
-                ctx.fill();
+                zeichneHaufen(ctx, x, y, tile * 0.6 * groesse, "rgba(244, 249, 255, 0.6)", "rgba(255, 255, 255, 0.6)");
             } else if (saison === "sommer") {
                 // Sonnenverbrannte Stellen im Rasen, dazu ein, zwei gelbe Blumen.
-                ctx.fillStyle = "rgba(214, 186, 100, 0.38)";
-                ctx.beginPath();
-                ctx.ellipse(x, y, tile * 0.5 * groesse, tile * 0.22 * groesse, 0, 0, Math.PI * 2);
-                ctx.fill();
+                zeichneHaufen(ctx, x, y, tile * 0.5 * groesse, "rgba(214, 186, 100, 0.38)", null);
                 const n = 1 + (h & 1);
                 for (let i = 0; i < n; i++) {
                     const hh = rasterHash(gx - i * 13, gy + i * 29, 5 + salz);
@@ -114,38 +103,70 @@ export function zeichneSaisonBoden(ctx, saison, sicht, tile, wetterTyp) {
     ctx.restore();
 }
 
-function zeichneBlatt(ctx, x, y, laenge, winkel, farbe, alpha, rippe = true) {
-    ctx.save();
-    ctx.translate(x, y);
-    ctx.rotate(winkel);
-    ctx.globalAlpha = alpha;
+/** Raster der Bodenspuren und Flocken: alles rastet auf ganze Stücke dieser Größe ein. */
+const PX = 4;
+const raste = (v) => Math.round(v / PX) * PX;
+
+/**
+ * Flacher Haufen aus drei eckigen Lagen (Schnee, verbrannter Rasen) statt einer Ellipse —
+ * passt zum Pixel-Boden. `rx` = halbe Breite, `kuppe` = Farbe der hellen Oberseite oder null.
+ */
+function zeichneHaufen(ctx, x, y, rx, farbe, kuppe) {
+    const cx = raste(x);
+    const cy = raste(y);
+    const b = Math.max(PX * 2, raste(rx));
+    const h = Math.max(PX, raste(rx * 0.4));
     ctx.fillStyle = farbe;
-    ctx.beginPath();
-    ctx.ellipse(0, 0, laenge, laenge * 0.48, 0, 0, Math.PI * 2);
-    ctx.fill();
-    if (!rippe) { ctx.restore(); return; }
-    // Mittelrippe, damit es als Blatt liest und nicht als Fleck.
-    ctx.strokeStyle = "rgba(60, 25, 5, 0.45)";
-    ctx.lineWidth = Math.max(0.6, laenge * 0.12);
-    ctx.beginPath();
-    ctx.moveTo(-laenge * 0.85, 0);
-    ctx.lineTo(laenge * 0.85, 0);
-    ctx.stroke();
-    ctx.restore();
+    ctx.fillRect(cx - b, cy - PX, b * 2, h);
+    ctx.fillRect(cx - b + PX * 2, cy - PX - h / 2, b * 2 - PX * 4, h / 2);
+    ctx.fillRect(cx - b + PX, cy - PX + h, b * 2 - PX * 2, PX);
+    if (kuppe) {
+        ctx.fillStyle = kuppe;
+        ctx.fillRect(cx - b + PX * 3, cy - PX - h / 2, Math.max(PX, b - PX * 2), PX);
+    }
 }
 
-function zeichneBlume(ctx, x, y, r, farbe) {
+/**
+ * Blatt oder Blütenblatt aus Rechtecken. Statt frei zu drehen, kippt es durch vier Lagen
+ * (quer, schräg, hoch, schräg) — das liest sich als Taumeln und bleibt eckig.
+ */
+function zeichneBlatt(ctx, x, y, laenge, winkel, farbe, alpha, rippe = true) {
+    const p = Math.max(2, Math.round(laenge / 3));
+    const lage = ((Math.floor(winkel / (Math.PI / 4)) % 4) + 4) % 4;
+    const cx = Math.round(x);
+    const cy = Math.round(y);
+    ctx.globalAlpha = alpha;
     ctx.fillStyle = farbe;
-    for (let k = 0; k < 5; k++) {
-        const a = (k / 5) * Math.PI * 2;
-        ctx.beginPath();
-        ctx.arc(x + Math.cos(a) * r, y + Math.sin(a) * r * 0.8, r * 0.75, 0, Math.PI * 2);
-        ctx.fill();
+    if (lage === 0) {
+        ctx.fillRect(cx - p * 2, cy - p / 2, p * 4, p);
+        ctx.fillRect(cx - p, cy - p * 1.5, p * 2, p * 3);
+    } else if (lage === 2) {
+        ctx.fillRect(cx - p / 2, cy - p * 2, p, p * 4);
+        ctx.fillRect(cx - p * 1.5, cy - p, p * 3, p * 2);
+    } else {
+        const s = lage === 1 ? 1 : -1;
+        ctx.fillRect(cx - p * 1.5 * s - (s < 0 ? p * 2 : 0), cy - p * 1.5, p * 2, p * 2);
+        ctx.fillRect(cx - p, cy - p, p * 2, p * 2);
+        ctx.fillRect(cx + p * 0.5 * s - (s < 0 ? p : 0), cy + p * 0.5, p, p);
     }
+    if (rippe) {
+        // Dunkler Punkt in der Mitte, damit es als Blatt liest und nicht als Fleck
+        ctx.fillStyle = "rgba(60, 25, 5, 0.45)";
+        ctx.fillRect(cx - p / 2, cy - p / 2, p, p);
+    }
+    ctx.globalAlpha = 1;
+}
+
+/** Blume aus fünf Quadraten: vier Blütenblätter und eine gelbe Mitte. */
+function zeichneBlume(ctx, x, y, r, farbe) {
+    const p = Math.max(2, Math.round(r));
+    const cx = Math.round(x);
+    const cy = Math.round(y);
+    ctx.fillStyle = farbe;
+    ctx.fillRect(cx - p * 1.5, cy - p / 2, p * 3, p);
+    ctx.fillRect(cx - p / 2, cy - p * 1.5, p, p * 3);
     ctx.fillStyle = "#facc15";
-    ctx.beginPath();
-    ctx.arc(x, y, r * 0.6, 0, Math.PI * 2);
-    ctx.fill();
+    ctx.fillRect(cx - p / 2, cy - p / 2, p, p);
 }
 
 /** Farbton der Saison über das ganze Bild. */
@@ -191,9 +212,8 @@ export function zeichneSaisonLuft(ctx, canvas, saison, frame, player, particleSc
             x = ((xRaw % w) + w) % w - 30;
             const puls = 0.35 + 0.35 * Math.sin(frame * 0.05 + seed);
             ctx.fillStyle = `rgba(255, 236, 150, ${puls.toFixed(3)})`;
-            ctx.beginPath();
-            ctx.arc(x, y, 1.6 + (i % 3) * 0.5, 0, Math.PI * 2);
-            ctx.fill();
+            const pg = 2 + (i % 3);
+            ctx.fillRect(Math.round(x), Math.round(y), pg, pg);
             continue;
         }
         const tempo = saison === "winter" ? 0.35 + (i % 7) * 0.05 : 0.45 + (i % 5) * 0.08;
@@ -204,10 +224,9 @@ export function zeichneSaisonLuft(ctx, canvas, saison, frame, player, particleSc
         x = ((xRaw % w) + w) % w - 30;
 
         if (saison === "winter") {
-            ctx.fillStyle = "rgba(255, 255, 255, 0.75)";
-            ctx.beginPath();
-            ctx.arc(x, y, 1.4 + (i % 3) * 0.6, 0, Math.PI * 2);
-            ctx.fill();
+            ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
+            const fg = 2 + (i % 3);
+            ctx.fillRect(Math.round(x), Math.round(y), fg, fg);
         } else {
             const winkel = frame * 0.03 * ((i % 2) ? 1 : -1) + seed;
             const farbe = saison === "herbst" ? LAUB[i % LAUB.length] : BLUETEN[i % BLUETEN.length];
@@ -246,13 +265,12 @@ export function zeichneGluehwuermchen(ctx, canvas, saison, frame, player, nacht,
         const hell = Math.max(0, takt) * sichtbar;
         if (hell < 0.05) continue;
         ctx.fillStyle = `rgba(214, 255, 120, ${(0.16 * hell).toFixed(3)})`;
-        ctx.beginPath();
-        ctx.arc(x, y, 6, 0, Math.PI * 2);
-        ctx.fill();
+        const gx = Math.round(x);
+        const gy = Math.round(y);
+        ctx.fillRect(gx - 6, gy - 2, 12, 4);
+        ctx.fillRect(gx - 2, gy - 6, 4, 12);
         ctx.fillStyle = `rgba(245, 255, 190, ${(0.95 * hell).toFixed(3)})`;
-        ctx.beginPath();
-        ctx.arc(x, y, 1.8, 0, Math.PI * 2);
-        ctx.fill();
+        ctx.fillRect(gx - 2, gy - 2, 4, 4);
     }
     ctx.restore();
 }

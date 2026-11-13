@@ -14,9 +14,9 @@
 //   * Käufe (Samen, Werkzeug, Eier, Deko) und Tierfunde laufen noch clientseitig.
 const { SEED_CATALOGUE } = require("./catalogue");
 const {
-    getPetSellPrice, getGoldfinderRange, getPetTickMs,
+    getPetSellPrice, getGoldfinderFund, getPetTickMs,
     clampLevel, findePet, petId: petIdOf,
-    GAERTNER_NACHWUCHS, GAERTNER_WURZELWERK, getGaertnerStufe,
+    GAERTNER_NACHWUCHS, GAERTNER_WURZELWERK, getGaertnerStufe, istSatt,
     getErntehelferStufe, getErntehelferExtra,
     FORSCHER_XP_PRO_STUFE, KAUFMANN_VERKAUF_PRO_STUFE, getForscherStufe, getKaufmannStufe,
 } = require("./pets");
@@ -37,7 +37,8 @@ const { kreuzungBeiErnte } = require("./kreuzung");
 
 const SPECIAL_BOOST = { golden: 2.0, rainbow: 5.0 };
 const GOLD_MAX = 9_000_000_000_000_000;
-const SUB_BONUS = 1.5;
+// 07.11.: 1,5 → 1,25 — mit Zinseszins brachte das Abo Gelegenheitsspielern +90 % Einkommen (Simulator).
+const SUB_BONUS = 1.25;
 /** Chance je Takt, dass ein Goldfinder etwas findet (vor Züchter). */
 const GOLDFINDER_AUSLOESE_CHANCE = 0.10;
 
@@ -984,6 +985,9 @@ function petFind(state, id, art, letzteFunde, now = Date.now()) {
     }
 
     const schluessel = petIdOf(pet);
+    if (!istSatt(state, pet, now)) {
+        return { ok: true, gold: state.gold, verdient: 0, hungrig: true, name: pet?.customName || pet?.name || "Tier" };
+    }
     const zuletzt = Number(letzteFunde.get(schluessel) || 0);
     // 10 % Toleranz, damit ein leicht früher Timer im Browser nicht verworfen wird
     if (now - zuletzt < getPetTickMs(level) * 0.9) {
@@ -999,7 +1003,11 @@ function petFind(state, id, art, letzteFunde, now = Date.now()) {
         return { ok: true, gold: state.gold, verdient: 0, name: pet?.customName || pet?.name || "Tier" };
     }
 
-    const [min, max] = getGoldfinderRange(level);
+    // 07.11.: wächst mit dem Stunden-Ertrag des Ackers (core/pets.js getGoldfinderFund).
+    // Lazy, weil core/angeln.js seinerseits economy lädt.
+    const { stundenErtrag } = require("./angeln");
+    const ackerStunde = Object.values(state.plotPlants || {}).reduce((sum, p) => sum + stundenErtrag(p), 0);
+    const [min, max] = getGoldfinderFund(level, ackerStunde);
     const betrag = Math.floor(Math.random() * (max - min + 1)) + min;
     gutschreiben(state, betrag);
     return { ok: true, gold: state.gold, verdient: betrag, name: pet?.customName || pet?.name || "Tier" };

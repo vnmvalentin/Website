@@ -16,6 +16,7 @@ import {
   msToClock,
   overlayTextShadow,
   readableOn,
+  showsStreakPips,
 } from "./overlayUtils";
 
 const DONE_GREEN = "#2ecc71";
@@ -29,6 +30,7 @@ const OVERLAY_KEYFRAMES = `
 @keyframes wcFlash { from { opacity: .6; } to { opacity: 0; } }
 @keyframes wcCount { from { color: var(--wc-accent); } }
 @keyframes wcTicker { to { transform: translateX(calc(-1 * var(--wc-shift))); } }
+@keyframes wcPip { from { transform: scale(1.7); opacity: .3; } }
 `;
 
 /**
@@ -156,6 +158,50 @@ function CounterBox({ st, fill, fontSize, children }) {
         }}
       />
       <span style={{ position: "relative" }}>{children}</span>
+    </span>
+  );
+}
+
+/**
+ * Stand einer Serie (B2B, B3B …): ein Kästchen je Win, gewonnene gefüllt mit Haken.
+ * Die Breite hängt nur an der Länge der Serie, nicht am Stand — der Name daneben
+ * bricht deshalb nie neu um, wenn ein Win dazukommt. Ist die Serie geschafft, werden
+ * alle Kästchen grün; einen zusätzlichen Haken dahinter braucht es dann nicht.
+ * `tick` > 0 lässt das zuletzt gefüllte Kästchen kurz aufspringen.
+ */
+function StreakPips({ st, total, filled, done, tick }) {
+  const on = done ? DONE_GREEN : st.accent || "#9146FF";
+  return (
+    <span
+      role="img"
+      aria-label={`${filled} / ${total}`}
+      style={{ position: "relative", display: "flex", alignItems: "center", gap: "0.24em", flexShrink: 0 }}
+    >
+      {Array.from({ length: total }).map((_, i) => {
+        const isOn = i < filled;
+        const newest = tick > 0 && isOn && i === filled - 1;
+        return (
+          <span
+            // Eigener Schlüssel für das neueste Kästchen: so startet die Animation bei jedem Win neu
+            key={newest ? `new-${tick}` : i}
+            style={{
+              boxSizing: "border-box",
+              width: "1em",
+              height: "1em",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              borderRadius: Math.min(3, st.badgeRadius),
+              border: `0.1em solid ${isOn ? on : hexToRgba(st.textColor, 0.45)}`,
+              background: isOn ? on : hexToRgba(st.textColor, 0.08),
+              color: readableOn(on),
+              animation: newest ? "wcPip 500ms ease-out" : undefined,
+            }}
+          >
+            {isOn && <Check size="0.72em" strokeWidth={4} />}
+          </span>
+        );
+      })}
     </span>
   );
 }
@@ -344,7 +390,7 @@ function ProgressSlab({ st, progress }) {
 
 /**
  * Eine Challenge. Zähler-Challenges zeigen ihren Stand als reine Zahl (Standard)
- * oder in einer Box. Die Form hängt am Stil:
+ * oder in einer Box, Serien (B2B, B3B …) als ein Kästchen je Win. Die Form hängt am Stil:
  *   list      — durchgehendes Band mit feiner Trennlinie, erledigt = grüner Name
  *   broadcast — dasselbe Band ohne Linie, erledigt = gedimmt
  *   bar       — ein Abschnitt des waagerechten Streifens, bricht nie um
@@ -397,7 +443,14 @@ export function OverlayRow({ it, st, iconSlot = false }) {
       </span>
     );
   };
-  const counter = makeCounter(progress, true);
+  // Serie: Kästchen statt Zahl. Sie zeigen auch den Abschluss (alle grün) — der Haken
+  // dahinter entfällt in diesen Zeilen.
+  const pips = showsStreakPips(it);
+  const counter = pips ? (
+    <StreakPips st={st} total={target} filled={Math.min(progress, target)} done={done} tick={countTick} />
+  ) : (
+    makeCounter(progress, true)
+  );
 
   const check = (label) => (
     <Check
@@ -458,7 +511,7 @@ export function OverlayRow({ it, st, iconSlot = false }) {
           {it.name}
         </span>
         {counter}
-        {done ? <span style={{ position: "relative", display: "flex" }}>{check("erledigt")}</span> : null}
+        {done && !pips ? <span style={{ position: "relative", display: "flex" }}>{check("erledigt")}</span> : null}
       </div>
     );
   }
@@ -468,7 +521,8 @@ export function OverlayRow({ it, st, iconSlot = false }) {
   // Für die Breitenreservierung mit dem Endstand rechnen: aus „9 / 10“ wird
   // beim Abschluss „10 / 10“ und damit eine Ziffer mehr Breite — der Name würde
   // sonst genau dann neu umbrechen.
-  const counterSizer = makeCounter(Math.max(progress, target), false);
+  // Die Kästchen einer Serie sind immer gleich breit und brauchen keinen Platzhalter.
+  const counterSizer = pips ? null : makeCounter(Math.max(progress, target), false);
 
   return (
     <div
@@ -516,19 +570,21 @@ export function OverlayRow({ it, st, iconSlot = false }) {
             Rand, erledigt rutscht er nach links und der Haken erscheint dahinter.
           So bleibt hinter dem Zähler kein leerer Platz stehen. */}
       <span style={{ position: "relative", display: "grid", flexShrink: 0 }}>
-        <span
-          aria-hidden="true"
-          style={{
-            gridArea: "1 / 1",
-            display: "flex",
-            alignItems: "center",
-            gap: 8,
-            visibility: "hidden",
-          }}
-        >
-          {counterSizer}
-          {check()}
-        </span>
+        {!pips && (
+          <span
+            aria-hidden="true"
+            style={{
+              gridArea: "1 / 1",
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              visibility: "hidden",
+            }}
+          >
+            {counterSizer}
+            {check()}
+          </span>
+        )}
         <span
           style={{
             gridArea: "1 / 1",
@@ -539,7 +595,7 @@ export function OverlayRow({ it, st, iconSlot = false }) {
           }}
         >
           {counter}
-          {done ? check("erledigt") : null}
+          {done && !pips ? check("erledigt") : null}
         </span>
       </span>
     </div>

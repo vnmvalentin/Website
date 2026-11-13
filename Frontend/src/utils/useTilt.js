@@ -1,6 +1,6 @@
 // useTilt.js — 3D-Neigung unter dem Zeiger: setzt --rx/--ry (Neigung) und --px/--py (Parallaxe) als CSS-Variablen
-// auf das Element; das CSS (.tile3d, .fav-hero, .fav-card) entscheidet, was damit passiert. Genutzt von TileCard und den Favoriten der
-// Startseite. Läuft auch bei "Bewegung reduzieren" — die Bewegung folgt der eigenen Maus (siehe index.css).
+// auf das Element; das CSS (.tile3d) entscheidet, was damit passiert. Genutzt von TileCard (Startseite, Übersichten).
+// Läuft auch bei "Bewegung reduzieren" — die Bewegung folgt der eigenen Maus (siehe index.css).
 import { useCallback, useEffect, useRef } from "react";
 import { isLowGfx } from "./lowGfx";
 

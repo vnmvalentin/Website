@@ -31,6 +31,7 @@ const STATIC_PAGES = {
   '/blobby': { section: 'games', title: 'Blobby Volley', description: 'Blobby Volley online: Volleyball im Browser, 1v1 oder 2v2. Link teilen, losspielen, kein Download.' },
   '/lights-out': { section: 'games', title: 'Lights Out', description: 'Horror im Browser in vier Ebenen: Wald, Anstalt, Keller, Garten — in jeder ein anderes Ding im Dunkeln. Allein oder zu viert im Koop.' },
   '/flick-soccer': { section: 'games', title: 'Flick Soccer', description: 'Scheiben-Fußball im Browser: Formation wählen, zurückziehen, abschießen. Gegen den Computer, zu zweit oder online per Link.' },
+  '/worldflip': { section: 'games', title: 'Worldflip', description: '3D-Kartenspiel im Browser: Karten ablegen, während vier Welten um den Tisch kippen und ausbrechen. 13 Effektkarten, 12 Weltereignisse — gegen Bots, online zu viert oder 2 gegen 2.' },
   '/connect4': { section: 'games', title: 'Connect 4', description: 'Vier Gewinnt gegen einen Freund: Link teilen und direkt loslegen, kein Download nötig.' },
   '/sacrifice-and-sigils/kartenbuch': { section: 'sigils', title: 'Kartenbuch', description: 'Alle Karten, Sigils, Items und Ereignisse von Sacrifice & Sigils.' },
   '/sacrifice-and-sigils/moorwanderung': { section: 'sigils', title: 'Die Moorwanderung', description: 'Run-Modus für 2 bis 6 Spieler: allein durchs Moor, Deck ausbauen, im Duell Lebenssiegel verteidigen.' },
@@ -47,6 +48,7 @@ const ROOM_PATTERNS = [
   { re: /^\/blobby\/([A-Za-z0-9-]{3,16})$/, section: 'games', game: 'Blobby Volley', text: 'Du bist zu einer Partie Blobby Volley eingeladen. Klick und spiel direkt mit.' },
   { re: /^\/connect4\/([A-Za-z0-9-]{3,16})$/, section: 'games', game: 'Connect 4', text: 'Du bist zu einer Partie Vier Gewinnt eingeladen. Klick und spiel direkt mit.' },
   { re: /^\/flick-soccer\/([A-Za-z0-9-]{3,16})$/, section: 'games', game: 'Flick Soccer', text: 'Du bist zu einem Spiel Flick Soccer eingeladen. Klick und spiel direkt mit.' },
+  { re: /^\/worldflip\/([A-Za-z0-9-]{3,16})$/, section: 'games', game: 'Worldflip', text: 'Am schwebenden Tisch ist ein Platz frei. Klick und spiel direkt mit.' },
   { re: /^\/sacrifice-and-sigils\/raum\/([A-Za-z0-9-]{3,16})$/, section: 'sigils', game: 'Sacrifice & Sigils', text: 'Ein Tisch in der versunkenen Kapelle wartet auf dich. Klick und spiel direkt mit.' },
   { re: /^\/sacrifice-and-sigils\/moorwanderung\/([A-Za-z0-9-]{3,16})$/, section: 'sigils', game: 'Die Moorwanderung', text: 'Eine Gruppe bricht ins Moor auf. Klick und spiel direkt mit.' },
 ];

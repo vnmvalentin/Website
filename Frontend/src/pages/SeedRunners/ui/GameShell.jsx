@@ -5,14 +5,16 @@
 //
 // Zurück-Knopf (27.09.2026): auf jeder Seite außer dem Hauptmenü, links neben dem Logo. Er führt zur übergeordneten Seite
 // (zurueckZiel), nicht durch den Browser-Verlauf — wer über einen geteilten Link kommt, landet sonst außerhalb des Spiels.
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
-import { Gamepad2, ArrowLeftToLine, ArrowLeft } from "lucide-react";
+import { Gamepad2, ArrowLeft } from "lucide-react";
 import FxSettingsButton from "../client/FxSettingsButton.jsx";
 import ControlsDialog from "./ControlsDialog.jsx";
 import AccountButton from "./AccountButton.jsx";
 import { ShellContext, biomeOfDay } from "./shellContext.js";
 import "./theme.css";
+import { useFontLink } from "../../../components/shell/useFontLink";
+import BackToSite from "../../../components/shell/BackToSite";
 
 const FONT_HREF = "https://fonts.googleapis.com/css2?family=Bungee&family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@500;600;700&display=swap";
 
@@ -43,13 +45,7 @@ export default function GameShell() {
   const biome = pageBiome || biomeOfDay();
 
   // Schriften einmal laden (siehe theme.css, warum nicht per @import)
-  useEffect(() => {
-    if (document.querySelector(`link[href="${FONT_HREF}"]`)) return;
-    const link = document.createElement("link");
-    link.rel = "stylesheet";
-    link.href = FONT_HREF;
-    document.head.appendChild(link);
-  }, []);
+  useFontLink(FONT_HREF);
 
   const setBiome = useCallback((b) => setPageBiome(b), []);
   const openControls = useCallback(() => setControlsOpen(true), []);
@@ -83,9 +79,7 @@ export default function GameShell() {
               </button>
               <FxSettingsButton />
               <AccountButton />
-              <Link to="/fun" className="sr-icon-btn" title="Zurück zur Website" aria-label="Zurück zur Website">
-                <ArrowLeftToLine size={17} />
-              </Link>
+              <BackToSite className="sr-btn sr-btn-sm sr-btn-ghost" iconSize={15} />
             </div>
           </div>
         </header>

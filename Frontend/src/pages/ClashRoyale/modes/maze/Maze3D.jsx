@@ -149,7 +149,8 @@ export default function Maze3D({ state, myPlayerId, onMove, onPickup, frozen, on
     }
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.75));
     renderer.outputColorSpace = THREE.SRGBColorSpace;
-    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    // Neutral statt ACES (wie die anderen Szenen): Farben bleiben satt, Kartenbilder unverfälscht
+    renderer.toneMapping = THREE.NeutralToneMapping;
     renderer.toneMappingExposure = 1.0;
     renderer.domElement.style.display = 'block';
     container.appendChild(renderer.domElement);
@@ -158,7 +159,8 @@ export default function Maze3D({ state, myPlayerId, onMove, onPickup, frozen, on
     const own = (x) => { disposables.push(x); return x; };
 
     const scene = new THREE.Scene();
-    const FOG_COLOR = new THREE.Color(0x030309);
+    // Tiefes Indigo statt Schwarz: die Ferne bleibt dunkel (Sichtweite unverändert), wirkt aber gemalt
+    const FOG_COLOR = new THREE.Color(0x0c0a26);
     scene.background = FOG_COLOR;
     scene.fog = new THREE.Fog(FOG_COLOR, 1, 4);
     const camera = new THREE.PerspectiveCamera(74, 1, 0.03, 60);
@@ -170,7 +172,7 @@ export default function Maze3D({ state, myPlayerId, onMove, onPickup, frozen, on
     torch.position.set(0.16, -0.1, -0.05);
     camera.add(torch);
     // Kühles Restlicht: was die Fackel nicht trifft, kippt ins Blaue statt ins Schwarze
-    scene.add(new THREE.HemisphereLight(0x3a4a8a, 0x05040a, 0.55));
+    scene.add(new THREE.HemisphereLight(0x8c9cff, 0x2a2060, 1.1));
 
     // Materialien
     const wallTex = wallTextures();
@@ -178,8 +180,8 @@ export default function Maze3D({ state, myPlayerId, onMove, onPickup, frozen, on
     const ceilTex = ceilingTexture();
     const glowTex = own(glowTexture());
     [wallTex.map, wallTex.bump, floorTex.map, floorTex.bump, ceilTex].forEach(own);
-    const wallMat = own(new THREE.MeshStandardMaterial({ map: wallTex.map, bumpMap: wallTex.bump, bumpScale: 2.2, roughness: 0.93, metalness: 0.02 }));
-    const floorMat = own(new THREE.MeshStandardMaterial({ map: floorTex.map, bumpMap: floorTex.bump, bumpScale: 1.6, roughness: 0.88 }));
+    const wallMat = own(new THREE.MeshStandardMaterial({ map: wallTex.map, bumpMap: wallTex.bump, bumpScale: 1.2, roughness: 0.9 }));
+    const floorMat = own(new THREE.MeshStandardMaterial({ map: floorTex.map, bumpMap: floorTex.bump, bumpScale: 0.9, roughness: 0.85 }));
     const ceilMat = own(new THREE.MeshStandardMaterial({ map: ceilTex, roughness: 1 }));
 
     const loader = new THREE.TextureLoader();

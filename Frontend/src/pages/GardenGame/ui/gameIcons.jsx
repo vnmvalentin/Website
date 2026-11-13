@@ -35,7 +35,8 @@ function machIcon(src, name) {
                 alt=""
                 draggable={false}
                 className={className}
-                style={{ height: size, width: "auto", display: "inline-block", objectFit: "contain", flexShrink: 0, ...style }}
+                // Pixel-Symbole (tools/pixelSymbole.mjs) mit harten Kanten zeichnen
+                style={{ height: size, width: "auto", display: "inline-block", objectFit: "contain", flexShrink: 0, imageRendering: "pixelated", ...style }}
             />
         );
     }
@@ -147,6 +148,10 @@ export const SkillIcon = {
     ertrag: machIcon("skills/ertrag.png", "IconSkillErtrag"),
     zuechter: machIcon("skills/zuechter.png", "IconSkillZuechter"),
     seltenheit: machIcon("skills/glueckspilz.png", "IconSkillGlueckspilz"),
+    // 06.11.: die drei fehlten bisher (leere Farbfläche im Fähigkeitsbaum) — tools/pixelSymbole.mjs
+    sortenkenner: machIcon("skills/sortenkenner.png", "IconSkillSortenkenner"),
+    auftragsprofi: machIcon("skills/auftragsprofi.png", "IconSkillAuftragsprofi"),
+    festkomitee: machIcon("skills/festkomitee.png", "IconSkillFestkomitee"),
 };
 
 // ── Tier-Fähigkeiten ─────────────────────────────────────────────────────────────

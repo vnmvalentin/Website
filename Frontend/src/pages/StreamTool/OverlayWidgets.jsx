@@ -35,7 +35,50 @@ function shade(hex, amt) {
 /** Kartenhintergrund aus der eingestellten Deckkraft. */
 function cardStyle(module, width) {
   const alpha = clamp((module.opacity ?? 80) / 100, 0, 1);
-  return { width, background: `rgba(16, 16, 20, ${alpha})` };
+  const style = { width, background: `rgba(16, 16, 20, ${alpha})` };
+  // Ecken aus dem gemeinsamen Design. --stw-r reicht den Wert an die inneren
+  // Teile weiter, die nie runder sein dürfen als die Karte selbst.
+  if (Number.isFinite(module.radius)) {
+    style.borderRadius = module.radius;
+    style['--stw-r'] = `${module.radius}px`;
+  }
+  return style;
+}
+
+/**
+ * Meldet einen Führungswechsel: liefert { id, n } für die Option, die gerade
+ * die Führung ÜBERNOMMEN hat. n zählt hoch und dient als key, damit die
+ * Aufblitz-Animation bei jedem Wechsel neu startet. Der erste Führende zählt
+ * nicht — sonst blitzte es schon beim Einblenden.
+ */
+function useLeadFlash(leaderId, active) {
+  const prev = useRef(null);
+  const [flash, setFlash] = useState({ id: null, n: 0 });
+  useEffect(() => {
+    if (!active || leaderId == null) return;
+    if (prev.current != null && prev.current !== leaderId) {
+      setFlash((f) => ({ id: leaderId, n: f.n + 1 }));
+    }
+    prev.current = leaderId;
+  }, [leaderId, active]);
+  return active ? flash : { id: null, n: 0 };
+}
+
+/** Die eine Option mit dem höchsten Wert — bei Gleichstand keine. */
+function soleLeader(ids, values) {
+  const max = Math.max(...values, 0);
+  if (max <= 0) return null;
+  const top = values.reduce((acc, v, i) => (v === max ? [...acc, i] : acc), []);
+  return top.length === 1 ? ids[top[0]] : null;
+}
+
+/** "54 Gewinner teilen sich 12.400 Punkte" — die Gewinner bekommen den ganzen Pot. */
+function payoutText(winners, pot, short) {
+  const n = Math.round(winners);
+  if (n <= 0) return 'Niemand lag richtig';
+  if (short) return `${fmt(n)} Gewinner · ${fmt(pot)} Punkte`;
+  if (n === 1) return `1 Gewinner bekommt ${fmt(pot)} Punkte`;
+  return `${fmt(n)} Gewinner teilen sich ${fmt(pot)} Punkte`;
 }
 
 /**
@@ -129,6 +172,105 @@ function CardHead({ kicker, accent, chip, showTimer, remaining, urgent }) {
 const cardClass = (module, head) =>
   `stw-card${module.glass ? '' : ' is-flat'}${head ? '' : ' is-nohead'}`;
 
+/* ── Stil „Modern“ (module.style !== 'classic') ─────────────────────────────
+   Abstimmung und Vorhersage teilen sich dieselben Bausteine: eine Kopfzeile
+   ohne Schilder, Zeilen, in denen der Balken die ganze Zeile ist, und die
+   Restzeit als Linie am unteren Rand. Weniger Einzelteile als im klassischen
+   Stil, dafür größere Schrift — im Stream wird das Overlay oft klein gesehen. */
+const cleanClass = (module, head) => `${cardClass(module, head)} stw-c`;
+
+/** Kopfzeile: Art des Moduls, eine Kennzahl, rechts Restzeit oder Zustand. */
+function CleanHead({ kicker, accent, meta, time, word, urgent }) {
+  return (
+    <div className="stw-c-head">
+      <span className="stw-c-kicker" style={{ color: accent }}>{kicker}</span>
+      {meta && <span className="stw-c-meta">{meta}</span>}
+      {time && (
+        <span className={`stw-c-time${word ? ' is-word' : ''}${urgent ? ' is-urgent' : ''}`}>{time}</span>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Eine Option als Zeile. Die Füllung liegt hinter dem Text und ist bewusst
+ * nur halb deckend: so bleibt weiße Schrift bei JEDER vom Streamer gewählten
+ * Farbe lesbar, auch auf Gelb.
+ * @param {number} index  Nummer im Kästchen; 0 = nur ein Farbstreifen
+ * @param {string} state  '' | lead | win | lose
+ */
+function CleanRow({ index, color, name, sub, pct, state, tag, flash }) {
+  return (
+    <div className={`stw-c-row${state ? ` is-${state}` : ''}`}>
+      <i className="stw-c-fill" style={{ width: `${clamp(pct, 0, 100).toFixed(1)}%`, background: color }} />
+      {flash > 0 && <i key={flash} className="stw-c-flash" />}
+      <span className={`stw-c-key${index ? '' : ' is-bar'}`} style={{ background: color }}>{index || ''}</span>
+      <span className="stw-c-name">{name}</span>
+      {tag && <span className="stw-c-tag">{tag}</span>}
+      <span className="stw-c-sub">{sub}</span>
+      <b className="stw-c-pct">{Math.round(pct)}<small>%</small></b>
+    </div>
+  );
+}
+
+/** Breite der Leiste auf der 1920er Bühne. */
+const BAR_W = 1240;
+/** Mehr Antworten passen nicht in eine Zeile — der Anteilsbalken zeigt trotzdem alle. */
+const BAR_MAX_ITEMS = 5;
+
+/**
+ * Form „Leiste“: Frage, Antworten und Zeit in EINER Zeile, darunter der
+ * Anteilsbalken über die ganze Breite. Für Streams, in denen eine Karte zu
+ * viel Bild verdeckt.
+ * @param {Array} items  { id, index, color, name, pct, state }
+ */
+function FeedBar({ module, head, kicker, title, items, time, word, urgent }) {
+  const shown = items.slice(0, BAR_MAX_ITEMS);
+  // Ab vier Antworten reicht eine Zeile nicht mehr für alle Namen: dann tragen
+  // nur die zwei stärksten ihren Namen, der Rest Farbe (bzw. Nummer) und Anteil.
+  const named = new Set(
+    shown.length <= 3
+      ? shown.map((it) => it.id)
+      : [...shown].sort((a, b) => b.pct - a.pct).slice(0, 2).map((it) => it.id),
+  );
+  return (
+    <div className={`${cleanClass(module, head)} stw-b`} style={cardStyle(module, BAR_W)}>
+      <div className="stw-b-line">
+        {head && <span className="stw-c-kicker" style={{ color: module.accent }}>{kicker}</span>}
+        <span className="stw-b-title">{title}</span>
+        <div className="stw-b-items">
+          {shown.map((it) => (
+            <span key={it.id} className={`stw-b-item${it.state ? ` is-${it.state}` : ''}`}>
+              <i className={`stw-c-key${it.index ? '' : ' is-bar'}`} style={{ background: it.color }}>{it.index || ''}</i>
+              {named.has(it.id) && <span>{it.name}</span>}
+              <b>{Math.round(it.pct)}<small>%</small></b>
+            </span>
+          ))}
+          {items.length > shown.length && <span className="stw-b-more">+{items.length - shown.length}</span>}
+        </div>
+        {time && (
+          <span className={`stw-c-time${word ? ' is-word' : ''}${urgent ? ' is-urgent' : ''}`}>{time}</span>
+        )}
+      </div>
+      <div className="stw-b-share">
+        {items.map((it) => (
+          <i key={it.id} className={it.state === 'lose' ? 'is-lose' : ''}
+            style={{ width: `${Math.max(it.pct, 0.5).toFixed(2)}%`, background: it.color }} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/** Restzeit als Linie am unteren Kartenrand. */
+function CleanTimebar({ frac, color }) {
+  return (
+    <div className="stw-c-timebar">
+      <i style={{ transform: `scaleX(${frac})`, background: color }} />
+    </div>
+  );
+}
+
 export function PollWidget({ data, module, width = 640 }) {
   const head = module.showHead !== false;
   const running = data.status === 'ACTIVE';
@@ -140,6 +282,72 @@ export function PollWidget({ data, module, width = 640 }) {
   const remaining = Math.max(0, data.remaining || 0);
   const frac = data.duration > 0 ? clamp(remaining / data.duration, 0, 1) : 0;
   const urgent = running && remaining <= 10;
+  const flash = useLeadFlash(soleLeader(data.choices.map((c, i) => c.id || i), votes), running);
+
+  if (module.layout === 'bar') {
+    return (
+      <FeedBar
+        module={module}
+        head={head}
+        kicker="Abstimmung"
+        title={data.title || 'Abstimmung'}
+        items={data.choices.map((choice, i) => {
+          const top = votes[i] === maxVotes && maxVotes > 0;
+          return {
+            id: choice.id || i,
+            index: i + 1,
+            color: choice.color || module.accent,
+            name: choice.title,
+            pct: tTotal > 0 ? (tVotes[i] / tTotal) * 100 : 0,
+            state: running ? (top ? 'lead' : '') : (top ? 'win' : 'lose'),
+          };
+        })}
+        time={running ? (module.timer ? mmss(remaining) : '') : 'Beendet'}
+        word={!running}
+        urgent={urgent}
+      />
+    );
+  }
+
+  if (module.style !== 'classic') {
+    const winners = votes.filter((v) => v === maxVotes && maxVotes > 0).length;
+    return (
+      <div className={cleanClass(module, head)} style={cardStyle(module, width)}>
+        {head && (
+          <CleanHead
+            kicker="Abstimmung"
+            accent={module.accent}
+            meta={`${fmt(tTotal)} ${Math.round(tTotal) === 1 ? 'Stimme' : 'Stimmen'}`}
+            time={running ? (module.timer ? mmss(remaining) : '') : 'Beendet'}
+            word={!running}
+            urgent={urgent}
+          />
+        )}
+        <h3 className="stw-c-title">{data.title || 'Abstimmung'}</h3>
+
+        <div className="stw-c-rows">
+          {data.choices.map((choice, i) => {
+            const top = votes[i] === maxVotes && maxVotes > 0;
+            return (
+              <CleanRow
+                key={choice.id || i}
+                index={i + 1}
+                color={choice.color || module.accent}
+                name={choice.title}
+                sub={fmt(tVotes[i])}
+                pct={tTotal > 0 ? (tVotes[i] / tTotal) * 100 : 0}
+                state={running ? (top ? 'lead' : '') : (top ? 'win' : 'lose')}
+                tag={!running && top && winners === 1 ? 'Gewinner' : ''}
+                flash={flash.id === (choice.id || i) ? flash.n : 0}
+              />
+            );
+          })}
+        </div>
+
+        <CleanTimebar frac={running ? frac : 0} color={urgent ? '#e66767' : module.accent} />
+      </div>
+    );
+  }
 
   return (
     <div className={cardClass(module, head)} style={cardStyle(module, width)}>
@@ -209,7 +417,7 @@ export const BAR_TEXT_MIN_H = 30;
  * mit Schatten säuft auf gelben oder hellgrünen Balken ab. Beide Ebenen haben
  * dieselbe Box, deshalb sitzt die dunkle Kopie pixelgenau auf der hellen.
  */
-function GoalBar({ percent, color, height, left, right }) {
+function GoalBar({ percent, color, height, left, right, flat }) {
   const pct = clamp(percent, 0, 100);
   const inner = (
     <>
@@ -222,7 +430,7 @@ function GoalBar({ percent, color, height, left, right }) {
     <div className="stw-track stw-goal-track" style={{ height }}>
       <div
         className="stw-fill"
-        style={{ width: `${pct.toFixed(1)}%`, background: `linear-gradient(180deg, ${shade(color, 0.18)}, ${color})` }}
+        style={{ width: `${pct.toFixed(1)}%`, background: flat ? color : `linear-gradient(180deg, ${shade(color, 0.18)}, ${color})` }}
       />
       {(left || right) && (
         <>
@@ -244,6 +452,7 @@ export function GoalWidget({ data, module, width = 460 }) {
   // 'full' = Zahl über dem Balken, 'inline' = Zahlen im Balken,
   // 'bar' = nur der Balken, Beschriftung und Zahlen darin
   const variant = module.goalLayout || 'full';
+  const clean = module.style !== 'classic';
   const showPct = module.showPercent !== false;
   const height = variant === 'full'
     ? (module.barHeight ?? 14)
@@ -253,7 +462,7 @@ export function GoalWidget({ data, module, width = 460 }) {
   const pctText = `${Math.round(percent)} %`;
 
   return (
-    <div className={`stw-card${module.glass ? '' : ' is-flat'}`} style={cardStyle(module, width)}>
+    <div className={`stw-card${module.glass ? '' : ' is-flat'}${clean ? ' stw-c' : ''}`} style={cardStyle(module, width)}>
       <div className={`stw-goal is-${variant}`}>
         {variant !== 'bar' && (
           <div className="stw-goal-top">
@@ -277,6 +486,7 @@ export function GoalWidget({ data, module, width = 460 }) {
           percent={percent}
           color={data.color}
           height={height}
+          flat={clean}
           left={variant === 'bar' ? data.label : (variant === 'inline' ? counts : '')}
           right={variant === 'bar' ? counts : (variant === 'inline' && showPct ? pctText : '')}
         />
@@ -354,7 +564,7 @@ export function StatsWidget({ data, module, width }) {
   const head = module.showHead !== false && (!!data.label || module.liveDot !== false);
 
   return (
-    <div className={cardClass(module, head)}
+    <div className={module.style !== 'classic' ? cleanClass(module, head) : cardClass(module, head)}
       style={cardStyle(module, width || statsWidth(data.items, layout, centered))}>
       <div className={cls}>
         {head && (
@@ -494,7 +704,7 @@ export function RaidClipWidget({ data, module, preview = false, width = 800 }) {
   // verhindern (siehe oben). Sichtbar wäre sie ohnehin nur an den schmalen
   // Streifen über und unter dem Clip.
   return (
-    <div className="stw-card is-flat" style={cardStyle(module, width)}>
+    <div className={`stw-card is-flat${module.style !== 'classic' ? ' stw-c' : ''}`} style={cardStyle(module, width)}>
       {module.showRaider !== false && (
         <div className="stw-raid-head">
           <span className="stw-kicker" style={{ color: data.color || module.accent }}>Raid</span>
@@ -640,6 +850,49 @@ function ShareBody({ outcomes, points, users, winnerId }) {
   );
 }
 
+/**
+ * Stil „Modern“, zwei Optionen: beide Seiten stehen sich mit großer Prozentzahl
+ * gegenüber, darunter EIN Balken, an dem beide ziehen. Der Strich in der Mitte
+ * zeigt, wer vorn liegt, ohne dass man die Zahlen lesen muss.
+ */
+function CleanDuel({ outcomes, points, winnerId, flash }) {
+  const sum = points[0] + points[1];
+  const pctA = sum > 0 ? (points[0] / sum) * 100 : 50;
+  const odds = (i) => (points[i] > 0 ? sum / points[i] : 1).toFixed(1).replace('.', ',');
+  const state = (o) => (winnerId ? (winnerId === o.id ? ' is-win' : ' is-lose') : '');
+
+  const side = (i, pct) => {
+    const o = outcomes[i];
+    return (
+      <div className={`stw-c-side ${i === 0 ? 'a' : 'b'}${state(o)}`}>
+        {flash?.id === o.id && flash.n > 0 && <i key={flash.n} className="stw-c-flash" />}
+        <div className="stw-c-side-name">
+          <i style={{ background: o.color }} />
+          <span>{o.title}</span>
+          {winnerId === o.id && <span className="stw-c-tag">Gewonnen</span>}
+        </div>
+        <b className="stw-c-side-pct">{Math.round(pct)}<small>%</small></b>
+        <div className="stw-c-side-sub">{fmt(points[i])} Punkte · Quote {odds(i)}</div>
+      </div>
+    );
+  };
+
+  return (
+    <>
+      <div className="stw-c-duel">
+        {side(0, pctA)}
+        {side(1, 100 - pctA)}
+      </div>
+      <div className="stw-c-tug">
+        <div className="stw-c-tug-bar">
+          <i className={state(outcomes[0])} style={{ width: `${clamp(pctA, 2, 98).toFixed(2)}%`, background: outcomes[0].color }} />
+          <i className={state(outcomes[1])} style={{ background: outcomes[1].color }} />
+        </div>
+      </div>
+    </>
+  );
+}
+
 export function PredictionWidget({ data, module, width = 740 }) {
   const head = module.showHead !== false;
   const open = data.status === 'ACTIVE';
@@ -654,6 +907,84 @@ export function PredictionWidget({ data, module, width = 740 }) {
   const frac = data.window > 0 ? clamp(remaining / data.window, 0, 1) : 0;
   const urgent = open && remaining <= 10;
   const isVersus = outcomes.length <= VERSUS_MAX_OUTCOMES;
+
+  const flash = useLeadFlash(soleLeader(outcomes.map((o) => o.id), outcomes.map((o) => o.points)), open);
+  // Auszahlung: steht erst fest, wenn Twitch den Gewinner nennt
+  const winnerAt = data.winnerId ? outcomes.findIndex((o) => o.id === data.winnerId) : -1;
+  const payoutFor = (short) => (winnerAt >= 0
+    ? payoutText(outcomes[winnerAt].users, outcomes.reduce((s, o) => s + o.points, 0), short)
+    : '');
+  const payout = payoutFor(false);
+
+  if (module.layout === 'bar') {
+    return (
+      <FeedBar
+        module={module}
+        head={head}
+        kicker="Vorhersage"
+        title={data.title || 'Vorhersage'}
+        items={outcomes
+          .map((o, i) => ({
+            id: o.id,
+            index: 0,
+            color: o.color,
+            name: o.title,
+            pct: sum > 0 ? (points[i] / sum) * 100 : 100 / outcomes.length,
+            state: data.winnerId ? (data.winnerId === o.id ? 'win' : 'lose') : '',
+          }))
+          .sort((a, b) => b.pct - a.pct)}
+        time={open ? (module.timer ? mmss(remaining) : '') : (payoutFor(true) || statusChip(data.status).label)}
+        word={!open}
+        urgent={urgent}
+      />
+    );
+  }
+
+  if (module.style !== 'classic') {
+    const chip = statusChip(data.status);
+    return (
+      <div className={cleanClass(module, head)} style={cardStyle(module, width)}>
+        {head && (
+          <CleanHead
+            kicker="Vorhersage"
+            accent={module.accent}
+            meta={`${fmt(sum)} Punkte · ${fmt(totalUsers)} dabei`}
+            time={open ? (module.timer ? mmss(remaining) : '') : chip.label}
+            word={!open}
+            urgent={urgent}
+          />
+        )}
+        <h3 className="stw-c-title">{data.title || 'Vorhersage'}</h3>
+
+        {isVersus
+          ? <CleanDuel outcomes={outcomes} points={points} winnerId={data.winnerId} flash={flash} />
+          : (
+            <div className="stw-c-rows">
+              {outcomes
+                .map((o, i) => ({ o, p: points[i], u: users[i] }))
+                .sort((a, b) => b.p - a.p)
+                .map(({ o, p, u }) => (
+                  <CleanRow
+                    key={o.id}
+                    index={0}
+                    color={o.color}
+                    name={o.title}
+                    sub={`${fmt(p)} · ${fmt(u)}`}
+                    pct={sum > 0 ? (p / sum) * 100 : 0}
+                    state={data.winnerId ? (data.winnerId === o.id ? 'win' : 'lose') : ''}
+                    tag={data.winnerId === o.id ? 'Gewonnen' : ''}
+                    flash={flash.id === o.id ? flash.n : 0}
+                  />
+                ))}
+            </div>
+          )}
+
+        {payout && <div className="stw-c-payout">{payout}</div>}
+
+        <CleanTimebar frac={open ? frac : 0} color={urgent ? '#e66767' : module.accent} />
+      </div>
+    );
+  }
 
   return (
     <div className={cardClass(module, head)} style={cardStyle(module, width)}>

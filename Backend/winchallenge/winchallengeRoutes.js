@@ -7,6 +7,7 @@ const {
   deleteDoc,
 } = require("./winchallengeStore");
 const { searchGames, sanitizeItems } = require("./winchallengeGames");
+const timerMath = require("./timerMath");
 
 // ===== DB (RAM-Cache + Speichern in SQLite via winchallengeStore) =====
 // Wichtig: Ein Node-Prozess (nicht PM2 cluster ohne gemeinsame DB).
@@ -186,6 +187,9 @@ const DEFAULT_TIMER = {
   startedAt: 0,
   elapsedMs: 0,
   visible: true,
+  /** "up" = Stoppuhr, "down" = Countdown ab durationMs (siehe timerMath.js) */
+  mode: "up",
+  durationMs: timerMath.DEFAULT_COUNTDOWN_MS,
 };
 
 const DEFAULT_PAGER = {
@@ -206,12 +210,30 @@ const DEFAULT_CHAT_COMMANDS = {
   channel: "",
   /** Mehrere Kanäle möglich — z. B. Gruppen, die ein Overlay teilen */
   channels: [],
+  /** Veraltet — nur noch für Bestandsdaten ohne allowedRoles gelesen */
   requireModOrBroadcaster: true,
+  /** Wer außer dem Streamer Befehle nutzen darf (lib/winchallengeIrc.js isAllowedSender) */
+  allowedRoles: { mod: true, vip: false, sub: false, everyone: false },
   /** tmi: Kurzantworten im Chat (z. B. „Timer wurde pausiert“) */
   replyInChat: true,
 };
 
 const MAX_CHAT_CHANNELS = 10;
+
+/** Rollen säubern; Bestandsdaten erben sie vom alten Schalter "Nur Mods und Streamer". */
+function normalizeAllowedRoles(roles, requireModOrBroadcaster) {
+  if (!roles || typeof roles !== "object") {
+    return requireModOrBroadcaster === false
+      ? { mod: true, vip: false, sub: false, everyone: true }
+      : { ...DEFAULT_CHAT_COMMANDS.allowedRoles };
+  }
+  return {
+    mod: roles.mod !== false,
+    vip: roles.vip === true,
+    sub: roles.sub === true,
+    everyone: roles.everyone === true,
+  };
+}
 
 function normalizeChatCommands(cc) {
   const merged = { ...DEFAULT_CHAT_COMMANDS, ...(cc || {}) };
@@ -229,7 +251,8 @@ function normalizeChatCommands(cc) {
   merged.channels = [...set].slice(0, MAX_CHAT_CHANNELS);
   merged.channel = merged.channels[0] || "";
   merged.enabled = !!merged.enabled;
-  merged.requireModOrBroadcaster = merged.requireModOrBroadcaster !== false;
+  merged.allowedRoles = normalizeAllowedRoles(cc?.allowedRoles, cc?.requireModOrBroadcaster);
+  merged.requireModOrBroadcaster = !merged.allowedRoles.everyone;
   merged.replyInChat = merged.replyInChat !== false;
   return merged;
 }
@@ -396,7 +419,7 @@ function ensureDocShape(input = {}) {
   if (!doc.overlayKey) doc.overlayKey = nanoid(12);
   if (!doc.controlKey) doc.controlKey = nanoid(12);
 
-  const timer = { ...DEFAULT_TIMER, ...(doc.timer || {}) };
+  const timer = timerMath.normalizeTimerFields({ ...DEFAULT_TIMER, ...(doc.timer || {}) });
   const style = normalizeStyle(doc.style || {});
   const pagerRaw = { ...DEFAULT_PAGER, ...(doc.pager || {}) };
   const animation = normalizeAnimation(doc.animation, pagerRaw);
@@ -653,7 +676,10 @@ function createWinchallengeRouter({ requireAuth } = {}) {
     }
 
     touchActivity(userId);
-    const doc = ensureDocShape(db[userId]);
+    // Der OBS-Link ist halböffentlich (Stream, weitergegebene Szenen). Der Control-Key gibt
+    // Schreibzugriff und darf hier NIE mitkommen; Rechte und Chat-Befehle braucht die
+    // Anzeige ebenso wenig.
+    const { controlKey: _ck, controlPermissions: _cp, chatCommands: _cc, ...doc } = ensureDocShape(db[userId]);
     res.json(doc);
   });
 
@@ -759,29 +785,21 @@ function createWinchallengeRouter({ requireAuth } = {}) {
             .status(403)
             .json({ error: "Timer bearbeiten nicht erlaubt" });
         }
-        if (!doc.timer.running) {
-          doc.timer.running = true;
-          doc.timer.startedAt = Date.now() - (doc.timer.elapsedMs || 0);
-        }
+        doc.timer = timerMath.start(doc.timer);
       } else if (action === "timerStop") {
         if (!perms.allowModsTimer) {
           return res
             .status(403)
             .json({ error: "Timer bearbeiten nicht erlaubt" });
         }
-        if (doc.timer.running) {
-          doc.timer.running = false;
-          doc.timer.elapsedMs = Date.now() - (doc.timer.startedAt || Date.now());
-        }
+        doc.timer = timerMath.pause(doc.timer);
       } else if (action === "timerReset") {
         if (!perms.allowModsTimer) {
           return res
             .status(403)
             .json({ error: "Timer bearbeiten nicht erlaubt" });
         }
-        doc.timer.running = false;
-        doc.timer.startedAt = 0;
-        doc.timer.elapsedMs = 0;
+        doc.timer = timerMath.reset(doc.timer);
       } else if (action === "timerToggleVisible") {
         if (!perms.allowModsTimer) {
           return res
@@ -804,21 +822,8 @@ function createWinchallengeRouter({ requireAuth } = {}) {
           return res.status(400).json({ error: "Ungültiger deltaMs-Wert" });
         }
 
-        const t = doc.timer || DEFAULT_TIMER;
-
-        const currentElapsed = t.running
-          ? Date.now() - (t.startedAt || Date.now())
-          : t.elapsedMs || 0;
-
-        const nextElapsed = Math.max(0, currentElapsed + deltaMs);
-
-        if (t.running) {
-          t.startedAt = Date.now() - nextElapsed;
-        } else {
-          t.elapsedMs = nextElapsed;
-        }
-
-        doc.timer = t;
+        // Wirkt auf die angezeigte Zeit: beim Countdown ist "+" mehr Restzeit
+        doc.timer = timerMath.adjustDisplay(doc.timer || { ...DEFAULT_TIMER }, deltaMs);
       } else if (action === "timerSet") {
         if (!perms.allowModsTimer) {
           return res
@@ -829,10 +834,31 @@ function createWinchallengeRouter({ requireAuth } = {}) {
         if (!Number.isFinite(ms) || ms < 0) {
           return res.status(400).json({ error: "Ungültiger elapsedMs-Wert" });
         }
-        const t = doc.timer || { ...DEFAULT_TIMER };
-        t.elapsedMs = Math.min(ms, 999 * 3600 * 1000);
-        if (t.running) t.startedAt = Date.now() - t.elapsedMs;
-        doc.timer = t;
+        // Name "elapsedMs" historisch — gemeint ist die angezeigte Zeit
+        doc.timer = timerMath.setDisplay(doc.timer || { ...DEFAULT_TIMER }, ms);
+      } else if (action === "timerMode") {
+        // Hoch- oder runterzählen — auch von der Moderator-Ansicht aus
+        if (!perms.allowModsTimer) {
+          return res
+            .status(403)
+            .json({ error: "Timer bearbeiten nicht erlaubt" });
+        }
+        const mode = req.body.mode;
+        if (mode !== "up" && mode !== "down") {
+          return res.status(400).json({ error: "mode muss \"up\" oder \"down\" sein" });
+        }
+        doc.timer = timerMath.setMode(doc.timer || { ...DEFAULT_TIMER }, mode);
+      } else if (action === "timerDuration") {
+        if (!perms.allowModsTimer) {
+          return res
+            .status(403)
+            .json({ error: "Timer bearbeiten nicht erlaubt" });
+        }
+        const next = timerMath.setDuration(doc.timer || { ...DEFAULT_TIMER }, req.body.durationMs);
+        if (!next) {
+          return res.status(400).json({ error: "Ungültiger durationMs-Wert" });
+        }
+        doc.timer = next;
       } else if (action === "hardRefresh") {
         doc.refreshNonce = (doc.refreshNonce || 1) + 1;
       } else {

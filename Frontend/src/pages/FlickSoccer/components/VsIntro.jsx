@@ -2,7 +2,7 @@
 // dazwischen „VS", danach „Anpfiff". Liegt über dem Spielfeld; die Animation steht in theme.css (fk-vs-*), hier nur
 // Inhalt und Ende. Während sie läuft, darf niemand schießen.
 import React, { useEffect } from "react";
-import { FORMATIONS } from "../engine/index.js";
+import { formationInfo } from "../engine/index.js";
 import { playWhistle } from "../sound.js";
 
 export const INTRO_MS = 2700;
@@ -19,7 +19,7 @@ export default function VsIntro({ names, formations, tags = [], onDone }) {
   }, [onDone]);
 
   // Kleine Zeile: Aufstellung (+ Zusatz). Die Teamfarbe zeigt die Tafel selbst, der Kurzcode steht im Menü.
-  const sub = (id, tag) => [FORMATIONS[id] ? FORMATIONS[id].name : "", tag].filter(Boolean).join(" · ");
+  const sub = (id, tag) => [formationInfo(id).name, tag].filter(Boolean).join(" · ");
   return (
     <div className="fk-vs" aria-live="polite">
       <div className="fk-vs-plate left">

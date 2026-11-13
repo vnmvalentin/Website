@@ -93,8 +93,59 @@ function calmBlockTexture(palette, cols = 2, rows = 2) {
   return t;
 }
 
+/**
+ * Kartenstein in Lapisblau mit Goldrand (eine Platte je Wiederholung): das Blau-Gold der
+ * Clash-Royale-Oberfläche — hebt die Kartensteine vom warmen Sandstein der Stufen ab.
+ */
+function lapisBlockTexture() {
+  const S = 256;
+  const c = document.createElement('canvas');
+  c.width = c.height = S;
+  const ctx = c.getContext('2d');
+  const rand = rng(57);
+  // Goldrand: außen dunkle Kontur, dann Gold mit hellem Schein oben
+  ctx.fillStyle = '#2b1c10';
+  ctx.fillRect(0, 0, S, S);
+  const gold = ctx.createLinearGradient(0, 0, 0, S);
+  gold.addColorStop(0, '#ffe07a');
+  gold.addColorStop(0.5, '#f2b632');
+  gold.addColorStop(1, '#b9791c');
+  ctx.fillStyle = gold;
+  ctx.beginPath();
+  ctx.roundRect(5, 5, S - 10, S - 10, 24);
+  ctx.fill();
+  // blaue Fläche
+  ctx.beginPath();
+  ctx.roundRect(21, 21, S - 42, S - 42, 14);
+  const blue = ctx.createLinearGradient(0, 21, 0, S - 21);
+  blue.addColorStop(0, '#3f7fe0');
+  blue.addColorStop(0.45, '#2a5fc4');
+  blue.addColorStop(1, '#1c3f93');
+  ctx.fillStyle = blue;
+  ctx.fill();
+  ctx.lineWidth = 4;
+  ctx.strokeStyle = 'rgba(20,24,70,0.85)';
+  ctx.stroke();
+  // gemalte Tupfer (Lapis-Maserung) — dezent
+  ctx.save();
+  ctx.clip();
+  for (let i = 0; i < 46; i++) {
+    ctx.fillStyle = rand() < 0.5 ? 'rgba(150,195,255,0.10)' : 'rgba(8,20,80,0.14)';
+    ctx.beginPath();
+    ctx.ellipse(21 + rand() * (S - 42), 21 + rand() * (S - 42), 5 + rand() * 16, 3 + rand() * 9, rand() * 3, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.anisotropy = 16;
+  return t;
+}
+
 // Welche gemalte Textur ersetzt welches Foto (IDs aus public/media/cr3d)
 const TEXTURE_FOR = {
+  lapis_block: () => lapisBlockTexture(),
   sandstone_blocks_05: () => calmBlockTexture(SAND, 3, 3),
   sandstone_blocks_08: () => calmBlockTexture(SAND_LIGHT, 2, 2),
   sandstone_blocks_04: () => smoothBlockTexture(SAND_LIGHT),
