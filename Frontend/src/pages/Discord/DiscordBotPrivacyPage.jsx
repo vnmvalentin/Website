@@ -2,57 +2,36 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { ShieldCheck, ArrowLeft } from 'lucide-react';
 import SEO from '../../components/SEO';
-
-function Section({ title, children }) {
-  return (
-    <section className="space-y-3">
-      <h2 className="font-display text-lg font-bold text-white">{title}</h2>
-      <div className="text-white/60 text-sm leading-relaxed space-y-3">{children}</div>
-    </section>
-  );
-}
-
-function List({ items }) {
-  return (
-    <ul className="list-disc list-outside pl-5 space-y-1.5">
-      {items.map((item, i) => <li key={i}>{item}</li>)}
-    </ul>
-  );
-}
+import { Page, PageHeader } from '../../components/ui';
+// Gleiche Abschnitt-Bausteine wie die übrigen Rechtsseiten. Den Rahmen (LegalPage) nicht: der blendet sich ohne
+// Betreiber-Angaben aus, die Bot-Texte muss Discord aber immer erreichen können.
+import { Section, List } from '../Legal/LegalPage';
 
 export default function DiscordBotPrivacyPage() {
   return (
-    <div className="page-fade h-full overflow-y-auto custom-scrollbar">
+    <Page width="text" className="py-4 md:py-8">
       <SEO
         title="Datenschutzerklärung – Discord Bot"
         description="Datenschutzerklärung für den vnmvalentin Discord-Bot und das Bot-Dashboard."
         path="/discord-bot/privacy"
       />
 
-      <div className="max-w-3xl mx-auto px-4 md:px-6 py-10 md:py-14">
-
         <Link to="/discord-bot" className="inline-flex items-center gap-1.5 text-white/40 hover:text-white text-xs font-semibold mb-6 transition-colors">
           <ArrowLeft size={13} /> Zurück zum Bot-Dashboard
         </Link>
 
-        <div className="flex items-center gap-3 mb-2">
-          <span className="flex items-center justify-center w-11 h-11 rounded-2xl bg-violet-500/10 border border-violet-400/20 text-violet-300 shrink-0">
-            <ShieldCheck size={20} />
-          </span>
-          <h1 className="font-display text-2xl md:text-3xl font-bold text-white tracking-tight">Datenschutzerklärung</h1>
-        </div>
-        <p className="text-white/30 text-xs mb-1">Stand: 23. Juli 2026</p>
-        <p className="text-white/30 text-xs italic mb-10">
+        <PageHeader kicker="Discord-Bot" icon={ShieldCheck} title="Datenschutzerklärung" description="Stand: 23. Juli 2026" />
+        <p className="text-white/40 text-xs italic mb-8">
           Diese Erklärung beschreibt so genau wie möglich, welche Daten der Discord-Bot und sein Web-Dashboard tatsächlich verarbeiten. Sie ersetzt keine Rechtsberatung — bei rechtlichen Zweifeln bitte anwaltlich prüfen lassen.
         </p>
 
-        <div className="panel-strong p-6 md:p-8 space-y-8">
+        <div className="space-y-8">
 
           <Section title="1. Geltungsbereich">
             <p>
               Diese Datenschutzerklärung gilt für die Nutzung des Discord-Bots von <strong className="text-white">vnmvalentin</strong> auf
               jedem Discord-Server, auf dem der Bot aktiv ist, sowie für das zugehörige Web-Dashboard unter{' '}
-              <code className="text-violet-300 text-xs">vnmvalentin.de/discord-bot</code>.
+              <code className="text-accent-soft text-xs">vnmvalentin.de/discord-bot</code>.
             </p>
           </Section>
 
@@ -72,7 +51,7 @@ export default function DiscordBotPrivacyPage() {
               Der Bot läuft technisch vollständig auf der Plattform Discord und nutzt deren offizielle API. Für alle Daten, die Discord
               selbst im Rahmen der Plattformnutzung verarbeitet (z. B. Kontoerstellung, Nachrichtenspeicherung auf Discord-Servern,
               Endgeräte-Daten), gilt zusätzlich die Datenschutzerklärung von Discord Inc.:{' '}
-              <a href="https://discord.com/privacy" target="_blank" rel="noopener noreferrer" className="text-violet-300 hover:text-violet-200 underline">
+              <a href="https://discord.com/privacy" target="_blank" rel="noopener noreferrer" className="text-accent-soft hover:text-white underline">
                 discord.com/privacy
               </a>. Die folgenden Abschnitte beschreiben ausschließlich die zusätzliche Verarbeitung durch unseren Bot.
             </p>
@@ -211,10 +190,9 @@ export default function DiscordBotPrivacyPage() {
 
         </div>
 
-        <p className="text-white/25 text-xs text-center mt-6">
-          Siehe auch die <Link to="/discord-bot/terms" className="text-violet-300/70 hover:text-violet-300 underline">Nutzungsbedingungen</Link>.
-        </p>
-      </div>
-    </div>
+        <nav className="mt-12 pt-6 border-t border-line text-xs text-white/45">
+          Siehe auch die <Link to="/discord-bot/terms" className="hover:text-white underline transition-colors">Nutzungsbedingungen</Link>.
+        </nav>
+    </Page>
   );
 }

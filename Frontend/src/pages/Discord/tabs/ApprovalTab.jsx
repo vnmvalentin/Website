@@ -230,7 +230,7 @@ export default function ApprovalTab({ selectedServer, channels, serverRoles, ser
                                 {form.approverIds.map(id => {
                                     const m = members.find(m => m.id === id);
                                     return (
-                                        <span key={id} className="flex items-center gap-1.5 bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-xs px-2 py-1.5 rounded-full">
+                                        <span key={id} className="flex items-center gap-1.5 bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-xs px-2 py-1.5 rounded-md">
                                             {m?.avatar
                                                 ? <img src={m.avatar} alt="" className="w-5 h-5 rounded-full object-cover shrink-0" />
                                                 : <span className="w-5 h-5 rounded-full bg-[#5865F2] flex items-center justify-center text-white font-bold shrink-0" style={{ fontSize: 10 }}>{(m?.displayName || id).charAt(0).toUpperCase()}</span>
