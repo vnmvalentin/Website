@@ -1,4 +1,4 @@
-// Gemeinsames Lesen/Schreiben der JSON-Datenspeicher (casinoData.json, adventures-users.json,
+// Gemeinsames Lesen/Schreiben der JSON-Datenspeicher (adventures-users.json,
 // polls.json, giveaways.json …).
 //
 // WARUM: Bisher lieferte jede Ladefunktion bei einem Lesefehler still `{}`/`[]` zurück, und

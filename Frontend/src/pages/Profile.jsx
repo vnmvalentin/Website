@@ -15,7 +15,6 @@ import {
   Unlink,
   LogOut,
   RefreshCw,
-  Ticket,
   ArrowRight,
   Check,
   AlertTriangle,
@@ -34,7 +33,7 @@ const STRINGS = {
     metaTitle: "Profil",
     metaDescription: "Dein Profil auf vnmvalentin.de",
     loggedOutTitle: "Dein Profil",
-    loggedOutHint: "Melde dich mit Twitch an, um dein Profil, Verknüpfungen und Codes zu verwalten.",
+    loggedOutHint: "Melde dich mit Twitch an, um dein Profil und deine Verknüpfungen zu verwalten.",
     loginBtn: "Mit Twitch anmelden",
     linksTitle: "Verknüpfungen",
     linksHint: "Twitch ist dein Standard-Login. Optional kannst du deinen Discord-Account verbinden.",
@@ -47,12 +46,6 @@ const STRINGS = {
     unlinkBtn: "Trennen",
     linkBtn: "Verknüpfen",
     discordLinkError: "Discord-Verknüpfung fehlgeschlagen. Versuch es später erneut.",
-    redeemTitle: "Code einlösen",
-    redeemHint: "Hast du einen Promo-Code aus dem Stream? Hier kannst du ihn aktivieren.",
-    redeemPlaceholder: "Code eingeben",
-    redeemBusy: "...",
-    redeemBtn: "Einlösen",
-    redeemGenericError: "Fehler beim Einlösen",
     aboTitle: "Premium-Abo",
     aboHint: (price) => `${price} pro Monat, monatlich kündbar. Schaltet die Stream-Szenen der Twitch-Overlay-Tools frei.`,
     publicTitle: "Öffentliches Profil",
@@ -70,21 +63,12 @@ const STRINGS = {
     adminPanelHint: "Dashboard & Verwaltung",
     logout: "Logout",
     logoutHint: "Von diesem Gerät abmelden",
-    promo: {
-      missing_code: "Kein Code",
-      invalid: "Code ungültig",
-      expired: "Code abgelaufen",
-      exhausted: "Code aufgebraucht",
-      already_used: "Du hast diesen Code schon benutzt",
-      skin_unlocked: (v) => `Skin '${v}' freigeschaltet!`,
-      skin_already_owned: (v) => `Skin '${v}' hattest du schon (Code trotzdem verbraucht).`,
-    },
   },
   en: {
     metaTitle: "Profile",
     metaDescription: "Your profile on vnmvalentin.de",
     loggedOutTitle: "Your Profile",
-    loggedOutHint: "Sign in with Twitch to manage your profile, links and codes.",
+    loggedOutHint: "Sign in with Twitch to manage your profile and links.",
     loginBtn: "Sign in with Twitch",
     linksTitle: "Links",
     linksHint: "Twitch is your default login. You can optionally connect your Discord account.",
@@ -97,12 +81,6 @@ const STRINGS = {
     unlinkBtn: "Unlink",
     linkBtn: "Link",
     discordLinkError: "Discord link failed. Please try again later.",
-    redeemTitle: "Redeem Code",
-    redeemHint: "Got a promo code from the stream? Activate it here.",
-    redeemPlaceholder: "Enter code",
-    redeemBusy: "...",
-    redeemBtn: "Redeem",
-    redeemGenericError: "Error redeeming code",
     aboTitle: "Premium subscription",
     aboHint: (price) => `${price} per month, cancel anytime. Unlocks the stream scenes of the Twitch overlay tools.`,
     publicTitle: "Public profile",
@@ -120,15 +98,6 @@ const STRINGS = {
     adminPanelHint: "Dashboard & management",
     logout: "Logout",
     logoutHint: "Sign out on this device",
-    promo: {
-      missing_code: "No code entered",
-      invalid: "Invalid code",
-      expired: "Code expired",
-      exhausted: "Code already used up",
-      already_used: "You've already used this code",
-      skin_unlocked: (v) => `Unlocked skin '${v}'!`,
-      skin_already_owned: (v) => `You already had skin '${v}' (code still used).`,
-    },
   },
 };
 
@@ -211,10 +180,6 @@ export default function Profile() {
   const [discordBusy, setDiscordBusy] = useState(false);
   const [linkError, setLinkError] = useState(searchParams.get("error") === "auth_failed");
 
-  const [promoCode, setPromoCode] = useState("");
-  const [promoMsg, setPromoMsg] = useState(null); // { ok: bool, text: string }
-  const [promoBusy, setPromoBusy] = useState(false);
-
   // Fehler-Parameter aus der URL entfernen, damit er nicht kleben bleibt
   useEffect(() => {
     if (searchParams.get("error")) {
@@ -264,30 +229,6 @@ export default function Profile() {
     setDiscordBusy(false);
   };
 
-  const handleRedeem = async () => {
-    if (!promoCode.trim() || promoBusy) return;
-    setPromoBusy(true);
-    setPromoMsg(null);
-    try {
-      const res = await fetch("/api/promo/redeem", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ code: promoCode }),
-      });
-      const data = await res.json();
-      const entry = t.promo[data.code];
-      const text = entry
-        ? (typeof entry === "function" ? entry(data.value) : entry)
-        : (data.success ? data.message : (data.error || t.promo.invalid));
-      setPromoMsg({ ok: !!data.success, text });
-      if (data.success) setPromoCode("");
-    } catch {
-      setPromoMsg({ ok: false, text: t.redeemGenericError });
-    }
-    setPromoBusy(false);
-  };
-
   const handleLogout = () => {
     logout();
     navigate("/");
@@ -331,7 +272,7 @@ export default function Profile() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
 
         {/* ===== Verknüpfungen ===== */}
-        <Section icon={Link2} title={t.linksTitle} description={t.linksHint}>
+        <Section className="lg:col-span-2" icon={Link2} title={t.linksTitle} description={t.linksHint}>
           <div className="space-y-3">
             {/* Twitch */}
             <div className="flex items-center gap-4 rounded-lg bg-black/25 border border-line p-4">
@@ -385,27 +326,6 @@ export default function Profile() {
               </p>
             )}
           </div>
-        </Section>
-
-        {/* ===== Code einlösen ===== */}
-        <Section icon={Ticket} title={t.redeemTitle} description={t.redeemHint}>
-          <div className="flex gap-2">
-            <Input
-              type="text"
-              value={promoCode}
-              onChange={(e) => { setPromoCode(e.target.value); setPromoMsg(null); }}
-              onKeyDown={(e) => { if (e.key === "Enter") handleRedeem(); }}
-              placeholder={t.redeemPlaceholder}
-              aria-label={t.redeemTitle}
-              className="flex-1 font-mono"
-            />
-            <Button onClick={handleRedeem} disabled={!promoCode.trim()} loading={promoBusy} loadingText={t.redeemBusy} className="shrink-0">
-              {t.redeemBtn}
-            </Button>
-          </div>
-          {promoMsg && (
-            <p role="status" className={`text-xs mt-3 ${promoMsg.ok ? "text-emerald-400" : "text-red-400"}`}>{promoMsg.text}</p>
-          )}
         </Section>
 
         {/* ===== Premium-Abo: Stand, abschließen, verwalten, kündigen =====

@@ -18,13 +18,11 @@ const { Server } = require("socket.io");
 
 // Feature-Router
 const createBingoRouter = require("./routes/bingoRoutes");
-const createAwardsRouter = require("./routes/awardsRoutes");
 const createGiveawayRouter = require("./routes/giveawayRoutes");
 const createWinchallengeRouter = require("./winchallenge/winchallengeRoutes");
 const createPollRouter = require("./routes/pollRoutes");
 const createAdventureRouter = require("./adventure/routes");
 const createAdminRouter = require("./routes/adminRoutes");
-const createPromoRouter = require("./routes/promoRoutes");
 const createFeedbackRouter = require("./routes/feedbackRoutes");
 const createGardenGameRouter = require("./garden/routes/gardenGameRoutes");
 const discordClient = require("./discord/bot/index");
@@ -324,13 +322,10 @@ app.use("/api/admin", createAdminRouter({ requireAuth, STREAMER_TWITCH_ID, io })
 
 // Andere Routen
 app.use("/api/bingo", createBingoRouter({ requireAuth }));
-app.use("/api/awards", createAwardsRouter({ requireAuth, STREAMER_TWITCH_ID }));
 app.use("/", createGiveawayRouter({ requireAuth, STREAMER_TWITCH_ID, io }));
 app.use("/api/winchallenge", createWinchallengeRouter({ requireAuth }));
 app.use("/api/polls", createPollRouter({ requireAuth, STREAMER_TWITCH_ID, io }));
-// /api/casino gibt es nicht mehr — Credits sind abgeschafft (Oktober 2026); die Daten liegen weiter in data/casinoData.json
 app.use("/api/adventure", createAdventureRouter({ requireAuth, optionalAuth }));
-app.use("/api/promo", createPromoRouter({ requireAuth, STREAMER_TWITCH_ID }));
 app.use("/api/feedback", createFeedbackRouter());
 app.use("/api/garden", createGardenGameRouter({ requireAuth }));
 app.use("/api/discord", createDiscordRouter({requireAuth, discordClient, sessions, saveSessionsToFile }));

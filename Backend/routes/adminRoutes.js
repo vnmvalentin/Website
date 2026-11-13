@@ -15,10 +15,8 @@ const analytics = require("../analytics/analyticsStore");
 const ROOT_DIR = process.cwd();
 
 const PATHS = {
-  casino: path.join(ROOT_DIR, "data/casinoData.json"),
   adventure: path.join(ROOT_DIR, "data/adventures-users.json"),
   bingo: path.join(ROOT_DIR, "data/bingo-sessions.json"),
-  promo: path.join(ROOT_DIR, "data/promo-codes.json"),
 };
 
 // Über lib/jsonFile.js: atomar, und eine kaputte Datei wird nie mit {} überschrieben
@@ -51,25 +49,20 @@ module.exports = function createAdminRouter({ requireAuth, STREAMER_TWITCH_ID, i
   });
 
   // --- STATS OVERVIEW ---
-  // Die Casino-Kennzahlen (Gesamt-Credits, Zahl der Casino-User) stehen hier
-  // bewusst nicht mehr: das Dashboard zeigt sie nicht an, und eine Zahl, die
-  // niemand liest, muss auch niemand ausrechnen. Die Farm-Zahlen kommen aus dem
-  // Arbeitsspeicher, es gibt also keinen Grund, sie separat nachzuladen.
+  // Die Farm-Zahlen kommen aus dem Arbeitsspeicher, es gibt also keinen Grund, sie separat nachzuladen.
   router.get("/stats", (req, res) => {
       const adventure = loadJson("adventure");
       const bingo = loadJson("bingo");
       const winchallenge = createWinchallengeRouter.loadDb();
-      const promo = loadJson("promo");
 
       const advPlayers = Object.keys(adventure).length;
       const activeBingoSessions = Object.values(bingo).length;
       const activeChallenges = Object.values(winchallenge).length;
-      const activeCodes = Object.values(promo).length;
       const welten = weltUebersicht();
       const gardenOnline = welten.reduce((s, w) => s + w.playerCount, 0);
 
       res.json({
-        advPlayers, activeBingoSessions, activeChallenges, activeCodes,
+        advPlayers, activeBingoSessions, activeChallenges,
         gardenPlayers: farmStates.size, gardenOnline, gardenWorlds: welten.length,
       });
   });
@@ -172,20 +165,6 @@ module.exports = function createAdminRouter({ requireAuth, STREAMER_TWITCH_ID, i
       } else {
           res.status(404).json({ error: "Not found" });
       }
-  });
-
-  router.delete("/promo/:code", (req, res) => {
-    const db = loadJson("promo");
-    if (db[req.params.code]) {
-        delete db[req.params.code];
-        saveJson("promo", db);
-        res.json({ success: true });
-
-        // Notify
-        notifyUpdate(["codes", "stats"]);
-    } else {
-        res.status(404).json({ error: "Not found" });
-    }
   });
 
   // ─── GARDEN ADMIN ─────────────────────────────────────────────────────────────

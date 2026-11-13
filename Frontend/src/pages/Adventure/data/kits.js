@@ -1,5 +1,5 @@
 // data/kits.js — die spielbaren Kits (Klassen). Die ids sind absichtlich die alten Skin-ids: wer früher einen Skin
-// gekauft hat (oder per Promo-Code bekommen hat), hat damit das passende Kit sofort frei. Ab welcher Account-Stufe ein
+// gekauft hat, hat damit das passende Kit sofort frei. Ab welcher Account-Stufe ein
 // Kit frei wird, steht NICHT hier, sondern im Backend (Backend/adventure/progression.js) — eine Quelle für Server und UI.
 //
 // Werte: hp = Basis-Lebenspunkte (Stufe 1), damage = Basisschaden pro 100 %, speed = Lauftempo in px/s.

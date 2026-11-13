@@ -171,30 +171,6 @@ const MODE_DESC_ES = {
 /** Modus-Deskriptor zu einer Kennung; fällt auf Snake zurück, damit nie undefined entsteht. */
 export const modeInfo = (id) => MODES.find(m => m.id === id) || MODES[0];
 
-/**
- * Kachelbild eines Modus auf der Startseite.
- *
- * Liegt in public/ statt in src/assets/, damit neue Grafiken einfach in den Ordner
- * gelegt werden können, ohne den Build anzufassen (dieselbe Handhabung wie bei den
- * Garden-Assets). Fehlt die Datei, fängt ModeCard das ab und zeigt das Modus-Symbol —
- * die Seite bleibt also auch ohne Bilder vollständig.
- */
-export const modeImage = (id) => `/cr-modes/${id}.png`;
-
-// Echte Gameplay-Screenshots (src/assets/clashRoyale/screenshots/<id>.webp) statt der
-// gezeichneten Modus-Logos oben — zeigen, wie eine Runde tatsächlich aussieht, statt nur
-// eines Icons. Lag vorher nur lokal in HeroCarousel.jsx; jetzt hier zentral, damit auch
-// die Modus-Kachel im Hub/Modus-Wähler (ModeCard) und die Anleitung (ModeTutorialModal)
-// denselben Screenshot zeigen, statt jede Stelle ihr eigenes import.meta.glob mitzuführen.
-// Fehlt für einen Modus (noch) kein Screenshot, fällt modeCover() auf modeImage() zurück.
-const SCREENSHOT_MODULES = import.meta.glob('../../assets/clashRoyale/screenshots/*.webp', { eager: true, import: 'default' });
-const MODE_SCREENSHOTS = Object.fromEntries(
-  Object.entries(SCREENSHOT_MODULES).map(([path, mod]) => [path.match(/([^/]+)\.webp$/)[1], mod])
-);
-
-/** Bevorzugt den echten Screenshot eines Modus, sonst dessen gezeichnetes Logo. */
-export const modeCover = (id) => MODE_SCREENSHOTS[id] || modeImage(id);
-
 const MODE_NAME_OVERRIDES = { en: MODE_NAME_EN, es: MODE_NAME_ES };
 const MODE_DESC_OVERRIDES = { en: MODE_DESC_EN, es: MODE_DESC_ES };
 

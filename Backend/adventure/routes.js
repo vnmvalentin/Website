@@ -1,5 +1,5 @@
-// adventure/routes.js — API von adVentures (/api/adventure). Speichert in data/adventures-users.json (Admin-Dashboard
-// und Promo-Codes lesen dieselbe Datei).
+// adventure/routes.js — API von adVentures (/api/adventure). Speichert in data/adventures-users.json (das
+// Admin-Dashboard liest dieselbe Datei).
 //
 // Seit dem Umbau (v2) gibt es keine Käufe mehr: Kits schalten sich über die Account-Stufe frei, Ausrüstung findet man im
 // Lauf. Credits gibt es auf der Website nicht mehr (Oktober 2026) — Läufe bringen nur Account-XP, Punkte und Erfolge.
@@ -17,7 +17,7 @@ const M = require("./meta");
 
 const DATA_DIR = process.env.ADVENTURE_DATA_DIR || path.join(__dirname, "../data");
 const GAME_DATA_PATH = path.join(DATA_DIR, "adventures-users.json");
-// Gäste (ohne Twitch-Login, seit Okt. 2026) liegen getrennt: nicht im Admin-Dashboard, nicht bei Promo-Codes, nicht in
+// Gäste (ohne Twitch-Login, seit Okt. 2026) liegen getrennt: nicht im Admin-Dashboard, nicht in
 // der Bestenliste. Wer sich später anmeldet, nimmt seinen Fortschritt mit (POST /claim-guest).
 const GUEST_DATA_PATH = path.join(DATA_DIR, "adventures-guests.json");
 const GUEST_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;

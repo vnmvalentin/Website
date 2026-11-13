@@ -1304,8 +1304,6 @@ summary::-webkit-details-marker { display: none; }
   100% { opacity: 1; transform: none; }
 }
 @keyframes crBob { 0%, 100% { transform: none; } 50% { transform: translateY(-6px) rotate(-3deg); } }
-.cr-kicker-in { animation: crKickerIn 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) 0.2s backwards; }
-@keyframes crKickerIn { from { opacity: 0; letter-spacing: 0.75em; } }
 .cr-pop-letter { display: inline-block; animation: crLetterPop 0.55s cubic-bezier(0.2, 1.3, 0.4, 1) backwards; }
 @keyframes crLetterPop {
   0% { opacity: 0; transform: translateY(-46px) scale(0.3) rotate(-14deg); }
@@ -1608,7 +1606,6 @@ html[data-cr-anim="off"] .cr-arcade-card--hoverable:hover { transform: none; }
 /* Juice (Okt. 2026): Hub-Muster steht still, alles andere ohne Bewegung */
 html[data-cr-anim="off"] .cr-hub-bg__tile { animation: none; }
 html[data-cr-anim="off"] .cr-hub-crown,
-html[data-cr-anim="off"] .cr-kicker-in,
 html[data-cr-anim="off"] .cr-pop-letter,
 html[data-cr-anim="off"] .cr-fade-in-late,
 html[data-cr-anim="off"] .cr-fly-l,
@@ -1820,40 +1817,9 @@ html {
 }
 .crq-counter b { font-family: var(--font-cr); font-weight: 400; font-size: 1.15em; color: #fff; }
 .crq-counter--lg { padding: 6px 14px; font-size: 15px; }
-/* Frage-Knöpfe: eckig, klein, klar klickbar */
-.crq-q {
-  padding: 6px 10px; border-radius: 8px; text-align: left; font-size: 13px; font-weight: 600; color: #fff;
-  background: linear-gradient(to bottom, #2a5591, #1c3d69); border: 2px solid var(--cr-panel-edge);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18), 0 3px 0 #0a1a31; transition: filter 0.12s, transform 0.08s;
-}
-.crq-q:hover { filter: brightness(1.12); }
-.crq-q:active { transform: translateY(3px); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18); }
-.crq-answer {
-  display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 7px 10px; border-radius: 8px;
-  font-size: 13.5px; background: rgba(0, 0, 0, 0.25); border-left: 4px solid;
-  animation: crq-in 0.35s cubic-bezier(.2,.8,.2,1) both;
-}
-.crq-answer b { font-family: var(--font-cr); font-weight: 400; font-size: 15px; text-shadow: var(--cr-text-outline); }
-.crq-answer.is-yes { border-color: #34c759; }
-.crq-answer.is-yes b { color: #6adf82; }
-.crq-answer.is-no { border-color: #ff4d4f; }
-.crq-answer.is-no b { color: #ff8384; }
 @keyframes crq-in { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: none; } }
 
-/* Kartenpool */
-.crq-pool { display: grid; grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); gap: 6px; }
-@media (min-width: 768px) { .crq-pool { grid-template-columns: repeat(auto-fill, minmax(72px, 1fr)); } }
-.crq-card { position: relative; aspect-ratio: 4 / 5; border-radius: 8px; padding: 2px; transition: opacity 0.3s, filter 0.3s, transform 0.12s; }
-.crq-card:hover:not(:disabled) { transform: translateY(-2px); }
-.crq-card.is-out { opacity: 0.22; filter: grayscale(1); }
-.crq-card.is-picked { box-shadow: 0 0 0 3px #ffc93c; opacity: 1; filter: none; transform: translateY(-3px); }
-.crq-card.is-secret { box-shadow: 0 0 0 3px #34c759; opacity: 1; filter: none; }
-.crq-card:disabled { cursor: default; }
-.crq-card-x { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
-.crq-result { display: flex; gap: 16px; align-items: center; padding: 4px 4px 16px; margin-bottom: 12px; border-bottom: 1px solid rgba(255, 255, 255, 0.1); }
-
-/* Wer bin ich */
-.crq-who-card { aspect-ratio: 4 / 5; border-radius: 12px; overflow: hidden; background: #081426; border: 2px solid var(--cr-panel-edge); }
+/* Hinweise (Kartenraten, Wer bin ich) */
 .crq-hint { padding: 9px 12px; border-radius: 8px; background: rgba(0, 0, 0, 0.25); font-size: 15px; line-height: 1.4; color: rgba(255, 255, 255, 0.85); }
 .crq-hint.is-new { background: rgba(255, 201, 60, 0.14); color: #fff; box-shadow: inset 3px 0 0 #ffc93c; animation: crq-in 0.4s cubic-bezier(.2,.8,.2,1) both; }
 .crq-input {
@@ -1881,7 +1847,6 @@ html {
 .crq-duel-card.is-wrong .crq-duel-cost { border-color: #ff4d4f; animation: crq-shake 0.4s ease; }
 @keyframes crq-pop { 0% { transform: scale(0.6); } 60% { transform: scale(1.15); } 100% { transform: scale(1); } }
 @keyframes crq-shake { 0%, 100% { transform: none; } 25% { transform: translateX(-6px); } 75% { transform: translateX(6px); } }
-html[data-cr-anim="off"] .crq-answer,
 html[data-cr-anim="off"] .crq-hint.is-new,
 html[data-cr-anim="off"] .crq-duel-cost { animation: none !important; }
 

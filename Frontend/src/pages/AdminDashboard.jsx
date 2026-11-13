@@ -2,9 +2,9 @@ import React, { useState, useEffect, useContext, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { TwitchAuthContext } from "../components/TwitchAuthContext";
 import {
-  Radio, Gamepad2, Eye, LayoutDashboard, Swords, Sprout, Ticket,
+  Radio, Gamepad2, Eye, LayoutDashboard, Swords, Sprout,
   Trophy, Grid3x3, Crown, Search, RefreshCw, Trash2, Pencil, ExternalLink,
-  Plus, Infinity as InfinityIcon, Users, SlidersHorizontal, Globe, Lock, Flag, BarChart3, Clapperboard,
+  Users, SlidersHorizontal, Globe, Lock, Flag, BarChart3, Clapperboard,
 } from "lucide-react";
 import { io } from "socket.io-client";
 import SEO from "../components/SEO";
@@ -16,14 +16,11 @@ import AnalyticsPanel from "./Admin/AnalyticsPanel.jsx";
 // DEINE ID
 import { STREAMER_ID } from "../config/owner";
 
-// Credits gibt es auf der Website nicht mehr (Oktober 2026): kein Casino-Reiter, keine Credit-Spalte, Promo-Codes
-// schalten nur noch adVentures-Kits frei.
 const SECTIONS = [
   { id: "overview", label: "Übersicht", icon: LayoutDashboard },
   { id: "analytics", label: "Besucher", icon: BarChart3 },
   { id: "adventures", label: "adVentures", icon: Swords },
   { id: "garden", label: "Virtual Farm", icon: Sprout },
-  { id: "codes", label: "Promo-Codes", icon: Ticket },
   { id: "winchallenge", label: "Win-Challenges", icon: Trophy },
   { id: "bingo", label: "Bingo", icon: Grid3x3 },
   { id: "clashroyale", label: "Clash Royale", icon: Crown },
@@ -121,11 +118,6 @@ export default function AdminDashboard() {
       setIsBroadcasting(false);
   };
 
-  // --- NEUE STATES FÜR CODES ---
-  const [newCode, setNewCode] = useState({
-      code: "", type: "skin", value: "", maxUses: 10, expiresAt: ""
-  });
-  const [isUnlimited, setIsUnlimited] = useState(false);
   const [gardenUsers, setGardenUsers] = useState([]);
   const [gardenEditId, setGardenEditId] = useState(null);
   const [gardenEditGold, setGardenEditGold] = useState("");
@@ -153,7 +145,6 @@ export default function AdminDashboard() {
   const fetchData = async (type) => {
       try {
           let url = `/api/admin/data/${type}`;
-          if (type === "codes") url = "/api/promo/list";
           if (type === "stats") url = "/api/admin/stats";
           if (type === "garden") {
               const r = await fetch("/api/admin/garden/users", { credentials: "include" });
@@ -218,7 +209,6 @@ export default function AdminDashboard() {
           "garden": "garden",
           "winchallenge": "winchallenge",
           "bingo": "bingo",
-          "codes": "codes",
           "clashroyale": "clashroyale"
       };
 
@@ -249,8 +239,7 @@ export default function AdminDashboard() {
               "overview": "stats",
               "adventures": "adventure",
               "winchallenge": "winchallenge",
-              "bingo": "bingo",
-              "codes": "codes"
+              "bingo": "bingo"
           };
 
           const currentApiType = keyMap[activeTab];
@@ -266,26 +255,6 @@ export default function AdminDashboard() {
   }, [activeTab]);
 
   // --- ACTIONS ---
-  const createCode = async () => {
-      const payload = {
-          ...newCode,
-          maxUses: isUnlimited ? -1 : parseInt(newCode.maxUses)
-      };
-      await fetch("/api/promo/create", {
-          method: "POST", headers:{"Content-Type":"application/json"},
-          body: JSON.stringify(payload)
-      });
-      setNewCode({ code: "", type: "skin", value: "", maxUses: 10, expiresAt: "" });
-      setIsUnlimited(false);
-      fetchData("codes");
-  };
-
-  const deleteCode = async (code) => {
-      if(!window.confirm("Code löschen?")) return;
-      await fetch(`/api/promo/${code}`, { method: "DELETE" });
-      fetchData("codes");
-  };
-
   const updateUser = async (id, changes) => {
       await fetch("/api/admin/update/user", {
           method: "POST", headers:{"Content-Type":"application/json"},
@@ -403,7 +372,6 @@ export default function AdminDashboard() {
               { label: "Farm-Spielstände", value: data.gardenPlayers },
               { label: "Aktive Bingos", value: data.activeBingoSessions },
               { label: "Win-Challenges", value: data.activeChallenges },
-              { label: "Aktive Promo-Codes", value: data.activeCodes },
           ];
 
           return (
@@ -421,115 +389,6 @@ export default function AdminDashboard() {
                           <div className="text-3xl font-bold text-white">{c.value}</div>
                       </div>
                   ))}
-              </div>
-          );
-      }
-
-      // 1. CODES TAB
-      if (activeTab === "codes") {
-          return (
-              <div className="space-y-6">
-                  {/* ERSTELLEN FORMULAR */}
-                  <div className="rounded-lg border border-line bg-surface/80 p-5 flex flex-wrap gap-4 items-end">
-                      <div>
-                          <label className="text-xs text-white/40 font-bold uppercase tracking-wider block mb-1.5">Code (leer = auto)</label>
-                          <input className="block bg-black/30 border border-line rounded-lg px-3 py-2 w-32 text-white focus:border-accent outline-none transition-colors" value={newCode.code} onChange={e=>setNewCode({...newCode, code: e.target.value})} placeholder="AUTO" />
-                      </div>
-                      <div>
-                          <label className="text-xs text-white/40 font-bold uppercase tracking-wider block mb-1.5">Typ</label>
-                          <select className="block bg-black/30 border border-line rounded-lg px-3 py-2 text-white focus:border-accent outline-none transition-colors" value={newCode.type} onChange={e=>setNewCode({...newCode, type: e.target.value})}>
-                              <option value="skin">Skin</option>
-                          </select>
-                      </div>
-                      <div>
-                          <label className="text-xs text-white/40 font-bold uppercase tracking-wider block mb-1.5">Wert/SkinID</label>
-                          <input className="block bg-black/30 border border-line rounded-lg px-3 py-2 w-24 text-white focus:border-accent outline-none transition-colors" value={newCode.value} onChange={e=>setNewCode({...newCode, value: e.target.value})} />
-                      </div>
-
-                      {/* ANZAHL & UNBEGRENZT */}
-                      <div className="flex items-center gap-2">
-                          {!isUnlimited ? (
-                              <div>
-                                  <label className="text-xs text-white/40 font-bold uppercase tracking-wider block mb-1.5">Anzahl</label>
-                                  <input type="number" className="block bg-black/30 border border-line rounded-lg px-3 py-2 w-20 text-white focus:border-accent outline-none transition-colors" value={newCode.maxUses} onChange={e=>setNewCode({...newCode, maxUses: e.target.value})} />
-                              </div>
-                          ) : (
-                             <div className="h-[42px] flex items-center px-2 text-accent-soft">
-                                 <InfinityIcon size={22} />
-                             </div>
-                          )}
-                          <label className="flex items-center gap-1.5 cursor-pointer select-none h-[42px]">
-                              <input type="checkbox" checked={isUnlimited} onChange={e => setIsUnlimited(e.target.checked)} className="accent-violet-500 w-4 h-4" />
-                              <span className="text-xs text-white/50">Unbegrenzt</span>
-                          </label>
-                      </div>
-
-                      {/* DATUM */}
-                      <div>
-                          <label className="text-xs text-white/40 font-bold uppercase tracking-wider block mb-1.5">Ablauf (Optional)</label>
-                          <input
-                              type="datetime-local"
-                              className="block bg-black/30 border border-line rounded-lg px-3 py-2 text-xs text-white focus:border-accent outline-none transition-colors"
-                              value={newCode.expiresAt}
-                              onChange={e=>setNewCode({...newCode, expiresAt: e.target.value})}
-                          />
-                      </div>
-
-                      <button onClick={createCode} className="flex items-center gap-1.5 bg-accent hover:bg-accent-hover text-white px-4 py-2.5 rounded-lg font-semibold text-sm transition-colors">
-                          <Plus size={15} /> Erstellen
-                      </button>
-                  </div>
-
-                  {/* SUCHE (Codes hat eigene Filterung, da Codes selbst der Key sind) */}
-                  <div className="relative max-w-sm">
-                      <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/30" />
-                      <input
-                          type="text"
-                          placeholder="Code suchen..."
-                          value={search}
-                          onChange={e => setSearch(e.target.value)}
-                          className="w-full bg-black/30 border border-line rounded-lg pl-10 pr-4 py-2.5 text-sm text-white focus:border-accent outline-none transition-colors"
-                      />
-                  </div>
-
-                  {/* LISTE */}
-                  <div className="grid gap-2">
-                      {entries.map(([code, info]) => {
-                          const isExpired = info.expiresAt && Date.now() > info.expiresAt;
-                          const isInfinity = info.maxUses === -1;
-                          const usedCount = info.usedBy?.length || 0;
-
-                          return (
-                              <div key={code} className={`rounded-lg border border-line bg-surface/80 p-4 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 ${isExpired ? 'opacity-50' : ''}`}>
-                                  <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
-                                      <div className="min-w-[100px]">
-                                          <span className="font-mono text-amber-400 font-bold text-lg">{code}</span>
-                                          {isExpired && <span className="ml-2 text-red-400 text-[10px] font-bold uppercase">Abgelaufen</span>}
-                                      </div>
-
-                                      <div className="text-sm text-white/70">
-                                          <span className="uppercase text-[10px] text-white/30 font-bold block">Reward</span>
-                                          {info.type === "credits" ? `${info.value} Credits (abgeschafft, ungültig)` : `Skin: ${info.value}`}
-                                      </div>
-
-                                      <div className="text-sm text-white/70">
-                                          <span className="uppercase text-[10px] text-white/30 font-bold block">Genutzt</span>
-                                          <span className={usedCount >= info.maxUses && !isInfinity ? "text-red-400" : "text-emerald-400"}>
-                                              {usedCount} / {isInfinity ? "∞" : info.maxUses}
-                                          </span>
-                                      </div>
-
-                                      <div className="text-sm text-white/70">
-                                          <span className="uppercase text-[10px] text-white/30 font-bold block">Läuft ab</span>
-                                          {info.expiresAt ? new Date(info.expiresAt).toLocaleString() : "Nie"}
-                                      </div>
-                                  </div>
-                                  <button onClick={() => deleteCode(code)} className="p-2 text-white/30 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors self-start sm:self-auto shrink-0"><Trash2 size={16} /></button>
-                              </div>
-                          );
-                      })}
-                      {entries.length === 0 && <p className="text-center text-white/30 italic py-8">Keine Codes vorhanden.</p>}
-                  </div>
               </div>
           );
       }
@@ -1022,7 +881,7 @@ export default function AdminDashboard() {
                       <activeSection.icon size={18} className="text-accent-soft" /> {activeSection.label}
                   </h2>
 
-                  {!["codes", "broadcast", "seedrunners", "analytics"].includes(activeTab) && (
+                  {!["broadcast", "seedrunners", "analytics"].includes(activeTab) && (
                       <div className="relative w-full sm:w-72">
                           <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/30" />
                           <input
