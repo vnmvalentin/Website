@@ -1,4 +1,4 @@
-// useCoop.js — Verbindung zum Koop-Raum von Lights Out (Backend/routes/lightsOutRoutes.js).
+// useCoop.js — Verbindung zum Koop-Raum von Lights Out (Backend/lightsOut/socket.js).
 //
 // Hält den Socket, den Raum (Spieler, Host, Code) und reicht Spielnachrichten an das laufende Spiel weiter
 // (gameRef.current.net(kind, payload)). Die Spielwelt selbst kennt den Socket nicht: Sie bekommt ein schlankes

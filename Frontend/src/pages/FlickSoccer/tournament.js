@@ -1,5 +1,5 @@
 // tournament.js — Gemeinsames der Turnier-Seiten: Socket-Verbindung, Rundennamen, Größen.
-// Server: Backend/flickSoccer/tournamentManager.js (Protokoll `ft:` in Backend/routes/flickSoccerRoutes.js).
+// Server: Backend/flickSoccer/tournamentManager.js (Protokoll `ft:` in Backend/flickSoccer/socket.js).
 import { useCallback, useEffect, useRef, useState } from "react";
 import { io } from "socket.io-client";
 import { normalizeSettings } from "./engine/index.js";

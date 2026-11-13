@@ -1,4 +1,4 @@
-// useRoomSocket — Verbindung zu einem Seed-Runners-Raum (Protokoll: Backend/routes/seedRunnersRoutes.js).
+// useRoomSocket — Verbindung zu einem Seed-Runners-Raum (Protokoll: Backend/seedRunners/socket.js).
 //
 // Aufgaben: verbinden, beitreten (mit Token, damit Neuladen und Verbindungsabbrüche denselben Platz
 // zurückholen), den Raumzustand bereithalten, die Uhr mit dem Server abgleichen und die Aktionen

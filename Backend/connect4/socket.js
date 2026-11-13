@@ -1,4 +1,4 @@
-// backend/routes/connect4Routes.js
+// backend/connect4/socket.js
 // Connect4 (Vier Gewinnt): 7x6-Feld, zwei Spieler treten per Link-Code bei und setzen
 // abwechselnd. Server-autoritativ über Socket.io, State lebt komplett im Speicher —
 // Partien sind kurzlebig (analog zu den Clash-Royale-Lobbys / der adVentures-Arena).

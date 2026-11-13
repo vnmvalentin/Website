@@ -22,7 +22,7 @@
 // WAS HIER BEWUSST NICHT DRIN IST
 // Kein Express, keine Sessions, keine Datenbank. Blobby hält seinen kompletten Zustand in
 // der `games`-Map im Speicher und braucht weder Auth noch Persistenz. Genau deshalb ließ es
-// sich überhaupt sauber heraustrennen — die Spiellogik in routes/blobbyRoutes.js bleibt
+// sich überhaupt sauber heraustrennen — die Spiellogik in blobby/socket.js bleibt
 // dabei unverändert und wird hier nur eingehängt. Was in diesem Prozess läuft, darf niemals
 // synchron auf die Platte oder in eine DB greifen; sonst ist der Grund für die Trennung weg.
 //
@@ -38,7 +38,7 @@ require("dotenv").config({ quiet: true });
 
 const http = require("http");
 const { Server } = require("socket.io");
-const { registerBlobbySocket, blobbyStats } = require("./routes/blobbyRoutes");
+const { registerBlobbySocket, blobbyStats } = require("./blobby/socket");
 
 // In `ps`/`htop` sofort erkennbar, und Voraussetzung dafür, den Prozess gezielt
 // anzusprechen (Neustart, Affinität, Priorität), ohne die PID zu suchen.

@@ -1,6 +1,6 @@
 // sacrificeSigils/roomManager.js — Räume von Sacrifice & Sigils: Lobby, Match, Timer, Reconnect, Zuschauer.
 //
-// Reine Logik ohne Socket.io: Die Anbindung (routes/sacrificeSigilsRoutes.js) reicht Aufrufe herein und bekommt über
+// Reine Logik ohne Socket.io: Die Anbindung (sacrificeSigils/socket.js) reicht Aufrufe herein und bekommt über
 // `send(socketId, event, payload)` die Nachrichten zurück. Uhr (`now`) und Engine werden hereingereicht, damit die
 // Tests Zeit vorspulen können, ohne echte Timer.
 //

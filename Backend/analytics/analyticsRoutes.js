@@ -1,5 +1,5 @@
 // analyticsRoutes.js — öffentlicher Zähl-Endpunkt der Besucherstatistik (POST /api/analytics/hit).
-// Die Auswertung selbst liegt hinter der Admin-Prüfung in routes/adminRoutes.js.
+// Die Auswertung selbst liegt hinter der Admin-Prüfung in admin/routes.js.
 const express = require('express');
 const store = require('./analyticsStore');
 const { normalizePath, normalizeSource, normalizeLang, isBot, isMobile } = require('./normalize');

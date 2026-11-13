@@ -1,4 +1,4 @@
-// backend/routes/lightsOutRoutes.js
+// backend/lightsOut/socket.js
 // Lights Out (Koop): Socket.io-Anbindung der Räume (lightsOut/rooms.js). Der Server vermittelt nur — die Welt
 // entsteht in jedem Browser aus demselben Seed, das Monster rechnet der Browser des Hosts.
 //
@@ -19,7 +19,7 @@
 //     lo:peer   { seat, … }   ·   lo:world { … }   ·   lo:event { seat, type, … }
 //     lo:host   { hostSeat }  ·   lo:left  { seat }
 
-const { createLightsOutRooms } = require('../lightsOut/rooms');
+const { createLightsOutRooms } = require('./rooms');
 
 const LIMITS = { 'lo:state': 25, 'lo:world': 25, 'lo:event': 40, other: 6 };
 

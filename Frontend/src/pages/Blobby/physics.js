@@ -1,4 +1,4 @@
-// Spiegel der Server-Physik aus Backend/routes/blobbyRoutes.js.
+// Spiegel der Server-Physik aus Backend/blobby/socket.js.
 //
 // Der Server bleibt die einzige Wahrheit. Gespiegelt wird nur noch, was der Client für den
 // EIGENEN Blob braucht: Der soll ohne Wartezeit auf die Tastatur reagieren, also läuft er

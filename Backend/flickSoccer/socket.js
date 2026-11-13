@@ -1,4 +1,4 @@
-// backend/routes/flickSoccerRoutes.js
+// backend/flickSoccer/socket.js
 // Flick Soccer: Socket.io-Anbindung der Raum-Logik (flickSoccer/roomManager.js).
 //
 // Die Engine ist ein ES-Modul (Spiegel aus dem Frontend, flickSoccer/tools/spiegel.js) und wird einmal per import()
@@ -42,12 +42,12 @@
 
 const path = require('path');
 const { pathToFileURL } = require('url');
-const { createRoomManager } = require('../flickSoccer/roomManager');
-const { createTournamentManager } = require('../flickSoccer/tournamentManager');
+const { createRoomManager } = require('./roomManager');
+const { createTournamentManager } = require('./tournamentManager');
 
 const TICK_MS = 250;
 const MAX_EVENTS_PER_SECOND = 20;
-const ENGINE = path.join(__dirname, '..', 'flickSoccer', 'shared', 'engine', 'index.js');
+const ENGINE = path.join(__dirname, 'shared', 'engine', 'index.js');
 
 let managerPromise = null;
 
@@ -60,7 +60,7 @@ function getManager(io) {
       // Speicher erst hier laden: Prüfstände ohne FLICK_TOURNAMENT_DB sollen die echte Datei nicht schon beim require anlegen
       let store = null;
       try {
-        store = require('../flickSoccer/tournamentStore').openTournamentStore();
+        store = require('./tournamentStore').openTournamentStore();
       } catch (e) {
         console.error('[flick-soccer] Turnier-Speicher nicht verfügbar — Turniere überleben keinen Neustart:', e.message);
       }

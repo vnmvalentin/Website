@@ -1,4 +1,4 @@
-// net/useOnlineGame.js — Online-Spiel über Socket.io (Server: Backend/routes/sacrificeSigilsRoutes.js).
+// net/useOnlineGame.js — Online-Spiel über Socket.io (Server: Backend/sacrificeSigils/socket.js).
 //
 // Liefert dieselbe Form wie useLocalGame, damit die Screens nicht wissen müssen, wo die Engine läuft:
 //   { room, you, view, batches, timers, clockOffset, connection, notice, error, send, lobby: {...} }

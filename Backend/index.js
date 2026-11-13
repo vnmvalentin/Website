@@ -20,12 +20,12 @@ const http = require("http");
 const { Server } = require("socket.io");
 
 // Feature-Router
-const createBingoRouter = require("./routes/bingoRoutes");
-const createGiveawayRouter = require("./routes/giveawayRoutes");
+const createBingoRouter = require("./bingo/routes");
+const createGiveawayRouter = require("./giveaways/routes");
 const createWinchallengeRouter = require("./winchallenge/winchallengeRoutes");
-const createPollRouter = require("./routes/pollRoutes");
+const createPollRouter = require("./polls/routes");
 const createAdventureRouter = require("./adventure/routes");
-const createAdminRouter = require("./routes/adminRoutes");
+const createAdminRouter = require("./admin/routes");
 const createFeedbackRouter = require("./routes/feedbackRoutes");
 const createGardenGameRouter = require("./garden/routes/gardenGameRoutes");
 const discordClient = require("./discord/bot/index");
@@ -33,13 +33,13 @@ const createDiscordRouter = require("./discord/api/index");
 const { createClashRoyaleRouter, registerClashRoyaleSocket, initLobbyPersistence } = require("./clashRoyale/routes/clashRoyaleRoutes");
 // CR-Lobbys überleben einen Neustart: vor dem ersten Socket laden, beim Beenden speichern
 initLobbyPersistence();
-const { registerConnect4Socket } = require("./routes/connect4Routes");
+const { registerConnect4Socket } = require("./connect4/socket");
 const { registerGuessWhoSocket } = require("./clashRoyale/guessWhoRoutes");
-const { registerSeedRunnersSocket } = require("./routes/seedRunnersRoutes");
-const { registerSacrificeSigilsSocket } = require("./routes/sacrificeSigilsRoutes");
-const { registerFlickSoccerSocket } = require("./routes/flickSoccerRoutes");
-const { registerLightsOutSocket } = require("./routes/lightsOutRoutes");
-const { registerWorldflipSocket } = require("./routes/worldflipRoutes");
+const { registerSeedRunnersSocket } = require("./seedRunners/socket");
+const { registerSacrificeSigilsSocket } = require("./sacrificeSigils/socket");
+const { registerFlickSoccerSocket } = require("./flickSoccer/socket");
+const { registerLightsOutSocket } = require("./lightsOut/socket");
+const { registerWorldflipSocket } = require("./worldflip/socket");
 const { createSeedRunnersRouter } = require("./seedRunners/routes");
 const { getRuntime: getSeedRunnersRuntime } = require("./seedRunners/runtime");
 // Blobby Volley läuft NICHT hier, sondern als eigener Prozess: blobbyServer.js. Seine

@@ -1,4 +1,4 @@
-// backend/routes/seedRunnersRoutes.js
+// backend/seedRunners/socket.js
 // Seed Runners: Socket.io-Anbindung der Raum-Logik (seedRunners/roomManager.js).
 //
 // Läuft im Hauptprozess und nicht in einem eigenen wie Blobby: Der Server rechnet keine Physik.
@@ -28,9 +28,9 @@
 //     sr:pos      { list: [[id, x, y, f, t, a], …] }  Positionen aller Läufer, gebündelt höchstens 10/s (volatile)
 
 const crypto = require('crypto');
-const { createRoomManager } = require('../seedRunners/roomManager');
-const { getRuntime } = require('../seedRunners/runtime');
-const { todayDateKey } = require('../seedRunners/dateKey');
+const { createRoomManager } = require('./roomManager');
+const { getRuntime } = require('./runtime');
+const { todayDateKey } = require('./dateKey');
 
 const SWEEP_MS = 5 * 60 * 1000;
 // Mehr Nachrichten pro Sekunde und Socket sind kein Spiel mehr, sondern ein Fehler oder Missbrauch

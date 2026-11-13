@@ -1,4 +1,4 @@
-// backend/routes/sacrificeSigilsRoutes.js
+// backend/sacrificeSigils/socket.js
 // Sacrifice & Sigils: Socket.io-Anbindung der Raum-Logik (sacrificeSigils/roomManager.js).
 //
 // Läuft im Hauptprozess: Ein Kartenspiel erzeugt nur eine Handvoll Nachrichten pro Zug, die Engine rechnet eine Aktion
@@ -25,12 +25,12 @@
 
 const path = require('path');
 const { pathToFileURL } = require('url');
-const { createRoomManager } = require('../sacrificeSigils/roomManager');
-const { createRunRoomManager } = require('../sacrificeSigils/runRoomManager');
+const { createRoomManager } = require('./roomManager');
+const { createRunRoomManager } = require('./runRoomManager');
 
 const TICK_MS = 500;
 const MAX_EVENTS_PER_SECOND = 30;
-const SHARED = path.join(__dirname, '..', 'sacrificeSigils', 'shared');
+const SHARED = path.join(__dirname, 'shared');
 
 let managerPromise = null;
 

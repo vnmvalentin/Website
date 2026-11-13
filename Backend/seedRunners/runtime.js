@@ -1,5 +1,5 @@
 // Seed Runners — gemeinsamer Betriebszustand des Servers: Speicher, Prüfer (Worker-Thread) und
-// Tagesrangliste, einmal pro Prozess. Sowohl die Socket-Räume (routes/seedRunnersRoutes.js) als auch
+// Tagesrangliste, einmal pro Prozess. Sowohl die Socket-Räume (seedRunners/socket.js) als auch
 // die HTTP-Schnittstelle (seedRunners/routes.js) greifen hierauf zu, damit ein Lauf aus dem Raum und
 // einer von der Tagesseite in dieselbe Liste und durch denselben Prüfer laufen.
 'use strict';

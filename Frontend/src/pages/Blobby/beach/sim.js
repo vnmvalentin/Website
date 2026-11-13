@@ -319,7 +319,7 @@ function blobBlob(a, b) {
 
 // ── Ball gegen Blob ─────────────────────────────────────────────────────────
 // Abstand eines Punktes (r = Abstand zur Hochachse, y = Höhe) zur aufgeblasenen Hülle.
-// Dieselbe Rechnung wie blobDistance in Backend/routes/blobbyRoutes.js, nur mit y nach oben.
+// Dieselbe Rechnung wie blobDistance in Backend/blobby/socket.js, nur mit y nach oben.
 function hullDistance2D(r, y, cy, s, pad) {
   const ax = 0, ay = cy + UPPER_SPHERE * s, R1 = UPPER_RADIUS * s + pad;
   const bx = 0, by = cy - LOWER_SPHERE * s, R2 = LOWER_RADIUS * s + pad;

@@ -165,7 +165,7 @@ const WORLD_BOOT_MIN_MS = 700;
 // Default-Argument von generatePlotSlots (engine/MapConfig.js) passen.
 const WORLD_SLOTS = 6; // dauerhafte Welt: immer 6 Grundstücke, 3 pro Reihe
 // Wer den Admin-Knopf im HUD sieht. Reine Anzeige — jede Änderung prüft der Server
-// noch einmal gegen STREAMER_TWITCH_ID (Backend/routes/adminRoutes.js).
+// noch einmal gegen STREAMER_TWITCH_ID (Backend/admin/routes.js).
 const GARTEN_ADMIN_ID = "160224748";
 /**
  * Dämpfer für shotgun.mp3. Die Aufnahme ist um ein Vielfaches lauter ausgesteuert

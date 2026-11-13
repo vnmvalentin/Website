@@ -1,4 +1,4 @@
-// backend/routes/worldflipRoutes.js
+// backend/worldflip/socket.js
 // Worldflip: Socket.io-Anbindung der Raum-Logik (worldflip/roomManager.js).
 //
 // Die Engine ist ein ES-Modul (Spiegel aus dem Frontend, worldflip/tools/spiegel.js) und wird einmal per import()
@@ -20,11 +20,11 @@
 
 const path = require('path');
 const { pathToFileURL } = require('url');
-const { createRoomManager } = require('../worldflip/roomManager');
+const { createRoomManager } = require('./roomManager');
 
 const TICK_MS = 250;
 const MAX_EVENTS_PER_SECOND = 20;
-const ENGINE = path.join(__dirname, '..', 'worldflip', 'shared', 'engine', 'index.js');
+const ENGINE = path.join(__dirname, 'shared', 'engine', 'index.js');
 
 let managerPromise = null;
 

@@ -1,4 +1,4 @@
-// backend/routes/blobbyRoutes.js
+// backend/blobby/socket.js
 // Blobby Volley online: Blobs, ein Pfeiler in der Mitte, ein Ball. Spieler treten per
 // Link-Code bei (gleicher Ablauf wie Connect4), die Physik läuft server-autoritativ mit
 // 75 Hz und wird als Schnappschuss verteilt.
