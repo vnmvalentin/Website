@@ -1,13 +1,21 @@
 // App.jsx
 import { Component, lazy, Suspense } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
-import Layout from "./pages/Layout";
-import Home from "./pages/Home";
-import NotFound from "./pages/NotFound";
+import Layout from "./components/Layout";
+import Home from "./pages/Website/Home";
+import NotFound from "./pages/Website/NotFound";
 import TwitchAuthProvider from "./components/TwitchAuthProvider";
 import AnalyticsTracker from "./components/AnalyticsTracker";
 import { VisitMemory } from "./utils/visitMemory";
 import { ToolScroll } from "./components/toolShell/ToolParts";
+import { seedRunnersRoutes } from "./pages/SeedRunners/routes";
+import { sacrificeSigilsRoutes } from "./pages/SacrificeSigils/routes";
+import { blobbyRoutes } from "./pages/Blobby/routes";
+import { clashRoyaleRoutes } from "./pages/ClashRoyale/routes";
+import { gardenRoutes } from "./pages/GardenGame/routes";
+import { adventureRoutes } from "./pages/Adventure/routes";
+import { flickSoccerRoutes } from "./pages/FlickSoccer/routes";
+import { worldflipRoutes } from "./pages/Worldflip/routes";
 
 // ── Nachgeladene Routen ─────────────────────────────────────────────────────
 // Eager importiert bleibt nur, was auf JEDER Seite gebraucht wird (Layout, die
@@ -28,108 +36,65 @@ import { ToolScroll } from "./components/toolShell/ToolParts";
 // wenn er es doch ins HTML schafft — das gilt unabhängig davon, welche der
 // Routen hier lazy sind, trotzdem beim Umbenennen/Verschieben einer der oben
 // gelisteten Routen an prerender.js denken.
-const GardenShell = lazy(() => import("./pages/GardenGame/ui/menu/GardenShell.jsx"));
-const GameContainer = lazy(() => import("./pages/GardenGame/GameContainer"));
-const AdventureShell = lazy(() => import("./pages/Adventure/ui/Shell.jsx"));
-const AdventureGame = lazy(() => import("./pages/Adventure/AdventureGame"));
-const CrShell = lazy(() => import("./pages/ClashRoyale/ui/CrShell.jsx"));
-const ClashRoyalePage = lazy(() => import("./pages/ClashRoyale/ClashRoyalePage"));
-const ClashHubPage = lazy(() => import("./pages/ClashRoyale/clash/ClashHubPage"));
-const CardGuesser = lazy(() => import("./pages/ClashRoyale/clash/CardGuesser"));
-const WhoAmI = lazy(() => import("./pages/ClashRoyale/clash/WhoAmI"));
-const StatsDuel = lazy(() => import("./pages/ClashRoyale/clash/StatsDuel"));
-const ImageGuess = lazy(() => import("./pages/ClashRoyale/clash/ImageGuess"));
-const CardWordle = lazy(() => import("./pages/ClashRoyale/clash/CardWordle"));
-const ColorGuess = lazy(() => import("./pages/ClashRoyale/clash/ColorGuess"));
-const ViewerGamesPage = lazy(() => import("./pages/ClashRoyale/clash/ViewerGamesPage"));
-const ViewerGamesOverlay = lazy(() => import("./pages/ClashRoyale/clash/ViewerGamesOverlay"));
-const TournamentPage = lazy(() => import("./pages/ClashRoyale/tournament/TournamentPage"));
-const TournamentForm = lazy(() => import("./pages/ClashRoyale/tournament/TournamentForm"));
-const DiscordBotDashboard = lazy(() => import("./pages/Discord/DiscordBotDashboard"));
+//
+// Spiele mit eigener Hülle führen ihre Routen in pages/<Spiel>/routes.jsx (unten eingehängt);
+// hier stehen OBS-Overlays, Streamer-Werkzeuge und die Seiten im Website-Layout.
 
-const Abstimmung = lazy(() => import("./pages/Abstimmung/Abstimmung"));
-const AbstimmungDetail = lazy(() => import("./pages/Abstimmung/AbstimmungDetail"));
-const AuthTwitch = lazy(() => import("./pages/AuthTwitch"));
-const WcShell = lazy(() => import("./pages/WinChallenge/ui/WcShell.jsx"));
-const ToolShell = lazy(() => import("./components/toolShell/ToolShell.jsx"));
-const WinChallenge = lazy(() => import("./pages/WinChallenge/WinChallenge"));
+// OBS-Overlays (ohne Hülle)
 const WinChallengeOverlay = lazy(() => import("./pages/WinChallenge/WinChallengeOverlay"));
-const WinChallengeControl = lazy(() => import("./pages/WinChallenge/WinChallengeControl"));
-const GiveawaysPage = lazy(() => import("./pages/GiveawaysPage"));
-const BingoPage = lazy(() => import("./pages/Bingo/BingoPage"));
-const BingoEditorPage = lazy(() => import("./pages/Bingo/BingoEditorPage"));
-const BingoJoinPage = lazy(() => import("./pages/Bingo/BingoJoinPage"));
-const BingoOverlayPage = lazy(() => import("./pages/Bingo/BingoOverlayPage"));
-const AdminDashboard = lazy(() => import("./pages/AdminDashboard"));
-const YTMBotPage = lazy(() => import("./pages/YTM/YTMBotPage"));
-const Updates = lazy(() => import("./pages/Updates"));
-const StreamCredits = lazy(() => import("./pages/StreamCredits"));
+const StreamCredits = lazy(() => import("./pages/StreamScenes/StreamCredits"));
 const StreamStarting = lazy(() => import("./pages/StreamScenes/StreamStarting"));
 const StreamEnding = lazy(() => import("./pages/StreamScenes/StreamEnding"));
 const StreamBrb = lazy(() => import("./pages/StreamScenes/StreamBrb"));
 const GambleOverlay = lazy(() => import("./pages/StreamGamble/GambleOverlay"));
-const StreamScenesControlPage = lazy(() => import("./pages/StreamScenes/StreamScenesControlPage"));
-const AvatarBuilderPage = lazy(() => import("./pages/StreamScenes/AvatarBuilderPage"));
-const DiscordBotPrivacyPage = lazy(() => import("./pages/Discord/DiscordBotPrivacyPage"));
-const DiscordBotTermsPage = lazy(() => import("./pages/Discord/DiscordBotTermsPage"));
+const BingoOverlayPage = lazy(() => import("./pages/Bingo/BingoOverlayPage"));
 const BannedCardsOverlayPage = lazy(() => import("./pages/ClashRoyale/BannedCards/BannedCardsOverlayPage"));
 const DeckOverlayPage = lazy(() => import("./pages/ClashRoyale/streamer/DeckOverlayPage"));
 const LobbyDeckOverlayPage = lazy(() => import("./pages/ClashRoyale/streamer/LobbyDeckOverlayPage"));
-const NuzlockePage = lazy(() => import("./pages/ClashRoyale/Nuzlocke/NuzlockePage"));
-const WinTrackerPage = lazy(() => import("./pages/ClashRoyale/WinTracker/WinTrackerPage"));
-const WinTrackerRecapPage = lazy(() => import("./pages/ClashRoyale/WinTracker/WinTrackerRecapPage"));
 const WinTrackerOverlayPage = lazy(() => import("./pages/ClashRoyale/WinTracker/WinTrackerOverlayPage"));
+const ViewerGamesOverlay = lazy(() => import("./pages/ClashRoyale/clash/ViewerGamesOverlay"));
+const PollsPredictionsOverlay = lazy(() => import("./pages/StreamTool/PollsPredictionsOverlay"));
+
+// Streamer-Werkzeuge (Tool-Hülle bzw. Win-Challenge-Aufsatz)
+const ToolShell = lazy(() => import("./components/toolShell/ToolShell.jsx"));
+const WcShell = lazy(() => import("./pages/WinChallenge/ui/WcShell.jsx"));
+const WinChallenge = lazy(() => import("./pages/WinChallenge/WinChallenge"));
+const WinChallengeControl = lazy(() => import("./pages/WinChallenge/WinChallengeControl"));
 const PollsPredictionsPage = lazy(() => import("./pages/StreamTool/PollsPredictionsPage"));
-const Abo = lazy(() => import("./pages/Abo"));
+const StreamScenesControlPage = lazy(() => import("./pages/StreamScenes/StreamScenesControlPage"));
+const BingoPage = lazy(() => import("./pages/Bingo/BingoPage"));
+const BingoEditorPage = lazy(() => import("./pages/Bingo/BingoEditorPage"));
+const DiscordBotDashboard = lazy(() => import("./pages/Discord/DiscordBotDashboard"));
+
+// Lights Out hat seine Hülle in der Seite selbst
+const LightsOut = lazy(() => import("./pages/LightsOut/LightsOut.jsx"));
+
+// Seiten im Website-Layout
+const CategoryPage = lazy(() => import("./pages/Website/CategoryPage"));
+const StreamerToolsPage = lazy(() => import("./pages/StreamerTools/StreamerToolsPage"));
+const OverlayGalleryPage = lazy(() => import("./pages/StreamerTools/OverlayGalleryPage"));
+const Profile = lazy(() => import("./pages/Website/Profile"));
+const PublicProfilePage = lazy(() => import("./pages/PublicProfile/PublicProfilePage"));
+const Abstimmung = lazy(() => import("./pages/Abstimmung/Abstimmung"));
+const AbstimmungDetail = lazy(() => import("./pages/Abstimmung/AbstimmungDetail"));
+const AuthTwitch = lazy(() => import("./pages/Website/AuthTwitch"));
+const GiveawaysPage = lazy(() => import("./pages/Giveaways/GiveawaysPage"));
+const BingoJoinPage = lazy(() => import("./pages/Bingo/BingoJoinPage"));
+const Connect4Page = lazy(() => import("./pages/Connect4/Connect4Page"));
+const Connect4Room = lazy(() => import("./pages/Connect4/Connect4Room"));
+const SeedRunnersTestPage = lazy(() => import("./pages/SeedRunners/SeedRunnersTestPage"));
+const SeedRunnersWorldLab = lazy(() => import("./pages/SeedRunners/SeedRunnersWorldLab"));
+const AdminDashboard = lazy(() => import("./pages/Admin/AdminDashboard"));
+const YTMBotPage = lazy(() => import("./pages/YTM/YTMBotPage"));
+const Updates = lazy(() => import("./pages/Website/Updates"));
+const DiscordBotPrivacyPage = lazy(() => import("./pages/Discord/DiscordBotPrivacyPage"));
+const DiscordBotTermsPage = lazy(() => import("./pages/Discord/DiscordBotTermsPage"));
+const AvatarBuilderPage = lazy(() => import("./pages/StreamScenes/AvatarBuilderPage"));
+const Abo = lazy(() => import("./pages/Website/Abo"));
 const Impressum = lazy(() => import("./pages/Legal/Impressum"));
 const Datenschutz = lazy(() => import("./pages/Legal/Datenschutz"));
 const Agb = lazy(() => import("./pages/Legal/Agb"));
 const Widerruf = lazy(() => import("./pages/Legal/Widerruf"));
-const PollsPredictionsOverlay = lazy(() => import("./pages/StreamTool/PollsPredictionsOverlay"));
-const CategoryPage = lazy(() => import("./pages/CategoryPage"));
-const StreamerToolsPage = lazy(() => import("./pages/StreamerTools/StreamerToolsPage"));
-const OverlayGalleryPage = lazy(() => import("./pages/StreamerTools/OverlayGalleryPage"));
-const Profile = lazy(() => import("./pages/Profile"));
-const PublicProfilePage = lazy(() => import("./pages/PublicProfile/PublicProfilePage"));
-const Connect4Page = lazy(() => import("./pages/Connect4/Connect4Page"));
-const Connect4Room = lazy(() => import("./pages/Connect4/Connect4Room"));
-const BlobbyShell = lazy(() => import("./pages/Blobby/ui/Shell.jsx"));
-const BlobbyPage = lazy(() => import("./pages/Blobby/BlobbyPage"));
-const BlobbyRoom = lazy(() => import("./pages/Blobby/BlobbyRoom"));
-const SeedRunnersPage = lazy(() => import("./pages/SeedRunners/SeedRunnersPage"));
-const SeedRunnersRoom = lazy(() => import("./pages/SeedRunners/SeedRunnersRoom"));
-const SeedRunnersTestPage = lazy(() => import("./pages/SeedRunners/SeedRunnersTestPage"));
-const SeedRunnersWorldLab = lazy(() => import("./pages/SeedRunners/SeedRunnersWorldLab"));
-const SeedRunnersDaily = lazy(() => import("./pages/SeedRunners/SeedRunnersDaily"));
-const SeedRunnersVerlauf = lazy(() => import("./pages/SeedRunners/SeedRunnersVerlauf"));
-const SeedRunnersSandbox = lazy(() => import("./pages/SeedRunners/SeedRunnersSandbox"));
-const SeedRunnersEditor = lazy(() => import("./pages/SeedRunners/SeedRunnersEditor"));
-const SeedRunnersLevels = lazy(() => import("./pages/SeedRunners/SeedRunnersLevels"));
-const SeedRunnersLevel = lazy(() => import("./pages/SeedRunners/SeedRunnersLevel"));
-const SeedRunnersCreator = lazy(() => import("./pages/SeedRunners/SeedRunnersCreator"));
-const SeedRunnersShell = lazy(() => import("./pages/SeedRunners/ui/GameShell"));
-const FlickShell = lazy(() => import("./pages/FlickSoccer/ui/Shell.jsx"));
-const FlickMenu = lazy(() => import("./pages/FlickSoccer/FlickMenu.jsx"));
-const FlickLocal = lazy(() => import("./pages/FlickSoccer/FlickLocal.jsx"));
-const FlickTour = lazy(() => import("./pages/FlickSoccer/FlickTour.jsx"));
-const FlickTrick = lazy(() => import("./pages/FlickSoccer/FlickTrick.jsx"));
-const FlickRoom = lazy(() => import("./pages/FlickSoccer/FlickRoom.jsx"));
-const FlickTournaments = lazy(() => import("./pages/FlickSoccer/FlickTournaments.jsx"));
-const FlickTournament = lazy(() => import("./pages/FlickSoccer/FlickTournament.jsx"));
-const WfShell = lazy(() => import("./pages/Worldflip/ui/Shell.jsx"));
-const WfMenu = lazy(() => import("./pages/Worldflip/WfMenu.jsx"));
-const WfLocal = lazy(() => import("./pages/Worldflip/WfLocal.jsx"));
-const WfRoom = lazy(() => import("./pages/Worldflip/WfRoom.jsx"));
-const LightsOut = lazy(() => import("./pages/LightsOut/LightsOut.jsx"));
-const SigilsShell = lazy(() => import("./pages/SacrificeSigils/ui/Shell.jsx"));
-const SigilsHome = lazy(() => import("./pages/SacrificeSigils/ui/screens/HomeScreen.jsx"));
-const SigilsRoom = lazy(() => import("./pages/SacrificeSigils/ui/pages/RoomPage.jsx"));
-const SigilsPractice = lazy(() => import("./pages/SacrificeSigils/ui/pages/PracticePage.jsx"));
-const SigilsCodex = lazy(() => import("./pages/SacrificeSigils/ui/pages/CodexPage.jsx"));
-const SigilsGuide = lazy(() => import("./pages/SacrificeSigils/ui/pages/GuidePage.jsx"));
-const SigilsTutorial = lazy(() => import("./pages/SacrificeSigils/ui/pages/TutorialPage.jsx"));
-const SigilsRun = lazy(() => import("./pages/SacrificeSigils/ui/pages/MoorwanderungPage.jsx"));
-const SigilsRunRoom = lazy(() => import("./pages/SacrificeSigils/ui/pages/RunRoomPage.jsx"));
 
 // Der Marker data-page-fallback ist die Schnittstelle zu prerender.js — nicht umbenennen.
 function PageFallback() {
@@ -206,6 +171,7 @@ export default function App() {
           <Route path="/clash-royale/overlay/lobby-decks/:overlayKey" element={<LobbyDeckOverlayPage />} />
           <Route path="/clash-royale/win-tracker/overlay/:overlayKey" element={<WinTrackerOverlayPage />} />
           <Route path="/twitch-tools/overlay/:overlayKey" element={<PollsPredictionsOverlay />} />
+          <Route path="/clash/viewer-games/overlay/:overlayKey" element={<ViewerGamesOverlay />} />
 
           {/* Streamer-Werkzeuge in der gemeinsamen Tool-Hülle (components/toolShell/ToolShell.jsx) statt im
               Website-Layout. Die Win Challenge setzt Sprachwahl und Übersetzung obendrauf (ui/WcShell.jsx).
@@ -223,105 +189,15 @@ export default function App() {
             <Route path="/discord-bot" element={<DiscordBotDashboard />} />
           </Route>
 
-          {/* Seed Runners als eigenes Spiel: eigene Hülle statt Website-Layout (ui/GameShell.jsx) */}
-          <Route path="/seed-runners" element={<SeedRunnersShell />}>
-            <Route index element={<SeedRunnersPage/>} />
-            <Route path="daily" element={<SeedRunnersDaily/>} />
-            {/* Tagesarchiv: ein vergangener Tag (JJJJ-MM-TT); die Liste steht im Verlauf */}
-            <Route path="daily/:dateKey" element={<SeedRunnersDaily/>} />
-            <Route path="verlauf" element={<SeedRunnersVerlauf/>} />
-            {/* Sandbox: Entwürfe verwalten und der Level-Editor */}
-            <Route path="sandbox" element={<SeedRunnersSandbox/>} />
-            <Route path="editor" element={<Navigate to="/seed-runners/sandbox" replace />} />
-            <Route path="editor/:draftId" element={<SeedRunnersEditor/>} />
-            {/* Veröffentlichte Level: Browser, Ersteller-Profil, Detailseite (Share-Code in der Adresse) */}
-            <Route path="levels" element={<SeedRunnersLevels/>} />
-            <Route path="levels/creator/:id" element={<SeedRunnersCreator/>} />
-            <Route path="levels/:code" element={<SeedRunnersLevel/>} />
-            {/* Nach dem Beitreten steht der Code nicht mehr in der Adresse (Streamer-Schutz, room/raumCode.js) */}
-            <Route path="raum" element={<SeedRunnersRoom/>} />
-            <Route path=":code" element={<SeedRunnersRoom/>} />
-          </Route>
-
-          {/* Sacrifice & Sigils: eigenes Kartenspiel mit eigener Hülle (Kohle & Kerzenwachs) */}
-          <Route path="/sacrifice-and-sigils" element={<SigilsShell />}>
-            <Route index element={<SigilsHome/>} />
-            <Route path="raum/:code" element={<SigilsRoom/>} />
-            <Route path="uebung" element={<SigilsPractice/>} />
-            <Route path="kartenbuch" element={<SigilsCodex/>} />
-            <Route path="anleitung" element={<SigilsGuide/>} />
-            <Route path="tutorial" element={<SigilsTutorial/>} />
-            <Route path="moorwanderung" element={<SigilsRun/>} />
-            <Route path="moorwanderung/:code" element={<SigilsRunRoom/>} />
-          </Route>
-
-          {/* Blobby Volley: eigene Strand-Hülle (Blobby/ui/Shell.jsx) */}
-          <Route path="/blobby" element={<BlobbyShell />}>
-            <Route index element={<BlobbyPage/>} />
-            <Route path=":code" element={<BlobbyRoom/>} />
-          </Route>
-
-          {/* Clash-Royale-Minigames: volle Fensterhöhe ohne Website-Kopfzeile (ClashRoyale/ui/CrShell.jsx).
-              Seit Okt. 2026 auch der Win-Tracker und Nuzlocke (gleicher Arcade-Look). */}
-          <Route path="/clash-royale" element={<CrShell />}>
-            <Route index element={<ClashRoyalePage />} />
-            {/* Turniere (Backend/clashRoyale/PLANUNG_TURNIER.md) */}
-            <Route path="turnier/neu" element={<TournamentForm />} />
-            <Route path="turnier/:id" element={<TournamentPage />} />
-            <Route path="turnier/:id/bearbeiten" element={<TournamentForm />} />
-            {/* Win-Tracker-Editor seit Okt. 2026 im selben Arcade-Look (das OBS-Overlay oben bleibt ohne Hülle) */}
-            <Route path="win-tracker" element={<WinTrackerPage />} />
-            {/* Saisonrückblick als eigene Seite (Backend: lib/winTrackerRecap.js) */}
-            <Route path="win-tracker/rueckblick" element={<WinTrackerRecapPage />} />
-          </Route>
-          {/* Viewer Games: OBS-Overlay ohne Hülle (transparenter Hintergrund) */}
-          <Route path="/clash/viewer-games/overlay/:overlayKey" element={<ViewerGamesOverlay />} />
-          {/* /clash: Clash-Royale-Hub im Arcade-Look + Kartenrätsel (statt der allgemeinen Kategorieseite) */}
-          <Route path="/clash" element={<CrShell />}>
-            <Route index element={<ClashHubPage />} />
-            <Route path="kartenraten" element={<CardGuesser />} />
-            <Route path="wer-bin-ich" element={<WhoAmI />} />
-            <Route path="wer-bin-ich/:code" element={<WhoAmI />} />
-            <Route path="stats-duell" element={<StatsDuel />} />
-            <Route path="zoom" element={<ImageGuess key="zoom" mode="zoom" />} />
-            <Route path="pixel" element={<ImageGuess key="pixel" mode="pixel" />} />
-            <Route path="wordle" element={<CardWordle />} />
-            <Route path="farbe" element={<ColorGuess />} />
-            <Route path="viewer-games" element={<ViewerGamesPage />} />
-          </Route>
-          {/* Nuzlocke: seit Okt. 2026 ebenfalls im Arcade-Look, URL bleibt /nuzlocke (SEO) */}
-          <Route path="/nuzlocke" element={<CrShell />}>
-            <Route index element={<NuzlockePage />} />
-          </Route>
-
-          {/* Virtual Farm: eigene Hülle, volle Fensterhöhe (GardenGame/ui/menu/GardenShell.jsx) */}
-          <Route path="/garden" element={<GardenShell />}>
-            <Route index element={<GameContainer />} />
-          </Route>
-
-          {/* adVentures: eigene Pixel-Dungeon-Hülle (Adventure/ui/Shell.jsx) */}
-          <Route path="/adventures" element={<AdventureShell />}>
-            <Route index element={<AdventureGame/>} />
-          </Route>
-
-          {/* Flick Soccer: rundenbasierter Scheiben-Fußball, eigene Hülle „Kronkorken-Liga" (FlickSoccer/ui/Shell.jsx) */}
-          <Route path="/flick-soccer" element={<FlickShell />}>
-            <Route index element={<FlickMenu/>} />
-            <Route path="spiel" element={<FlickLocal/>} />
-            <Route path="tour" element={<FlickTour/>} />
-            <Route path="trick" element={<FlickTrick/>} />
-            <Route path="trick/:id" element={<FlickTrick/>} />
-            <Route path="turnier" element={<FlickTournaments/>} />
-            <Route path="turnier/:code" element={<FlickTournament/>} />
-            <Route path=":code" element={<FlickRoom/>} />
-          </Route>
-
-          {/* Worldflip: 3D-Kartenspiel für 2 bis 4 am schwebenden Tisch, eigene Hülle (Worldflip/ui/Shell.jsx) */}
-          <Route path="/worldflip" element={<WfShell />}>
-            <Route index element={<WfMenu/>} />
-            <Route path="spiel" element={<WfLocal/>} />
-            <Route path=":code" element={<WfRoom/>} />
-          </Route>
+          {/* Spiele mit eigener Hülle (pages/<Spiel>/routes.jsx) */}
+          {seedRunnersRoutes}
+          {sacrificeSigilsRoutes}
+          {blobbyRoutes}
+          {clashRoyaleRoutes}
+          {gardenRoutes}
+          {adventureRoutes}
+          {flickSoccerRoutes}
+          {worldflipRoutes}
 
           {/* Lights Out: Horror-Labyrinth in der Ego-Perspektive, eigene Hülle (LightsOut/LightsOut.jsx) */}
           <Route path="/lights-out" element={<LightsOut />} />

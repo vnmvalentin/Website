@@ -31,7 +31,7 @@ export default function Drawer({ open, onClose, title, icon, footer, children })
   if (!open) return null;
 
   // Über ein Portal direkt an <body>, NICHT an die Stelle im Seitenbaum:
-  // Der Inhaltsbereich der Seite ist `relative z-0` (pages/Layout.jsx) und bildet damit
+  // Der Inhaltsbereich der Seite ist `relative z-0` (components/Layout.jsx) und bildet damit
   // einen eigenen Stacking-Context. Ein z-50 darin bleibt trotzdem unter dem Seiten-Header
   // (z-40) — die Kopfzeile des Drawers samt Schließen-Kreuz verschwände hinter der
   // Navigation. Am body hängend gibt es diesen Deckel nicht.

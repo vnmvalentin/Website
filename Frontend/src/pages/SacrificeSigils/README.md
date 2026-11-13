@@ -27,7 +27,7 @@ Browserfenster (oder ein privates Fenster) öffnen: im ersten „Spiel erstellen
 | `npm run sigils:check` | Datenvalidierung aller Karten (Sigils, Folgeformen, Kosten, Budget-Warnungen) |
 | `npm run balance -- --games 5000` | KI gegen KI, Bericht nach `docs/sacrifice-and-sigils/balance-report.json` (Optionen: `--level easy\|normal\|hard`, `--workers n`, `--out pfad`) |
 | `npm run art:export` | alle prozeduralen Artworks als SVG nach `public/media/cards/generated/` (+ `index.html` zum Durchblättern, nicht eingecheckt) |
-| `npm run art:prompts` | `art-prompts.md` mit einem Bildprompt pro Karte |
+| `npm run art:prompts` | `docs/sacrifice-and-sigils/art-prompts.md` mit einem Bildprompt pro Karte |
 | `node src/pages/SacrificeSigils/tools/screenshots.cjs` | alle Screens × 9 Auflösungen (vite dev auf :5199, Socket-Server auf :3001, Playwright), danach `tools/toWebp.cjs <ordner>`; Spielstände kommen aus den Dev-Fixtures `?fixture=…` (`ui/dev/fixtures.js`, nur im Dev-Build) |
 
 Im Ordner `Backend`: `npm test -- sacrificeSigils` (Raum-Manager) und `npm run spiegel -- sigils` (siehe unten).
@@ -72,7 +72,7 @@ Neue Sigils: Objekt in `engine/sigils/index.js` (Hooks), Name/Text in `i18n/de.j
 
 Jede Karte zeichnet ihr Bild prozedural (`art/procedural.js`, deterministisch aus `art.seed`). Echtes Artwork einfach als
 `Frontend/public/media/cards/<karten-id>.webp` (oder `.png`) ablegen, Seitenverhältnis 100:76 — der Renderer nimmt die Datei
-automatisch. Die IDs stehen im Kartenbuch (Detailansicht) und in `art-prompts.md`.
+automatisch. Die IDs stehen im Kartenbuch (Detailansicht) und in `docs/sacrifice-and-sigils/art-prompts.md`.
 
 ## Sounds ersetzen
 

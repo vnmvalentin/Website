@@ -1,6 +1,6 @@
 // Auswertung eines Turnier-Spiels über die CR-API (Phase 4): passenden Freundschaftskampf in der
 // Kampfliste finden, Sieger bestimmen, gedraftetes Deck prüfen. Reine Logik ohne I/O — getestet in
-// __tests__/battleMatch.test.js. Plan: ../PLANUNG_TURNIER.md.
+// __tests__/battleMatch.test.js. Plan: docs/clash-royale/PLANUNG_TURNIER.md.
 //
 // Empirisch geprüft (01.10.2026, echte Battlelogs):
 //   • Freundschaftskämpfe: type "friendly"; Kämpfe unter Clan-Mitgliedern: type "clanMate" — beide zählen.

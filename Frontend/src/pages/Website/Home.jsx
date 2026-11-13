@@ -4,16 +4,16 @@
 // wenn der Kanal live ist. Keine eigenen Schriften oder Spiel-Looks hier — die gehören in die jeweilige Unterseite.
 import { useEffect, useMemo, useState, useContext } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import SEO from "../components/SEO";
+import SEO from "../../components/SEO";
 import { Share2, MonitorSmartphone, ArrowRight, Play } from "lucide-react";
-import { Button, Dialog, Input, Page, SectionHeading } from "../components/ui";
-import { TwitchAuthContext } from "../components/TwitchAuthContext";
-import ActivityStrip from "../components/ActivityStrip";
-import TileCard from "../components/TileCard";
-import SiteDirectory from "../components/SiteDirectory";
-import { showcaseLinks } from "../config/navigation";
-import { recentVisited } from "../utils/visitMemory";
-import { useLiveStatus } from "../utils/useLiveStatus";
+import { Button, Dialog, Input, Page, SectionHeading } from "../../components/ui";
+import { TwitchAuthContext } from "../../components/TwitchAuthContext";
+import ActivityStrip from "../../components/ActivityStrip";
+import TileCard from "../../components/TileCard";
+import SiteDirectory from "../../components/SiteDirectory";
+import { showcaseLinks } from "../../config/navigation";
+import { recentVisited } from "../../utils/visitMemory";
+import { useLiveStatus } from "../../utils/useLiveStatus";
 
 // --- DATEN ---
 

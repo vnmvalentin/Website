@@ -1,5 +1,5 @@
 import React, { useContext, useEffect, useState } from "react";
-import { TwitchAuthContext } from "../components/TwitchAuthContext";
+import { TwitchAuthContext } from "../../components/TwitchAuthContext";
 import {
   Gift,
   Users,
@@ -10,12 +10,12 @@ import {
   X,
   Clock,
 } from "lucide-react";
-import { socket, useFeedRoom } from "../utils/socket";
-import SEO from "../components/SEO";
-import { TwitchGlyph } from "../components/BrandGlyphs";
-import { Page, PageHeader, Card, EmptyState, Button, Dialog, Tabs, Field, Input } from "../components/ui";
+import { socket, useFeedRoom } from "../../utils/socket";
+import SEO from "../../components/SEO";
+import { TwitchGlyph } from "../../components/BrandGlyphs";
+import { Page, PageHeader, Card, EmptyState, Button, Dialog, Tabs, Field, Input } from "../../components/ui";
 
-import { STREAMER_ID } from "../config/owner";
+import { STREAMER_ID } from "../../config/owner";
 const STREAMER_LOGIN = "vnmvalentin";
 
 const REQUIREMENT_TEMPLATES = [

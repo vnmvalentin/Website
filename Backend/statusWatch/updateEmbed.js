@@ -7,7 +7,7 @@ const TITLE_MAX = 256;
 // Platz unter dem Beschreibungsdeckel (4096) für die Link-Zeile
 const DESCRIPTION_BUDGET = 3800;
 
-// Gleiche Trennung wie Frontend/src/pages/Updates.jsx (splitVersion): "v6.8: Titel"
+// Gleiche Trennung wie Frontend/src/pages/Website/Updates.jsx (splitVersion): "v6.8: Titel"
 function splitVersion(version) {
   const v = String(version || "");
   const idx = v.indexOf(":");

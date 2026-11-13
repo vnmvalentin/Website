@@ -1,7 +1,7 @@
 import React, { useState } from "react";
-import { NEWS_UPDATES } from "../utils/newData";
-import SEO from "../components/SEO";
-import { Page, PageHeader, Card } from "../components/ui";
+import { NEWS_UPDATES } from "../../utils/newData";
+import SEO from "../../components/SEO";
+import { Page, PageHeader, Card } from "../../components/ui";
 import { ChevronDown } from "lucide-react";
 
 function splitVersion(version) {

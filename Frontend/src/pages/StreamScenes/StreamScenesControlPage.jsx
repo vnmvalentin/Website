@@ -9,7 +9,7 @@ import { Copy, Check, Flame, PartyPopper, DoorOpen, Users, Timer, ExternalLink, 
 import { TwitchAuthContext } from '../../components/TwitchAuthContext';
 import { PageHeader, Tabs } from '../../components/ui';
 import { isOwner } from '../../config/owner';
-import NotFound from '../NotFound';
+import NotFound from '../Website/NotFound';
 import { createMusicFeed } from './sceneLink';
 import { GambleStage } from '../StreamGamble/GambleOverlay';
 import {

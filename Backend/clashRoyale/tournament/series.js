@@ -1,5 +1,5 @@
 // Serien-Logik eines Matches (Best of 1/3/5): Spielstand, Modus-Wahl per Pick/Ban oder Zufall.
-// Reine Funktionen ohne I/O — getestet in __tests__/series.test.js. Plan: ../PLANUNG_TURNIER.md.
+// Reine Funktionen ohne I/O — getestet in __tests__/series.test.js. Plan: docs/clash-royale/PLANUNG_TURNIER.md.
 //
 // Ein Spiel: { gameNo, status: 'banning'|'drafting'|'battle'|'done'|'void', offer, bans: [{ side, mode }],
 //              mode, winner: 'a'|'b'|null, crownsA, crownsB }

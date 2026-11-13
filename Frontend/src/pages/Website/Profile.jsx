@@ -1,14 +1,14 @@
-// src/pages/Profile.jsx — Profil-Seite: Verknüpfungen (Twitch/Discord),
+// src/pages/Website/Profile.jsx — Profil-Seite: Verknüpfungen (Twitch/Discord),
 // Account wechseln, Code einlösen, Logout und Admin-Zugang.
 import { useContext, useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { TwitchAuthContext } from "../components/TwitchAuthContext";
-import SEO from "../components/SEO";
-import AboPanel from "../components/AboPanel";
-import { PREMIUM_PRICE } from "../utils/billingApi";
-import { salesVisible } from "../config/legal";
-import { TwitchGlyph, DiscordGlyph } from "../components/BrandGlyphs";
-import { Page, PageHeader, Card, Section, Button, Input, Segmented, TwitchLoginButton } from "../components/ui";
+import { TwitchAuthContext } from "../../components/TwitchAuthContext";
+import SEO from "../../components/SEO";
+import AboPanel from "../../components/AboPanel";
+import { PREMIUM_PRICE } from "../../utils/billingApi";
+import { salesVisible } from "../../config/legal";
+import { TwitchGlyph, DiscordGlyph } from "../../components/BrandGlyphs";
+import { Page, PageHeader, Card, Section, Button, Input, Segmented, TwitchLoginButton } from "../../components/ui";
 import {
   ShieldCheck,
   Link2,
@@ -22,7 +22,7 @@ import {
   Globe,
 } from "lucide-react";
 
-import { STREAMER_ID } from "../config/owner";
+import { STREAMER_ID } from "../../config/owner";
 const LANG_STORAGE_KEY = "site_lang";
 
 // Nur DE/EN — WinTracker-Login läuft über diese Seite, englischsprachige Zuschauer müssen

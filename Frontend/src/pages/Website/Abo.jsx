@@ -3,13 +3,13 @@
 // Baustein wie im Profil (components/AboPanel.jsx).
 import React, { useContext } from "react";
 import { Link } from "react-router-dom";
-import SEO from "../components/SEO";
-import { TwitchAuthContext } from "../components/TwitchAuthContext";
-import AboPanel from "../components/AboPanel";
-import { Page, PageHeader, Card, TwitchLoginButton } from "../components/ui";
+import SEO from "../../components/SEO";
+import { TwitchAuthContext } from "../../components/TwitchAuthContext";
+import AboPanel from "../../components/AboPanel";
+import { Page, PageHeader, Card, TwitchLoginButton } from "../../components/ui";
 import NotFound from "./NotFound";
-import { salesVisible } from "../config/legal";
-import { PREMIUM_PRICE } from "../utils/billingApi";
+import { salesVisible } from "../../config/legal";
+import { PREMIUM_PRICE } from "../../utils/billingApi";
 
 export default function Abo() {
   const { user } = useContext(TwitchAuthContext);

@@ -11,7 +11,7 @@ import { de } from "../i18n/de.js";
 import { NEGATIVE, STYLE, promptFor, sigilNames, zirkelOf } from "./artPromptLib.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const out = path.resolve(here, "..", "art-prompts.md");
+const out = path.resolve(here, "..", "..", "..", "..", "..", "docs", "sacrifice-and-sigils", "art-prompts.md");
 
 const lines = [
   "# Sacrifice & Sigils – Bildprompts",
@@ -40,7 +40,7 @@ fs.writeFileSync(out, `${lines.join("\n")}\n`);
 console.log(`${ALL_CARDS.length} Prompts nach ${path.relative(process.cwd(), out)} geschrieben.`);
 
 // Dieselben Prompts als CSV (z. B. für ComfyUI-Batch-Nodes oder eine Tabelle); UTF-8 mit BOM, damit Excel Umlaute erkennt
-const csvOut = path.resolve(here, "..", "art-prompts.csv");
+const csvOut = path.resolve(here, "..", "..", "..", "..", "..", "docs", "sacrifice-and-sigils", "art-prompts.csv");
 const cell = (/** @type {string} */ v) => `"${String(v).replace(/"/g, '""')}"`;
 const rows = [["id", "name", "stamm", "zirkel", "seltenheit", "prompt", "negative"].join(",")];
 for (const c of ALL_CARDS) rows.push([c.id, c.name, c.tribe, zirkelOf(c), c.rarity, promptFor(c), NEGATIVE].map(cell).join(","));

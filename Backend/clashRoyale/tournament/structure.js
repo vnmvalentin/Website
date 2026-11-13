@@ -1,6 +1,6 @@
 // Turnier-Struktur: Auslosung, Gruppen (jeder gegen jeden), Tabellen, Bracket (Single/Double
 // Elimination mit Freilosen und Bracket-Reset) und das Fortschreiben von Ergebnissen.
-// Reine Logik ohne I/O — getestet in __tests__/structure.test.js. Plan: ../PLANUNG_TURNIER.md.
+// Reine Logik ohne I/O — getestet in __tests__/structure.test.js. Plan: docs/clash-royale/PLANUNG_TURNIER.md.
 //
 // Ein Match ist ein flaches Objekt:
 //   { id, stage: 'group'|'upper'|'lower'|'grand', group, round, slot,

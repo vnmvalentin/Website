@@ -1,7 +1,7 @@
 // Match-Raum eines Turniers: Chat, Bereit, Start, Pick/Ban bzw. Zufallsmodus, automatische Draft-Lobby
 // nur für die beiden Spieler, Decks nach dem Draft (Phase 3). Phase 4: Prüfschleife (runChecks) sucht den
 // Freundschafts-/Clankampf beider Tags über die CR-API, prüft das Deck und schreibt die Serie fort;
-// Erscheinen-Frist (kampfloser Sieg) und Kampf-Frist (→ Veranstalter). Plan: ../PLANUNG_TURNIER.md.
+// Erscheinen-Frist (kampfloser Sieg) und Kampf-Frist (→ Veranstalter). Plan: docs/clash-royale/PLANUNG_TURNIER.md.
 //
 // Socket-Räume: tmatch:<turnier>:<match> (Raum-Zustand) und tournament:<turnier> (Seite neu laden).
 // Wer darf in den Raum? Die beiden Spieler des Matches und der Veranstalter. Spieler erkennt der

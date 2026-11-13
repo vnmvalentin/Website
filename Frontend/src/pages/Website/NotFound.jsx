@@ -11,8 +11,8 @@
 // nginx-Regeln in der Projektdoku) — das noindex wirkt aber unabhängig davon.
 import React from "react";
 import { Home, Compass } from "lucide-react";
-import SEO from "../components/SEO";
-import { Page, Button } from "../components/ui";
+import SEO from "../../components/SEO";
+import { Page, Button } from "../../components/ui";
 
 export default function NotFound() {
   return (

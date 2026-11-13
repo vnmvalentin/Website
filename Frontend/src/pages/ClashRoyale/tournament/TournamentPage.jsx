@@ -2,7 +2,7 @@
 // Anmeldung, Veranstalter-Werkzeuge. Nach dem Start Reiter: Übersicht · Gruppen · Bracket · Raum
 // (TournamentStructure.jsx, MatchRoom.jsx). Reiter und Match stehen in der URL (?tab=…&match=…),
 // damit "Zurück zum Turnier-Raum" aus der Draft-Lobby direkt im richtigen Raum landet.
-// Plan: Backend/clashRoyale/PLANUNG_TURNIER.md
+// Plan: docs/clash-royale/PLANUNG_TURNIER.md
 import React, { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { TwitchAuthContext } from '../../../components/TwitchAuthContext';

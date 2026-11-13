@@ -338,7 +338,7 @@ app.use("/api/clash/profile", createCrProfileRouter({ requireAuth }));
 // Freundesliste der Minigames (Aktionen; Live-Stand läuft über den Socket, clashRoyale/core/friends.js)
 app.use("/api/clash/friends", createCrFriendRouter({ requireAuth }));
 app.use("/api/clash/presets", createCrPresetRouter({ requireAuth }));
-// Turniere der CR-Minigames (Plan: clashRoyale/PLANUNG_TURNIER.md)
+// Turniere der CR-Minigames (Plan: docs/clash-royale/PLANUNG_TURNIER.md)
 app.use("/api/clash/tournaments", createTournamentRouter({
   requireAuth, optionalAuth,
   // Turniere erstellen: nur der Streamer-Admin und von ihm freigegebene Content Creator

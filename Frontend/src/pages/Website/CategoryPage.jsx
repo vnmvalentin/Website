@@ -2,10 +2,10 @@
 // Navigations-Kategorie als große anklickbare Kacheln.
 import { Link, useOutletContext } from "react-router-dom";
 import { ArrowRight, ExternalLink, Lock } from "lucide-react";
-import { getCategory } from "../config/navigation";
-import SEO from "../components/SEO";
-import TileCard from "../components/TileCard";
-import { Page, PageHeader } from "../components/ui";
+import { getCategory } from "../../config/navigation";
+import SEO from "../../components/SEO";
+import TileCard from "../../components/TileCard";
+import { Page, PageHeader } from "../../components/ui";
 
 function CategoryCard({ link, openFeedback }) {
   const Icon = link.icon;

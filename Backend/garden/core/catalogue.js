@@ -68,7 +68,7 @@
 // Bewusst 0,15 und nicht 0,25: mit 0,25 hätte sich der Gewinn aus Legendary-
 // Einmalernten zusammen mit der häufigeren Legendary im Laden (core/laden.js)
 // gegenüber vorher etwa versechsfacht — im späten Spiel gibt es ohnehin schon mehr
-// Gold als Ziele (PLANUNG_LANGZEITZIELE.md). Pro Stunde und Feld bleiben kurze
+// Gold als Ziele (docs/garden/PLANUNG_LANGZEITZIELE.md). Pro Stunde und Feld bleiben kurze
 // Pflanzen vorn; lange lohnen sich jetzt für "einmal am Tag reinschauen".
 const SEED_CATALOGUE = [
     // ── COMMON ──

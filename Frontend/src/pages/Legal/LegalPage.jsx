@@ -3,7 +3,7 @@
 import React from "react";
 import { Link } from "react-router-dom";
 import SEO from "../../components/SEO";
-import NotFound from "../NotFound";
+import NotFound from "../Website/NotFound";
 import { Page, PageHeader } from "../../components/ui";
 import { LEGAL, LEGAL_LINKS, legalMissing, salesVisible } from "../../config/legal";
 

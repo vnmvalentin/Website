@@ -1,20 +1,20 @@
 import React, { useState, useEffect, useContext, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { TwitchAuthContext } from "../components/TwitchAuthContext";
+import { TwitchAuthContext } from "../../components/TwitchAuthContext";
 import {
   Radio, Gamepad2, Eye, LayoutDashboard, Swords, Sprout,
   Trophy, Grid3x3, Crown, Search, RefreshCw, Trash2, Pencil, ExternalLink,
   Users, SlidersHorizontal, Globe, Lock, Flag, BarChart3, Clapperboard,
 } from "lucide-react";
 import { io } from "socket.io-client";
-import SEO from "../components/SEO";
-import GardenAdminPanel from "./GardenGame/GardenAdminPanel";
-import ModerationPanel from "./SeedRunners/mod/ModerationPanel.jsx";
-import TournamentCreatorsPanel from "./ClashRoyale/tournament/TournamentCreatorsPanel.jsx";
-import AnalyticsPanel from "./Admin/AnalyticsPanel.jsx";
+import SEO from "../../components/SEO";
+import GardenAdminPanel from "../GardenGame/GardenAdminPanel";
+import ModerationPanel from "../SeedRunners/mod/ModerationPanel.jsx";
+import TournamentCreatorsPanel from "../ClashRoyale/tournament/TournamentCreatorsPanel.jsx";
+import AnalyticsPanel from "./AnalyticsPanel.jsx";
 
 // DEINE ID
-import { STREAMER_ID } from "../config/owner";
+import { STREAMER_ID } from "../../config/owner";
 
 const SECTIONS = [
   { id: "overview", label: "Übersicht", icon: LayoutDashboard },

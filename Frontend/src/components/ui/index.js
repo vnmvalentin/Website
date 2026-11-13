@@ -1,4 +1,4 @@
-// Bausteine für alle Seiten im Website-Layout (pages/Layout.jsx).
+// Bausteine für alle Seiten im Website-Layout (components/Layout.jsx).
 // Spiel-Hüllen und OBS-Overlays benutzen sie bewusst nicht — die haben ihren eigenen Look.
 export { default as Button } from "./Button";
 export { default as Dialog } from "./Dialog";

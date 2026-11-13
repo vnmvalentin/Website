@@ -1,5 +1,5 @@
 // Turnier-Einstellungen: Standardwerte und Prüfung — reine Logik ohne I/O (getestet in
-// __tests__/settings.test.js). Plan und Hintergründe: ../PLANUNG_TURNIER.md.
+// __tests__/settings.test.js). Plan und Hintergründe: docs/clash-royale/PLANUNG_TURNIER.md.
 //
 // sanitizeSettings() nimmt beliebige Client-Eingaben und liefert IMMER ein vollständiges,
 // gültiges Objekt plus eine Liste von Fehlern zurück. Fehler sind Schlüssel (i18n im Client),

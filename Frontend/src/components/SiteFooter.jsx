@@ -1,4 +1,4 @@
-// SiteFooter.jsx — Fußzeile unter jedem Seiteninhalt im Website-Layout (pages/Layout.jsx): das Text-Verzeichnis
+// SiteFooter.jsx — Fußzeile unter jedem Seiteninhalt im Website-Layout (components/Layout.jsx): das Text-Verzeichnis
 // aller Bereiche, darunter die Rechtsseiten. Auf der Startseite entfällt das Verzeichnis — dort steht es schon
 // im Inhalt. Breite wie die breiten Seiten (Page width="wide"), damit Verzeichnis und Inhalt bündig stehen.
 import React from "react";

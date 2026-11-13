@@ -24,7 +24,7 @@ export default function Modal({
   const maxWidth = { sm: 'max-w-sm', md: 'max-w-2xl', lg: 'max-w-4xl', xl: 'max-w-6xl' }[size] || 'max-w-4xl';
 
   // Portal an <body>, aus demselben Grund wie beim Drawer: der Inhaltsbereich der Seite
-  // ist `relative z-0` (pages/Layout.jsx) und deckelt jedes z-index darin unter dem
+  // ist `relative z-0` (components/Layout.jsx) und deckelt jedes z-index darin unter dem
   // Seiten-Header. Ohne Portal legt sich die Navigation über den Dialog.
   return createPortal(
     <div

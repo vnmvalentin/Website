@@ -1,5 +1,5 @@
 // LegalFooter.jsx — schmale Fußzeile mit den Rechtsseiten, unter jedem normalen Seiteninhalt
-// (pages/Layout.jsx). Impressum, Datenschutz und der Weg zum Kündigen müssen von jeder Seite aus
+// (components/Layout.jsx). Impressum, Datenschutz und der Weg zum Kündigen müssen von jeder Seite aus
 // mit einem Klick erreichbar sein.
 import React from "react";
 import { Link } from "react-router-dom";

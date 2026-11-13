@@ -1,11 +1,11 @@
-// src/pages/Layout.jsx
+// src/components/Layout.jsx
 import React, { useEffect, useState, useContext, useRef, useCallback } from "react";
 import { Outlet, Link, useLocation } from "react-router-dom";
-import SiteFooter from "../components/SiteFooter";
+import SiteFooter from "./SiteFooter";
 import { useLiveStatus } from "../utils/useLiveStatus";
-import { TwitchAuthContext } from "../components/TwitchAuthContext";
+import { TwitchAuthContext } from "./TwitchAuthContext";
 import { socket, ensureSocketConnected } from "../utils/socket";
-import AppBackground from "../components/AppBackground";
+import AppBackground from "./AppBackground";
 import { NAV_CATEGORIES } from "../config/navigation";
 // 96-px-WebP (2 KB) statt /logos/logo.png: das Original ist 512×512 und 255 KB groß, wird hier
 // aber nur 32 px hoch gezeigt — und das auf jeder Seite. Das PNG bleibt für og:image (SEO.jsx).

@@ -2,7 +2,7 @@
 // Phase 1: anlegen, bearbeiten, anmelden/abmelden, Teilnehmer entfernen, absagen.
 // Phase 2: starten (von Hand oder automatisch zum Zeitpunkt), Gruppen/Bracket in GET /:id,
 //          Ergebnis durch den Veranstalter eintragen (bis die API-Auswertung aus Phase 4 kommt).
-// Plan: ../PLANUNG_TURNIER.md
+// Plan: docs/clash-royale/PLANUNG_TURNIER.md
 //
 // Identität:
 //   • Twitch-Session (Cookie, requireAuth/optionalAuth aus index.js) — Veranstalter immer,
