@@ -1635,7 +1635,7 @@ einer Maschine). Deshalb:
 - Das Tagesrennen wird beim Öffnen der Daily-Seite vorgebaut.
 - Lade-Timeout für Pfad-Runden 60 s (`LOAD_TIMEOUT_PFAD_MS`), sonst 20 s.
 
-**Server.** Replay-Cache 24 Level (statt 6). Nach jeder Änderung an gen/ oder sim/: `npm run seedrunners:spiegel` im
+**Server.** Replay-Cache 24 Level (statt 6). Nach jeder Änderung an gen/ oder sim/: `npm run spiegel -- seedrunners` im
 Backend, sonst passt `ENGINE_FINGERPRINT` nicht.
 
 **Geprüft.** Backend-Tests inkl. echtem Lauf durch ein Pfad-Level (verifyRun ok, ein Tick weniger ungültig), Daily-
@@ -1670,7 +1670,7 @@ dann NICHT die Referenz anpassen, sondern:
 2. den NEUEN Stand einfrieren: `node src/pages/SeedRunners/gen/tools/einfrieren.mjs <N+1>`, in `client/generatorArchiv.js`
    eintragen und im Wächter Referenz-Level für N+1 ergänzen — Version N liegt unverändert im Archiv und baut ihre Seeds weiter;
 3. im Tagesrennen einen Stichtag für die neue Version eintragen (frühere Tage behalten ihre);
-4. Backend `npm run seedrunners:spiegel` (der Server-Test prüft, dass die laufende Version im Archiv liegt).
+4. Backend `npm run spiegel -- seedrunners` (der Server-Test prüft, dass die laufende Version im Archiv liegt).
 
 **Grenze.** Gespielt wird immer mit der AKTUELLEN Physik. Eine Physik-Änderung kann ein altes Level (Zufall wie Community)
 schwerer oder unschaffbar machen — Community-Level fängt die Neu-Verifizierung auf (levelService.reverifyStale), für alte

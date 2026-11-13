@@ -1,5 +1,5 @@
 // Abo-Logik ohne Netz: Stripe ist eine Attrappe, die Datenbank liegt im Arbeitsspeicher.
-// Aufruf: npm run test:billing
+// Aufruf: npm test -- billing
 process.env.BILLING_DB = ":memory:";
 process.env.STREAMER_TWITCH_ID = "owner-1";
 process.env.STRIPE_SECRET_KEY = "sk_test_x";

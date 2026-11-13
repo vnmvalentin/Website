@@ -4,8 +4,8 @@
 // DIESE DATEI IST DIE QUELLE. Der Frontend-Spiegel wird daraus ERZEUGT, nicht von
 // Hand gepflegt:
 //
-//     cd Backend && npm run garden:spiegel          (schreibt den Spiegel neu)
-//     cd Backend && npm run garden:spiegel:pruefen  (meldet nur Abweichungen)
+//     cd Backend && npm run spiegel -- garden          (schreibt den Spiegel neu)
+//     cd Backend && npm run spiegel:pruefen -- garden  (meldet nur Abweichungen)
 //
 // Vorher hatte garden/migrations/plants.js eine eigene, eingefrorene Kopie — die
 // stand noch auf den Werten VOR dem Balancing und hat es bei jedem Serverstart

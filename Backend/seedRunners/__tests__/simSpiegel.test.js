@@ -1,5 +1,5 @@
 // Test des Sim-Spiegels: Das Backend muss dieselbe Sim und denselben Generator haben wie das Frontend, sonst
-// stimmen nachgespielte Läufe nicht. Schlägt dieser Test an: `npm run seedrunners:spiegel` (im Ordner Backend).
+// stimmen nachgespielte Läufe nicht. Schlägt dieser Test an: `npm run spiegel -- seedrunners` (im Ordner Backend).
 'use strict';
 
 const test = require('node:test');
@@ -10,7 +10,7 @@ const { spiegle, sollzustand, fingerprint, fingerprints, SPIEGEL } = require('..
 
 test('Der Spiegel im Backend und die version.js im Frontend sind aktuell', () => {
   const res = spiegle(true);
-  assert.deepEqual(res.abweichungen, [], 'Sim-Spiegel veraltet: npm run seedrunners:spiegel');
+  assert.deepEqual(res.abweichungen, [], 'Sim-Spiegel veraltet: npm run spiegel -- seedrunners');
   assert.equal(res.ok, true);
 });
 

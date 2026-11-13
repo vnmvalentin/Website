@@ -4,12 +4,11 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
+    "test": "node ../Backend/tools/test.js --root=src/pages",
     "dev": "vite",
     "build": "vite build && node prerender.js",
     "lint": "eslint .",
-    "test:seedrunners": "node --test \"src/pages/SeedRunners/**/*.test.js\"",
     "seedrunners:solve": "node src/pages/SeedRunners/gen/tools/solveAll.js",
-    "test:sigils": "node --test \"src/pages/SacrificeSigils/**/*.test.js\"",
     "sigils:check": "node src/pages/SacrificeSigils/tools/checkCards.js",
     "balance": "node src/pages/SacrificeSigils/tools/balance.js",
     "balance:run": "node src/pages/SacrificeSigils/tools/balanceRun.js",
@@ -20,10 +19,7 @@
     "garden:art": "node src/pages/GardenGame/tools/farmArt.js",
     "garden:art:uebernehmen": "node src/pages/GardenGame/tools/farmArtUebernehmen.js",
     "preview": "vite preview",
-    "test:flick": "node --test \"src/pages/FlickSoccer/**/*.test.js\"",
-    "flick:tricks": "node src/pages/FlickSoccer/tools/trickGen.mjs",
-    "test:worldflip": "node --test \"src/pages/Worldflip/**/*.test.js\"",
-    "test:adventure": "node --test \"src/pages/Adventure/**/*.test.js\""
+    "flick:tricks": "node src/pages/FlickSoccer/tools/trickGen.mjs"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.1.13",

@@ -1,4 +1,4 @@
-// Tests für die gefragten Sorten am Markt (core/nachfrage.js). Ausführen: npm run test:garden
+// Tests für die gefragten Sorten am Markt (core/nachfrage.js). Ausführen: npm test -- garden
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const nachfrage = require("./nachfrage");

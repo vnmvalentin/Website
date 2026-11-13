@@ -1,4 +1,4 @@
-// npm run test:status — läuft komplett lokal: Website, /api/health und Discord sind ein Fake-Server auf 127.0.0.1.
+// npm test -- statusWatch — läuft komplett lokal: Website, /api/health und Discord sind ein Fake-Server auf 127.0.0.1.
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const http = require("node:http");

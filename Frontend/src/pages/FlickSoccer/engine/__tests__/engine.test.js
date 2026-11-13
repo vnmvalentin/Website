@@ -1,4 +1,4 @@
-// Engine-Tests für Flick Soccer:  npm run test:flick
+// Engine-Tests für Flick Soccer:  npm test -- FlickSoccer
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {

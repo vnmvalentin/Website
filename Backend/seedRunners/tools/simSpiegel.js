@@ -174,7 +174,7 @@ if (require.main === module) {
   } else if (nurPruefen) {
     console.error(`Sim-Spiegel VERALTET (${res.abweichungen.length} Dateien weichen ab):`);
     for (const a of res.abweichungen) console.error(`  ${a}`);
-    console.error('→ npm run seedrunners:spiegel  (im Ordner Backend)');
+    console.error('→ npm run spiegel -- seedrunners  (im Ordner Backend)');
     process.exit(1);
   } else {
     console.log(`Sim-Spiegel geschrieben (${stand}), ${res.abweichungen.length} Dateien geändert.`);

@@ -1,4 +1,4 @@
-// Tests für die Bestenlisten (world/ranglisten.js). Ausführen: npm run test:garden
+// Tests für die Bestenlisten (world/ranglisten.js). Ausführen: npm test -- garden
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const { ranglisten } = require("./ranglisten");

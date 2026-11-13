@@ -22,30 +22,29 @@ BLOBBY_SERVICE="${BLOBBY_SERVICE:-blobby}"
 ROOT="$(cd "$(dirname "$0")" && pwd)"
 TARGET="${1:-all}"
 
-# Seed Runners: Der Server spielt Läufe mit einer GESPIEGELTEN Kopie der Sim nach (Backend/seedRunners/engine,
-# erzeugt aus Frontend/src/pages/SeedRunners/sim, gen und level). Ist sie veraltet, stimmt der Fingerprint nicht mehr
-# zu dem, was der Browser mitschickt, und alle Läufe blieben ungeprüft. Deshalb nie mit altem Spiegel ausliefern.
+# Mehrere Spiele rechnen auf dem Server mit einer GESPIEGELTEN Kopie ihres Frontend-Codes nach (Seed Runners, Sacrifice &
+# Sigils, Flick Soccer, Worldflip, Farm-Katalog — Liste in Backend/tools/spiegel.js). Ist eine veraltet, rechnen Server und
+# Browser verschieden (bei Seed Runners blieben alle Läufe ungeprüft). Deshalb nie mit altem Spiegel ausliefern.
 check_sim_mirror() {
-  if ! (cd "$ROOT/Backend" && node seedRunners/tools/simSpiegel.js --pruefen); then
-    echo "Abbruch: Sim-Spiegel veraltet. Im Ordner Backend:  npm run seedrunners:spiegel" >&2
+  if ! (cd "$ROOT/Backend" && node tools/spiegel.js --pruefen); then
+    echo "Abbruch: Spiegel veraltet (siehe oben)." >&2
     exit 1
   fi
-  # Sacrifice & Sigils: Der Server spielt mit einer gespiegelten Kopie der Engine (Backend/sacrificeSigils/shared,
-  # erzeugt aus Frontend/src/pages/SacrificeSigils/engine und data). Veraltet ⇒ Server und Browser rechnen verschieden.
-  if ! (cd "$ROOT/Backend" && node sacrificeSigils/tools/spiegel.js --pruefen); then
-    echo "Abbruch: Sacrifice-&-Sigils-Spiegel veraltet. Im Ordner Backend:  npm run sigils:spiegel" >&2
+}
+
+# Backend-Tests (rund 35 s) vor jedem Backend-Deploy. Notausgang:  SKIP_TESTS=1 ./deploy.sh backend
+run_backend_tests() {
+  if [ "${SKIP_TESTS:-}" = "1" ]; then
+    echo "--- Backend-Tests übersprungen (SKIP_TESTS=1)"
+    return
+  fi
+  echo "--- Backend-Tests"
+  if ! (cd "$ROOT/Backend" && node tools/test.js >/tmp/deploy_tests.log 2>&1); then
+    grep -E "^not ok|✖|Error" /tmp/deploy_tests.log | head -30 >&2
+    echo "Abbruch: Backend-Tests schlagen fehl (vollständig: /tmp/deploy_tests.log)." >&2
     exit 1
   fi
-  # Flick Soccer: Der Server rechnet Online-Schüsse mit einer gespiegelten Kopie der Physik nach (Backend/flickSoccer/shared).
-  if ! (cd "$ROOT/Backend" && node flickSoccer/tools/spiegel.js --pruefen); then
-    echo "Abbruch: Flick-Soccer-Spiegel veraltet. Im Ordner Backend:  npm run flick:spiegel" >&2
-    exit 1
-  fi
-  # Worldflip: Der Server prüft Online-Züge mit einer gespiegelten Kopie der Regeln (Backend/worldflip/shared).
-  if ! (cd "$ROOT/Backend" && node worldflip/tools/spiegel.js --pruefen); then
-    echo "Abbruch: Worldflip-Spiegel veraltet. Im Ordner Backend:  npm run worldflip:spiegel" >&2
-    exit 1
-  fi
+  grep -E "^ℹ (tests|pass)" /tmp/deploy_tests.log
 }
 
 # Sicherheitslücken in Abhängigkeiten: vor jedem Deploy die ungefährlichen Updates einspielen (npm audit fix,
@@ -109,6 +108,7 @@ deploy_frontend() {
 deploy_backend() {
   echo "=== Backend ==="
   check_sim_mirror
+  run_backend_tests
   fix_vulnerabilities Backend
   cd "$ROOT/Backend"
 
@@ -127,33 +127,16 @@ deploy_backend() {
   #
   # Ausgenommen bleibt an BEIDEN Stellen (tar UND rsync), was nur auf dem Server
   # der richtige Stand ist:
-  #   data/, clashRoyale/data/, streamTool/data/   laufende Spielstände/Datenbanken (*.db,
-  #                                                *.key, Token) — lokal nur ein Dev-Abbild.
-  #                                                EINZELN aufgezählt (nicht per Namensmuster
-  #                                                "data/"!), weil rsync so ein Muster OHNE
-  #                                                führenden Slash auf JEDEN gleichnamigen
-  #                                                Ordner in der ganzen Baumstruktur anwendet —
-  #                                                das riss früher auch Inhalts-Ordner namens data/
-  #                                                und discord/bot/commands/data/ (Modulcode)
-  #                                                mit raus, die eigentlich mit sollen. Legt
-  #                                                jemand einen NEUEN Ordner mit Live-Datenbanken
-  #                                                an, muss er hier einzeln ergänzt werden.
-  #   garden/data/                                 erneuerter Twitch-Broadcaster-Token (gardenGameRoutes.js
-  #                                                legt ihn erst auf dem Server an) — fehlte hier, dadurch
-  #                                                löschte rsync --delete ihn bei jedem Deploy.
-  #   clashRoyale/data/cardIconUrls.json           einzige Nicht-Datenbank-Datei in einem sonst
-  #                                                ausgeschlossenen Ordner — statischer Inhalt,
-  #                                                muss trotzdem mit (siehe cardIconSpiegel.js).
+  #   data/ und <bereich>/data/   Live-Daten: Datenbanken, Tokens, Schlüssel, Störungsverlauf …
+  #                               REGEL: Live-Daten liegen immer in genau einem dieser Ordner (eine
+  #                               Ebene tief), statischer Inhalt nie. Dann muss hier niemand neue
+  #                               Ordner nachtragen. Die Muster sind auf diese Ebene verankert (tar:
+  #                               --no-wildcards-match-slash, rsync: führender Slash), sonst
+  #                               träfen sie auch Code-Ordner wie discord/bot/commands/data/.
   #   node_modules/   nativ kompiliert (better-sqlite3), zieht sich der Server per npm selbst
   #   sessions.json   eingeloggte Nutzer — sonst wirft jeder Deploy alle raus
   #   .env / .env.*   Server-Zugangsdaten, dürfen nie vom lokalen Dev-.env überschrieben werden
-  #   analytics/data/                              Besucherstatistik (analytics/analyticsStore.js) — entsteht
-  #                                                erst auf dem Server und gehört nur dorthin.
-  #   streamScenes/data/                           Figuren der Zuschauer + Steuerpult der 3D-Stream-Szenen
-  #                                                (streamScenes/lib/sceneStore.js) — nur auf dem Server echt.
-  #   statusWatch/data/                            ID der #status-Nachricht, Störungsverlauf, gepostete Updates
-  #                                                (statusWatch/) — sonst postet jeder Deploy alles neu.
-  local excludes=(--exclude='./data' --exclude='./garden/data' --exclude='./analytics/data' --exclude='./streamScenes/data' --exclude='./statusWatch/data' --exclude='./node_modules' --exclude='./sessions.json' --exclude='./.env' --exclude='./.env.*')
+  local excludes=(--no-wildcards-match-slash --exclude='./data' --exclude='./*/data' --exclude='./node_modules' --exclude='./sessions.json' --exclude='./.env' --exclude='./.env.*')
   # Wartungsfenster für #status: während der Neustart läuft, zeigt der Prüfer Gelb "Wartung" statt Rot.
   # Läuft von selbst ab — bricht der Deploy mittendrin ab, bleibt der Status nicht ewig auf Wartung.
   local maintenance_until=$(( ($(date +%s) + 180) * 1000 ))
@@ -164,8 +147,7 @@ deploy_backend() {
     tar -xz -C '$BACKEND_DEST.new'
     test -f '$BACKEND_DEST.new/index.js'
     rsync -a --delete \
-      --include '/clashRoyale/data/cardIconUrls.json' \
-      --exclude '/data/' --exclude '/clashRoyale/data/*' --exclude '/streamTool/data/' --exclude '/garden/data/' --exclude '/analytics/data/' --exclude '/streamScenes/data/' --exclude '/statusWatch/data/' \
+      --exclude '/data/' --exclude '/*/data/' \
       --exclude 'node_modules/' --exclude 'sessions.json' \
       --exclude '.env' --exclude '.env.*' \
       '$BACKEND_DEST.new/' '$BACKEND_DEST/'

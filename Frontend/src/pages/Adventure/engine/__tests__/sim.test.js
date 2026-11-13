@@ -1,6 +1,6 @@
 // Headless-Tests für adVentures: komplette Läufe mit dem Bot (engine/bot.js), Spielstand speichern/laden, gleiche Welt
 // aus gleichem Seed, und dass die Freischalt-Tabelle des Backends nur existierende Items/Kits nennt.
-// Ausführen: npm run test:adventure (im Frontend-Ordner)
+// Ausführen: npm test -- Adventure (im Frontend-Ordner)
 
 import { test } from "node:test";
 import assert from "node:assert/strict";

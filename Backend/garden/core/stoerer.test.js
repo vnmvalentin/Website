@@ -1,4 +1,4 @@
-// Tests für Schädlinge/Unkraut (core/stoerer.js). Ausführen: npm run test:garden
+// Tests für Schädlinge/Unkraut (core/stoerer.js). Ausführen: npm test -- garden
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const stoerer = require("./stoerer");

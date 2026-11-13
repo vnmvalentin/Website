@@ -16,7 +16,7 @@ test('PFAD_GEN_VERSION passt zur GEN_VERSION des gespiegelten Generators', async
   const engine = await loadEngine();
   assert.equal(PFAD_GEN_VERSION, engine.GEN_VERSION);
   assert.ok(fs.existsSync(path.join(__dirname, '..', 'engine', 'archiv', `pfad-v${PFAD_GEN_VERSION}`, 'gen', 'world', 'generate.js')),
-    'die laufende Version liegt eingefroren im Archiv (Frontend gen/tools/einfrieren.mjs, dann npm run seedrunners:spiegel)');
+    'die laufende Version liegt eingefroren im Archiv (Frontend gen/tools/einfrieren.mjs, dann npm run spiegel -- seedrunners)');
 });
 
 test('cleanGv: fehlt = 1, nur bekannte Versionen', () => {

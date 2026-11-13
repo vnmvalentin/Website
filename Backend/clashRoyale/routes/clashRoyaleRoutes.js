@@ -1361,7 +1361,7 @@ function createTournamentLobby({ mode, tournament }) {
 // verwenden. Diese Route reicht sie durch — NUR im Arbeitsspeicher, nie als Datei auf der
 // Platte (Fan-Content-Policy, siehe tools/cardIconSpiegel.js). Kein offener Proxy: nur
 // bekannte Karten-IDs, die Ziel-URL kommt ausschließlich aus cardIconUrls.json.
-const CARD_ICON_URLS = require('../data/cardIconUrls.json');
+const CARD_ICON_URLS = require('../lib/cardIconUrls.json');
 const CARD_IMG_CACHE_MAX = 260; // > Anzahl Karten × Varianten, die im Spiel vorkommen
 const cardImgCache = new Map(); // "id:variant" → { buf, type }
 

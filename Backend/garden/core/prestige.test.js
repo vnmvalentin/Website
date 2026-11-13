@@ -1,4 +1,4 @@
-// Tests für „Neue Saat" (core/prestige.js). Ausführen: npm run test:garden
+// Tests für „Neue Saat" (core/prestige.js). Ausführen: npm test -- garden
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const p = require("./prestige");

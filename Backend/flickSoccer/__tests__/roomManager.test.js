@@ -1,4 +1,4 @@
-// Raum-Logik von Flick Soccer ohne socket.io:  npm run test:flick
+// Raum-Logik von Flick Soccer ohne socket.io:  npm test -- flickSoccer
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const path = require('path');

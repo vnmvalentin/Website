@@ -1,4 +1,4 @@
-// Tests für den Ernte-Rausch (core/rausch.js). Ausführen: npm run test:garden
+// Tests für den Ernte-Rausch (core/rausch.js). Ausführen: npm test -- garden
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const rausch = require("./rausch");

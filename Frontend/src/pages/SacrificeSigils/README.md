@@ -23,14 +23,14 @@ Browserfenster (oder ein privates Fenster) öffnen: im ersten „Spiel erstellen
 
 | Befehl (im Ordner `Frontend`) | Zweck |
 |---|---|
-| `npm run test:sigils` | Engine-Tests: jedes Sigil, Ressourcen, Waage, Draft, Pfad-Knoten, Determinismus, 1000-Spiele-Fuzz, versteckte Info |
+| `npm test -- SacrificeSigils` | Engine-Tests: jedes Sigil, Ressourcen, Waage, Draft, Pfad-Knoten, Determinismus, 1000-Spiele-Fuzz, versteckte Info |
 | `npm run sigils:check` | Datenvalidierung aller Karten (Sigils, Folgeformen, Kosten, Budget-Warnungen) |
 | `npm run balance -- --games 5000` | KI gegen KI, Bericht nach `docs/sacrifice-and-sigils/balance-report.json` (Optionen: `--level easy\|normal\|hard`, `--workers n`, `--out pfad`) |
 | `npm run art:export` | alle prozeduralen Artworks als SVG nach `public/media/cards/generated/` (+ `index.html` zum Durchblättern, nicht eingecheckt) |
 | `npm run art:prompts` | `art-prompts.md` mit einem Bildprompt pro Karte |
 | `node src/pages/SacrificeSigils/tools/screenshots.cjs` | alle Screens × 9 Auflösungen (vite dev auf :5199, Socket-Server auf :3001, Playwright), danach `tools/toWebp.cjs <ordner>`; Spielstände kommen aus den Dev-Fixtures `?fixture=…` (`ui/dev/fixtures.js`, nur im Dev-Build) |
 
-Im Ordner `Backend`: `npm run test:sigils` (Raum-Manager) und `npm run sigils:spiegel` (siehe unten).
+Im Ordner `Backend`: `npm test -- sacrificeSigils` (Raum-Manager) und `npm run spiegel -- sigils` (siehe unten).
 
 ## Engine-Spiegel (wichtig vor jedem Deploy)
 
@@ -38,7 +38,7 @@ Der Server spielt mit derselben Engine wie der Browser. Quelle sind `engine/` un
 eine erzeugte Kopie unter `Backend/sacrificeSigils/shared/`. **Nach jeder Änderung an Engine oder Karten:**
 
 ```bash
-cd Backend && npm run sigils:spiegel
+cd Backend && npm run spiegel -- sigils
 ```
 
 `deploy.sh` prüft das (`--pruefen`) und bricht mit veraltetem Spiegel ab. Browser mit altem Stand bekommen nach einem Deploy
@@ -62,8 +62,8 @@ Balancing je Zirkel: `npm run balance -- --zirkel gezeiten`.
    Optional als 9. Eintrag: `{ evolvesTo: "key", token: true, cursed: true, silhouette: "bird", balanceNote: "…", tide: "high" | "low" }`.
    Gezeiten-Karten liegen in `data/gezeiten/cards/<stamm>.js`; der Zirkel ergibt sich aus dem Stamm.
 2. `npm run sigils:check` — prüft Sigils, Folgeformen und das Kostenbudget (Formel aus dem Auftrag, Toleranz ±1,5).
-3. `npm run test:sigils`, dann `npm run balance -- --games 2000` und Ausreißer (< 44 % / > 56 %) nachjustieren.
-4. `cd ../Backend && npm run sigils:spiegel`.
+3. `npm test -- SacrificeSigils`, dann `npm run balance -- --games 2000` und Ausreißer (< 44 % / > 56 %) nachjustieren.
+4. `cd ../Backend && npm run spiegel -- sigils`.
 
 Neue Sigils: Objekt in `engine/sigils/index.js` (Hooks), Name/Text in `i18n/de.js`, Glyphe in `ui/icons/SigilIcon.jsx`, ein Test in
 `__tests__/sigils.test.js` (der Test „Jedes öffentliche Sigil ist getestet“ schlägt sonst fehl).

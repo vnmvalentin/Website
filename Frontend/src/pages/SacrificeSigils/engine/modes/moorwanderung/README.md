@@ -18,7 +18,7 @@ Startdeck wählen → [Pfad: Knoten, 2–3 NPC-Kämpfe, Pfad-Boss] × Pfade pro 
 | `over` | Platzierung, Podium | `run.js` → `eliminate`, `checkRunEnd` |
 
 Alles ist deterministisch (Seed + Aktionen) und läuft identisch im Browser (Übung gegen KI) und auf dem Server
-(`Backend/sacrificeSigils/runRoomManager.js`, Spiegel über `npm run sigils:spiegel` im Backend).
+(`Backend/sacrificeSigils/runRoomManager.js`, Spiegel über `npm run spiegel -- sigils` im Backend).
 `view.js` filtert die Sicht je Spieler: fremde Decks, Hände, Items und Szenen bleiben verborgen, öffentlich sind nur
 Siegel, Deckgröße, Status und im Duell gespielte Karten.
 
@@ -41,7 +41,7 @@ Run mit 4 Spielern rund 110 Minuten.
 
 ## Inhalte ergänzen
 
-Alle Inhalte liegen in `data/modes/moorwanderung/`. Die Tests (`npm run test:sigils`) prüfen, dass jede Regel, jede
+Alle Inhalte liegen in `data/modes/moorwanderung/`. Die Tests (`npm test -- SacrificeSigils`) prüfen, dass jede Regel, jede
 Karte und jeder Text existiert.
 
 **NPC** (`npcs.js`, Liste `NPCS`): `{ id, zirkel, biome, name, tribes, rule, silhouette, enter, exit }`.

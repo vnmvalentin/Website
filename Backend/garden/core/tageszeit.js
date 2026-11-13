@@ -13,7 +13,7 @@
 // Der Spiegel liegt in Frontend/src/pages/GardenGame/engine/Tageszeit.js und wird
 // aus dem Abschnitt zwischen den SPIEGEL-Marken ERZEUGT:
 //
-//     cd Backend && npm run garden:spiegel
+//     cd Backend && npm run spiegel -- garden
 //
 // Alles zwischen den Marken muss deshalb in beiden Modulsystemen gültig sein — also
 // kein `module.exports`, kein `export` und kein `require` dazwischen.

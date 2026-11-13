@@ -42,7 +42,7 @@ garden/
     xp.js         zahlt Erfahrung aus dem Logbuch nach
     skills.js     kürzt Fähigkeitsstufen auf die neue Levelstaffel
   tools/
-    katalogSpiegel.js  erzeugt die Frontend-Spiegel (npm run garden:spiegel)
+    katalogSpiegel.js  erzeugt die Frontend-Spiegel (npm run spiegel -- garden)
     simulator.js  Wirtschafts-Simulator mit den echten Spielfunktionen (npm run garden:sim)
   admin.js        was das Admin-Menü am Spielstand verändern darf
 ```
@@ -241,8 +241,8 @@ Rechnung für die Anzeige braucht. Zwei davon werden inzwischen **erzeugt** stat
 gepflegt:
 
 ```
-cd Backend && npm run garden:spiegel          # schreibt die Spiegel neu
-cd Backend && npm run garden:spiegel:pruefen  # meldet nur (Rückgabewert 1)
+cd Backend && npm run spiegel -- garden          # schreibt die Spiegel neu
+cd Backend && npm run spiegel:pruefen -- garden  # meldet nur (Rückgabewert 1)
 ```
 
 | Wert | Server | Browser | Abgeglichen |

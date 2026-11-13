@@ -17,7 +17,7 @@
 //   1. Generator ändern; der Test „Generator-Versionen“ schlägt an (live ≠ Referenz der laufenden Version)
 //   2. GEN_VERSION in gen/generator.js und PFAD_GEN_VERSION im Backend (seedRunners/genVersion.js) auf N+1
 //   3. den neuen Stand einfrieren: node …/einfrieren.mjs <N+1>, in client/generatorArchiv.js eintragen, Referenz-Level ergänzen
-//   4. Stichtag fürs Tagesrennen, im Backend npm run seedrunners:spiegel
+//   4. Stichtag fürs Tagesrennen, im Backend npm run spiegel -- seedrunners
 //
 //   node src/pages/SeedRunners/gen/tools/einfrieren.mjs 1
 import fs from 'node:fs';

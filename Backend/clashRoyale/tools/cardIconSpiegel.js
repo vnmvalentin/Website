@@ -14,7 +14,7 @@
 // Die URLs sind hash-basiert und über Jahre stabil beobachtet (dieselbe Karte behält ihren
 // Hash i.d.R. auch nach Balance-Änderungen) — trotzdem kein Live-Dauerzustand: bei neuen Karten
 // oder falls sich einzelne URLs doch ändern, dieses Skript erneut laufen lassen
-// (`npm run cr:card-icons` im Backend-Ordner), analog zu garden:spiegel.
+// (`npm run cr:card-icons` im Backend-Ordner), analog zu npm run spiegel.
 //
 // Matching: ALL_CARDS (core/cards.js, unsere kebab-case ids) gegen die offizielle
 // /cards-Antwort (echte Namen) über den normalisierten Namen — dieselbe Normalisierung wie
@@ -64,7 +64,7 @@ async function main() {
 
   const json = JSON.stringify(mapping, null, 2) + "\n";
   const targets = [
-    path.join(__dirname, "..", "data", "cardIconUrls.json"),
+    path.join(__dirname, "..", "lib", "cardIconUrls.json"),
     path.join(__dirname, "..", "..", "..", "Frontend", "src", "pages", "ClashRoyale", "data", "cardIconUrls.json"),
   ];
   for (const t of targets) {

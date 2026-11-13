@@ -1,5 +1,5 @@
 // Zuchtbuch: eine gelungene Kreuzung trägt sich in state.zuchtbuch ein (core/economy.js
-// harvestCell). Ausführen: npm run test:garden
+// harvestCell). Ausführen: npm test -- garden
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const { harvestCell } = require("./economy");

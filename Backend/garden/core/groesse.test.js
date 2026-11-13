@@ -1,4 +1,4 @@
-// Tests für die feine Fruchtgröße (core/groesse.js). Ausführen: npm run test:garden
+// Tests für die feine Fruchtgröße (core/groesse.js). Ausführen: npm test -- garden
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const { wuerfleGroesse, groesseVon } = require("./groesse");

@@ -11,7 +11,7 @@
 const path = require('path');
 const { createCanvas, loadImage, GlobalFonts } = require('@napi-rs/canvas');
 const { fit, TEXT } = require('../../og/ogImage');
-const CARD_ICON_URLS = require('../data/cardIconUrls.json');
+const CARD_ICON_URLS = require('./cardIconUrls.json');
 
 const ASSETS = path.join(__dirname, '../assets/recap');
 try {

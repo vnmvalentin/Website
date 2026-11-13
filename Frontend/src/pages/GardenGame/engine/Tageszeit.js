@@ -3,7 +3,7 @@
 //
 // NICHT VON HAND ÄNDERN. Der Abschnitt zwischen den SPIEGEL-Marken wird erzeugt:
 //
-//     cd Backend && npm run garden:spiegel
+//     cd Backend && npm run spiegel -- garden
 //
 // Geändert wird in Backend/garden/core/tageszeit.js. Dort steht auch, warum Tag,
 // Nacht und Party aus der Uhr gerechnet werden statt aus einer Servermeldung.

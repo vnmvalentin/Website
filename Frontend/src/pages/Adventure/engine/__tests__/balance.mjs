@@ -1,5 +1,5 @@
 // Balance-Sonde für adVentures: lässt den Bot (engine/bot.js) pro Kit zwei Läufe spielen und meldet, wann/wo er stirbt.
-// Kein Test (läuft nicht mit npm run test:adventure), sondern ein Messwerkzeug für Änderungen an Werten.
+// Kein Test (läuft nicht mit npm test -- Adventure), sondern ein Messwerkzeug für Änderungen an Werten.
 //
 //   node src/pages/Adventure/engine/__tests__/balance.mjs [Sekunden=1500] [evade|noevade] [kit1,kit2,…]
 //   DIFF=easy|normal|hard  wählt die Schwierigkeit

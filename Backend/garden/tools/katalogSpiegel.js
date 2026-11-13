@@ -85,7 +85,7 @@ function spiegle(auftrag, nurPruefen) {
         return true;
     }
     if (nurPruefen) {
-        console.error(`${auftrag.name}: Spiegel weicht ab — "npm run garden:spiegel" schreibt ihn neu.`);
+        console.error(`${auftrag.name}: Spiegel weicht ab — "npm run spiegel -- garden" schreibt ihn neu.`);
         return false;
     }
     fs.writeFileSync(auftrag.spiegel, ziel.slice(0, z.von) + q.text + ziel.slice(z.bis));

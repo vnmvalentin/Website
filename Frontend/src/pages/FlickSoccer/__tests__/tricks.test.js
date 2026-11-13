@@ -1,4 +1,4 @@
-// Trickschüsse und Tour-Daten:  npm run test:flick
+// Trickschüsse und Tour-Daten:  npm test -- FlickSoccer
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { PIECE, BALL, FIELDS, MATCH_RULES, isField, isFormation, isPowerup, isSkin, simulateShot } from '../engine/index.js';

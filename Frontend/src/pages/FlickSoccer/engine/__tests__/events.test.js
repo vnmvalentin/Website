@@ -1,4 +1,4 @@
-// Chaos-Ereignisse und Sonderregeln der Tour-Bosse:  npm run test:flick
+// Chaos-Ereignisse und Sonderregeln der Tour-Bosse:  npm test -- FlickSoccer
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {

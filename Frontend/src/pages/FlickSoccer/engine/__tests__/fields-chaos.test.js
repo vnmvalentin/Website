@@ -1,4 +1,4 @@
-// Felder und Chaos-Modus:  npm run test:flick
+// Felder und Chaos-Modus:  npm test -- FlickSoccer
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {

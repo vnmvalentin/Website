@@ -1,4 +1,4 @@
-// Turnier-Logik von Flick Soccer ohne socket.io und ohne Datenbank:  npm run test:flick
+// Turnier-Logik von Flick Soccer ohne socket.io und ohne Datenbank:  npm test -- flickSoccer
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const path = require('path');

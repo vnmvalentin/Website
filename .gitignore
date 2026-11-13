@@ -29,8 +29,7 @@ dist-ssr
 # Backend beim Start selbst an. Regel: Live-Daten gehören immer in Backend/data/ oder
 # Backend/<bereich>/data/ — dann greifen diese Muster ohne neue Zeilen.
 Backend/data/
-Backend/*/data/*
-!Backend/clashRoyale/data/cardIconUrls.json
+Backend/*/data/
 *.db
 *.db-shm
 *.db-wal

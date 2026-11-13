@@ -10,7 +10,7 @@ und wo bewusst abgewichen wird.
 |---|---|---|
 | Frontend | React 19, Vite 7, Tailwind 4, react-router 7, lucide-react, reines **JavaScript** (kein TS im Projekt) | Neue Seite unter `Frontend/src/pages/SacrificeSigils/`, lazy geladen in `App.jsx`, eigene Hülle wie Seed Runners |
 | Backend | Express 5 + **Socket.io 4** im Hauptprozess (`Backend/index.js`), CommonJS | `Backend/routes/sacrificeSigilsRoutes.js` registriert die Socket-Ereignisse (`ss:*`), Räume im Speicher wie Connect4 |
-| Geteilte Logik | Seed Runners spiegelt `Frontend/…/sim` nach `Backend/seedRunners/engine` (Skript + `--pruefen` im `deploy.sh`) | Gleiches Muster: `engine/` + `data/` werden nach `Backend/sacrificeSigils/engine/` gespiegelt (`npm run sigils:spiegel`), `deploy.sh` bricht bei veraltetem Spiegel ab |
+| Geteilte Logik | Seed Runners spiegelt `Frontend/…/sim` nach `Backend/seedRunners/engine` (Skript + `--pruefen` im `deploy.sh`) | Gleiches Muster: `engine/` + `data/` werden nach `Backend/sacrificeSigils/engine/` gespiegelt (`npm run spiegel -- sigils`), `deploy.sh` bricht bei veraltetem Spiegel ab |
 | Tests | `node --test` (Seed Runners, beide Seiten) | Engine-Tests als `*.test.js` mit `node --test`, keine neue Test-Bibliothek |
 | Lobby | Raum-Code (5 Zeichen), Name, Token für Reconnect, Zuschauer (Connect4 / Seed Runners) | Gleiches Muster, erweitert um Einstellungen, Bereit-Knöpfe und Match-Zustand |
 | Navigation | `Frontend/src/config/navigation.js` → Kategorie „Fun“ | Eintrag „Sacrifice & Sigils“ unter Fun, Sitemap + Changelog (`utils/newData.js`) |
