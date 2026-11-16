@@ -4,7 +4,8 @@
 // Seit Oktober 2026 im flachen Stil ohne Bilddateien: Figuren aus render/flat/figures.js, Boden, Hindernisse, Objekte
 // und Geschosse aus render/flat/world.js.
 
-import { drawFigure } from "./flat/figures.js";
+import { drawFigure, drawFigureStamp, clearStamps } from "./flat/figures.js";
+import { ENEMIES } from "../data/enemies.js";
 import { drawWormBody, drawMound } from "./flat/creatures.js";
 import { FLOORS, makeFloorTile, drawObstacle, drawInteractable, drawTeleporter as drawTeleporterFlat, drawCoin, drawHealOrb, drawProjectile, drawBurn, drawIceBlock } from "./flat/world.js";
 import { drawPixelIcon } from "../ui/pixelCanvas.js";
@@ -14,8 +15,10 @@ import { priceOf, INTERACT_INFO } from "../engine/interact.js";
 import { TELEPORTER_RADIUS } from "../engine/stage.js";
 import { clamp } from "../engine/util.js";
 import { getSettings } from "../ui/settings.js";
+import { isTouchDevice } from "../ui/touchDevice.js";
 
 const FONT = '"Tiny5", "Silkscreen", monospace';
+const STAMP_MAX_R = 24; // größere Figuren sind selten und als Stempel zu speicherhungrig
 
 export default class Renderer {
   constructor(canvas) {
@@ -29,15 +32,21 @@ export default class Renderer {
     this.patterns = new Map();
     this.time = 0;
     this.minimapSize = 190;
+    // Handy (RunScreen kompakt): Minikarte kleiner und oben rechts unter der Zeitleiste statt unten rechts, wo die
+    // Touch-Knöpfe liegen. null = unten rechts in voller Größe.
+    this.minimapLayout = null; // { top, size }
   }
 
   resize(cssW, cssH) {
-    this.dpr = Math.min(2, window.devicePixelRatio || 1);
+    // Handy/Tablet: höchstens 1,5× — der 2D-Zeichner malt per Prozessor (auch Schrift und Minikarte über dem 3D-Bild),
+    // bei 2× kostete er am gebremsten Handy-Prüfstand dreimal so viel Zeit je Bild wie die ganze 3D-Ansicht
+    this.dpr = Math.min(isTouchDevice() ? 1.5 : 2, window.devicePixelRatio || 1);
     this.w = cssW;
     this.h = cssH;
     this.canvas.width = Math.round(cssW * this.dpr);
     this.canvas.height = Math.round(cssH * this.dpr);
-    this.zoom = clamp(Math.min(cssH / 800, cssW / 1250), 0.6, 2.4);
+    // Hochformat (Handy): weiter heraus, damit links und rechts genug zu sehen ist
+    this.zoom = clamp(Math.min(cssH / 800, cssW / 1250), cssH > cssW ? 0.45 : 0.6, 2.4);
   }
 
   screenToWorld(sx, sy) {
@@ -56,6 +65,7 @@ export default class Renderer {
     ty = g.world.h + pad * 2 < vh ? (g.world.h - vh) / 2 : clamp(ty, -pad, g.world.h - vh + pad);
     if (!this.cam.init || this.cam.stage !== g.stageIndex + g.loop * 10) {
       this.cam.x = tx; this.cam.y = ty; this.cam.init = true; this.cam.stage = g.stageIndex + g.loop * 10;
+      clearStamps(); // neue Welt, andere Gegner
     }
     const k = 1 - Math.exp(-dt * 12);
     this.cam.x += (tx - this.cam.x) * k;
@@ -96,6 +106,83 @@ export default class Renderer {
     this.drawPointers(g);
     this.drawMinimap(g);
     this.drawStatusTint(g);
+  }
+
+  // ── Anzeigen-Ebene über der 3D-Ansicht ────────────────────────────────────
+  // Zeichnet die 3D-Ansicht (render3d/scene3d.js) das Spielfeld, bleibt für diesen Zeichner alles, was Schrift oder
+  // flache Anzeige ist: Lebensleisten, Preise, Schadenszahlen, Zeiger, Minikarte, Zustandsfärbung. Die Fläche ist
+  // dann durchsichtig und liegt über dem 3D-Bild; wo etwas hingehört, sagt view.project().
+  drawOverlay(g, dt, view) {
+    this.time += dt;
+    const ctx = this.ctx;
+    const z = this.zoom;
+    ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+    ctx.clearRect(0, 0, this.w, this.h);
+    const a = view.screenToWorld(0, 0), b = view.screenToWorld(this.w, this.h);
+    this.mapView = { x: Math.min(a.x, b.x), y: Math.min(a.y, b.y), w: Math.abs(b.x - a.x), h: Math.abs(b.y - a.y) };
+    const label = (text, x, y, size, color) => {
+      ctx.font = `${Math.round(size * z)}px ${FONT}`;
+      ctx.lineWidth = 4;
+      ctx.strokeStyle = "rgba(10,9,13,0.9)";
+      ctx.strokeText(text, x, y);
+      ctx.fillStyle = color;
+      ctx.fillText(text, x, y);
+    };
+    ctx.textAlign = "center";
+    ctx.lineJoin = "round";
+
+    // Lebensleisten: nur Angeschlagene (die Masse fällt mit einem Treffer und bekommt nie eine) und Champions
+    for (const e of g.enemies) {
+      if (e.dead || e.hidden || e.isBoss || e.isEgg || !(e.champion || e.hp < e.maxHp)) continue;
+      const s = view.project(e.x, e.y, e.r * 3.6);
+      if (s.behind || s.x < -60 || s.x > this.w + 60 || s.y < -40 || s.y > this.h + 40) continue;
+      const w = (e.champion ? 90 : e.giant ? 72 : e.elite ? 46 : 34) * z, h = (e.champion ? 5 : 4) * z;
+      ctx.fillStyle = "rgba(10,9,13,0.85)";
+      ctx.fillRect(s.x - w / 2 - 1, s.y - 1, w + 2, h + 2);
+      ctx.fillStyle = e.champion ? "#f5cf4a" : e.elite ? eliteColor(e.elite) : "#d9473a";
+      ctx.fillRect(s.x - w / 2, s.y, w * Math.max(0, e.hp / e.maxHp), h);
+      if (e.champion) label("Champion", s.x, s.y - 6 * z, 13, "#f5cf4a");
+    }
+
+    // Lebensleiste des Helden
+    const p = g.player;
+    if (p.alive) {
+      const s = view.project(p.x, p.y + 26);
+      const w = 46 * z, h = 5 * z, hpK = clamp(p.hp / p.stats.maxHp, 0, 1);
+      ctx.fillStyle = "rgba(10,9,13,0.85)";
+      ctx.fillRect(s.x - w / 2 - 2, s.y - 2, w + 4, h + 4);
+      ctx.fillStyle = "#3a1a1e";
+      ctx.fillRect(s.x - w / 2, s.y, w, h);
+      ctx.fillStyle = hpK < 0.3 ? (Math.floor(this.time * 6) % 2 ? "#ff5a4a" : "#c7392f") : "#7be06b";
+      ctx.fillRect(s.x - w / 2, s.y, Math.round(w * hpK), h);
+      if (p.shield > 0 && p.stats.shieldMax > 0) { ctx.fillStyle = "#5ec8ff"; ctx.fillRect(s.x - w / 2, s.y + h - 2, Math.round(w * clamp(p.shield / p.stats.maxHp, 0, 1)), 2); }
+    }
+
+    // Preise und Namen an Kisten und Schreinen in der Nähe (dabei merken, was schon gesehen wurde → Minikarte)
+    for (const o of g.interactables) {
+      if (Math.abs(o.x - p.x) < 900 && Math.abs(o.y - p.y) < 700) o.seen = true;
+      if (o.used || Math.abs(o.x - p.x) > 340 || Math.abs(o.y - p.y) > 300) continue;
+      const price = priceOf(g, o);
+      const s = view.project(o.x, o.y, o.type.endsWith("Shrine") || o.type === "sacrificeAltar" ? 110 : 60);
+      label(price ? `${price}` : INTERACT_INFO[o.type].name, s.x, s.y, 16, price && p.gold < price ? "#ff8a6a" : "#f5cf4a");
+    }
+
+    // Schadenszahlen und andere schwebende Texte
+    const showDmg = getSettings().damageNumbers;
+    for (const t of g.fx.texts) {
+      if (t.dmg && !showDmg) continue;
+      const s = view.project(t.x, t.y, 30);
+      if (s.behind || s.x < -80 || s.x > this.w + 80 || s.y < -40 || s.y > this.h + 40) continue;
+      const k = t.t / t.life;
+      ctx.globalAlpha = k > 0.7 ? (1 - k) / 0.3 : 1;
+      label(t.text, s.x, s.y, t.size, t.color);
+    }
+    ctx.globalAlpha = 1;
+
+    this.drawPointers(g, view);
+    this.drawMinimap(g);
+    this.drawStatusTint(g);
+    this.mapView = null;
   }
 
   visible(x, y, r = 0) {
@@ -278,7 +365,14 @@ export default class Renderer {
     const ctx = this.ctx;
     for (const k of g.pickups) {
       if (!this.visible(k.x, k.y, 30)) continue;
-      if (k.type === "gold") {
+      if (k.type === "xp") {
+        // Erfahrungskristall: kleine Raute, Farbe nach Wert
+        const s = k.value < 3 ? 6 : k.value < 14 ? 8 : 11;
+        ctx.fillStyle = "#0a090d";
+        ctx.beginPath(); ctx.moveTo(k.x, k.y - s - 2); ctx.lineTo(k.x + s * 0.7 + 2, k.y); ctx.lineTo(k.x, k.y + s + 2); ctx.lineTo(k.x - s * 0.7 - 2, k.y); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = k.value < 3 ? "#5ec8ff" : k.value < 14 ? "#7be06b" : "#ffd84a";
+        ctx.beginPath(); ctx.moveTo(k.x, k.y - s); ctx.lineTo(k.x + s * 0.7, k.y); ctx.lineTo(k.x, k.y + s); ctx.lineTo(k.x - s * 0.7, k.y); ctx.closePath(); ctx.fill();
+      } else if (k.type === "gold") {
         drawCoin(ctx, k.x, k.y, 12 + Math.min(8, Math.log2(1 + k.value) * 1.3));
       } else if (k.type === "heal") {
         drawHealOrb(ctx, k.x, k.y);
@@ -368,9 +462,16 @@ export default class Renderer {
     }
     const scaleIn = e.state === "fuse" ? 1 + Math.sin(this.time * 30) * 0.08 : 1;
     if (e.hidden) { drawMound(ctx, e.x, e.y + e.r * 0.5, e.r * 1.2, this.time, false); ctx.restore(); return; }
-    const p = { t: this.time + e.uid * 0.37, move: e.moving, atk: e.attackAnimT < 0.45 ? e.attackAnimT / 0.45 : -1, pose: e.state };
-    const overlay = e.flash > 0 ? { color: "#ffffff", alpha: 0.75 } : e.state === "fuse" && Math.sin(this.time * 30) > 0 ? { color: "#ff5a3a", alpha: 0.35 } : null;
-    drawFigure(ctx, { kind: "enemy", id: e.isEgg ? "egg" : e.type }, e.x, e.y + e.r * 0.9, size * scaleIn, e.facing, p, overlay, this.dpr * this.zoom);
+    // Die Masse wird gestempelt statt gezeichnet (figures.js): kleine Gegner in Normalgröße, die nur laufen oder
+    // stehen. Alles Besondere — Angriff, Zustände, Elite, Koloss, große Figuren — zeichnet wie bisher.
+    const def = ENEMIES[e.type];
+    if (e.state === "move" && e.attackAnimT >= 0.45 && !e.isEgg && def && def.r <= STAMP_MAX_R && e.r === def.r) {
+      drawFigureStamp(ctx, { kind: "enemy", id: e.type }, e.x, e.y + e.r * 0.9, size, e.facing, this.time + e.uid * 0.37, e.moving, e.flash > 0, this.dpr * this.zoom);
+    } else {
+      const p = { t: this.time + e.uid * 0.37, move: e.moving, atk: e.attackAnimT < 0.45 ? e.attackAnimT / 0.45 : -1, pose: e.state };
+      const overlay = e.flash > 0 ? { color: "#ffffff", alpha: 0.75 } : e.state === "fuse" && Math.sin(this.time * 30) > 0 ? { color: "#ff5a3a", alpha: 0.35 } : null;
+      drawFigure(ctx, { kind: "enemy", id: e.isEgg ? "egg" : e.type }, e.x, e.y + e.r * 0.9, size * scaleIn, e.facing, p, overlay, this.dpr * this.zoom);
+    }
     if (e.freezeT > 0) drawIceBlock(ctx, e.x, e.y + e.r * 0.9, size * 0.75, size * 0.8);
     if (e.burnT > 0) drawBurn(ctx, e.x + Math.sin(this.time * 7 + e.uid) * e.r * 0.4, e.y - e.r * 0.6, 1.3, this.time);
     ctx.restore();
@@ -390,7 +491,7 @@ export default class Renderer {
       ctx.fillStyle = "#f5cf4a";
       ctx.fillText("Champion", e.x, y - 6);
     } else if (e.hp < e.maxHp && !e.isEgg) {
-      const w = e.elite ? 46 : 34;
+      const w = e.giant ? 72 : e.elite ? 46 : 34;
       const y = e.y - size + e.r * 0.4;
       ctx.fillStyle = "rgba(10,9,13,0.85)";
       ctx.fillRect(e.x - w / 2 - 1, y - 1, w + 2, 6);
@@ -724,19 +825,20 @@ export default class Renderer {
   }
 
   // ── Bildschirm: Zeiger, Minikarte, Zustandsfärbung ────────────────────────
-  drawPointers(g) {
+  // view = die 3D-Ansicht, wenn sie das Spielfeld zeichnet (dann kommt der Bildschirmpunkt aus ihrer Kamera)
+  drawPointers(g, view = null) {
     const ctx = this.ctx;
     const targets = [];
     const t = g.teleporter;
     if (t.discovered && t.state !== "locked") targets.push({ x: t.x, y: t.y, color: t.state === "ready" ? "#86d05f" : t.state === "charging" ? "#d9473a" : "#f0a33c" });
     if (g.boss && !g.boss.dead) targets.push({ x: g.boss.x, y: g.boss.y, color: "#ff5a4a" });
     for (const tg of targets) {
-      const sx = (tg.x - this.cam.x) * this.zoom;
-      const sy = (tg.y - this.cam.y) * this.zoom;
+      const s = view ? view.project(tg.x, tg.y) : { x: (tg.x - this.cam.x) * this.zoom, y: (tg.y - this.cam.y) * this.zoom };
       const m = 46;
-      if (sx > m && sx < this.w - m && sy > m && sy < this.h - m) continue;
+      if (!s.behind && s.x > m && s.x < this.w - m && s.y > m && s.y < this.h - m) continue;
       const cx = this.w / 2, cy = this.h / 2;
-      const ang = Math.atan2(sy - cy, sx - cx);
+      // In 3D schaut die Kamera nach Norden: die Richtung am Boden ist auch die Richtung auf dem Bildschirm
+      const ang = view ? Math.atan2(tg.y - g.player.y, tg.x - g.player.x) : Math.atan2(s.y - cy, s.x - cx);
       const px = clamp(cx + Math.cos(ang) * this.w, m, this.w - m);
       const py = clamp(cy + Math.sin(ang) * this.h, m, this.h - m);
       ctx.save();
@@ -753,9 +855,10 @@ export default class Renderer {
   drawMinimap(g) {
     if (g.biome.final) return;
     const ctx = this.ctx;
-    const size = this.minimapSize;
-    const pad = 16;
-    const x0 = this.w - size - pad, y0 = this.h - size - pad - 4;
+    const lay = this.minimapLayout;
+    const size = lay ? lay.size : this.minimapSize;
+    const pad = lay ? 8 : 16;
+    const x0 = this.w - size - pad, y0 = lay ? lay.top : this.h - size - pad - 4;
     const k = size / Math.max(g.world.w, g.world.h);
     ctx.save();
     ctx.fillStyle = "rgba(10,9,13,0.78)";
@@ -772,7 +875,7 @@ export default class Renderer {
     ctx.fillStyle = "rgba(217,71,58,0.85)";
     for (const e of g.enemies) {
       if (!e.aggro) continue;
-      const big = e.isBoss || e.champion;
+      const big = e.isBoss || e.champion || e.giant;
       if (e.champion) ctx.fillStyle = "#f5cf4a";
       ctx.fillRect(x0 + e.x * k - (big ? 2 : 1), y0 + e.y * k - (big ? 2 : 1), big ? 5 : 2, big ? 5 : 2);
       if (e.champion) ctx.fillStyle = "rgba(217,71,58,0.85)";
@@ -787,7 +890,8 @@ export default class Renderer {
     // Sichtfenster + Spieler
     ctx.strokeStyle = "rgba(239,230,210,0.35)";
     ctx.lineWidth = 1;
-    ctx.strokeRect(x0 + this.cam.x * k, y0 + this.cam.y * k, this.viewW * k, this.viewH * k);
+    const vr = this.mapView || { x: this.cam.x, y: this.cam.y, w: this.viewW, h: this.viewH };
+    ctx.strokeRect(x0 + vr.x * k, y0 + vr.y * k, vr.w * k, vr.h * k);
     ctx.fillStyle = "#ffffff";
     ctx.fillRect(x0 + g.player.x * k - 3, y0 + g.player.y * k - 3, 6, 6);
     ctx.restore();

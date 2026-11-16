@@ -1,22 +1,44 @@
-// sound.js — Töne von Worldflip, im Browser erzeugt (WebAudio, keine Dateien). Stumm-Schalter wird gemerkt.
+// sound.js — Töne von Worldflip, im Browser erzeugt (WebAudio, keine Dateien). Stumm-Schalter und Lautstärke werden gemerkt.
 //
 // Aufbau: Jeder Ton besteht aus mehreren Schichten (Rauschen durch Filter, Sinus-Bässe, kurze Knackser), ein Teil
 // geht durch einen künstlichen Hall (Faltung mit ausklingendem Rauschen) — so klingen Einschläge groß statt piepsig.
 // Dazu läuft je Welt ein leiser Hintergrundklang (ambience): Grollen und Knistern, Brandung, Grillen, Weltraum-Dröhnen.
+//
+// Lautstärke: Alles läuft über `master` in den Begrenzer und danach durch den Regler `output` (volume). Der
+// Hintergrundklang liegt zusätzlich ein gutes Stück unter den Effekten (AMBIENCE_LEVEL).
 const KEY = 'worldflip.muted';
+const VOLUME_KEY = 'worldflip.volume';
+const DEFAULT_VOLUME = 0.5; // 1 = so laut wie vor dem Regler
+const AMBIENCE_LEVEL = 0.6;
 let ctx = null;
 let master = null;
+let output = null; // Lautstärkeregler hinter dem Begrenzer
+let volume = DEFAULT_VOLUME;
 let wet = null; // Eingang des Halls
 let brown = null; // Puffer: tiefes Rauschen (Grollen, Brandung)
 let white = null;
 let muted = false;
 try {
   muted = localStorage.getItem(KEY) === '1';
+  const v = Number(localStorage.getItem(VOLUME_KEY) ?? NaN);
+  if (v >= 0 && v <= 1) volume = v;
 } catch {
   /* ohne Speicher: Ton an */
 }
 
 export const isMuted = () => muted;
+export const getVolume = () => volume;
+
+/** Lautstärke 0–1 (wird gemerkt). Wirkt sofort, auch auf laufende Klänge. */
+export function setVolume(v) {
+  volume = Math.max(0, Math.min(1, Number(v) || 0));
+  try {
+    localStorage.setItem(VOLUME_KEY, String(volume));
+  } catch {
+    /* nicht gemerkt */
+  }
+  if (ctx && output) output.gain.setTargetAtTime(volume, ctx.currentTime, 0.03);
+}
 
 function audio() {
   if (muted || typeof window === 'undefined') return null;
@@ -26,7 +48,9 @@ function audio() {
       master = ctx.createGain();
       master.gain.value = 0.9;
       const comp = ctx.createDynamicsCompressor();
-      master.connect(comp).connect(ctx.destination);
+      output = ctx.createGain();
+      output.gain.value = volume;
+      master.connect(comp).connect(output).connect(ctx.destination);
       // Hall: zwei Sekunden ausklingendes Rauschen als Raumantwort
       const len = ctx.sampleRate * 2.2;
       const impulse = ctx.createBuffer(2, len, ctx.sampleRate);
@@ -166,6 +190,44 @@ export const sfx = {
     noise(1.5, { gain: 0.34, from: 300, to: 2600, q: 1.5, attack: 0.5, reverb: 0.3 });
     noise(1.3, { gain: 0.2, from: 1800, to: 500, q: 3, delay: 0.25, attack: 0.4, reverb: 0.3 });
   },
+  // Hagel: Rauschen aus der Höhe, dann prasseln die Körner
+  hagel: () => {
+    noise(1.2, { gain: 0.16, from: 5200, to: 2600, q: 0.8, type: 'highpass', attack: 0.3, reverb: 0.2 });
+    for (let i = 0; i < 14; i += 1) {
+      const d = 0.3 + i * 0.07 + Math.random() * 0.04;
+      noise(0.05, { gain: 0.3, from: 2400 + Math.random() * 1800, q: 3, delay: d, attack: 0.001, reverb: 0.2 });
+      tone(170 + Math.random() * 90, 0.09, { to: 80, gain: 0.14, delay: d });
+    }
+  },
+  // Spiegel: gläsernes Klingen
+  mirror: () => {
+    for (const [f, d] of [[1320, 0], [1760, 0.09], [2640, 0.18]]) tone(f, 0.9, { gain: 0.06, delay: d, reverb: 0.7 });
+    noise(0.7, { gain: 0.08, from: 6000, to: 9000, q: 3, attack: 0.2, reverb: 0.5 });
+  },
+  // Zurückgeworfen: heller Abpraller, dann klirrt der Spiegel
+  reflect: () => {
+    tone(2400, 0.5, { to: 1200, gain: 0.1, type: 'triangle', reverb: 0.6 });
+    tone(600, 0.35, { to: 1800, gain: 0.1, delay: 0.05, reverb: 0.5 });
+    noise(0.2, { gain: 0.3, from: 6000, to: 2500, q: 1, type: 'highpass', delay: 0.5, attack: 0.002, reverb: 0.4 });
+    crackle(0.5, { count: 20, gain: 0.3, from: 5000, delay: 0.5, reverb: 0.4 });
+  },
+  // Nebel: weiches Rauschen, das aufzieht und stehen bleibt
+  fog: () => { noise(1.5, { gain: 0.16, from: 300, to: 900, q: 0.5, attack: 0.7, reverb: 0.6 }); tone(196, 1.3, { to: 147, gain: 0.05, attack: 0.5, reverb: 0.7 }); },
+  // Brandopfer: eine Karte geht in Flammen auf
+  burn: () => { fire(1.3, 0.3); tone(240, 0.5, { to: 90, gain: 0.1, delay: 0.7, reverb: 0.3 }); },
+  // Flaschenpost: Plopp des Korkens, Gluckern, Papier
+  peek: () => {
+    tone(260, 0.07, { to: 720, gain: 0.16, attack: 0.002 });
+    for (let i = 0; i < 5; i += 1) tone(380 + Math.random() * 300, 0.08, { to: 800 + Math.random() * 400, gain: 0.07, delay: 0.5 + i * 0.09 });
+    noise(0.25, { gain: 0.12, from: 2600, to: 5200, q: 1.2, type: 'highpass', delay: 1.05, attack: 0.02 });
+  },
+  // Supernova: heller Knall, der in ein tiefes Grollen fällt, darüber flirrende Sterne
+  nova: () => {
+    noise(0.15, { gain: 0.5, from: 6000, to: 1500, q: 0.6, type: 'highpass', attack: 0.001, reverb: 0.6 });
+    tone(880, 1.6, { to: 55, gain: 0.22, type: 'sawtooth', attack: 0.01, reverb: 0.6 });
+    boom(0.5, 0.05, 1.5);
+    for (let i = 0; i < 8; i += 1) tone(1600 + Math.random() * 2600, 0.6, { gain: 0.04, delay: 0.3 + Math.random() * 1.2, type: 'triangle', reverb: 0.8 });
+  },
   // Meteor: Heulen aus der Höhe, Einschlag, Geröll
   meteor: () => {
     noise(1.0, { gain: 0.3, from: 3600, to: 300, q: 2.5, attack: 0.5, reverb: 0.2 });
@@ -244,6 +306,7 @@ export const sfx = {
 
 // ── Hintergrundklang je Welt ────────────────────────────────────────────────────────────────
 let amb = null; // { world, gain, nodes, timer }
+let ambWorld = -1; // gewünschte Welt — nach „Ton an" läuft ihr Klang wieder los
 
 function stopAmb(fade = 1.2) {
   if (!amb || !ctx) return;
@@ -262,13 +325,14 @@ function stopAmb(fade = 1.2) {
 
 /** Hintergrundklang der Welt starten (blendet den alten aus). world < 0: aus. */
 export function ambience(world) {
+  ambWorld = world;
   if (amb && amb.world === world) return;
   stopAmb();
   const a = world >= 0 ? audio() : null;
   if (!a) return;
   const gain = a.createGain();
   gain.gain.value = 0.0001;
-  gain.gain.setTargetAtTime(1, a.currentTime, 0.6);
+  gain.gain.setTargetAtTime(AMBIENCE_LEVEL, a.currentTime, 0.6);
   gain.connect(master);
   const nodes = [];
   // Dauerrauschen durch einen Filter, optional langsam an- und abschwellend
@@ -349,4 +413,5 @@ export function setMuted(v) {
     /* nicht gemerkt */
   }
   if (muted) stopAmb(0.2);
+  else if (ambWorld >= 0) ambience(ambWorld);
 }

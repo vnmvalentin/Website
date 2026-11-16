@@ -12,6 +12,8 @@
     "garden:sim": "node garden/tools/simulator.js",
     "cr:card-icons": "node clashRoyale/tools/cardIconSpiegel.js",
     "cr:card-stats": "node clashRoyale/tools/cardStatsSpiegel.js",
+    "cr:badges": "node clashRoyale/tools/badgeSpiegel.js",
+    "cr:badge-mastery": "node clashRoyale/tools/badgeMastery.js",
     "cr:card-colors": "node clashRoyale/tools/cardFarbenBauen.cjs",
     "billing:setup": "node billing/tools/setupStripe.js"
   },

@@ -1,4 +1,5 @@
-import React from "react";
+import React, { useLayoutEffect } from "react";
+import { removeShellHeadTags } from "../utils/shellHeadTags";
 
 const DOMAIN = "https://vnmvalentin.de";
 const SITE_TITLE = "vnmvalentin";
@@ -54,6 +55,10 @@ export default function SEO({
   }
 
   const jsonLdList = jsonLd ? (Array.isArray(jsonLd) ? jsonLd : [jsonLd]) : [];
+
+  // Sobald die eigenen Tags im Kopf stehen (Layout-Effekt = nach dem Einfügen), die der ausgelieferten Datei entfernen
+  // (utils/shellHeadTags.js — sonst zwei Titel/Canonicals/robots im Kopf)
+  useLayoutEffect(removeShellHeadTags, []);
 
   return (
     <>

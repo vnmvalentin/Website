@@ -21,6 +21,8 @@ const AWAY_MS = 4000; // getrennter Spieler am Zug: so lange warten, dann spielt
 const TIMEOUT_GRACE_MS = 600;
 const BOT_NAMES = ['Kiesel', 'Funke', 'Moos', 'Nebel', 'Qualle', 'Komet'];
 
+const { zaehlePartie } = require('../lib/spielStatistik');
+
 function createRoomManager({ engine, send, now = Date.now, random = Math.random }) {
   const rooms = new Map(); // code -> room
   const sockets = new Map(); // socketId -> { code, token }
@@ -30,7 +32,8 @@ function createRoomManager({ engine, send, now = Date.now, random = Math.random 
   // Aussehen des Blobs: drei kleine Zahlen (Farbe, Hut, Gesicht). Was sie bedeuten, weiß nur der Browser (skins.js).
   const part = (v) => (Number.isInteger(v) && v >= 0 && v < 32 ? v : 0);
   const cleanSkin = (k) => (k && typeof k === 'object' ? { c: part(k.c), h: part(k.h), f: part(k.f) } : null);
-  const botSkin = () => ({ c: Math.floor(random() * 10), h: Math.floor(random() * 10), f: Math.floor(random() * 6) });
+  // Anzahlen wie SKIN_COLORS / SKIN_HATS / SKIN_FACES in Frontend/src/pages/Worldflip/skins.js
+  const botSkin = () => ({ c: Math.floor(random() * 10), h: Math.floor(random() * 26), f: Math.floor(random() * 15) });
 
   function newCode() {
     let code;
@@ -124,7 +127,9 @@ function createRoomManager({ engine, send, now = Date.now, random = Math.random 
   function pace(room, events) {
     const t = now() + engine.durationOf(events);
     room.readyAt = t + BOT_THINK_MS;
-    room.turnEndsAt = room.state.winner === null ? t + room.settings.turnSeconds * 1000 : null;
+    // auf einen Angriff antworten: dafür läuft die kürzere Antwortzeit
+    const secs = room.state.react ? Math.min(engine.RULES.REACT_SECONDS, room.settings.turnSeconds) : room.settings.turnSeconds;
+    room.turnEndsAt = room.state.winner === null ? t + secs * 1000 : null;
   }
 
   function startGame(room) {
@@ -147,6 +152,7 @@ function createRoomManager({ engine, send, now = Date.now, random = Math.random 
     });
     room.phase = 'playing';
     room.matchNo += 1;
+    zaehlePartie('worldflip'); // Admin-Reiter „Spiele“; Revanche zählt als neue Partie
     room.seq += 1;
     room.batch = { seq: room.seq, events: [] };
     room.readyAt = now() + 3500; // Austeilen im Browser
@@ -337,18 +343,25 @@ function createRoomManager({ engine, send, now = Date.now, random = Math.random 
         continue;
       }
       if (room.phase !== 'playing' || !someone || t < room.readyAt) continue;
-      const seat = room.state.turn;
+      const seat = engine.actorOf(room.state); // am Zug — oder Ziel eines Angriffs, auf den er antworten darf
       const p = room.table[seat];
       const away = !p.bot && !p.connected && t - p.awaySince > AWAY_MS;
       const timeout = !p.bot && room.turnEndsAt && t > room.turnEndsAt + TIMEOUT_GRACE_MS;
       if (!p.bot && !away && !timeout) continue;
       if (timeout && p.connected) notice(room, `Zugzeit abgelaufen — für ${p.name} wurde gespielt.`);
       const r = act(room, seat, engine.botAction(room.state, seat, random));
-      if (!r.ok) act(room, seat, room.state.drawn.length || room.state.combo !== null ? { t: 'pass' } : { t: 'draw' });
+      if (!r.ok) act(room, seat, room.state.react ? { t: 'take' } : room.state.drawn.length || room.state.combo !== null ? { t: 'pass' } : { t: 'draw' });
     }
   }
 
-  return { create, join, setSettings, setTeam, start, action, leave, disconnect, tick, _rooms: rooms };
+  // Admin-Reiter „Spiele“ (lib/spielStatistik.js): offene Räume und die verbundenen Menschen darin
+  function stats() {
+    let spieler = 0;
+    for (const room of rooms.values()) for (const p of room.seats) if (p && p.connected && !p.bot) spieler += 1;
+    return { raeume: rooms.size, spieler };
+  }
+
+  return { create, join, setSettings, setTeam, start, action, leave, disconnect, tick, stats, _rooms: rooms };
 }
 
 module.exports = { createRoomManager };

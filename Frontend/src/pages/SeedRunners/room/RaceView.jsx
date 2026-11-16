@@ -145,7 +145,8 @@ const SPECTATE_CATCHUP_TICKS = 600;
 /** Stand-in für den beobachteten Läufer: nur die Felder, die drawFrame/updateCamera lesen */
 function zuschauFigur(base, s) {
   return {
-    ...base, x: s.x, y: s.y, prevX: s.x, prevY: s.y, vx: s.vx, vy: 0, facing: s.facing, grapple: null, gd: 1, dashCharges: 1,
+    // (onGround: Die Kamera zieht nur am Boden zur Figur nach — vom Beobachteten kennt man es nicht, also immer)
+    ...base, x: s.x, y: s.y, prevX: s.x, prevY: s.y, vx: s.vx, vy: 0, facing: s.facing, grapple: null, gd: 1, dashCharges: 1, onGround: true,
   };
 }
 

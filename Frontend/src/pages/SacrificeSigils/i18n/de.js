@@ -217,7 +217,7 @@ export const de = {
     campfire: { name: "Lagerfeuer", desc: "+1 Angriff oder +2 Leben. Wiederholen ist möglich – mit Risiko." },
     remove: { name: "Karte entfernen", desc: "Lösche eine Karte dauerhaft aus dem Deck (mind. 8 Karten)." },
     merchant: { name: "Händler", desc: "Items gegen Splitter." },
-    shrine: { name: "Totem-Schrein", desc: "Neuer Kopf oder neuer Körper, dann Totems umbauen." },
+    shrine: { name: "Totem-Schrein", desc: "Ohne Totem: wähle dein erstes. Sonst neuer Kopf oder Körper, dann umbauen." },
     copyist: { name: "Kopist", desc: "Dupliziert eine Karte – mit einem Makel." },
     event: { name: "Seltenes Ereignis", desc: "Etwas Ungewöhnliches wartet im Nebel." },
     npc: { name: "Kampf", desc: "Ein Bewohner des Moors stellt sich in den Weg. Sieg: 1 aus 3 Karten und Splitter." },

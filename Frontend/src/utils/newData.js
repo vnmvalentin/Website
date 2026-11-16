@@ -1,5 +1,633 @@
 export const NEWS_UPDATES = [
   {
+    date: "16.11.2026",
+    version: "v6.25: Clash Royale Stats, Win Tracker und Clash Royale Viewer Games",
+    sections: [
+      {
+        title: "Clash Royale Stats",
+        items: [
+          "Ranked-Kämpfe unterhalb von Ultimate Champion zeigen jetzt die Stufe (+1 bei Sieg, −1 bei Niederlage) statt einer falschen Medaillenzahl",
+          "Über dem Ergebnis eines Ranked-Kampfs steht das Abzeichen der Liga, in der gespielt wurde",
+          "Die Spielersuche findet Namen jetzt auch, wenn man Wörter mit Leerzeichen eintippt, die im Namen durch Herzen, Striche oder andere Zeichen getrennt sind",
+          "Die Decks eines Crown-Series-Sets stehen in der Übersicht jetzt deutlich getrennt in eigenen Feldern",
+          "Jede Karte hat jetzt eine eigene Seite, die man über Google & Co. findet – mit Werten, Nutzung, Siegquote und den besten Decks. Auch Meta Decks, Ranglisten und Crown Series zeigen beim Öffnen sofort Inhalt",
+          "Favoriten und „Zuletzt angesehen“ stehen auf großen Bildschirmen jetzt auf allen Stats-Seiten links und rechts neben dem Inhalt – auch bei Ranglisten, Meta Decks, Crown Series, Karten und in Profilen – und bleiben beim Scrollen im Bild",
+          "Neuer Reiter „Form“ im Spielerprofil: Wie oft du nach Niederlagen in Folge noch gewinnst, zu welcher Tageszeit es am besten läuft, ob du im Lauf einer Sitzung nachlässt und gegen welche Karten du dich schwertust – mit Tipps, die nur erscheinen, wenn die Zahlen wirklich etwas zeigen",
+          "Neu: die Tagesrunde. Karten-Wordle, Kartenraten, Zoom-, Pixel- und Farb-Raten zählen jetzt zusammen – bis zu 500 Punkte am Tag, eine Serie über die Tage, ein Ergebnis zum Teilen und eine Bestenliste (mit Twitch-Login). Zu finden ganz oben bei den Kartenspielen",
+          "Die Sprachwahl gilt jetzt auf allen Clash-Royale-Seiten gemeinsam mit dem Rest der Website: Wer bei den Minigames, Stats oder Kartenspielen auf Englisch umstellt, sieht auch die übrigen übersetzten Seiten auf Englisch",
+          "Neu: der Deck-Baukasten. Stell dein Deck aus allen Karten zusammen und sieh sofort Ø Elixier, Cycle und was ihm fehlt – etwa Luftabwehr, ein kleiner Zauber oder Flächenschaden – samt passenden Karten zum Auffüllen. Darunter stehen ähnliche Decks der Besten mit Siegquote, fertige Decks lassen sich direkt ins Spiel kopieren. Zu finden bei den Meta Decks und auf jeder Deck-Seite",
+          "Neu: der Matchup-Ratgeber. Jede Deck-Seite zeigt, wie das Deck gegen die verschiedenen Deck-Typen abschneidet – gegen Hog Rider, Golem, X-Bow und Co. –, auch bei selbst gebauten Decks. Auf jeder Karten-Seite steht „Karte gegen Karte“: gegen welche Karten es deutlich schlechter oder besser läuft. Im Profil zeigt der Reiter „Form“ deine schwersten Gegner und daneben, wie Decks wie deins bei den besten Spielern gegen sie abschneiden. Die Zahlen sammeln sich ab jetzt über bis zu 45 Tage und werden mit jeder Woche genauer",
+        ]
+      },
+      {
+        title: "Win Tracker",
+        items: [
+          "Neue Chat-Befehle für deine Zuschauer: !rang zeigt Liga, Medaillen und Platz, !session die laufende Session, !deck dein aktuelles Deck mit Link zum Kopieren und !rekord deine Bestwerte der Saison. Jeden Befehl schaltest du im Editor unter „Chat“ einzeln ein, mit einstellbarer Abklingzeit",
+          "Der Saisonrückblick zeigt jetzt auch Muster deiner Saison: Siegquote nach Niederlagen in Folge, nach Tageszeit und im Lauf einer Sitzung",
+        ]
+      },
+      {
+        title: "Clash Royale Viewer Games",
+        items: [
+          "Zwei neue Chat-Spiele fürs Stream-Overlay: Bei „Werte schätzen“ zeigt das Overlay eine Karte und fragt nach Lebenspunkten oder Schaden – wer mit !tipp 1700 am nächsten liegt, gewinnt. Beim „Chat-Wordle“ sucht der ganze Chat gemeinsam eine Karte, jeder Tipp verrät im Vergleich Elixier, Seltenheit, Art und Erscheinungsjahr",
+          "Die Bestenliste im Overlay kann jetzt nur die laufende Clash-Royale-Saison zählen und fängt dann jeden Monat neu an – oder wie bisher alle Zeiten",
+          "Für jedes Spiel stellst du die Zeit pro Runde einzeln ein; sind mehrere Spiele aktiv, wechselt das Overlay zufällig zwischen ihnen",
+        ]
+      },
+      {
+        title: "Sacrifice & Sigils",
+        items: [
+          "Beim ersten Besuch am Totem-Schrein stehen jetzt zwei Stamm-Totems und ein Lanen-Totem zur Wahl – das Moorling-Totem gibt es erst ab dem zweiten Besuch",
+        ]
+      },
+      {
+        title: "adVentures",
+        items: [
+          "Die Lautstärke stellst du jetzt direkt oben in der Leiste ein, im Lauf unter der Uhr – mit einem Regler und einem Knopf für Ton aus und wieder an. Der Ton startet etwas leiser als bisher",
+          "Die Kill-Serie reißt jetzt, sobald eine Sekunde lang kein Gegner fällt (vorher zweieinhalb). Dafür verlangt der Erfolg „Unaufhaltsam“ eine Serie von 2.500 statt 5.000 – wer ihn schon hat, behält ihn",
+          "Im Finale gegen Thunderwing kommen jetzt alle paar Sekunden kleine Wellen von Flatterern vom Rand der Arena, in seiner zweiten Phase dichter und mit Funkendrachen",
+          "Zwei Helden heißen jetzt so, wie sie aussehen: Aus dem Cyber-Söldner wird der Tüftler, aus dem Baumeister der Steinbrecher. Fähigkeiten und Freischaltungen bleiben gleich",
+          "adVentures läuft jetzt auf dem Handy: Mit dem Daumen links läufst du, rechts ziehst du zum Zielen – lässt du rechts los, greift dein Held den nächsten Gegner von selbst an. Große Knöpfe unten rechts lösen Spezial, Zweitangriff, Ausweichen und Ausrüstung aus, „Benutzen“ erscheint, sobald eine Kiste, ein Schrein oder der Teleporter in Reichweite ist",
+          "Am Handy zeigt das Spiel oben nur eine schmale Leiste mit Leben, Erfahrung, Zeit, Pause und Ton; die Minikarte sitzt darunter. Deine Waffen, Talente und Items findest du im Pausenmenü",
+          "Im Hochformat zoomt die Kamera weiter heraus, damit du links und rechts genug von der Horde siehst. Die Stufenwahl und das Pausenmenü passen auf kleine Bildschirme, und bei der Heldenwahl bleibt „Lauf starten“ unten immer erreichbar",
+          "Neu im Pausenmenü: Bildqualität „Automatisch“, „Schön“ oder „Flüssig“. Am Handy wählt das Spiel von selbst „Flüssig“ – etwas weniger scharf und ohne Konturen, dafür muss die Grafik nur rund die Hälfte zeichnen. Am Rechner bleibt alles schön",
+        ]
+      },
+      {
+        title: "Worldflip",
+        items: [
+          "Man sieht jetzt besser, wer wie viele Karten zieht: Die Karten fliegen langsamer und im hohen Bogen vom Stapel, danach steht kurz „+2“, „+3“ … über dem Namensschild",
+          "Die Lavabombe ist jetzt ein großer glühender Brocken, der mit Funken und Glutring beim Getroffenen einschlägt. Das große Band eines Weltereignisses verschwindet dafür etwas schneller, damit man die Wirkung am Tisch sieht",
+          "Ruhigerer Weltwechsel: Die Welt dreht sich nicht mehr unter dem Tisch hindurch. Stattdessen wird es kurz dunkel in der Farbe der neuen Welt, und der Tisch steht in ihr – angenehmer für alle, denen schnelle Drehungen auf den Magen schlagen",
+          "Das Gesetz einer Welt wird nur noch beim ersten Besuch in einer Partie groß angesagt, danach steht es oben links in der Tafel und im Verlauf",
+        ]
+      },
+      {
+        title: "Virtual Farm",
+        items: [
+          "Lampen, Laternen und die Feuerschale aus der Deko leuchten nachts jetzt auch in der 3D-Ansicht und werfen wieder Licht auf den Garten",
+        ]
+      },
+      {
+        title: "Konto & Anmeldung",
+        items: [
+          "Anmelden geht jetzt auch mit Discord oder ganz ohne Konto als Gast. Gäste bekommen einen Wiederherstellungscode, mit dem sie ihr Konto auf einem anderen Gerät oder nach dem Löschen der Browserdaten zurückholen. Twitch brauchst du weiterhin für Win Tracker, Overlays und die Streamer-Werkzeuge",
+          "Ein Konto für alles: Meldest du dich später zusätzlich mit Twitch oder Discord an, wird das mit deinem bisherigen Konto verbunden",
+          "Im Profil verwaltest du jetzt deine Anmeldewege, gibst dir einen eigenen Anzeigenamen, erstellst einen neuen Wiederherstellungscode und kannst dein Konto selbst löschen. Das Profil gibt es jetzt auch auf Englisch",
+          "Die gewählte Sprache wird an deinem Konto gespeichert und gilt nach dem Anmelden auch auf deinen anderen Geräten",
+          "Du bleibst angemeldet, solange du die Seite regelmäßig nutzt. Bisher musstest du dich spätestens nach 30 Tagen neu anmelden",
+        ]
+      },
+      {
+        title: "Streamer-Tools",
+        items: [
+          "In der englischen Win Challenge sind jetzt auch die Leiste oben und das Werkzeug-Menü auf Englisch",
+          "Die gewählte Sprache gilt jetzt für die ganze Website statt nur für ein einzelnes Werkzeug – weitere Werkzeuge folgen auf Englisch",
+          "Bingo gibt es jetzt auch auf Englisch: Sprachwahl oben in der Leiste, Einladungslink und OBS-Overlay übernehmen die Sprache gleich mit",
+          "Fehlermeldungen im Bingo sind verständlicher, und ohne Verbindung zum Server steht dort ein klarer Hinweis statt „Failed to fetch“",
+          "Die Twitch-Overlays gibt es jetzt auf Englisch – der Editor und alles, was deine Zuschauer im Stream sehen: Umfragen, Vorhersagen, Ziele, Statistik, Raid-Clip, Hype Train und Murmelbahn, mit englischen Zahlen („12,400“). Die Sprache wählst du oben in der Leiste, die Overlays in OBS ziehen von selbst mit",
+          "Beim Wechsel der Sprache wandern unveränderte Standardtexte wie „Follower-Ziel“ oder die Flugzeug-Nachricht mit, eigene Texte bleiben, wie du sie geschrieben hast",
+          "Die Beschreibungsseite der Twitch-Overlays gibt es jetzt auch auf Englisch",
+          "Das Dashboard des Discord-Bots gibt es jetzt auch auf Englisch – alle Bereiche von Begrüßung über Rollen-Buttons bis Tickets und Punkte, mit verständlichen Fehlermeldungen. Neue Begrüßungs-, Twitch- und Ticket-Vorlagen starten in der gewählten Sprache",
+          "Der Discord-Bot spricht jetzt auch Englisch: Unter „Allgemein“ wählst du für jeden Server, ob er Deutsch oder Englisch schreibt – Knöpfe, Antworten, Tickets, Genehmigungen, Rollen-Buttons, Punkte-Spiele, eigene Voice-Kanäle, Server-Statistik sowie Begrüßungskarte und -bild. Die Vorschau im Dashboard zeigt gleich die gewählte Sprache. Die Spaß-Befehle antworten vorerst weiter auf Deutsch",
+          "In der Punkte-Rangliste des Discord-Bots steht jetzt „1 Sieg“ und „1 Niederlage“ statt „1 Siege“ und „1 Niederlagen“",
+          "Die Murmelbahn schreibt ihre Ansagen im Twitch-Chat jetzt in der Sprache deiner Overlays – Anmeldung, Sieger, Bestenliste und abgesagte Rennen. Die Befehle wie !murmel und !murmeltop bleiben dieselben",
+          "Im englischen Editor der Twitch-Overlays sind jetzt auch die Fehlermeldungen englisch, etwa beim Anlegen der Kanalpunkte-Belohnung oder beim Raid-Probelauf. Ohne Verbindung zum Server steht dort ein klarer Hinweis statt „Failed to fetch“",
+          "Neu in den Twitch-Overlays: Alerts. Bei Follow, Abo, Verlängerung, Geschenk-Abos, Bits und Raid erscheint ein kurzer Hinweis im Stream, mit Ton und auf Wunsch vorgelesen. Kommen mehrere gleichzeitig, laufen sie nacheinander; ein verschenktes Abo-Paket zeigt einen einzigen Hinweis. Arten, Mindestwerte für Bits und Raids, Anzeigedauer und eigene Texte mit Platzhaltern stellst du im Editor ein, jede Art lässt sich mit einem Knopf testen. Die Alerts laufen in derselben OBS-Quelle wie die übrigen Overlays, auf Deutsch und Englisch",
+        ]
+      },
+    ]
+  },
+  {
+    date: "15.11.2026",
+    version: "v6.24: Blobby Ego 3D, Sacrifice & Sigils: Am Tisch im Kerzenlicht und Sacrifice & Sigils: Spielgefühl und Klang",
+    sections: [
+      {
+        title: "Blobby Ego 3D",
+        items: [
+          "Neue Ansicht von hinten: Du siehst deinen Blob und den Ball um dich herum – auch Abpraller von der Rückwand. Mit V wechselst du zurück zur Sicht aus den Augen.",
+        ]
+      },
+      {
+        title: "Sacrifice & Sigils: Am Tisch im Kerzenlicht",
+        items: [
+          "Das ganze Spiel läuft jetzt an einem echten Tisch: Karten liegen als Karten auf dem Holz, werfen Schatten und stehen im Kerzenlicht. Die Kästen und Knöpfe sind weg – du nimmst Karten, opferst, legst und drückst den Siegelstempel, um den Zug zu beenden (oder Leertaste).",
+          "Karten auf dem Feld sind deutlich größer; die Karte unter dem Mauszeiger hebt sich und ist voll lesbar. Rechtsklick (oder lange drücken) zeigt das Kartenblatt.",
+          "Waage, Knochenhaufen, Wachsschale, Stapel, Hammer und Totems sind Gegenstände auf dem Tisch, die Zahlen stehen auf kleinen Zetteln daneben. Im Gezeiten-Zirkel läuft eine Wasserrinne quer über den Tisch.",
+          "Dir gegenüber sitzt eine Gestalt mit Kapuze und Maske. Ihre Hände ziehen, legen Karten, opfern und stempeln – man sieht ohne Text, was der andere tut.",
+        ]
+      },
+      {
+        title: "Sacrifice & Sigils: Spielgefühl und Klang",
+        items: [
+          "Angriffe sind ein kurzer Stoß mit Gewicht, getroffene Karten werden zurückgestoßen, besiegte reißen in zwei Hälften, Opfer verkohlen. Knochen fliegen auf den Haufen, Gewichte fallen in die Waagschale.",
+          "Die Angriffsphase ist rund dreimal so schnell wie vorher, und du musst nie warten: Klickst du, während noch etwas läuft, spult der Rest im Zeitraffer durch.",
+          "Echte Klänge für Papier, Holz, Messing und Wachs statt der künstlichen Töne.",
+          "Gewonnen: die Kerzen flammen auf. Verloren: sie verlöschen.",
+        ]
+      },
+      {
+        title: "Sacrifice & Sigils: Mit anderen am Tisch",
+        items: [
+          "Sechs Masken zur Wahl (in den Einstellungen) – dein Gegenüber sieht deine.",
+          "Sechs Gesten statt Chat: Rechtsklick auf den Tisch oder Taste G – klopfen, nicken, Kopf schütteln, auf eine Karte zeigen, Hände heben, verbeugen. Gegen die KI antwortet die Gestalt.",
+          "Die Zugzeit läuft in einem Stundenglas ab; wird sie knapp, trommelt das Gegenüber mit den Fingern.",
+          "Bricht die Verbindung ab, sackt die Gestalt zusammen und ihre Kerze flackert. Zuschauer sitzen seitlich am Tisch.",
+        ]
+      },
+      {
+        title: "Sacrifice & Sigils: Ein Tisch für das ganze Match",
+        items: [
+          "Draft, Pfadkarte, alle Orte auf dem Pfad, Kampf, Rast und Ergebnis spielen am selben Tisch – ohne Formulare.",
+          "Im Draft liegen die Karten der Runde in der Tischmitte; nimmt das Gegenüber eine, greift seine Hand danach.",
+          "Die Pfadkarte liegt als Pergament auf dem Tisch, du klickst die Orte direkt an.",
+          "Am Ende sind die Kerzen aus und die stärkste Karte des Siegers liegt im Licht. Revanche: Kerze anzünden.",
+          "Wer lieber am bisherigen Tisch spielt, stellt das in den Einstellungen um („Bisheriger Tisch“).",
+        ]
+      },
+      {
+        title: "Sacrifice & Sigils: Hauptmenü und Lobby am Tisch",
+        items: [
+          "Das Hauptmenü ist jetzt der Tisch selbst: Kerzenlicht, der Platz gegenüber ist noch leer, auf dem Tisch liegen die drei Karten des Tages (anklicken zum Ansehen). Das Menü sind ein paar Zeilen am Rand statt eines Formulars, die Website-Leiste ist weg.",
+          "Übung direkt aus dem Menü starten: Gegner (Leicht, Normal, Schwer oder zu zweit), Zirkel, Draft, Siege und Pfadlänge mit einem Klick wählen und gleich an den Tisch.",
+          "Auch die Lobby ist der Tisch: Du sitzt schon, bevor jemand kommt. Setzt sich ein Freund dazu, kommt seine Gestalt mit seiner Maske aus dem Dunkel an den Tisch.",
+          "Die Einstellungen liegen als Zettel auf dem Tisch – der Gastgeber klickt einen Zettel an, um ihn umzustellen. Bereit bist du mit dem Siegelstempel (oder Leertaste); ist dein Gegenüber bereit, drückt seine Hand den Stempel ins Wachs.",
+          "Gesten gehen schon in der Lobby (Rechtsklick auf den Tisch oder Taste G).",
+          "Vom Hauptmenü über die Lobby bis ins Match bleibt es derselbe Tisch – kein Neuladen dazwischen.",
+        ]
+      },
+      {
+        title: "Sacrifice & Sigils: Das Buch des Zeichners",
+        items: [
+          "Kartenbuch und Anleitung sind jetzt ein Buch, das über dem Tisch aufgeschlagen liegt. Vier Lesebändchen führen zu den Kapiteln: Regeln, Karten, Sigils und Allerlei (Items, Totems, Ereignisse, Stämme).",
+          "Umblättern mit den Pfeilen an den Ecken, den Pfeiltasten oder dem Mausrad; Esc klappt das Buch zu.",
+          "Die Karten stehen wie in einem Sammelalbum, nach Stämmen geordnet. Filter (Name, Stamm, Kosten, Seltenheit, Sigil) und der Zirkel stehen oben im Buch.",
+          "Die Anleitung erklärt jetzt auch die Bedienung am Tisch.",
+        ]
+      },
+      {
+        title: "Sacrifice & Sigils: Tutorial am Tisch",
+        items: [
+          "Das Tutorial läuft jetzt am Tisch im Kerzenlicht. Die Hinweise liegen als Blatt oben links auf dem Tisch und erklären die Bedienung am Tisch (Stapel anklicken, opfern, Siegelstempel).",
+          "Neuer Hinweis zum Zugende; „Tutorial neu starten“ steht im Pausenmenü.",
+        ]
+      },
+      {
+        title: "Clash Royale Stats",
+        items: [
+          "Die Stats-Seiten haben jetzt „The Heist“ als Hintergrund. Wer mag, schaltet in den Einstellungen wechselnde Hintergründe ein: Beim Aufruf ein zufälliges Motiv, danach blendet alle 45 Sekunden das nächste über. Ein selbst gewählter Hintergrund gilt wie bisher überall.",
+          "Sechs neue Hintergründe: Berserker, Chaos Draft, Crown Series, Infinite Elixir, Royal Hogs Evo und Spirit Empress.",
+          "Behoben: Mit festem Hintergrund (oder dem Karo) wurde der Bildschirm beim Wechsel zwischen den Bereichen kurz dunkel. Der Hintergrund bleibt jetzt stehen.",
+          "Die Startseite heißt jetzt „Clash Royale Stats“. Im Banner steht ein kleines Podest mit den drei Besten der Welt, auf einem ruhigeren, dunklen Motiv gut lesbar. Die Liste „Weltspitze gerade“ ist dafür weg, „Mehr Clash Royale“ steht dadurch weiter oben.",
+          "„Cycle“ statt „Umlauf“ und „Prinzessin-Türme“ statt „Seitentürme“.",
+          "Unter „Mehr Clash Royale“ sind jetzt zuerst die Kartenspiele offen, die Minigames stehen dahinter.",
+          "Das Feld „Deine Accounts“ oben links ist weg – für schnellen Zugriff auf Spieler gibt es die Favoriten.",
+          "Der Reiter „Sammlung“ im Spielerprofil hat ein neues Symbol (aufgefächerte Karten).",
+          "Decks: Die Turmtruppe steht jetzt etwas kleiner direkt rechts neben den Karten, ohne Trennstrich. Neu auch bei den Meta Decks und auf der Deck-Seite samt Gegner-Decks – jeweils die Turmtruppe, mit der das Deck am häufigsten gespielt wird.",
+          "Neuer Knopf „Kopieren“ an allen Decks (Rangliste, Profil, Meta Decks, Deck-Seite, Crown Series): Er öffnet ein kleines Menü mit „Im Spiel öffnen“, „Link kopieren“ und „QR-Code“. Im Profil ersetzt er die Knopfzeile unter dem Deck, in der Rangliste steht zusätzlich der Cycle neben dem Elixier.",
+          "Vor dem Cycle eines Decks steht jetzt das Zufalls-Elixier-Symbol aus dem Spiel.",
+          "Die große Suchleiste auf der Startseite hat jetzt immer einen goldenen Rahmen und fällt so sofort auf.",
+          "Meta Decks: Oben lässt sich wählen, aus wessen Kämpfen die Decks stammen – Top 100, Top 250, Top 500 oder Top 1.000 der Weltrangliste.",
+          "Meta Decks: Bei „Gespielt von“ steht jetzt die Platzierung der Spieler in der Weltrangliste.",
+          "Karten: Die Sortierung nach Seltenheit ordnet innerhalb einer Seltenheit nach Elixier, wie im Spiel.",
+          "Bei jedem Kampf steht jetzt unter beiden Spielern ihr Stand vor dem Kampf: Medaillen samt Weltrang in Ranked, Trophäen auf der Trophäenstraße, bisherige Siege in Crown Series, Events und Challenges.",
+          "In der Laufbahn eines Spielers stehen jetzt auch die Anzahl seiner Emotes und Banner sowie, seit wann er dabei ist (in Tagen). Im Abzeichen-Reiter zeigen die passenden Abzeichen die Zahl direkt an.",
+          "Abzeichen im Spielerprofil laden jetzt schneller und zuverlässiger, weil wir die Bilder selbst bereitstellen. Auch einige Abzeichen, die bisher nur ein Ersatzbild hatten, zeigen jetzt das echte Bild.",
+        ]
+      },
+      {
+        title: "Clash Royale Karten-Wordle",
+        items: [
+          "Zwei neue Spalten: Schaden pro Sekunde und das Jahr, in dem die Karte ins Spiel kam – beide mit Pfeil nach oben oder unten.",
+          "Neue Farbe Orange für „knapp daneben“ (z. B. 1 Elixier oder 2 Jahre daneben); Rot heißt jetzt wirklich weit weg.",
+          "Symbole in den Spaltenköpfen, Tempo als Wort (Langsam bis Sehr schnell), und am Handy bleibt die Kartenspalte beim Wischen stehen.",
+          "Nach dem Gewinn springt die gesuchte Karte herein und zeigt alle ihre Werte auf einen Blick.",
+        ]
+      },
+      {
+        title: "Sacrifice & Sigils: Totems am Schrein verdienen",
+        items: [
+          "Nach dem Draft gibt es kein Totem mehr geschenkt. Auf der ersten Ebene jeder Pfadkarte steht jetzt ein Totem-Schrein: Wer noch keins hat, wählt dort eines von drei geschnitzten Totems (Stamm, Lane oder Moorlinge).",
+          "Spätere Besuche am Schrein bringen wie bisher neue Köpfe und Körper zum Umbauen.",
+        ]
+      },
+      {
+        title: "Sacrifice & Sigils: Pfad und Ergebnis",
+        items: [
+          "Deine Figur läuft auf der Pfadkarte jetzt sichtbar zum gewählten Ort – sie duckt sich, hüpft hin und federt nach – bevor die Szene beginnt.",
+          "Nach dem Match liegt ein Zettel „Aufstehen“ auf dem Tisch, der zurück ins Hauptmenü führt. Die unübersichtliche Statistik-Seite ist weg.",
+        ]
+      },
+      {
+        title: "Sacrifice & Sigils: Moorwanderung am Tisch",
+        items: [
+          "Die Kämpfe der Moorwanderung – gegen Gestalten im Moor, Pfad-Bosse und im Duell – laufen jetzt am Tisch im Kerzenlicht. Jede Gestalt trägt eine Maske, die zu ihr passt.",
+          "Ein Zettel neben der Waage nennt deinen Gegner, seine Hausregel und eure Lebenssiegel; Aufgeben steht im Menü (Esc).",
+          "Auch die Startdeck-Wahl und dein Weg über die Karte liegen jetzt auf dem Tisch: drei Decks als Auslagen zum Anklicken, die Pergamentkarte mit deiner Figur, die Orte am Tisch. Ein Zettel zeigt, wo deine Mitspieler gerade stehen.",
+          "Kommt es zum Kampf, setzt sich die Gestalt deines Gegners an denselben Tisch – kein Neuladen zwischen Karte und Kampf.",
+          "Das Lager liegt jetzt ebenfalls am Tisch: neben der Feuerschale wartest du auf die anderen, fächerst dein Deck auf oder baust deine Totems um.",
+          "Blick auf die Nachbartische: Für jeden laufenden Kampf liegt ein Zettel aus. Anklicken, und der Kampf liegt auf deinem Tisch – die Gestalt setzt sich, du schaust von der Seite zu. „Zurück ins Lager“ bringt dich wieder an dein Feuer.",
+          "Beginnt eine Duellrunde, werden die Paarungen als Zettel auf den Tisch gelegt – deine ist rot umrandet. Danach setzt sich dein Gegner zu dir.",
+          "Verlierst du ein Lebenssiegel, fällt ein Wachssiegel auf den Tisch und springt in zwei Hälften.",
+          "Am Ende der Wanderung wächst ein Podest aus Holz aus dem Tisch, auf jedem Platz die übrigen Lebenssiegel. Ein Klick auf einen Namen zeigt sein Deck, eine Kerze startet den nächsten Run.",
+          "Neue Masken für die Gestalten im Moor und an der Küste: Kiemen, Muschel, Eisen und Schuppe. Pfad-Bosse tragen eine Dornenkrone.",
+          "Wenn ein Pfad-Boss in seine zweite Phase geht, siehst du es: Er hebt die Hände, seine Maske bekommt einen glühenden Sprung, und er schlägt mit beiden Fäusten auf den Tisch.",
+        ]
+      },
+    ]
+  },
+  {
+    date: "15.11.2026",
+    version: "v6.23: Clash-Stats: Spielerprofile",
+    sections: [
+      {
+        title: "Weitere Neuerungen",
+        items: [
+          "Clash-Stats: Der Reiter „Decks“ auf der Spielerseite öffnet wieder, statt einen Fehler zu zeigen.",
+        ]
+      },
+      {
+        title: "Clash-Stats: Spielerprofile",
+        items: [
+          "Frühere Namen: Hat sich ein Spieler umbenannt, zeigt sein Profil unter dem Namen eine aufklappbare Liste seiner alten Namen mit Datum.",
+          "Profile lassen sich mit Daumen hoch oder runter bewerten (mit Twitch-Anmeldung, eine Stimme pro Profil, jederzeit änderbar).",
+          "In den Kämpfen steht unter jedem Spieler jetzt sein Clan mit Wappen, ein Klick öffnet die Clanseite. Das Durchschnittslevel findest du weiterhin in den aufklappbaren Details.",
+          "Evo-Riese, Evo-Elektroriese, Evo-Spiegel und Held-Elektromagier werden in Decks und Kämpfen mit dem richtigen Bild gezeigt statt in der normalen Form.",
+        ]
+      },
+    ]
+  },
+  {
+    date: "15.11.2026",
+    version: "v6.22: Win Tracker: Crown Series und Global Tournaments, Worldflip: Antworten, sechs neue Karten, neuer Kosmos und adVentures: Die Horde kommt",
+    sections: [
+      {
+        title: "Win Tracker: Crown Series und Global Tournaments",
+        items: [
+          "Die neue Crown Series wird automatisch erkannt: Das Overlay zeigt das Crown-Series-Abzeichen mit deinen Siegen im aktuellen Lauf (bis 8) und den drei Niederlagen-Feldern. Ein Duell zählt als ein Sieg oder eine Niederlage, egal wie die einzelnen Runden ausgingen.",
+          "Du kannst deine Crown-Series-Liga auswählen (Dagger bis King's League V), dann steht ihr Abzeichen im Overlay.",
+          "Grand Duels sind vorbereitet: In den unteren Ligen zählt das Overlay bis 12 Siege bei 4 Niederlagen, in der King's League die 20 Duelle mit jedem Sieg und jeder Niederlage in der Leiste.",
+          "Global Tournaments gibt es jetzt als eigenen Modus mit Pokal, Siegzahl und fünf Niederlagen-Feldern.",
+          "Unter „Getrackter Wert“ stehen Crown Series und Global Tournament als feste Kacheln bereit.",
+          "In allen Challenges zeigt der untere Bereich jetzt den Stand deines Laufs statt Bilanz, Winrate und der letzten fünf Spiele: bester Run, Siege und Niederlagen im Lauf, wie viele Siege noch fehlen und eine Fortschritts-Leiste bis zum Ziel.",
+        ]
+      },
+      {
+        title: "Worldflip: Antworten, sechs neue Karten, neuer Kosmos",
+        items: [
+          "Neue Karte Hagel in allen vier Welten: Der Nächste zieht 2 Karten. Hast du selbst einen Hagel, legst du ihn drauf und reichst alles weiter — dann zieht der Nächste 4, beim dritten Hagel 6.",
+          "Der Spiegel ist eine Antwort-Karte, die immer passt: Greift dich jemand mit Sturm, Hagel, Meteor, Frost, Saat, Strahl oder Flaschenpost an, darfst du ihn sofort legen. Der Angriff trifft dann den, der ihn gelegt hat — er zieht selbst, friert selbst ein oder (beim Sturm) sein nächster Zug fällt aus. Über deiner Hand erscheinen dafür die Knöpfe Spiegel, Hagel drauf und Hinnehmen.",
+          "Der Meteor lässt jetzt 3 Karten ziehen und aussetzen. Karten, die jemanden ziehen lassen, tragen eine Marke mit der Anzahl (+1, +2, +3).",
+          "Jede Welt hat jetzt drei eigene Karten. Neu im Vulkan: Brandopfer (du verbrennst eine zufällige eigene Karte). Neu im Ozean: Flaschenpost (du siehst kurz die Karten eines Spielers deiner Wahl). Neu im Dschungel: Echo (wiederholt die zuletzt gelegte Effektkarte). Neu im Kosmos: Supernova (alle anderen Welten laden sich um 1 auf) und Nebel (fünf Züge lang sieht niemand, wie viele Karten du hältst — bis du nur noch eine hast).",
+          "Neues Gesetz im Kosmos, Wurmlöcher: Eine 0 reicht alle Hände in Spielrichtung weiter, mit einer 7 tauschst du die Hand mit einem Spieler deiner Wahl. Dafür gibt es jetzt in jeder Welt eine 0. Die Karte Wurmloch und die Ereignisse Polsprung und Zwillingssterne sind dafür entfallen.",
+          "Kettenreaktion: Die Konjunktion lädt alle anderen Welten um 2 auf, die Supernova um 1. Wird dabei eine Welt voll, bricht sie sofort aus — auch mehrere hintereinander. Neues Kosmos-Ereignis Zeitschleife: Wer auslöst, ist gleich noch einmal dran.",
+          "2 gegen 2: Du siehst die Karten deines Partners oben rechts, er sieht deine.",
+          "Der Ton ist insgesamt leiser, die Umgebungsgeräusche besonders. Neben dem Lautsprecher in der Kopfleiste sitzt jetzt ein Lautstärkeregler.",
+          "Der Hinweis auf deinen eigenen Zustand (eingefroren, Schild, setzt aus) steht jetzt am unteren Bildrand statt unter dem Weltenrad.",
+          "Neun neue Gesichter für deinen Blob: Katze (mit Schlitzaugen, Näschen und Schnurrhaaren), :3, UwU, Fröhlich, Herzaugen, Zunge raus, Vampir, Sternaugen und Staunend.",
+          "16 neue Hüte: Katzenohren, Partyhut, Pudelmütze, Cowboyhut, Kochmütze, Piratenhut, Hasenohren, Wikingerhelm, Sombrero, Doktorhut, Kopfhörer, Einhorn, Frosch, Weihnachtsmütze, Schleife und Quietscheente. Einige bewegen sich: Die Katzenohren zucken, der Frosch hüpft, die Ente schaukelt.",
+        ]
+      },
+      {
+        title: "adVentures: Die Horde kommt",
+        items: [
+          "Gegner kommen jetzt zu Dutzenden statt einzeln: Aus höchstens 70 Gegnern wird eine Horde, die mit jeder Minute und jeder Welt wächst. In einem ganzen Lauf fallen rund 14.000 Gegner statt bisher 2.000.",
+          "Die Masse fällt mit einem Treffer. Dazwischen laufen Kämpfer, die mehr aushalten, große Brocken mit angekündigten Angriffen und wenige Fernkämpfer.",
+          "Neu: der Koloss. Alle paar Minuten watet ein übergroßer Gegner durch die Horde, der sich nicht wegstoßen lässt. Wer ihn fällt, bekommt eine Heilkugel und viel Erfahrung.",
+          "Fünf neue Gegner: Höhlenkrabbler, Sandkrabbler, Frostschleim, Glutschleim und Aschenskelett. Schleime gibt es jetzt auch in der Kristallhöhle.",
+          "Im Gedränge trifft dich nicht mehr jeder Gegner im selben Augenblick — du hast Zeit, dir eine Lücke zu schlagen.",
+          "Solange der Boss einer Welt lebt, kommt nur die Masse nach. Bei der Einkreisung schließt sich jetzt ein Ring aus bis zu 120 Gegnern.",
+          "Das Spiel läuft auch mit hunderten Gegnern im Bild flüssig.",
+          "Die Halle der Helden beginnt neu, weil alte und neue Punkte nicht vergleichbar sind. Die bisherigen Bestwerte bleiben unter dem neuen Reiter „Klassik“ erhalten. Stufe, Kits und Erfolge behältst du.",
+          "Die Erfolge „Horde gebrochen“ und „Frostgeboren“ verlangen jetzt 5.000 Kills in einem Lauf. Wer sie schon hat, behält sie.",
+          "adVentures spielt jetzt in 3D. Jede Welt hat eigene Figuren: Skelette im Verlies, Schleime und Pilzwesen in der Kristallhöhle, Kakteen und Bienen in der Glutwüste, Yetis im Frostgipfel, Dämonen und Drachen im Schlackefeld. Auch die Helden sind neu gestaltet, deine Farbvarianten gelten weiter.",
+          "Wer lieber die bisherige Ansicht möchte oder ein schwächeres Gerät hat, stellt im Pausenmenü unter Einstellungen auf „2D-Ansicht“ — mitten im Lauf, das Spiel ist dasselbe.",
+          "Die Gegner heißen jetzt so, wie sie aussehen: Aus dem Goblin wurde der Skelett-Knecht, aus der Mumie der Kaktusling, aus dem Schneemann das Yeti-Junge, aus dem Minotaurus der Hörnerdämon. Auch drei Bosse haben neue Namen: Tentakelkönigin, Dämonenfürst und Lavadrache.",
+          "Der Kodex zeigt Gegner und Bosse mit ihren neuen Figuren. Auch die Helden erscheinen in Menüs, Kit-Wahl und im Spiel jetzt als ihre 3D-Figuren, mit allen Farbvarianten.",
+          "Erfahrung liegt jetzt als Kristall am Boden: Besiegte Gegner lassen blaue, grüne oder goldene Kristalle fallen, die du im Vorbeilaufen einsaugst. Was liegen bleibt, fliegt nach ein paar Sekunden von selbst zu dir.",
+          "Kill-Serien: Fällt alle paar Augenblicke ein Gegner, wächst deine Serie — sie steht oben links, und Kills klingen mit jeder Stufe höher. Bei 25, 50, 100, 200 … Kills in Folge fliegen alle Kristalle der Welt auf einmal zu dir.",
+          "Gegner gehen je nach Todesart unterschiedlich ab: Sie fliegen in Trefferrichtung davon, verkohlen im Feuer, versinken im Gift, zersplittern gefroren zu Eis oder zerstieben im Blitz. Am Boden bleiben Spuren zurück.",
+          "Über der Masse stehen keine Schadenszahlen mehr, wenn ein Treffer tötet — das Bild bleibt auch in der Horde lesbar.",
+          "Mehr Feuerkraft: Du trägst jetzt bis zu sechs Waffen statt vier, und jede lässt sich bis Stufe 8 ausbauen. Die neuen Stufen bringen mehr Geschosse, mehr Durchschlag und mehr Fläche.",
+          "Evolutionen sind nicht mehr das Ende: Sie lassen sich noch dreimal ausbauen und räumen dann den Bildschirm — bis zu zwölf Dolche auf einmal, zehn Sonnen, sieben Blitze, Hiebe über die halbe Bildbreite. Wer eine Waffe über Stufe 5 hinaus ausgebaut hat, nimmt die Stufen in die Evolution mit.",
+          "Die Spezialfähigkeit (R) lädt durch Kills schneller: Jeder besiegte Gegner schenkt ein Stück Abklingzeit, ein Koloss oder Champion besonders viel.",
+          "Rückstoß reißt mit: Wer weggeschleudert wird, stößt die Gegner hinter sich an — Schockwelle und Peitsche schlagen Schneisen durch die Horde.",
+          "Stirbt ein Koloss oder ein Boss, hält das Spiel für einen Wimpernschlag an (abschaltbar über „Item-Pause“).",
+          "Kürzere Wege: Die Welten sind kompakter, und herumstehende Gegnerlager gibt es nicht mehr — die Horde kommt von selbst zu dir. Der Teleporter zeigt sich spätestens nach anderthalb Minuten auf der Karte.",
+          "Der Teleporter lädt schneller. Fällt der Boss, bevor die Ladung voll ist, stürmt die Horde an, bis der Teleporter bereit ist — kein Leerlauf mehr im Kreis.",
+          "Der Blutmond ist größer geworden: 30 Sekunden lang kommt ein Vielfaches der Horde.",
+          "Segen: Ist alles ausgebaut, gibt es bei jedem Aufstieg weiter etwas zu wählen — mehr Schaden, mehr Leben oder schnellere Waffen, beliebig oft. Goldbeutel und Heilung als Trostpreis entfallen.",
+          "Neue Auswertung nach dem Lauf: Eine Kurve zeigt, wie viele Gegner pro Minute gefallen sind, mit Strichen an jedem Weltwechsel und deinem stärksten Moment. Fährst du mit der Maus darüber, liest du jeden Abschnitt ab; darunter stehen Dauer und Kills je Welt.",
+          "Die Auswertung nennt jetzt auch deine beste Kill-Serie, deine Kills pro Minute und wie viele Kolosse und Champions du gefällt hast.",
+          "Sieben neue Erfolge für die Horde: Im Rausch und Unaufhaltsam (Kill-Serie von 1.000 und 5.000), Schnitter und Weltenbrand (15.000 und 30.000 Kills in einem Lauf), Riesentöter (5 Kolosse), Wandelndes Arsenal (sechs Waffen gleichzeitig) und Gesegnet (alles ausgebaut und einen Segen gewählt).",
+          "adVentures zeigt sich auf der Spiele-Übersicht und in der Link-Vorschau mit neuem Bild und neuer Beschreibung — mitten in der Horde statt im leeren Verlies.",
+          "adVentures ist schwerer: Der Einstieg bleibt, wie er war, aber ab der dritten Welt ziehen Gegner und Horde deutlich an, und Thunderwing verlangt einen wirklich guten Lauf. Die Gefahren-Anzeige oben rechts ist darauf abgestimmt.",
+        ]
+      },
+      {
+        title: "Weitere Neuerungen",
+        items: [
+          "Elixier-Auktion in der 2D-Ansicht: Die Auflösung läuft jetzt auch ohne Hardwarebeschleunigung Karte für Karte ab — Gebote steigen auf, dann fällt der Stempel, dann erscheint der Gewinner. Vorher stand dort sofort das ganze Ergebnis, während der Ton noch lief. Auch die Seitenleiste und die Bonuskarten verraten nichts mehr vorab.",
+          "Promo-Codes gibt es nicht mehr: Das Feld zum Einlösen ist aus dem Profil verschwunden. Alle adVentures-Kits schaltest du über deine Account-Stufe frei.",
+          "Datenschutzerklärung und Nutzungsbedingungen des Discord-Bots sehen jetzt aus wie die übrigen Rechtsseiten der Website.",
+          "Neue Vorschaubilder auf den Übersichtsseiten: Virtual Farm, Blobby Volley und Lights Out zeigen jetzt Szenen aus dem laufenden Spiel statt des Menüs (je zwei Bilder im Wechsel), und die Tanzfigur hat ein eigenes Bild bekommen.",
+          "Geteilte Links zu den Spielen sehen in Discord, WhatsApp & Co. jetzt besser aus: Statt einer einfarbigen Fläche zeigt die Vorschau eine Szene aus dem Spiel. Einladungen in eine Partie (z. B. Flick Soccer, Blobby Volley, Worldflip, Connect 4) stehen groß als „Einladung“ mit dem Spielnamen darauf.",
+        ]
+      },
+      {
+        title: "Seed Runners: Level stehen sofort bereit",
+        items: [
+          "Zufallslevel in Lobbys und das Tagesrennen werden jetzt im Voraus vorbereitet. Statt „Level wird erzeugt …“ startet die Runde meist sofort.",
+          "Für Zufallsrunden kommen nur noch abwechslungsreiche Level in die Auswahl. Level, die fast nur aus schlichten Sprüngen bestehen, werden aussortiert.",
+          "Level zu selbst eingetippten Seeds entstehen rund ein Fünftel schneller.",
+        ]
+      },
+      {
+        title: "Sacrifice & Sigils: Ein echter Tisch im Kerzenlicht",
+        items: [
+          "Der Kampf findet jetzt an einem echten Tisch im Kerzenlicht statt: Die Karten liegen als Gegenstände auf dem Holz, gegenüber sitzt eine Gestalt mit Maske. Wer lieber am bisherigen Tisch spielt, stellt das in den Einstellungen oder im Pausenmenü um.",
+          "Am neuen Tisch gibt es keine Knöpfe und Kästen mehr. Du ziehst, indem du einen Stapel anklickst, beendest den Zug mit dem Siegelstempel (oder der Leertaste) und nimmst den Hammer vom Tisch. Waage, Knochen, Wachs und deine Items liegen als Gegenstände neben dem Feld.",
+          "Opfern geht ohne Bestätigen: Karte nehmen, Opfer anklicken, Feld anklicken. Ein Rechtsklick legt die Karte zurück.",
+          "Die Karte unter dem Mauszeiger hebt sich und wird groß, mit Rechtsklick (am Handy: lange drücken) siehst du alle Texte.",
+          "Der neue Tisch gilt für das Spiel zu zweit im Querformat. Das Tutorial und die Moorwanderung sehen vorerst aus wie bisher, ebenso alles am Handy im Hochformat und auf Geräten ohne Grafikbeschleunigung.",
+          "Im Kartenblatt sind die Namen der Sigils jetzt dunkel statt hell auf hellem Papier und damit lesbar.",
+          "Am neuen Tisch läuft der Kampf viel zügiger: Ein Angriff trifft nach einem Wimpernschlag, vier Angreifer sind in gut zwei Sekunden durch statt in sechs bis sieben. Klickst du schon weiter, spult der Rest im Zeitraffer ab.",
+          "Neue Bewegungen am neuen Tisch: Karten stoßen vor und federn zurück, Getroffene werden zurückgeworfen und Tusche spritzt, besiegte Karten reißen entzwei, Opfer verkohlen. Knochen fliegen auf deinen Haufen, Gewichte in die Waagschale — bei schweren Treffern beugt sich der Blick zur Waage. Am Kampfende flammen die Kerzen auf oder verlöschen.",
+          "Im Gezeiten-Zirkel fließt am neuen Tisch Wasser in einer Rinne quer über den Tisch; sie wird mit dem Wasserstand breiter und schmaler.",
+          "Neuer Klang an beiden Tischen: Karten ziehen und legen, Stoß, Treffer, Zerreißen, Opfer, Knochen, Gewichte, Stempel und Hammer sind jetzt echte Aufnahmen von Papier, Holz und Metall statt künstlich erzeugter Töne. Die Effekte sind insgesamt etwas leiser.",
+          "Am neuen Tisch spielt dein Gegenüber jetzt sichtbar mit den Händen: Es nimmt die Karte vom eigenen Stapel, trägt sie aufs Feld, legt beim Opfern die Hand auf die Karte und drückt am Zugende seinen Siegelstempel ins Wachs. Sein Blick folgt dem Geschehen.",
+          "Masken: In den Einstellungen wählst du unter sechs Masken (Wachsstrich, Rabe, Geweih, Halbmond, Rinde, Dreiauge) — so sieht dich dein Gegenüber im Kampf. Du siehst seine.",
+          "Gesten statt Chat am neuen Tisch: Mit Rechtsklick auf den Tisch oder der Taste G öffnest du das Gestenrad und kannst klopfen, nicken, den Kopf schütteln, auf eine Karte zeigen, die Hände heben oder dich verbeugen. Online sieht dein Gegenüber die Geste an deiner Gestalt, gegen die KI antwortet sie dir.",
+          "Die Zugzeit läuft am neuen Tisch im Stundenglas, die Sekunden liegen als Zettel daneben. Beim Zugwechsel dreht sich das Glas um; wird die Zeit knapp, glimmt der Sand und dein Gegenüber trommelt mit den Fingern.",
+          "Verliert dein Gegenüber die Verbindung, sackt die Gestalt zusammen und ihre Kerze flackert. Kommt es zurück, richtet sie sich wieder auf.",
+          "Zuschauer sehen den neuen Tisch schräg von der Seite.",
+          "Auch der Draft findet jetzt am Tisch statt: Die Karten der Runde liegen in der Tischmitte, du nimmst eine mit einem Klick, und sie wandert in deine Hand. Nimmt dein Gegenüber eine Karte, greift seine Hand danach. Der Stapel daneben zeigt, wie viele Runden noch kommen.",
+          "Die Totem-Wahl ist an den Tisch gezogen: Die Totem-Köpfe stehen als geschnitzte Figuren da, die Nebendeck-Totems liegen als Karten davor. Du wählst mit einem Klick und bestätigst mit dem Siegelstempel; der Mauszeiger auf einer Figur zeigt, was sie bewirkt.",
+          "Die Orte des Pfads spielen jetzt am Tisch statt auf einem Formular: Oben liegt ein Blatt mit dem Ort und dem, was dort geschieht, dein Deck fächert sich aus dem Stapel auf den Tisch, Wahlmöglichkeiten liegen als Zettel da, und der Siegelstempel führt aus. Am Lagerfeuer brennt eine Feuerschale, beim Händler stehen die Beutel mit Preiszetteln. Das gilt für alle Orte und alle Ereignisse.",
+          "Die Rast liegt am Tisch: Vor jedem liegt ein Zettel mit den besuchten Orten. Wer entscheidet, wer beginnt, wählt mit den Stempeln – der eigene heißt „ich beginne“, der gegenüber „du beginnst“.",
+          "Das Ergebnis liegt am Tisch: Die Kerzen sind aus, die stärkste Karte des Siegers bleibt im Licht, daneben ein Zettel mit dem Ausgang und drei Zahlen. Die volle Statistik mit beiden Decks findest du im Menü.",
+          "Revanche am Tisch: Zünde eine Kerze an. Will dein Gegenüber auch, brennt seine – brennen beide, beginnt der neue Draft.",
+          "Auch die Pfadkarte liegt jetzt auf dem Tisch: Das Pergament rollt sich zwischen den Orten aus, eine leuchtende Marke anklicken geht dorthin, und der Mauszeiger zeigt, was dort wartet. Ein Klick auf deinen Stapel fächert dein Deck zum Ansehen auf.",
+          "Vom Draft bis zum Ergebnis sitzt du jetzt am selben Tisch; er wird zwischen den Phasen nicht mehr neu aufgebaut.",
+        ]
+      },
+      {
+        title: "Seed Runners: ruhigeres Bild",
+        items: [
+          "Das Bild bleibt beim Laufen und Springen ruhiger: Kleine Hüpfer bewegen die Kamera nicht mehr, und bei der Landung gibt es keinen Ruck.",
+          "Stacheln und Figur zittern beim schnellen Laufen nicht mehr gegen den Boden.",
+          "Am Checkpoint blitzt der Bildschirm nicht mehr auf. Funken, Fahne, Einblendung und Ton bleiben.",
+        ]
+      },
+      {
+        title: "Seed Runners: zwei neue Bausteine im Level-Editor",
+        items: [
+          "Flut: eine Fläche, die sich mit einer tödlichen Front füllt, sobald man sie betritt — nach oben als steigende Lava, seitwärts als Wand, die hinter einem herjagt. Tempo, Richtung und Verzögerung sind einstellbar. Nach einem Tod ruht sie wieder.",
+          "Boost-Streifen: Wer darüberläuft, wird kurz deutlich schneller, und ein Sprung vom Streifen trägt viel weiter. Mehrere Streifen nebeneinander halten das Tempo.",
+        ]
+      },
+      {
+        title: "Clash Royale: Spieler-Stats, Clans, Ranglisten und Decks",
+        items: [
+          "Neu unter Clash Royale: der Bereich Stats. Such dich selbst oder jeden anderen Spieler — per #Tag, aber auch per Name. Das Profil zeigt Trophäen, Ranked-Stand mit Platzierung, Siege und die laufende Serie.",
+          "Die Namenssuche kennt von sich aus die komplette Top 1000 der Welt und alle ihre Gegner, die Ranglisten aller Länder und die Mitglieder der besten Clans jedes Landes — und jeden, der hier schon einmal aufgetaucht ist.",
+          "Deck im Profil: Gezeigt wird das Deck, das zuletzt in Ranked gespielt wurde — nicht das, das im Spiel gerade ausgewählt ist. Es steht da wie im Spiel: vier Karten je Reihe, die Turmtruppe daneben. Per Umschalter siehst du auch das Deck aus Trophäenstraße oder dem Profil — und für die Crown Series das ganze Duell-Set: bis zu vier Decks ohne doppelte Karte, mit gewonnenen Runden je Deck. Jedes Deck geht per Knopf oder QR-Code direkt ins Spiel.",
+          "Letzte Kämpfe als Formkurve: Jeder Sieg hebt die Linie, jede Niederlage senkt sie, jeder Kampf ist ein Punkt darauf (mit Gegner und Ergebnis beim Drüberfahren). Die Tage sind in der Kurve abgeteilt, darunter steht die Bilanz je Tag. Dazu Siegquote, Serie, die Bilanz je Modus und der Medaillen-Verlauf.",
+          "Kämpfe: jedes Match groß mit beiden Decks wie im Spiel — vier Karten je Reihe, Turmtruppe daneben —, dazu Kartenlevel, Kronen und groß die Medaillen- oder Trophäen-Änderung. Über dem Ergebnis steht das Abzeichen des Modus. Im Duell (Crown Series, Clankrieg) steht oben das Gesamtergebnis in Runden, darunter jede Runde als eigene Zeile: dein Deck, das Rundenergebnis, das Deck des Gegners.",
+          "Mehr als 30 Kämpfe: Die Seite merkt sich die Kämpfe jedes Profils und holt sie bei angesehenen Profilen eine Woche lang regelmäßig nach. Unter den Kämpfen lädt „Ältere Kämpfe laden\" weiter zurück, bis zu 200 je Spieler.",
+          "Die Saison-Trophäenstraße läuft jetzt unter Trophäenstraße statt unter Events, und Freundschaftskämpfe über die Einladung im Spiel stehen unter Freundschaft.",
+          "Siegesserien zeigen eine Flamme wie früher im Spiel; Clankrieg, Saison-Trophäenstraße und das CRL-20-Wins-Abzeichen von 2026 haben ihre richtigen Bilder. Aufgeklappt siehst du Kartenlevel, verschenktes Elixier, Turm-Leben und die Platzierung beider Spieler im Vergleich.",
+          "Decks im Profil: deine gespielten Decks als übersichtliche Liste mit Siegquote, dazu Decks der besten Spieler, die zu deinen Kartenleveln passen.",
+          "Sammlung mit Aufwert-Rechner: wie viele Karten sofort aufwertbar sind und was das an Gold kostet, wie viel Gold bis alles auf Höchstlevel fehlt, wie viele Karten je Seltenheit noch fehlen — und unter jeder Karte der Vorrat fürs nächste Level. Turmtruppen zählen mit: eigene Zeile, eigener Vorrat, eigenes Gold.",
+          "Evolutionen und Helden in der Sammlung: alle, die es im Spiel gibt, mit ihrem eigenen Bild — freigeschaltete in Farbe, die übrigen ausgegraut. Neue Karten, Evolutionen und Helden erscheinen dort von selbst, sobald sie im Spiel sind.",
+          "Abzeichen und Erfolge mit Bildern, auch dort, wo das Spiel selbst noch keins liefert.",
+          "Clans: Mitgliederliste zum Sortieren mit Aktivitäts-Ampel, der laufende Clankrieg mit der Liste, wer heute noch Decks offen hat, und die letzten Kriege.",
+          "Ranglisten: die besten Spieler weltweit oder für ein Land, untereinander, jeder mit seinem Ranked-Deck groß in einer Reihe und der Turmtruppe dahinter. Mit „Spielt Karte\" filterst du die Liste: Wer in den Top 200 spielt Hog Rider? Dazu Clans nach Punkten und Kriegstrophäen.",
+          "Neuer Bereich Meta Decks: die Decks der Weltspitze mit Siegquote. Nach enthaltenen Karten filtern und auf- oder absteigend sortieren.",
+          "Neuer Bereich Crown Series: die besten Duell-Sets aus vier Decks ohne doppelte Karte — zusammengestellt aus den stärksten Duell-Decks, dazu die Sets, die die Bestplatzierten zuletzt gespielt haben, und alle Duell-Decks mit ihrer Siegquote je Runde.",
+          "Jedes Deck hat eine eigene Seite („Matchups\"): Siegquote gegen die Decks, auf die es am häufigsten trifft, die Karten, gegen die es schwer hat oder stark ist. Ganz oben steht, welche Spitzenspieler es spielen.",
+          "Die Stats-Seiten tragen jetzt große Kopfbilder mit Motiven aus dem Spiel, und überall stehen die Symbole aus dem Spiel: Gold, Aufwert-Pfeil, Evo- und Helden-Splitter, Turm und Kristall. In der Sammlung trägt jede Karte ihr Sternlevel, und Karten mit freigeschalteter Evolution oder Heldenform zeigen den passenden Splitter.",
+          "Karten: als Raster oder Tabelle, mit Filter nach Nutzung und Sortierung nach Nutzung oder Siegquote in beide Richtungen. Jede Karte hat eine eigene Seite mit Kampfwerten, Formen und den Decks, in denen sie steckt.",
+          "Vergleich: zwei Spieler nebeneinander, mit gemeinsamen Karten und ihren direkten Duellen.",
+          "Der Zurück-Knopf geht jetzt einen Schritt zurück (zum vorherigen Spieler, Clan oder zur Karte); die Krone daneben führt zur Clash-Royale-Hauptseite.",
+          "Clash Royale hat eine neue Hauptseite unter vnmvalentin.de/clash: Suche, alle Stats-Bereiche nebeneinander, die aktuelle Top 10 der Welt und darunter Minigames, Kartenspiele und die Werkzeuge für Streamer. Alte Links auf die Stats-Startseite führen automatisch dorthin.",
+          "Favoriten und zuletzt angesehene Spieler und Clans merkt sich die Seite für dich: Auf der Hauptseite stehen die Favoriten links und die zuletzt angesehenen rechts am Rand. Deine im Minigame-Profil verknüpften Accounts stehen über den Favoriten.",
+          "Geteilte Links auf ein Spielerprofil zeigen in Discord und WhatsApp Namen, Trophäen und Clan.",
+        ]
+      },
+    ]
+  },
+  {
+    date: "13.11.2026",
+    version: "v6.21: Neues Spiel: Worldflip, Blobby Volley: Ego 3D und Flick Soccer: das große Update",
+    sections: [
+      {
+        title: "Neues Spiel: Worldflip",
+        items: [
+          "Neues 3D-Kartenspiel unter Fun: Du sitzt mit bis zu drei Gegnern an einem schwebenden Tisch und musst als Erster alle Karten loswerden. Gelegt wird, was zur aktuellen Welt (Farbe) oder zur Zahl passt, sonst ziehst du.",
+          "Der Tisch schwebt immer über der Welt, die gerade gilt: Vulkan, Ozean, Dschungel oder Kosmos. Wechselt die Farbe, dreht sich die neue Welt unter den Tisch, die anderen ragen als Wände daneben auf. Die Wirbel-Karte dreht die Spielrichtung um: Der Tisch wirbelt einmal herum, und Pfeile kreisen in der neuen Richtung.",
+          "Jede Welt hat ihr eigenes Gesetz, solange sie unten liegt: Im Vulkan ziehst du zwei Karten statt einer, im Ozean darfst du gleiche Zahlen nachlegen, der Dschungel lädt sich doppelt so schnell auf, und im Kosmos passt jede Zahlenkarte.",
+          "Karten laden ihre Welt auf, und die Ladung bleibt auch beim Weltwechsel. Ist eine Welt voll, bricht sie aus. Zwölf Weltereignisse, drei je Welt: Ausbruch, Lavabombe, Glutwind, Flut, Strudel, Ebbe, Wuchern, Fesseln, Fruchtregen, Schwarzes Loch, Polsprung und Zwillingssterne. Jedes Ereignis kündigt sich mit einem großen Feld quer über das Bild an.",
+          "13 Effektkarten, viele gibt es nur in einer Welt: Meteor und Feuerwalze (Vulkan), Frost und Welle (Ozean), Dornenschild und Saat (Dschungel), Wurmloch und Strahl (Kosmos), dazu Sturm, Wirbel, Portal, Finsternis und der Zünder, der eine Welt deiner Wahl sofort ausbrechen lässt.",
+          "Bei vielen Karten wählst du dein Ziel selbst — und deine Figur zeigt mit einem langen Arm darauf. Das Opfer bekommt rote Ringe und reißt die Augen auf, bevor es knallt: Der Meteor stürzt als großer brennender Brocken herab, der Strahl fährt als Blitzsäule nieder, beim Frost schießen Eiszacken aus dem Boden. Wer eingefroren ist, steckt im Eisblock, der Dornenschild liegt als Stachelkugel um die Figur, und wen der Sturm erwischt, der fliegt davon und kommt erst zu seinem nächsten Zug zurück. Trifft es dich selbst, zeigt ein farbiger Rahmen ums Bild, was mit dir los ist.",
+          "Neuer Modus 2 gegen 2: Partner sitzen sich gegenüber, Angriffe und Weltereignisse treffen nur das andere Team, und das Team gewinnt gemeinsam.",
+          "Im Menü gestaltest du deinen eigenen Blob: zehn Farben, zehn Hüte (vom Zylinder über den Propeller bis zum Heiligenschein) und sechs Gesichter, mit drehender Vorschau. So sehen dich die anderen online am Tisch.",
+          "Spielbar gegen Bots oder online mit Freunden per Link. Freie Plätze füllen Bots auf, und wer mitten in der Runde geht, wird von einem Bot vertreten. Im 2 gegen 2 wählt jeder in der Lobby sein Team.",
+          "Die vier Welten leben: fließende Lava, Rauchsäule und Stichflammen im Vulkan; Wellen, springende Fische und Delfine, ein Leuchtturm und Möwen im Ozean; Wasserfall, Leuchtpilze, Farne und Papageien im Dschungel; Polarlichter, Nebelschwaden, ein Ringplanet mit Monden und ein Ufo im Kosmos. Dazu neu gezeichnete Karten mit eigener Landschaft je Welt.",
+          "Oben in der Mitte dreht sich das Weltenrad mit: Die aktuelle Welt liegt unten, die Ringe zeigen die Ladung jeder Welt. Oben links stehen nur der Name der Welt, ihr Gesetz und das Ereignis, das bei voller Ladung kommt. Am Tischrand leuchten dazu Ladungs-Steine in den Weltfarben auf.",
+          "Damit man mitkommt: Jede Effektkarte hängt erst groß bei der Figur, die sie spielt, in deren Farbe gerahmt, und wird angesagt, bevor sie wirkt. Die Bots lassen sich Zeit. Unten links klappt beim Überfahren ein Verlauf der letzten Züge auf. Wer dran ist, hat einen Pfeil über dem Kopf und ein größeres Namensschild; bist du dran, pulsiert der untere Bildrand.",
+          "Fährst du über eine Effektkarte auf deiner Hand, steht darüber, was sie tut. Jede Welt hat ihren eigenen Hintergrundklang (Grollen und Knistern, Brandung, Grillen und Vögel, Weltraum-Dröhnen), und Einschläge, Feuer, Eis und Donner klingen deutlich voller. Läuft auch auf dem Handy im Hochformat.",
+        ]
+      },
+      {
+        title: "Blobby Volley: Ego 3D",
+        items: [
+          "Das Spielfeld „Beach 3D“ ist durch „Ego 3D“ ersetzt: Du spielst Volleyball aus den Augen deines Blobs, auf einem deutlich größeren Feld mit Bande.",
+          "Der Ball fliegt dorthin, wo du hinschaust: Linksklick schlägt, Rechtsklick spielt hoch zu. Wer vorn am Netz im Sprung schlägt, schmettert: Der Ball ist schneller und taucht hinter dem Netz ab.",
+          "Laufen mit W A S D, springen mit der Leertaste, Hechtsprung mit Shift. Ein Pfeil am Bildrand zeigt zum Ball, wenn du ihn aus den Augen verlierst.",
+          "Beim Aufschlag schwebt der Ball vor dir, bis du ihn schlägst.",
+          "Solange du auf Mitspieler wartest, kannst du gegen einen Bot üben.",
+          "Dazu Töne für Schläge und Punkte, Vollbild mit F und ein Regler für das Maus-Tempo.",
+        ]
+      },
+      {
+        title: "Flick Soccer: das große Update",
+        items: [
+          "Sechs neue Felder, und jedes Feld sieht jetzt komplett anders aus: Eisbahn (alles rutscht fast doppelt so weit), Flipper (vier Bumper schießen alles zurück), Wurmloch (zwei Portale: oben hinein, unten heraus), Strand (tiefer Sand bremst), Burghof (Mauern an der Mittellinie) und Rundbahn mit runden Ecken. Halle, Käfig und Scheunentor haben eigenen Boden bekommen: Parkett, Asphalt und Stroh.",
+          "Das Feld wählst du jetzt über Vorschaubilder statt aus einer Liste.",
+          "16 neue Scheiben, die wirklich anders aussehen: Kronkorken, Münze, Schallplatte, Zielscheibe, Puck, Jeton, Grinser, Keks, Zahnrad, Auge, Kompass, Donut, Planet, Wappen, Schädel und Kristall. Auge, Grinser und Kompass schauen dem Ball hinterher. Der Kronkorken ist sofort frei, die anderen schaltest du frei.",
+          "Chaos-Modus neu: Statt eines aufgezwungenen Power-ups hältst du drei Karten auf der Hand und entscheidest selbst, ob und wann du eine ausspielst. Beide Hände liegen offen.",
+          "Sechs neue Karten: Sprengsatz (beim ersten Treffer fliegt alles in der Nähe weg), Geisterscheibe (gleitet durch andere Scheiben), Schrumpfstrahl (Gegner winzig), Wasserball (riesiger, federleichter Ball), Glatteis und Alle Mann (alle deine Scheiben schießen gleichzeitig).",
+          "Neu: die Tour. 20 Gegner in vier Pokalen, jeder mit eigenem Feld, eigener Scheibe und eigenen Regeln. Für jeden Sieg gibt es bis zu drei Sterne, Sterne schalten neue Scheiben frei.",
+          "Eigene Aufstellungen: Im Editor schiebst du deine fünf Scheiben dorthin, wo du sie haben willst. Bis zu fünf werden gemerkt und gelten auch online.",
+          "Neue Computer-Stärke „Profi“: spielt über die Bande und verzieht fast nie.",
+          "Zehn neue Erfolge rund um Tour, Karten und eigene Aufstellungen.",
+          "Chaos-Ereignisse: Nach zwei ruhigen Zügen trifft zwei Züge lang eine Sonderregel das ganze Feld — Blitzeis, Bleikugel, Flummi, Vollgas, Winzlinge, Murmel, Erdbeben oder Stromausfall (das Flutlicht geht aus). Oben steht, was gerade gilt und was als Nächstes kommt.",
+          "Neu: Trickschüsse. 24 feste Stellungen in vier Stufen — ein Schuss, der Ball muss ins Tor: über die Bande, durchs Portal oder mit einer Karte. Drei Sterne für einen Treffer beim ersten Versuch; nach fünf Fehlversuchen kannst du dir die Lösung zeigen lassen.",
+          "Die Endgegner der Tour haben jetzt Sonderregeln: Käfig-Kalle startet mit Vorsprung, beim Joker herrscht Dauerchaos, die Tilt-Maschine hat schwerere Scheiben, und gegen den Meister hast du nur zehn Sekunden pro Zug.",
+          "Acht neue Bälle (Tennisball, Melone, Basketball, Bowlingkugel, Discokugel, Smiley, Erdkugel, Feuerball mit Feuerspur) und sechs neue Torjubel (Torexplosion, Vulkan, Schneegestöber, Goldregen, Herzen, Klötzchen).",
+          "Der eigene Rasen als Design ist weg — jedes Feld hat jetzt ohnehin seinen eigenen Boden.",
+          "Schnell-Nachrichten: zwölf statt vier, erreichbar über einen Chat-Knopf direkt auf dem Feld (auch am Handy), und sie erscheinen als große Tafel mit Namen und Ton. In der Tour melden sich auch die Gegner nach Toren zu Wort.",
+          "Vier weitere Erfolge für Trickschüsse.",
+          "Scheiben nahe am Bildschirmrand lassen sich jetzt immer auf volle Kraft aufziehen: Reicht der Platz zum Ziehen nicht, zählt der Rand als 100 %.",
+          "Neu: Turniere. Oben in der Leiste findest du „Turniere“ mit allen offenen und laufenden Turnieren. Anmelden geht ohne Login, nur mit einem Namen. Gespielt wird im K.-o.-System: Wer verliert, ist raus.",
+          "Jede Runde kann eigene Regeln haben, zum Beispiel ein anderes Feld oder mehr Tore im Finale. Welche Regeln in welcher Runde gelten, steht schon vor dem Start auf der Turnierseite.",
+          "Sobald dein Gegner feststeht, öffnet sich dein Spiel von selbst. Du hast drei Minuten, um da zu sein, sonst kommt dein Gegner kampflos weiter. Nach dem Abpfiff geht es mit einem Klick zurück zum Turnierbaum.",
+          "Im Turnierbaum siehst du alle Ergebnisse und kannst bei laufenden Spielen zuschauen.",
+        ]
+      },
+      {
+        title: "Virtual Farm: Besuch bei den Nachbarn",
+        items: [
+          "Du kannst die Häuser der anderen Spieler in deiner Welt betreten: mit E vor der Tür oder indem du einfach dagegen läufst. Drinnen siehst du ihre Tapete und kannst ihre Vitrine ansehen. Kiste, Mülleimer und Inkubator bleiben privat.",
+          "Im Gold-Shop und in den Häusern siehst du jetzt die anderen Spieler, die gerade im selben Raum stehen, mit Namen über dem Kopf.",
+          "Wer in einem Haus oder im Gold-Shop ist, steht draußen nicht mehr als Figur vor der Tür.",
+          "Das Haus der Nachbarn steht jetzt auf jedem bewohnten Grundstück, nicht nur bei Spielern mit Vitrine.",
+        ]
+      },
+      {
+        title: "Virtual Farm: Tiere",
+        items: [
+          "Einhorn, Götterwesen und Kuh liefen rückwärts. Sie schauen jetzt in die Richtung, in die sie laufen.",
+        ]
+      },
+      {
+        title: "Clash Royale: Farb-Raten",
+        items: [
+          "Neues Kartenspiel unter Clash Royale: Einer Karte fehlt eine Farbe, zum Beispiel die Haare der Bogenschützinnen oder der Bart des Ritters. Du mischst sie mit drei Reglern aus dem Gedächtnis nach, die Karte färbt sich dabei live mit, samt Schatten und Glanz. Danach siehst du in Prozent, wie nah du dran warst.",
+          "Jeden Tag fünf Karten für alle gleich, dazu freies Spiel mit zufälligen Karten. 72 Karten sind dabei.",
+        ]
+      },
+      {
+        title: "Clash Royale: übersichtlichere Startseite",
+        items: [
+          "Die Clash-Royale-Seite ist jetzt in drei Reiter aufgeteilt: Minigames, Kartenspiele und Für Streamer. Beim Zurückkommen bleibt der zuletzt gewählte Reiter offen.",
+          "Die eigene Kachel für Turniere ist weg — Turniere findest du wie gewohnt in den Minigames.",
+        ]
+      },
+      {
+        title: "Clash Royale: schönere 3D-Minigames",
+        items: [
+          "Pyramidendraft: Die Kartensteine sind jetzt blau mit Goldrand und heben sich klar von der Pyramide ab. Die Kammer ist in kühles Licht getaucht, das Feuer leuchtet warm dagegen.",
+          "Dunkles Labyrinth: Die Mauern sind neu gemalt, mit klobigen blauvioletten Steinen statt schmutzigem Braun. Man erkennt die Gänge deutlich besser, die Sichtweite ist gleich geblieben.",
+          "Angel Royale hat kräftigere Farben bekommen.",
+          "Elixier Auktion: Die Tafel hat einen dicken, glänzenden Goldrahmen mit Edelsteinen an den Ecken, die Fläche dahinter ist tiefer Samt mit einem warmen Lichtfleck. Jede Karte hängt auf einem eigenen blau-goldenen Sockel und wirft einen weichen Schatten. Vorhänge, Blende und Wimpel fallen in echten Falten, die Wände sind dunkler, damit die Karten davor leuchten.",
+          "Blindes Karussell: Der Boden der Plattform besteht jetzt aus richtigen Brettern statt verwaschener Ringe. Die Karten liegen auf blau-goldenen Sockeln, heben sich beim Auswählen mit Schatten ab und federn nach dem Aufdecken kurz nach. Die Tische haben eine goldene Kante, Wiese und Pflaster treten zurück.",
+          "Pyramidendraft: Das kurze Ruckeln beim Hineinfliegen in die Pyramide ist weg, und eine zweite Partie startet schneller.",
+        ]
+      },
+      {
+        title: "Win Challenge: Serien (B2B, B3B) und neuer Editor",
+        items: [
+          "Neue Art von Challenge: die Serie. Für ein B2B, B3B oder mehr (bis zehn Wins) steht im Overlay ein Kästchen je Win, und jeder gewonnene wird einzeln abgehakt. So sehen die Zuschauer sofort, der wievielte Win gerade läuft.",
+          "Im Editor und in der Moderator-Ansicht hakst du die Wins per Klick auf die Kästchen ab. Ist die Serie gerissen, setzt „Auf 0“ sie mit einem Klick zurück.",
+          "Auch per Chat: „!+ Name“ hakt den nächsten Win ab, „!- Name“ nimmt den letzten zurück, und der neue Befehl „!reset Name“ setzt eine Serie oder einen Zähler zurück auf 0.",
+          "Der Editor ist neu aufgeteilt und nutzt die ganze Bildschirmbreite: links die Bereiche und ein großes Timer-Feld mit großer Uhr, Start, Reset, Zeit anpassen und Zählrichtung, alles direkt sichtbar statt hinter dem Zahnrad. In der Mitte bearbeitest du, rechts steht die Vorschau.",
+          "„Browser Source kopieren“ sitzt jetzt oben in der Leiste und ist von jedem Bereich aus erreichbar.",
+          "Die Moderator-Ansicht sieht aus wie der Editor: Timer und Titel links, Challenges rechts. Die Uhr lässt sich dort jetzt ebenfalls anklicken und direkt ändern.",
+          "Jede Challenge im Editor ist größer und aufgeräumter: oben steht nur der Name mit Anpinnen und Löschen, darunter die Art (Abhaken, Zähler, Serie) und rechts daneben der Stand. Lange Namen werden nicht mehr abgeschnitten, das Spielcover ist größer.",
+          "Eine Serie hat ihre eigene Zeile mit großen Kästchen und „Auf 0“ daneben, auch in der Moderator-Ansicht. Vorher drängte sich alles in einer Zeile.",
+          "Das Timer-Feld hat mehr Luft: Uhr und Start/Reset sind größer und stehen als eigene Gruppe über den Einstellungen, statt dass alles dicht übereinander liegt.",
+          "Etwas mehr Farbe im Editor: Die großen Flächen haben einen violetten Rand, Beschriftungen und ausgewählte Umschalter sind violett getönt. Die Fläche, in der du gerade arbeitest (Timer, Bearbeitung oder Vorschau), hat den kräftigsten Rand.",
+        ]
+      },
+      {
+        title: "Streamer-Tools: eine gemeinsame Oberfläche",
+        items: [
+          "Win Challenge, Twitch-Overlays, Bingo und der Discord-Bot haben jetzt dieselbe schmale Leiste oben: zurück zu den Streamer-Tools, der Name des Werkzeugs, ein Menü zum schnellen Wechsel zwischen allen Werkzeugen und dein Konto.",
+          "Bingo bekommt dafür die ganze Fensterhöhe, ohne die große Kopfzeile der Website.",
+          "Beim Discord-Bot steht die Serverwahl jetzt direkt in dieser Leiste.",
+          "Twitch-Overlays auf dem Handy: Die Leiste oben passt jetzt in eine Zeile, Raster und Magnet sind dort ausgeblendet.",
+        ]
+      },
+      {
+        title: "Einheitliches Aussehen der Website",
+        items: [
+          "Profil, Updates, öffentliche Profile, Giveaways, Abstimmungen, die Abo-Seite, die Fehlerseite und Connect 4 haben jetzt dieselben Knöpfe, Eingabefelder, Kästen und Überschriften.",
+          "Ebenso die Startseite, die Übersichten Fun und Community, die Streamer-Tools mit der Overlay-Galerie, die Anleitung zum YouTube-Music-Bot, die Rechtsseiten sowie Bingo und die Twitch-Overlays von innen.",
+          "Auf der Startseite öffnen sich „Social Media“ und „Mein Setup“ jetzt im selben Fenster wie überall sonst; die Hardware-Suche ist direkt ausgewählt.",
+          "Der Lautsprecher-Knopf oben in der Kopfzeile ist weg — er hatte keine Wirkung. Spiele mit Ton haben ihren eigenen Schalter.",
+          "In allen Spielen sieht der Weg zurück zur Website gleich aus: ein Knopf „Website“ oben in der Leiste (auf dem Handy nur das Symbol). Bei Blobby Volley, Flick Soccer und Seed Runners steht jetzt auch das Wort dabei.",
+          "Giveaways und Abstimmungen: Laufend und Vergangen stehen als Reiter mit Anzahl oben, die Seiten sind links ausgerichtet wie der Rest der Website.",
+          "Abstimmungen lassen sich jetzt auch ohne Maus ausfüllen: mit Tab zur Antwort springen, mit der Leertaste auswählen.",
+          "Bei einer Abstimmung steht der Titel nur noch einmal oben im Bild statt doppelt.",
+          "Wer bei einem Giveaway mitmacht, kann es jetzt auch wieder verlassen, wenn eine Voraussetzung inzwischen fehlt.",
+        ]
+      },
+      {
+        title: "Neue Startseite",
+        items: [
+          "Die Startseite ist neu gebaut und deutlich ruhiger: oben steht, worum es geht, mit zwei Knöpfen zu den Spielen und zu den Tools für Streamer. Darunter die drei beliebtesten Seiten als Bildkarten und eine Übersicht aller Bereiche zum direkten Anklicken.",
+          "Läuft gerade ein Stream, steht oben in der Kopfzeile jeder Seite ein „Live“-Hinweis mit dem aktuellen Spiel, und auf der Startseite startet der Player von selbst (stumm). Ist der Kanal offline, lädt der Player erst, wenn du auf „Stream hier ansehen“ klickst. Vorher stand dort dann ein großer weißer Kasten.",
+          "Wer schon Spiele oder Tools geöffnet hat, sieht auf der Startseite zuerst die zuletzt besuchten Seiten statt der festen Auswahl. Das merkt sich nur dein eigener Browser.",
+          "Unter jeder Unterseite steht jetzt die Übersicht aller Bereiche als Fußzeile.",
+          "Die bunte Clash-Royale-Karte mit den gezeichneten Modus-Schriftzügen ist von der Startseite verschwunden, ebenso auf der Clash-Royale-Übersicht.",
+          "Die Vorschau-Karten auf Fun, Community, Streamer-Tools und Contact sind flacher und neigen sich weniger stark. Der schmale leere Streifen am rechten Bildrand ist weg.",
+          "Der Hintergrund der Website ist ruhiger: Die Farbflächen sind nur noch halb so kräftig.",
+        ]
+      },
+      {
+        title: "Streamer-Tools: Overlays laufen in der Vorschau",
+        items: [
+          "Auf der Seite der Streamer-Tools zeigen die Karten jetzt die echten Overlays in Bewegung statt eines Standbilds: Bei der Win Challenge läuft die Uhr, die Twitch-Overlays wechseln durch Umfrage, Vorhersage, Ziel und Statistik, und beim Bingo werden Felder abgehakt, bis eine Reihe voll ist.",
+        ]
+      },
+      {
+        title: "Twitch-Overlays: neuer Look für Abstimmung, Vorhersage und Hype Train",
+        items: [
+          "Abstimmungen zeigen jede Antwort als große Zeile, in der der Balken hinter dem Text liegt. Die Restzeit läuft als Linie am unteren Rand ab, am Ende bleibt der Gewinner hell stehen und die anderen treten zurück.",
+          "Vorhersagen mit zwei Optionen stellen beide Seiten mit großer Prozentzahl gegenüber, darunter ein Balken mit Mittelstrich: Man sieht sofort, wer vorn liegt. Bei mehr Optionen gibt es dieselben Zeilen wie bei der Abstimmung.",
+          "Ergebnis-Moment: Ist eine Abstimmung oder Vorhersage entschieden, klappen die Verlierer zu schmalen Zeilen zusammen und der Gewinner steht groß da.",
+          "Nach einer Vorhersage steht unter dem Ergebnis, wie viele Gewinner sich wie viele Punkte teilen.",
+          "Übernimmt eine Antwort die Führung, blitzt sie einmal kurz auf.",
+          "Neue Form „Leiste“ für Abstimmung und Vorhersage: Frage, Antworten und Restzeit in einer schmalen Zeile, darunter die Anteile als Balken. Verdeckt kaum etwas vom Bild.",
+          "Ziele, Stream-Statistik und Raid-Clip sehen jetzt aus wie die neuen Karten.",
+          "Neues Menü „Design“ oben im Twitch-Dashboard: Stil (Modern oder Klassisch), Akzentfarbe, Ecken, Deckkraft und Glas stellst du einmal für alle Karten ein. Soll eine Karte abweichen, schaltest du bei ihr unter „Aussehen“ „Eigenes Aussehen“ ein. Deine bisherigen Farben bleiben erhalten.",
+          "Die Anzeige über dem Hype Train zeigt das Level als große Zahl im Farbblock, daneben Restzeit, Fahrgäste und Fortschritt.",
+        ]
+      },
+      {
+        title: "Tanzfigur: mehr Kleidung und neue Tänze",
+        items: [
+          "Neue Hüte für deine Tanzfigur: Weihnachtsmütze, Wichtelmütze, Beanies, Caps, Partyhut, Krone, Rentier-Geweih, Kopfhörer und Heiligenschein. Sie passen sich an jeden Kopf an.",
+          "Neuer Bereich Accessoire: Sonnenbrille, Neon-Brille, Schal, Leuchtstäbe, Engelsflügel oder Rucksack.",
+          "Neue Oberteile: Hoodies in Rot, Pink und mit Blitz, Shirts mit Stern, Herz und Blitz, zwei Weihnachtspullis und ein Weihnachtsmann-Mantel mit Gürtel und Pelzkragen.",
+          "Neue Hosen und Schuhe: Jeans, Shorts, rote Weihnachtshose, weiße und grüne Hose, dazu Weihnachtsstiefel, schwarze Stiefel und Sneaker in Lila, Gold und Neon-Pink.",
+          "Zehn neue Tänze: Floss, Twist, Disco, Kasatschok, Roboter, Stampfer, Drehsprung, Arme schwenken, Seitschritt und ein ruhiges Wiegen. Die meisten kannst du in der Vorschau ansehen.",
+          "Alle Teile haben jetzt einen Namen in der Auswahl statt nur einer Nummer.",
+          "Schuhe sind neu geformt: breiter und länger, mit runder Kappe und Schnürung, statt schmaler hoher Klötze.",
+          "Weihnachts- und Wichtelmütze sind jetzt aus einem Stück und fallen weich zur Seite.",
+          "Unter Caps und Mützen schauen vorn keine Haare mehr durch, Kopfhörer und Geweih sitzen über der Frisur, Partyhut und Krone obenauf.",
+          "Bei manchen Oberteilen fehlte ein Stück vom Arm, wenn man eine andere Hose dazu trug. Das ist behoben.",
+        ]
+      },
+      {
+        title: "Lights Out: gruseliger, mit Geschichte",
+        items: [
+          "Wirst du erwischt, packt dich das Monster jetzt wirklich: Es steht plötzlich direkt vor dir, greift zu, die Lampe zuckt, dann wird es schwarz. Das alte Standbild ist weg.",
+          "Neue Schreckmomente unterwegs: etwas rennt aus dem Dunkel auf dich zu, steht hinter dir, wenn du dich umdrehst, der Strom fällt aus, im Spind neben dir schlägt etwas von innen gegen die Tür.",
+          "Jede Ebene hat außerdem eigene Schreckmomente, die dir nichts tun: im Wald ein Fledermausschwarm, ein Wildschwein, das quer durchs Licht rennt, und Augen im Dunkeln; in der Anstalt ein Toter im Rollstuhl, der plötzlich hinter dir steht, zuschlagende Türen und platzende Lampen; im Keller Ratten, ein platzendes Dampfrohr und ein verschnürter Körper, der von der Decke fällt; im Garten auffliegende Krähen und eine Steinfigur, die sich dir zudreht, sobald du wegsiehst.",
+          "Der Beobachter im Wald ist nur noch ein Schatten zwischen den Stämmen. Dein Licht vertreibt ihn für kurze Zeit, anstarren hält ihn nicht mehr fest, und du hörst seinen Atem, wenn er dicht hinter dir ist.",
+          "Der Wald hat Wege und Orte zum Entdecken: die Hütte des Försters zum Hineingehen (dort liegt der Schlüssel), ein verlassenes Lager, ein Gräberfeld, ein alter Brunnen und Puppen in den Bäumen.",
+          "Die Anstalt ist kein Irrgarten mehr, sondern eine richtige Station: zwei lange Flure mit Quergängen, ringsum über ein Dutzend Zimmer mit Türen und Schildern — Schlafsaal, Krankenzimmer, Behandlung, Schwesternzimmer, Arztzimmer, Tagesraum, Wäschekammer und Einzelzimmer, jeweils passend eingerichtet. Die Sicherungen liegen in den Zimmern.",
+          "Lights Out erzählt jetzt eine Geschichte, die sich von Ebene zu Ebene aufbaut: Du suchst deinen Bruder im Sanatorium Erlengrund. Notizen verraten, was dort passiert ist, wer die Nachtschwester einmal war, für wen der Arzt seine Dunkelkur eigentlich erfunden hat — und wie du das jeweilige Wesen überlebst. Im Menü kannst du alles Gefundene in der Akte nachlesen.",
+          "Spuren von Jonas: In jeder Ebene liegt etwas, das er zurückgelassen hat — sein Rucksack am Lager, seine Armbanduhr auf dem Flur der Anstalt (du hörst sie ticken), seine Kamera im Keller, sein Handy im Garten.",
+          "Der Wald hat ein neues Rätsel: Die Hütte des Försters ist vernagelt. Das Brecheisen dafür hängt am Seil im Brunnen — Jonas' Zettel am Lager verrät es.",
+          "Die Anstalt ist deutlich fairer: Die Nachtschwester bleibt auf ihrer Runde auf den Fluren und kommt nur noch in ein Zimmer, wenn sie dich gehört oder gesehen hat. Sie sieht weniger weit (ohne Licht fast nur noch aus nächster Nähe), verliert dich schneller und muss nach ein paar Sekunden Jagd kurz stehen bleiben. Jedes Zimmer mit einer Sicherung hat eine zweite Tür und einen Spind.",
+          "Die Monster sind neu gebaut: ausgezehrte Körper mit Rippen, Wirbeln und langen Krallenfingern statt Puppen. Die Nachtschwester hat ein Gesicht mit leeren Augenhöhlen und aufgerissenem Kiefer, der Lauscher eine durchgeblutete Binde über den Augen und ein Maul voller Zähne, der Gärtner einen Sack über dem Kopf, Schlapphut und Mantel.",
+          "Neuer Vorspann: Im Fernsehen läuft die Vermisstenmeldung zu Jonas. Auf der Fahrt durch den Wald ruft er an und warnt dich: Komm nicht her — und wenn du es siehst, leuchte es an. Dann steht ohne jede Vorwarnung etwas direkt vor dem Wagen — du reißt das Lenkrad herum und prallst gegen einen Baum. Du kommst am Tor wieder zu dir, zurück geht es nicht mehr. Die Leertaste überspringt den Vorspann.",
+          "Der kurze Hänger am Ende der Anfahrt ist weg.",
+          "Im Wald hast du anfangs Ruhe: Der Beobachter taucht erst auf, wenn du den Schlüssel hast oder zwei Schnitzereien gefunden hast.",
+          "Beim Lesen einer Notiz pausiert das Spiel, das Blatt liegt groß in der Bildmitte. (Im Koop läuft die Welt weiter.)",
+          "Aufheben und Lesen geht nur noch, wenn du das Ding wirklich ansiehst — was am Boden liegt, musst du anschauen.",
+          "Sicherungen, Akkus, Schlüssel und der Sicherungskasten sehen jetzt aus wie echte Gegenstände: Schraubsicherung aus Porzellan, zusammengeklebte Lampenzellen, ein alter Bartschlüssel mit Anhänger.",
+          "Neuer Ton: Schritte klingen je nach Untergrund anders (Fliesen, Waldboden, Kies, Dielen, nasser Keller), die Monster knurren, kreischen, röcheln und schnüffeln mit echten Stimmen. Die Nachtschwester summt auf ihrer Runde ein Wiegenlied — du hörst sie kommen.",
+          "Mehr Stimmung: Filmkorn über dem Bild, und der Bildrand färbt sich rot, je näher dir etwas kommt.",
+        ]
+      },
+    ]
+  },
+  {
     date: "11.11.2026",
     version: "v6.20: Virtual Farm: neues Angeln, Virtual Farm: Haus und Gold-Shop zum Hineinlaufen und Virtual Farm: Wegweiser und Post",
     sections: [

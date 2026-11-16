@@ -43,7 +43,9 @@ function readIndex() {
 
 /** Fassung des Bildes: kurzer Hash über alles, was im Bild steht */
 function versionOf(meta) {
-  return crypto.createHash('sha1').update(JSON.stringify([meta.title, meta.description, meta.card || null])).digest('hex').slice(0, 10);
+  // LOOK hochzählen, wenn sich die Gestaltung ändert — sonst zeigt Discord für schon geteilte Links das alte Bild
+  const LOOK = 3;
+  return crypto.createHash('sha1').update(JSON.stringify([LOOK, meta.title, meta.description, meta.card || null, meta.shot || null])).digest('hex').slice(0, 10);
 }
 
 const imageUrl = (meta) => `${DOMAIN}/api/og/image.png?u=${encodeURIComponent(meta.path)}&v=${versionOf(meta)}`;
@@ -100,12 +102,13 @@ function buildHtml(indexHtml, meta) {
 function cardOf(meta) {
   const section = SECTIONS[meta.section] || SECTIONS.site;
   const extra = meta.card || {};
-  const title = meta.title.replace(/\s+—\s+(Seed Runners(-Level)?|Clash Royale Turnier|Profil)$/, '');
+  const title = extra.title || meta.title.replace(/\s+—\s+(Seed Runners(-Level)?|Clash Royale Turnier|Profil)$/, '');
   return {
     // "VIRTUAL FARM" über "Virtual Farm" sagt nichts: dann die Art der Seite als Rubrik
-    kicker: section.kicker.toLowerCase() === title.toLowerCase() ? SECTIONS.games.kicker : section.kicker,
+    kicker: extra.kicker || (section.kicker.toLowerCase() === title.toLowerCase() ? SECTIONS.games.kicker : section.kicker),
     accent: section.accent,
     title,
+    shot: meta.shot || null,
     lines: extra.lines?.filter(Boolean).length ? extra.lines : [meta.description],
     stat: extra.stat || null,
     table: extra.table?.length ? extra.table : null,
@@ -124,6 +127,8 @@ function createOgRouter({ getSources, render } = {}) {
     try { return getSources?.() || {}; } catch { return {}; }
   };
   const renderCard = render || ((card) => require('./ogImage').renderCard(card));
+  // Spielbild vorab dekodieren (asynchron); mit eigenem render (Tests) entfällt das
+  const prepare = render ? async () => {} : (card) => require('./ogImage').loadShot(card.shot);
 
   const cache = new Map(); // "pfad|fassung" → { buf, at }
   let windowStart = Date.now();
@@ -143,7 +148,7 @@ function createOgRouter({ getSources, render } = {}) {
     return res.send(buildHtml(index, meta));
   });
 
-  router.get('/image.png', (req, res) => {
+  router.get('/image.png', async (req, res) => {
     const p = cleanPath(String(req.query.u || ''));
     const meta = p ? resolveMeta(p, sources()) : null;
     if (!meta) return res.status(404).end();
@@ -155,7 +160,9 @@ function createOgRouter({ getSources, render } = {}) {
       if (now - windowStart > 60000) { windowStart = now; renders = 0; }
       if (++renders > RENDERS_PER_MINUTE) return res.status(429).end();
       try {
-        buf = renderCard(cardOf(meta));
+        const card = cardOf(meta);
+        if (card.shot) await prepare(card);
+        buf = renderCard(card);
       } catch (e) {
         console.error('[og] Bild fehlgeschlagen:', meta.path, e.message);
         return res.status(500).end();
@@ -165,7 +172,8 @@ function createOgRouter({ getSources, render } = {}) {
       while (cache.size > IMAGE_CACHE_MAX) cache.delete(cache.keys().next().value);
     }
     res.set('Cache-Control', 'public, max-age=600');
-    res.type('png');
+    // Bilder mit Spielszene sind JPEG (ogImage.renderShotCard), der Rest PNG — der Typ richtet sich nach dem Inhalt
+    res.type(buf[0] === 0xff && buf[1] === 0xd8 ? 'jpeg' : 'png');
     return res.send(buf);
   });
 

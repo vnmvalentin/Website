@@ -11,7 +11,6 @@ const cors = require("cors");
 const fs = require("fs");
 const path = require("path");
 const cookieParser = require("cookie-parser");
-const { nanoid } = require("nanoid");
 const fetch = (...args) =>
   import("node-fetch").then(({ default: fetch }) => fetch(...args)); 
 
@@ -63,6 +62,13 @@ const { createLiveRouter } = require("./routes/liveRoutes");
 const { createChatAvatarRouter } = require("./routes/chatAvatarRoutes");
 const createStreamScenesRouter = require("./streamScenes/routes/streamScenesRoutes");
 const { createAnalyticsRouter } = require("./analytics/analyticsRoutes");
+// Admin-Reiter „Spiele“ (lib/spielStatistik.js): Partien je Tag und Live-Zahlen der Spiele
+const { meldeSpielAn, liveZahlen, verbindePartienSpeicher } = require("./lib/spielStatistik");
+const analyticsStore = require("./analytics/analyticsStore");
+const { seedRunnersStats } = require("./seedRunners/socket");
+const { _rooms: guessWhoRooms } = require("./clashRoyale/guessWhoRoutes");
+const { weltUebersicht } = require("./garden/world/lobby");
+const { getActiveLobbiesForAdmin: crLobbiesFuerAdmin } = require("./clashRoyale/core/lobbies");
 const { createOgRouter } = require("./og/ogRoutes");
 const { createActivityRouter } = require("./activity/activityRoutes");
 const { createProfileRouter, buildProfile: buildPublicProfile } = require("./profile/profileRoutes");
@@ -78,8 +84,17 @@ const { runGardenMigrations } = require("./garden/migrations");
 const { initWinchallengeStore, saveAllOnExit: saveWinchallengeOnExit } = require("./winchallenge/winchallengeStore");
 const { initWinchallengeIrc, stopIrc: stopWinchallengeIrc, getIrcStatus } = require("./lib/winchallengeIrc");
 const createCrViewerGamesRouter = require("./clashRoyale/routes/crViewerGamesRoutes");
+const { createScoutRouter } = require("./clashRoyale/scout/scoutRoutes");
 const { step } = require("./lib/startupLog");
-const { writeJsonAtomic } = require("./lib/jsonFile");
+const { createSessionStore } = require("./lib/sessionStore");
+const { createKontoStore, tagVon: kontoTagVon, tagPlus: kontoTagPlus } = require("./konto/kontoStore");
+const { createKontoRouter, kontoFuerBrowser } = require("./konto/kontoRoutes");
+const { createSitzungsHelfer } = require("./konto/sitzung");
+const { bremseMiddleware } = require("./lib/bremse");
+const { schuetzeSocket } = require("./lib/socketSchutz");
+const { createFehlerProtokoll } = require("./fehler");
+const { createLeistungsMessung } = require("./leistung");
+const { seiteVon: fehlerSeiteVon } = require("./fehler/signatur");
 
 const app = express();
 
@@ -110,9 +125,27 @@ app.use(
 // Body, den express.json() schon geparst (und damit verworfen) hätte.
 app.post("/api/billing/webhook", ...createBillingWebhook());
 
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ limit: '10mb', extended: true }));
+// Rückhalt gegen Anfragefluten (lib/bremse.js): je Adresse höchstens 1800 API-Anfragen pro Minute (30/s) — weit über
+// dem, was Seiten und OBS-Overlays brauchen. Steht vor dem Einlesen, damit eine Flut keine Parse-Zeit kostet. Engere
+// Grenzen sitzen an Login, Feedback und Vorschaubildern (weiter unten).
+app.use("/api", bremseMiddleware({ fensterMs: 60_000, max: 1800 }));
+
+// Anfragegröße (Sicherheits-Durchgang 16.11.2026): ohne gültige Sitzung höchstens 1 MB — die größte anonyme Nutzlast
+// ist ein Seed-Runners-Lauf (60.000 Zahlen ≈ 0,5 MB), Level-Prüfungen sind auf 400 KB begrenzt. Angemeldet weiter
+// 10 MB (Editoren, Farm-Stand, Turnierbilder). Vorher durfte jede anonyme Anfrage 10 MB JSON parsen lassen.
 app.use(cookieParser());
+const jsonGross = express.json({ limit: "10mb" });
+const jsonKlein = express.json({ limit: "1mb" });
+const formGross = express.urlencoded({ limit: "10mb", extended: true });
+const formKlein = express.urlencoded({ limit: "1mb", extended: true });
+app.use((req, res, next) => {
+  // Nur Twitch-Sitzungen: Gastkonten kann jeder anlegen, sie bekommen die Grenze für Anonyme (Spielstände ≤ 64 KB)
+  const angemeldet = Boolean(sessionStore.get(req.cookies.session)?.twitchId);
+  (angemeldet ? jsonGross : jsonKlein)(req, res, (err) => {
+    if (err) return next(err);
+    (angemeldet ? formGross : formKlein)(req, res, next);
+  });
+});
 
 app.use(
   cors({
@@ -123,25 +156,48 @@ app.use(
 
 // =================== CONFIG & HELPER & SESSIONS ===================
 const SESSION_LIFETIME_MS = 30 * 24 * 60 * 60 * 1000;
-const SESSIONS_PATH = path.join(__dirname, "sessions.json");
 const STREAMER_TWITCH_ID = process.env.STREAMER_TWITCH_ID;
 
-function loadSessionsFromFile() {
+// Sitzungen liegen seit 16.11.2026 in data/sessions.db (lib/sessionStore.js, Begründung dort). Die alte
+// Backend/sessions.json wird beim ersten Start einmal übernommen — samt der Discord-Verknüpfungen, die früher in den
+// Sitzungen hingen (discord/linkStore.js migrateFromSessions). Die Datei selbst bleibt liegen.
+const sessionStore = createSessionStore({ lebensdauerMs: SESSION_LIFETIME_MS });
+{
+  const umzug = sessionStore.importiereJson(path.join(__dirname, "sessions.json"), {
+    beiAltdaten: (alt) => {
+      const links = require("./discord/linkStore");
+      const mitDiscord = new Set(Object.values(alt || {}).filter((s) => s && s.discord && s.twitchId).map((s) => String(s.twitchId)));
+      for (const id of mitDiscord) {
+        try {
+          links.migrateFromSessions(id, alt);
+        } catch (e) {
+          console.error("[sessions] Discord-Verknüpfung nicht übernommen:", e.message);
+        }
+      }
+    },
+  });
+  if (umzug.importiert) console.log(`[sessions] ${umzug.importiert} Sitzungen aus sessions.json übernommen`);
+  if (umzug.fehler) console.error("[sessions] sessions.json nicht lesbar — Übernahme beim nächsten Start erneut:", umzug.fehler);
+}
+// Konten (konto/): ein Konto je Person für alle Anmeldewege — Twitch, Discord oder Gast mit Wiederherstellungscode.
+// Die Twitch-Bereiche bleiben bei req.twitchId; neue Dinge (Spielstände, Abzeichen, Sprache) hängen an req.kontoId.
+const kontoStore = createKontoStore();
+setInterval(() => {
   try {
-    if (!fs.existsSync(SESSIONS_PATH)) return {};
-    const raw = fs.readFileSync(SESSIONS_PATH, "utf8");
-    if (!raw.trim()) return {};
-    return JSON.parse(raw);
-  } catch (e) { console.error(e); return {}; }
-}
-// Atomar (tmp + rename), damit ein Absturz mitten im Schreiben nicht alle ausloggt. Das Laden oben
-// bleibt bewusst bei "kaputt → {}": eine Schreibsperre wie in lib/jsonFile.readJson würde hier
-// jeden neuen Login verhindern.
-function saveSessionsToFile(sessions) {
-  writeJsonAtomic(SESSIONS_PATH, sessions);
-}
+    sessionStore.purge();
+    kontoStore.raeumeAuf(); // aktive Tage älter als 120 Tage (Wiederkehr-Zahl)
+  } catch (e) {
+    console.error("[sessions] Aufräumen fehlgeschlagen:", e.message);
+  }
+}, 60 * 60 * 1000).unref();
 
-let sessions = loadSessionsFromFile();
+// Fehlerprotokoll (fehler/): Browser melden über POST /api/fehler, der Server über meldeServer (Prozess, Socket-Ereignisse,
+// Anfragen mit 5xx). Admin-Reiter „Fehler“; neue Fehlerbilder gehen an BETREIBER_WEBHOOK_URL (privater Kanal).
+const fehlerProtokoll = createFehlerProtokoll();
+// Leistung echter Besucher (leistung/): Ladezeiten, Reaktion, Layout-Sprünge, Bildrate in Spielen — Admin-Reiter „Leistung“
+const leistungsMessung = createLeistungsMessung();
+// Betreiber-Prüfung für die eigenen Admin-Bereiche (Fehlerprotokoll, Leistung)
+const istBetreiber = (req) => !!STREAMER_TWITCH_ID && String(req.twitchId) === String(STREAMER_TWITCH_ID);
 
 async function verifyTwitchToken(token) {
   try {
@@ -153,74 +209,34 @@ async function verifyTwitchToken(token) {
   } catch (e) { return null; }
 }
 
-function createSession(twitchId, twitchLogin) {
-  const now = Date.now();
-  for (const [id, sess] of Object.entries(sessions)) {
-    if (!sess || sess.expiresAt < now) delete sessions[id];
+// Sitzung lesen samt Konto und die Anmelde-Middlewares (konto/sitzung.js, Beschreibung dort):
+// requireAuth = Twitch nötig (wie bisher), optionalAuth, requireKonto/optionalKonto = jedes Konto (Twitch, Discord, Gast).
+// Sitzungen von vor den Konten bekommen ihr Konto beim ersten Gebrauch; jeder Gebrauch merkt den aktiven Tag (außer Betreiber).
+const {
+  sitzungLesen, setzeSitzungsCookie, loescheSitzungsCookie,
+  requireAuth, optionalAuth, requireKonto, optionalKonto,
+  getTwitchIdFromSocket, getSessionFromSocket, getKontoFromSocket, // eslint-disable-line no-unused-vars
+} = createSitzungsHelfer({
+  sessionStore,
+  kontoStore,
+  betreiberTwitchId: STREAMER_TWITCH_ID,
+  lebensdauerMs: SESSION_LIFETIME_MS,
+  secureCookie: process.env.NODE_ENV === "production",
+});
+
+/** Name und Bild zur Twitch-Anmeldung (Helix), für das Konto. Darf scheitern — dann eben der Login-Name. */
+async function twitchProfil(token) {
+  try {
+    const r = await fetch("https://api.twitch.tv/helix/users", {
+      headers: { "Client-ID": process.env.TWITCH_CLIENT_ID, Authorization: `Bearer ${token}` },
+      signal: AbortSignal.timeout(4000),
+    });
+    if (!r.ok) return null;
+    const u = (await r.json())?.data?.[0];
+    return u ? { name: u.display_name || u.login, avatar: u.profile_image_url || null } : null;
+  } catch {
+    return null;
   }
-  const sessionId = nanoid(24);
-  const expiresAt = Date.now() + SESSION_LIFETIME_MS;
-  sessions[sessionId] = { twitchId: String(twitchId), twitchLogin: String(twitchLogin), expiresAt };
-  saveSessionsToFile(sessions);
-  return sessionId;
-}
-
-// Liest die Twitch-ID direkt aus dem Session-Cookie des Socket.io-Handshakes
-// (Sockets laufen nicht durch die Express-Middlewarekette, daher hier separat geparst).
-function parseCookieHeader(header) {
-  const out = {};
-  if (!header) return out;
-  header.split(";").forEach((pair) => {
-    const idx = pair.indexOf("=");
-    if (idx === -1) return;
-    out[pair.slice(0, idx).trim()] = decodeURIComponent(pair.slice(idx + 1).trim());
-  });
-  return out;
-}
-
-function getTwitchIdFromSocket(socket) {
-  const cookies = parseCookieHeader(socket.handshake.headers.cookie);
-  const sessionId = cookies.session;
-  if (!sessionId) return null;
-  const session = sessions[sessionId];
-  if (!session || session.expiresAt < Date.now()) return null;
-  return session.twitchId;
-}
-
-// Wie getTwitchIdFromSocket, liefert aber die volle Session (inkl. Login-Name)
-function getSessionFromSocket(socket) {
-  const cookies = parseCookieHeader(socket.handshake.headers.cookie);
-  const sessionId = cookies.session;
-  if (!sessionId) return null;
-  const session = sessions[sessionId];
-  if (!session || session.expiresAt < Date.now()) return null;
-  return { twitchId: session.twitchId, twitchLogin: session.twitchLogin };
-}
-
-function requireAuth(req, res, next) {
-  const sessionId = req.cookies.session;
-  if (!sessionId) return res.status(401).json({ error: "Nicht eingeloggt" });
-  const session = sessions[sessionId];
-  if (!session) return res.status(401).json({ error: "Session ungültig" });
-  if (session.expiresAt < Date.now()) {
-    delete sessions[sessionId];
-    saveSessionsToFile(sessions);
-    return res.status(401).json({ error: "Session abgelaufen" });
-  }
-  req.twitchId = session.twitchId;
-  req.twitchLogin = session.twitchLogin;
-  next();
-}
-
-// Wie requireAuth, lässt aber Gäste durch: Ist eine gültige Session da, sind twitchId/twitchLogin gesetzt, sonst bleiben sie leer.
-// Für Wege, die ohne Login funktionieren, aber mit Login mehr können (Seed Runners: Level-Browser, Läufe auf Leveln).
-function optionalAuth(req, res, next) {
-  const session = sessions[req.cookies.session];
-  if (session && session.expiresAt >= Date.now()) {
-    req.twitchId = session.twitchId;
-    req.twitchLogin = session.twitchLogin;
-  }
-  next();
 }
 
 // =================== AUTH ROUTES ===================
@@ -236,7 +252,9 @@ app.get("/api/health", (req, res) => {
   res.json({ ok: true, uptimeS: Math.round(process.uptime()), bot: { ready: discordClient.isReady() } });
 });
 
-app.post("/api/auth/twitch", async (req, res) => {
+// Jeder Versuch fragt Twitch (oauth2/validate) — ohne Grenze ließe sich der Server als Verstärker gegen Twitch nutzen
+const loginBremse = bremseMiddleware({ fensterMs: 15 * 60_000, max: 30, meldung: "Zu viele Anmeldeversuche. Bitte in ein paar Minuten erneut." });
+app.post("/api/auth/twitch", loginBremse, async (req, res) => {
   const { token } = req.body;
   if (!token) return res.status(400).json({ error: "Kein Token" });
   const data = await verifyTwitchToken(token);
@@ -246,26 +264,46 @@ app.post("/api/auth/twitch", async (req, res) => {
   if (!process.env.TWITCH_CLIENT_ID || data.client_id !== process.env.TWITCH_CLIENT_ID) {
     return res.status(401).json({ error: "Ungültiger Token" });
   }
-  const sessionId = createSession(data.user_id, data.login);
-  // secure: true bricht Session-Cookies auf http://localhost (ohne TLS)
-  const secureCookie = process.env.NODE_ENV === "production";
-  res.cookie("session", sessionId, {
-    httpOnly: true,
-    secure: secureCookie,
-    sameSite: secureCookie ? "strict" : "lax",
-    maxAge: SESSION_LIFETIME_MS,
-  });
-  res.json({ ok: true });
+  // Konto (konto/): Wer schon angemeldet ist (Gast, Discord), verknüpft Twitch mit seinem Konto — gehört dieses Twitch
+  // schon zu einem anderen Konto, werden beide zusammengeführt. Geht das nicht (Konto hat schon ein anderes Twitch,
+  // beide hätten Discord), wechselt die Anmeldung einfach ins Konto dieses Twitch-Nutzers.
+  const profil = (await twitchProfil(token)) || { name: data.login };
+  const vorher = sitzungLesen(req.cookies.session);
+  let kontoId = null;
+  const konto = { status: "angemeldet" };
+  try {
+    if (vorher?.kontoId && String(vorher.twitchId || "") !== String(data.user_id)) {
+      const r = kontoStore.verknuepfe(vorher.kontoId, "twitch", data.user_id, profil);
+      if (r.ok) {
+        kontoId = r.kontoId;
+        if (r.entfernt) sessionStore.ersetzeKonto(r.entfernt, r.kontoId);
+        konto.status = r.entfernt ? "zusammengefuehrt" : "verknuepft";
+      } else if (!vorher.twitchId) {
+        // Discord- oder Gastkonto, das sich nicht verbinden ließ — dem Browser sagen, warum
+        Object.assign(konto, { status: "fehler", grund: r.fehler });
+      }
+    }
+    if (!kontoId) kontoId = kontoStore.anmelden("twitch", data.user_id, profil).kontoId;
+    if (!(STREAMER_TWITCH_ID && String(data.user_id) === String(STREAMER_TWITCH_ID))) kontoStore.merkeAktiv(kontoId);
+  } catch (e) {
+    console.error("[konto] Twitch-Anmeldung ohne Konto:", e.message);
+  }
+  sessionStore.remove(req.cookies.session);
+  setzeSitzungsCookie(res, sessionStore.create({ twitchId: data.user_id, twitchLogin: data.login, kontoId }));
+  res.json({ ok: true, konto });
 });
 
 app.post("/api/auth/logout", (req, res) => {
-  const sessionId = req.cookies.session;
-  if (sessionId && sessions[sessionId]) { delete sessions[sessionId]; saveSessionsToFile(sessions); }
-  res.clearCookie("session");
+  sessionStore.remove(req.cookies.session);
+  loescheSitzungsCookie(res);
   res.json({ ok: true });
 });
 
 app.get("/api/auth/me", requireAuth, (req, res) => res.json({ twitchId: req.twitchId, twitchLogin: req.twitchLogin }));
+
+// Ein Konto für alle Anmeldewege (konto/kontoRoutes.js): Konto ansehen und verwalten, Discord-Anmeldung, Gast mit
+// Wiederherstellungscode, Spielstände und Abzeichen der Spiele (Andockstelle im Browser: utils/kontoSpeicher.js)
+app.use("/api/konto", createKontoRouter({ kontoStore, sessionStore, requireKonto, optionalKonto, setzeSitzungsCookie, loescheSitzungsCookie }));
 
 
 // =================== SYSTEM BROADCAST ===================
@@ -320,8 +358,39 @@ app.post('/api/admin/broadcast', requireAuth, (req, res) => {
 
 // =================== FEATURE ROUTES ===================
 
+// Admin-Reiter „Spiele“: Partien landen als Tagessumme in der Besucherstatistik. Live-Zahlen melden die Spiele selbst
+// an (lib/spielStatistik.js); hier stehen nur die, deren Stand schon von außen lesbar ist — die übrigen schließen ihre
+// Spuren an (Ausbauplan, Anschlüsse spiele-zahlen-d / spiele-zahlen-b).
+verbindePartienSpeicher((spiel) => analyticsStore.recordMatch(spiel));
+meldeSpielAn("seed-runners", seedRunnersStats);
+meldeSpielAn("garden", () => {
+  const welten = weltUebersicht();
+  return { raeume: welten.length, spieler: welten.reduce((s, w) => s + w.playerCount, 0) };
+});
+meldeSpielAn("cr-minigames", () => {
+  const lobbys = crLobbiesFuerAdmin();
+  return { raeume: lobbys.length, spieler: lobbys.reduce((s, l) => s + l.playerCount, 0) };
+});
+meldeSpielAn("cr-wer-bin-ich", () => {
+  let spieler = 0;
+  for (const raum of guessWhoRooms.values()) for (const slot of [1, 2]) if (raum.players?.[slot]?.connected) spieler++;
+  return { raeume: guessWhoRooms.size, spieler };
+});
+// Blobby läuft im eigenen Prozess: seine Räume und Partien holt eine Brücke über /healthz ab (Spur D)
+require("./blobby/statistikBruecke").starteBlobbyStatistik();
+
+// Wiederkehr neuer Konten (nur angemeldete, pseudonym über die Konto-ID; aktive Tage 120 Tage) und Anmeldewege.
+// Das Konto des Betreibers zählt nicht mit.
+function kontoStatistik(days) {
+  const span = Math.min(Math.max(Math.floor(Number(days)) || 30, 1), 365);
+  const heute = kontoTagVon(Date.now());
+  const von = kontoTagPlus(heute, -(span - 1));
+  const ohne = [STREAMER_TWITCH_ID ? kontoStore.kontoVonLink("twitch", STREAMER_TWITCH_ID) : null];
+  return { von, bis: heute, zahlen: kontoStore.zahlen(), wiederkehr: kontoStore.wiederkehr({ von, bis: heute, heute, ohne }) };
+}
+
 // Jetzt existiert 'io' bereits und kann sicher übergeben werden!
-app.use("/api/admin", createAdminRouter({ requireAuth, STREAMER_TWITCH_ID, io }));
+app.use("/api/admin", createAdminRouter({ requireAuth, STREAMER_TWITCH_ID, io, liveZahlen, discordClient, kontoStatistik }));
 
 // Andere Routen
 app.use("/api/bingo", createBingoRouter({ requireAuth }));
@@ -329,15 +398,22 @@ app.use("/", createGiveawayRouter({ requireAuth, STREAMER_TWITCH_ID, io }));
 app.use("/api/winchallenge", createWinchallengeRouter({ requireAuth }));
 app.use("/api/polls", createPollRouter({ requireAuth, STREAMER_TWITCH_ID, io }));
 app.use("/api/adventure", createAdventureRouter({ requireAuth, optionalAuth }));
-app.use("/api/feedback", createFeedbackRouter());
+// Feedback geht ohne Login direkt in einen Discord-Kanal — ohne Grenze ließe er sich fluten
+app.use("/api/feedback", bremseMiddleware({ fensterMs: 10 * 60_000, max: 5, meldung: "Zu viele Nachrichten. Bitte etwas später erneut." }), createFeedbackRouter());
 app.use("/api/garden", createGardenGameRouter({ requireAuth }));
-app.use("/api/discord", createDiscordRouter({requireAuth, discordClient, sessions, saveSessionsToFile }));
+// sessions/saveSessionsToFile sind nur noch für die alte Discord-Übernahme da (migrateFromSessions): die lief beim
+// Sitzungs-Umzug oben schon für alle — hier gibt es nichts mehr zu übernehmen.
+app.use("/api/discord", createDiscordRouter({ requireAuth, discordClient, sessions: Object.create(null), saveSessionsToFile: () => {} }));
 // Streamer-Konfiguration VOR dem allgemeinen Clash-Router mounten (spezifischerer Pfad)
 app.use("/api/clash/streamer", createCrStreamerRouter({ requireAuth }));
 app.use("/api/clash/profile", createCrProfileRouter({ requireAuth }));
 // Freundesliste der Minigames (Aktionen; Live-Stand läuft über den Socket, clashRoyale/core/friends.js)
 app.use("/api/clash/friends", createCrFriendRouter({ requireAuth }));
 app.use("/api/clash/presets", createCrPresetRouter({ requireAuth }));
+// Stats-Seiten unter /clash (Spieler, Clans, Ranglisten, Meta) — öffentlich, clashRoyale/scout/
+app.use("/api/clash/scout", createScoutRouter({ requireAuth, optionalAuth }));
+// Tagesrunde der CR-Ratespiele: Bestenliste (clashRoyale/daily/, Frontend /clash/heute)
+app.use("/api/clash/heute", require("./clashRoyale/daily/dailyRoutes").createDailyRouter({ requireAuth, optionalAuth }));
 // Turniere der CR-Minigames (Plan: docs/clash-royale/PLANUNG_TURNIER.md)
 app.use("/api/clash/tournaments", createTournamentRouter({
   requireAuth, optionalAuth,
@@ -365,6 +441,8 @@ app.use("/api/chat-avatars", createChatAvatarRouter());
 app.use("/api/stream-scenes", createStreamScenesRouter({ requireAuth, STREAMER_TWITCH_ID }));
 // Besucherstatistik ohne Cookies (analytics/analyticsStore.js); die Auswertung liegt unter /api/admin/analytics
 app.use("/api/analytics", createAnalyticsRouter({ optionalAuth, STREAMER_TWITCH_ID }));
+app.use("/api/fehler", fehlerProtokoll.router({ requireAuth, istBetreiber }));
+app.use("/api/leistung", leistungsMessung.router({ optionalAuth, requireAuth, istBetreiber }));
 // Seed Runners: Tagesrangliste, ohne Login (Identität = Schlüssel aus dem Browser-Token), siehe seedRunners/daily.js
 try {
   app.use("/api/seed-runners", createSeedRunnersRouter({
@@ -380,6 +458,8 @@ try {
 // Link-Vorschau für Discord, WhatsApp & Co. (og/ogRoutes.js): nginx schickt nur Vorschau-Bots hierher.
 // Die Quellen werden erst bei der Anfrage geholt — fehlt eine, bleibt es bei der Standard-Vorschau.
 const OG_GUEST = { accountId: null, name: "", isAdmin: false };
+// Vorschaubilder werden gezeichnet (Rechenzeit) und nur je Pfad zwischengespeichert — neue Pfade erzwingen neue Bilder
+app.use("/api/og/image.png", bremseMiddleware({ fensterMs: 60_000, max: 60 }));
 app.use("/api/og", createOgRouter({
   getSources: () => {
     const tStore = require("./clashRoyale/tournament/store");
@@ -397,6 +477,9 @@ app.use("/api/og", createOgRouter({
       creator: (id) => sr.levelService.creator(id, OG_GUEST),
       dailyBoard: (dateKey) => sr.daily.board(dateKey, 3),
       todayKey: () => sr.todayKey(),
+      // Clash-Royale-Stats: Name aus dem Namens-Index (clashRoyale/scout/scoutStore.js), Karte aus der Kartenliste
+      scoutPlayer: (tag) => require("./clashRoyale/scout/scoutStore").getPlayer(tag),
+      card: (id) => require("./clashRoyale/core/cards").ALL_CARDS.find((c) => c.id === id) || null,
       // Öffentliches Profil: nur eingeschaltete (byLogin liefert sonst null)
       profile: (login) => {
         const entry = publicProfileStore.byLogin(login);
@@ -410,6 +493,17 @@ app.use("/api/og", createOgRouter({
 // oder null; Fehler einer Quelle kosten nur ihren Abschnitt.
 const publicProfileStore = createProfileStore();
 const publicProfileSources = {
+  // Konto (konto/): Website-Stufe, Abzeichen, Spiele mit Fortschritt — nur das, nie Konto-ID, Discord oder Code
+  konto: (id) => {
+    const kontoId = kontoStore.kontoVonLink("twitch", id);
+    const k = kontoId ? kontoFuerBrowser(kontoStore.ansicht(kontoId)) : null;
+    if (!k || (!k.spiele.length && !k.erfolge.length)) return null;
+    return {
+      stufe: k.stufe,
+      spiele: k.spiele.map(({ spiel, name, xp }) => ({ spiel, name, xp })),
+      erfolge: k.erfolge.map(({ spiel, erfolg, name, text, erreicht }) => ({ spiel, erfolg, name, text, erreicht })),
+    };
+  },
   winTracker: (id) => {
     const wt = require("./clashRoyale/lib/winTrackerStore");
     const acc = wt.prepare("SELECT * FROM cr_wintracker_accounts WHERE user_id = ? ORDER BY is_active DESC, last_fetched DESC LIMIT 1").get(String(id));
@@ -479,8 +573,35 @@ app.use("/api/activity", createActivityRouter({
   },
 }));
 
+// Fehler beim Einlesen einer Anfrage (zu groß, kaputtes JSON): kurze JSON-Antwort statt Express-Fehlerseite mit
+// Stacktrace im Log — unter einer Flut würde sonst jede abgewiesene Anfrage das Journal füllen. Echte Serverfehler (5xx)
+// gehen zusätzlich ins Fehlerprotokoll und laufen dann unverändert zur Express-Standardbehandlung.
+const LESEFEHLER = new Set(["entity.too.large", "entity.parse.failed", "encoding.unsupported", "charset.unsupported"]);
+app.use((err, req, res, next) => {
+  if (!err) return next(err);
+  if (LESEFEHLER.has(err.type) && !res.headersSent) {
+    return res.status(err.status || 400).json({ error: err.type === "entity.too.large" ? "Anfrage zu groß." : "Anfrage nicht lesbar." });
+  }
+  if (!(Number(err.status || err.statusCode) < 500)) {
+    fehlerProtokoll.meldeServer("http", err, `${req.method} ${fehlerSeiteVon(req.originalUrl)}`);
+  }
+  next(err);
+});
+
 // =================== SOCKET.IO LOGIC ===================
-io.on("connection", (socket) => {
+// Jeder Handler der Spiel-Module läuft im Schutzmantel (lib/socketSchutz.js): Ein Fehler in einem Ereignis beendet nicht
+// mehr den ganzen Prozess. Scheitert schon der Aufbau einer Verbindung, wird nur diese eine getrennt.
+const sicherVerbinden = (aufbau) => (socket) => {
+    schuetzeSocket(socket, { bericht: (ereignis, e) => fehlerProtokoll.meldeServer("socket", e, String(ereignis)) });
+    try {
+        aufbau(socket);
+    } catch (e) {
+        console.error("[socket] Verbindungsaufbau fehlgeschlagen:", e);
+        fehlerProtokoll.meldeServer("socket", e, "Verbindungsaufbau");
+        socket.disconnect(true);
+    }
+};
+io.on("connection", sicherVerbinden((socket) => {
  
     // ── bestehende Handler (unverändert) ──
     const clashSocketTwitchId = getTwitchIdFromSocket(socket);
@@ -527,7 +648,7 @@ io.on("connection", (socket) => {
     // Abstimmungen/Giveaways: Vollpayload nur für die jeweilige Seite, sonst
     // nur der schlanke Nav-Punkt (siehe lib/liveBadges.js)
     registerLiveBadgesSocket(socket);
-});
+}));
 
 // =================== START SERVER ===================
 const PORT = process.env.PORT || 3001;
@@ -589,7 +710,10 @@ const PORT = process.env.PORT || 3001;
     }
     process.exit(1);
   });
-  server.listen(PORT, "0.0.0.0", () => step("Server", true, `Port ${PORT}`));
+  server.listen(PORT, "0.0.0.0", () => {
+    step("Server", true, `Port ${PORT}`);
+    installiereProzessFehler();
+  });
 
   try {
     const irc = await initWinchallengeIrc();
@@ -611,6 +735,30 @@ const PORT = process.env.PORT || 3001;
     step("Win-Tracker-Sync", false, e.message);
   }
 })();
+
+// Unerwartete Fehler außerhalb von Anfragen und Socket-Ereignissen (Timer, Hintergrund-Abgleiche): Nutzerentscheidung
+// 16.11.2026 — loggen und ins Fehlerprotokoll schreiben, statt den ganzen Prozess (Discord-Bot, Twitch-Chat, Spiele) zu
+// beenden. Erst nach dem erfolgreichen Start aktiv (server.listen oben): Fehler beim Hochfahren scheitern weiter laut.
+// Notbremse: mehr als 20 davon in 5 Minuten heißt vermutlich kaputter Zustand — dann speichern und beenden, systemd
+// startet neu.
+function installiereProzessFehler() {
+  const zeiten = [];
+  const behandle = (art) => (fehler) => {
+    console.error(`[prozess] ${art}:`, fehler && fehler.stack ? fehler.stack : fehler);
+    fehlerProtokoll.meldeServer(art, fehler);
+    const t = Date.now();
+    zeiten.push(t);
+    while (zeiten.length && t - zeiten[0] > 5 * 60 * 1000) zeiten.shift();
+    if (zeiten.length > 20) {
+      console.error("[prozess] über 20 unerwartete Fehler in 5 Minuten — speichere und starte neu");
+      shutdownWinchallenge();
+      shutdownGardenFarms();
+      process.exit(1);
+    }
+  };
+  process.on("uncaughtException", behandle("uncaughtException"));
+  process.on("unhandledRejection", behandle("unhandledRejection"));
+}
 
 function shutdownGardenFarms() {
   try {

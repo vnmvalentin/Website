@@ -7,6 +7,7 @@
 // überhaupt eine Schrift installiert ist — ohne käme ein Bild ohne Text heraus.
 const path = require('path');
 const { createCanvas, loadImage, GlobalFonts } = require('@napi-rs/canvas');
+const { botTextFor } = require('./botTexts');
 
 const FONT_DIR = path.join(__dirname, '../assets/fonts');
 // Lateinisch und Lateinisch-erweitert sind getrennte Dateien; beide stehen in
@@ -25,17 +26,14 @@ for (const [file, family] of [
 const BOLD = 'CardBold, CardBoldExt, sans-serif';
 const TEXT = 'CardText, CardTextExt, sans-serif';
 
+// Farben und Zahlenform je Art; die Wörter kommen in der Sprache des Servers aus botTexts.js (image)
 const KINDS = {
-    welcome: {
-        accent: '#5865f2', poster: '#4752c4', kicker: 'WILLKOMMEN', hello: 'HALLO',
-        line: (server) => `auf ${server}`, count: (n) => `Mitglied #${n}`,
-        badgeNumber: (n) => `#${n}`, badgeLabel: 'MITGLIED',
-    },
-    leave: {
-        accent: '#8a93a0', poster: '#3b4049', kicker: 'AUF WIEDERSEHEN', hello: 'TSCHÜSS',
-        line: (server) => `hat ${server} verlassen`, count: (n) => `Noch ${n} Mitglieder`,
-        badgeNumber: (n) => String(n), badgeLabel: 'NOCH ÜBRIG',
-    },
+    welcome: { accent: '#5865f2', poster: '#4752c4', badgeNumber: (n) => `#${n}` },
+    leave: { accent: '#8a93a0', poster: '#3b4049', badgeNumber: (n) => String(n) },
+};
+const lookOf = (kind, lang) => {
+    const k = kind === 'leave' ? 'leave' : 'welcome';
+    return { ...KINDS[k], ...botTextFor(lang).image[k] };
 };
 
 /** Layouts in der Reihenfolge, in der das Dashboard sie anbietet. */
@@ -327,25 +325,27 @@ const SIZE = { center: [1000, 420] };
  * @param {string} [p.avatarUrl]  PNG/JPG/WebP — GIFs kann die Bibliothek nicht
  * @param {'welcome'|'leave'} p.kind
  * @param {string} [p.layout]     eines aus IMAGE_LAYOUTS
+ * @param {string} [p.lang]       Sprache des Bots auf dem Server ('de' | 'en')
  * @returns {Promise<Buffer>} PNG
  */
-async function renderMemberImage({ name, serverName, memberCount, avatarUrl, kind, layout }) {
+async function renderMemberImage({ name, serverName, memberCount, avatarUrl, kind, layout, lang }) {
     const id = imageLayout(layout);
     const [w, h] = SIZE[id] || [1000, 320];
     const canvas = createCanvas(w, h);
     const ctx = canvas.getContext('2d');
+    const t = botTextFor(lang);
     DRAW[id](ctx, {
-        look: KINDS[kind] || KINDS.welcome,
-        name: String(name || 'Unbekannt'),
-        serverName: serverName || 'dem Server',
+        look: lookOf(kind, lang),
+        name: String(name || t.unknown),
+        serverName: serverName || t.image.theServer,
         memberCount: Number(memberCount) || 0,
         avatar: await loadAvatar(avatarUrl),
     });
     return canvas.toBuffer('image/png');
 }
 
-/** Bild für ein echtes Mitglied, fertig als Discord-Anhang. */
-async function memberImageFile(member, kind, layout) {
+/** Bild für ein echtes Mitglied, fertig als Discord-Anhang. lang: Sprache des Bots auf dem Server. */
+async function memberImageFile(member, kind, layout, lang) {
     const url = typeof member.displayAvatarURL === 'function'
         ? member.displayAvatarURL({ extension: 'png', size: 256, forceStatic: true })
         : member.user?.displayAvatarURL?.({ extension: 'png', size: 256, forceStatic: true });
@@ -356,8 +356,10 @@ async function memberImageFile(member, kind, layout) {
         avatarUrl: url,
         kind,
         layout,
+        lang,
     });
-    return { attachment: buffer, name: kind === 'leave' ? 'abschied.png' : 'willkommen.png' };
+    const t = botTextFor(lang);
+    return { attachment: buffer, name: kind === 'leave' ? t.image.fileLeave : t.image.fileWelcome };
 }
 
 module.exports = { renderMemberImage, memberImageFile, IMAGE_LAYOUTS, imageLayout };

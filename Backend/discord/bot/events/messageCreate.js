@@ -5,6 +5,7 @@ const {
     getAllEnabledSyncChannels,
     incrementMessageStat, incrementUserMessageStat
 } = require('../../database/db');
+const { botText } = require('../botText');
 const { handlePP } = require('../commands/pp');
 const { handleMiesmuschel } = require('../commands/magische_miesmuschel');
 const { handleShip } = require('../commands/ship');
@@ -130,7 +131,7 @@ module.exports = {
                 if (!messageHasImage(message)) {
                     await message.delete().catch(() => {});
                     const warn = await message.channel.send(
-                        `❌ <@${message.author.id}> Dieser Kanal ist nur für Bilder! Nachrichten ohne Bild werden automatisch gelöscht.`
+                        botText(guildId).imageOnly.warning(message.author.id)
                     ).catch(() => null);
                     if (warn) setTimeout(() => warn.delete().catch(() => {}), 5000);
                     return;
@@ -220,7 +221,7 @@ module.exports = {
 
         // Fun-Channel-Check
         if (settings.funChannel && message.channelId !== settings.funChannel) {
-            const reply = await message.reply(`❌ Diese Commands sind nur in <#${settings.funChannel}> erlaubt!`).catch(() => null);
+            const reply = await message.reply(botText(guildId).commands.onlyIn(settings.funChannel)).catch(() => null);
             if (reply) setTimeout(() => reply.delete().catch(() => {}), 5000);
             return;
         }

@@ -33,56 +33,60 @@ import SyncChatTab from './tabs/SyncChatTab';
 import LiveRoleTab from './tabs/LiveRoleTab';
 import TicketsTab from './tabs/TicketsTab';
 import LoyaltyTab from './tabs/LoyaltyTab';
+import { serverErrorText, useDiscordText } from './discordI18n.js';
 
+// Die Rechtstexte des Bots gibt es nur auf Deutsch — die englische Fassung sagt das am Link dazu.
 function LegalLinks({ className = '' }) {
+    const t = useDiscordText();
     return (
         <div className={`flex items-center gap-2.5 ${className}`}>
-            <Link to="/discord-bot/privacy" className="text-white/30 hover:text-white/60 text-xs transition-colors">Datenschutz</Link>
+            <Link to="/discord-bot/privacy" className="text-white/30 hover:text-white/60 text-xs transition-colors">{t.shell.privacy}</Link>
             <span className="text-white/15 text-xs">·</span>
-            <Link to="/discord-bot/terms" className="text-white/30 hover:text-white/60 text-xs transition-colors">Nutzungsbedingungen</Link>
+            <Link to="/discord-bot/terms" className="text-white/30 hover:text-white/60 text-xs transition-colors">{t.shell.terms}</Link>
         </div>
     );
 }
 
+// Beschriftungen stehen in discordI18n.js (shell.groups / shell.tabs)
 const GROUPS = [
     {
-        label: 'Server',
+        id: 'server',
         tabs: [
-            { id: 'general',      label: 'Allgemein',      icon: <Settings size={15} /> },
-            { id: 'stats',        label: 'Statistiken',    icon: <BarChart2 size={15} /> },
+            { id: 'general',      icon: <Settings size={15} /> },
+            { id: 'stats',        icon: <BarChart2 size={15} /> },
         ],
     },
     {
-        label: 'Mitglieder',
+        id: 'members',
         tabs: [
-            { id: 'welcome',      label: 'Eintritt',       icon: <UserPlus size={15} /> },
-            { id: 'leave',        label: 'Austritt',       icon: <LogOut size={15} /> },
+            { id: 'welcome',      icon: <UserPlus size={15} /> },
+            { id: 'leave',        icon: <LogOut size={15} /> },
         ],
     },
     {
-        label: 'Rollen',
+        id: 'roles',
         tabs: [
-            { id: 'reactionroles',label: 'Rollen-Buttons', icon: <Tag size={15} /> },
-            { id: 'approval',     label: 'Genehmigung',    icon: <CheckSquare size={15} /> },
-            { id: 'autoroles',    label: 'Auto Roles',     icon: <Users size={15} /> },
-            { id: 'liverole',     label: 'Live Rolle',     icon: <Radio size={15} /> },
+            { id: 'reactionroles',icon: <Tag size={15} /> },
+            { id: 'approval',     icon: <CheckSquare size={15} /> },
+            { id: 'autoroles',    icon: <Users size={15} /> },
+            { id: 'liverole',     icon: <Radio size={15} /> },
         ],
     },
     {
-        label: 'Kanäle',
+        id: 'channels',
         tabs: [
-            { id: 'voice',        label: 'Voice Channels', icon: <Volume2 size={15} /> },
-            { id: 'imageonly',    label: 'Image Only',     icon: <Image size={15} /> },
-            { id: 'syncchat',     label: 'Taverne',        icon: <Globe size={15} /> },
+            { id: 'voice',        icon: <Volume2 size={15} /> },
+            { id: 'imageonly',    icon: <Image size={15} /> },
+            { id: 'syncchat',     icon: <Globe size={15} /> },
         ],
     },
     {
-        label: 'Features',
+        id: 'features',
         tabs: [
-            { id: 'funcommands',  label: 'Fun Commands',   icon: <Gamepad2 size={15} /> },
-            { id: 'loyalty',      label: 'Punkte',         icon: <Coins size={15} /> },
-            { id: 'twitchnotif',  label: 'Twitch Notif.',  icon: <Tv size={15} /> },
-            { id: 'tickets',      label: 'Tickets',        icon: <Ticket size={15} /> },
+            { id: 'funcommands',  icon: <Gamepad2 size={15} /> },
+            { id: 'loyalty',      icon: <Coins size={15} /> },
+            { id: 'twitchnotif',  icon: <Tv size={15} /> },
+            { id: 'tickets',      icon: <Ticket size={15} /> },
         ],
     },
 ];
@@ -91,6 +95,7 @@ const ALL_TABS = GROUPS.flatMap(g => g.tabs);
 
 export default function DiscordBotDashboard() {
     const { user } = useContext(TwitchAuthContext);
+    const t = useDiscordText();
 
     const [isDiscordLoggedIn, setIsDiscordLoggedIn] = useState(false);
     const [servers, setServers] = useState([]);
@@ -111,10 +116,13 @@ export default function DiscordBotDashboard() {
     // Shared settings state (saved via handleSaveSettings)
     const [prefix, setPrefix] = useState('!');
     const [botNickname, setBotNickname] = useState('');
+    // Sprache, in der der Bot auf dem Server schreibt — unabhängig von der Sprache des Dashboards
+    const [botLanguage, setBotLanguage] = useState('de');
     const [welcomeChannel, setWelcomeChannel] = useState('');
-    const [welcomeMessage, setWelcomeMessage] = useState('Willkommen [USER] auf [SERVER]! Du bist unser Mitglied #[MEMBER]');
+    // Vorbelegung, solange der Server noch keine eigene Nachricht hat — in der Sprache des Dashboards
+    const [welcomeMessage, setWelcomeMessage] = useState(t.welcome.defaultMessage);
     const [leaveChannel, setLeaveChannel] = useState('');
-    const [leaveMessage, setLeaveMessage] = useState('Schade, [USER] hat [SERVER] verlassen. Noch [MEMBER] Mitglieder übrig.');
+    const [leaveMessage, setLeaveMessage] = useState(t.leave.defaultMessage);
     const [funChannel, setFunChannel] = useState('');
     const [welcomeStyle, setWelcomeStyle] = useState('text');
     const [leaveStyle, setLeaveStyle] = useState('text');
@@ -134,7 +142,7 @@ export default function DiscordBotDashboard() {
     const [overview, setOverview] = useState({});
 
     const current = {
-        prefix, botNickname, welcomeChannel, welcomeMessage, welcomeStyle, welcomeImageLayout,
+        prefix, botNickname, language: botLanguage, welcomeChannel, welcomeMessage, welcomeStyle, welcomeImageLayout,
         leaveChannel, leaveMessage, leaveStyle, leaveImageLayout, funChannel, disabledCommands,
     };
     const currentJson = JSON.stringify(current);
@@ -142,7 +150,7 @@ export default function DiscordBotDashboard() {
     const dirty = sharedDirty || tabDirty;
 
     const applySettings = (d) => {
-        setPrefix(d.prefix); setBotNickname(d.botNickname);
+        setPrefix(d.prefix); setBotNickname(d.botNickname); setBotLanguage(d.language);
         setWelcomeChannel(d.welcomeChannel); setWelcomeMessage(d.welcomeMessage); setWelcomeStyle(d.welcomeStyle); setWelcomeImageLayout(d.welcomeImageLayout);
         setLeaveChannel(d.leaveChannel); setLeaveMessage(d.leaveMessage); setLeaveStyle(d.leaveStyle); setLeaveImageLayout(d.leaveImageLayout);
         setFunChannel(d.funChannel); setDisabledCommands(d.disabledCommands);
@@ -154,7 +162,7 @@ export default function DiscordBotDashboard() {
 
     /** Vor dem Verlassen eines Bereichs: offene Änderungen bestätigen lassen und verwerfen. */
     const leaveGuard = (go) => {
-        if (dirty && !window.confirm('Du hast ungespeicherte Änderungen. Verwerfen und weitergehen?')) return;
+        if (dirty && !window.confirm(t.shell.confirmLeave)) return;
         if (sharedDirty) applySettings(saved);
         setTabDirty(false);
         go();
@@ -197,13 +205,13 @@ export default function DiscordBotDashboard() {
                     } else {
                         // Discord oder das Backend antwortet gerade nicht: nicht zur Anmeldung schicken,
                         // sondern melden und von selbst noch einmal versuchen
-                        setDiscordDown(data.error || 'Discord antwortet gerade nicht.');
+                        setDiscordDown(serverErrorText(t, data, t.shell.discordDown));
                         retry = setTimeout(load, 8000);
                     }
                 })
                 .catch(() => {
                     if (!alive) return;
-                    setDiscordDown('Keine Verbindung zum Server.');
+                    setDiscordDown(t.shell.noConnection);
                     retry = setTimeout(load, 8000);
                 })
                 .finally(() => { if (alive) setLoading(false); });
@@ -222,12 +230,13 @@ export default function DiscordBotDashboard() {
             const loaded = {
                 prefix: d.prefix || '!',
                 botNickname: d.botNickname || '',
+                language: d.language === 'en' ? 'en' : 'de',
                 welcomeChannel: d.welcomeChannel || '',
-                welcomeMessage: d.welcomeMessage || 'Willkommen [USER] auf [SERVER]! Du bist unser Mitglied #[MEMBER]',
+                welcomeMessage: d.welcomeMessage || t.welcome.defaultMessage,
                 welcomeStyle: ['card', 'image'].includes(d.welcomeStyle) ? d.welcomeStyle : 'text',
                 welcomeImageLayout: d.welcomeImageLayout || 'classic',
                 leaveChannel: d.leaveChannel || '',
-                leaveMessage: d.leaveMessage || 'Schade, [USER] hat [SERVER] verlassen. Noch [MEMBER] Mitglieder übrig.',
+                leaveMessage: d.leaveMessage || t.leave.defaultMessage,
                 leaveStyle: ['card', 'image'].includes(d.leaveStyle) ? d.leaveStyle : 'text',
                 leaveImageLayout: d.leaveImageLayout || 'classic',
                 funChannel: d.funChannel || '',
@@ -251,31 +260,31 @@ export default function DiscordBotDashboard() {
                 headers: { 'Content-Type': 'application/json' },
                 body: currentJson,
             });
-            setSaveStatus(res.ok ? 'Gespeichert!' : 'Fehler.');
+            setSaveStatus(res.ok ? t.common.saved : t.common.error);
             if (res.ok) {
                 setSaved(current);
                 loadOverview(selectedServer.id);
             }
         } catch {
-            setSaveStatus('Netzwerkfehler.');
+            setSaveStatus(t.common.networkError);
         } finally {
             setIsSaving(false);
             setTimeout(() => setSaveStatus(''), 3000);
         }
     };
 
-    const seo = (title, description) => <SEO title={title} description={description} path="/discord-bot" />;
+    const seo = (title, description) => <SEO title={title} description={description} path="/discord-bot" lang={t.lang} />;
 
     /* ── Vor der Anmeldung: Karte mittig in der Tool-Hülle ─────────────────────
        Diese Fassungen sehen Besucher und Suchmaschinen. */
     if (!user) return (
         <div className="page-fade h-full flex items-center justify-center p-6">
-            {seo('Discord Bot', 'Verwalte deinen Discord Bot.')}
+            {seo(t.shell.seoTitle, t.shell.seoDesc)}
             <div className="dc-root dc-card p-8 max-w-sm w-full flex flex-col items-center gap-5 text-center">
                 <Bot size={26} className="text-white/60" />
                 <div>
-                    <h1 className="text-xl font-bold text-white mb-1.5">Discord-Bot</h1>
-                    <p className="text-sm text-white/50">Melde dich mit Twitch an, um den Bot zu verwalten.</p>
+                    <h1 className="text-xl font-bold text-white mb-1.5">{t.shell.heading}</h1>
+                    <p className="text-sm text-white/50">{t.shell.loginHint}</p>
                 </div>
                 <TwitchLoginButton />
                 <LegalLinks />
@@ -284,33 +293,33 @@ export default function DiscordBotDashboard() {
     );
     if (loading) return (
         <div className="page-fade h-full flex items-center justify-center">
-            {seo('Discord Bot', 'Verwalte deinen Discord Bot.')}
-            <p className="text-white/40 font-medium text-sm">Lade Dashboard…</p>
+            {seo(t.shell.seoTitle, t.shell.seoDesc)}
+            <p className="text-white/40 font-medium text-sm">{t.shell.loadingDashboard}</p>
         </div>
     );
 
     if (!isDiscordLoggedIn && discordDown) return (
         <div className="page-fade h-full flex items-center justify-center p-6">
-            {seo('Discord Bot', 'Verwalte deinen Discord Bot.')}
+            {seo(t.shell.seoTitle, t.shell.seoDesc)}
             <div className="dc-root dc-card p-8 max-w-sm w-full flex flex-col items-center gap-3 text-center">
                 <DiscordGlyph className="w-7 h-7 text-[#7984f5]" />
-                <h1 className="text-xl font-bold text-white">Discord antwortet gerade nicht</h1>
-                <p className="text-sm text-white/50">{discordDown} Deine Verknüpfung bleibt bestehen — die Seite versucht es von selbst erneut.</p>
+                <h1 className="text-xl font-bold text-white">{t.shell.downTitle}</h1>
+                <p className="text-sm text-white/50">{discordDown} {t.shell.downText}</p>
             </div>
         </div>
     );
 
     if (!isDiscordLoggedIn) return (
         <div className="page-fade h-full flex items-center justify-center p-6">
-            {seo('Discord Bot', 'Verwalte deinen Discord Bot.')}
+            {seo(t.shell.seoTitle, t.shell.seoDesc)}
             <div className="dc-root dc-card p-8 max-w-sm w-full flex flex-col items-center gap-5 text-center">
                 <DiscordGlyph className="w-7 h-7 text-[#7984f5]" />
                 <div>
-                    <h1 className="text-xl font-bold text-white mb-1.5">Discord verknüpfen</h1>
-                    <p className="text-sm text-white/50">Verbinde deinen Discord-Account, um deine Server zu verwalten.</p>
+                    <h1 className="text-xl font-bold text-white mb-1.5">{t.shell.linkTitle}</h1>
+                    <p className="text-sm text-white/50">{t.shell.linkText}</p>
                 </div>
                 <a href={loginUrl} className="dc-btn !min-h-[40px] !px-5">
-                    <DiscordGlyph className="w-4 h-4" /> Mit Discord anmelden
+                    <DiscordGlyph className="w-4 h-4" /> {t.shell.linkButton}
                 </a>
                 <LegalLinks />
             </div>
@@ -335,10 +344,10 @@ export default function DiscordBotDashboard() {
     return (
         <div className="dc-root h-full flex flex-col">
             {seo(
-                selectedServer ? `${selectedServer.name} – Discord Bot` : 'Discord Bot',
-                selectedServer ? `Discord Bot Dashboard für den Server ${selectedServer.name}.` : 'Wähle einen Server aus um deinen Discord Bot zu verwalten.',
+                selectedServer ? t.shell.seoServerTitle(selectedServer.name) : t.shell.seoTitle,
+                selectedServer ? t.shell.seoServerDesc(selectedServer.name) : t.shell.seoPickDesc,
             )}
-            <h1 className="sr-only">Discord-Bot</h1>
+            <h1 className="sr-only">{t.shell.heading}</h1>
 
             {/* ══════════ Kopfleiste (in der Leiste der Tool-Hülle) ══════════ */}
             <ToolHeader>
@@ -366,7 +375,7 @@ export default function DiscordBotDashboard() {
                                     ))}
                                     <button type="button" onClick={() => switchServer(null)}
                                         className="w-full px-3 h-9 mt-1 border-t border-white/10 text-left text-[12px] font-semibold text-white/50 hover:text-white transition-colors">
-                                        Alle Server anzeigen
+                                        {t.shell.allServers}
                                     </button>
                                 </div>
                             </>
@@ -374,7 +383,7 @@ export default function DiscordBotDashboard() {
                     </div>
                 )}
 
-                {dirty && selectedServer && <span className="dc-unsaved ml-1 hidden md:inline-flex">Ungespeichert</span>}
+                {dirty && selectedServer && <span className="dc-unsaved ml-1 hidden md:inline-flex">{t.shell.unsaved}</span>}
                 <LegalLinks className="ml-auto hidden md:flex" />
             </ToolHeader>
 
@@ -382,10 +391,10 @@ export default function DiscordBotDashboard() {
             {!selectedServer && (
                 <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar p-4 md:p-8">
                     <div className="max-w-2xl mx-auto">
-                        <h2 className="dc-h2">Deine Server</h2>
-                        <p>Wähle den Server, den du einrichten möchtest.</p>
+                        <h2 className="dc-h2">{t.shell.yourServers}</h2>
+                        <p>{t.shell.pickServer}</p>
 
-                        {[['Mit Bot', managed], ['Bot noch nicht eingeladen', inviteable]].map(([title, list]) => list.length > 0 && (
+                        {[[t.shell.withBot, managed], [t.shell.withoutBot, inviteable]].map(([title, list]) => list.length > 0 && (
                             <section key={title} className="mt-6">
                                 <h3 className="text-[10.5px] font-bold uppercase tracking-wider text-white/40 mb-2">{title}</h3>
                                 <div className="dc-card divide-y divide-white/[0.07]">
@@ -395,12 +404,12 @@ export default function DiscordBotDashboard() {
                                             <span className="flex-1 min-w-0 truncate text-[14px] font-semibold text-white">{server.name}</span>
                                             {server.botPresent ? (
                                                 <button onClick={() => setSelectedServer(server)} className="dc-btn">
-                                                    Einrichten <ArrowRight size={14} />
+                                                    {t.shell.setUp} <ArrowRight size={14} />
                                                 </button>
                                             ) : (
                                                 <a href={server.inviteUrl} target="_blank" rel="noopener noreferrer"
                                                     className="h-9 px-4 inline-flex items-center rounded-md border border-white/10 hover:border-white/25 text-[13px] font-bold text-white/80 hover:text-white transition-colors">
-                                                    Bot einladen
+                                                    {t.shell.invite}
                                                 </a>
                                             )}
                                         </div>
@@ -408,7 +417,7 @@ export default function DiscordBotDashboard() {
                                 </div>
                             </section>
                         ))}
-                        {servers.length === 0 && <p className="mt-6">Auf keinem deiner Server hast du Verwaltungsrechte.</p>}
+                        {servers.length === 0 && <p className="mt-6">{t.shell.noServers}</p>}
                     </div>
                 </div>
             )}
@@ -418,10 +427,10 @@ export default function DiscordBotDashboard() {
                 <div className="flex-1 min-h-0 flex flex-col lg:flex-row">
                     {/* Schmale Fenster: Auswahl als Feld statt als Leiste */}
                     <div className="lg:hidden shrink-0 p-3 border-b border-[var(--dc-line)] bg-[var(--dc-rail)]">
-                        <select value={activeTab} onChange={e => switchTab(e.target.value)} className="dc-input w-full" aria-label="Bereich">
+                        <select value={activeTab} onChange={e => switchTab(e.target.value)} className="dc-input w-full" aria-label={t.shell.section}>
                             {GROUPS.map(group => (
-                                <optgroup key={group.label} label={group.label}>
-                                    {group.tabs.map(item => <option key={item.id} value={item.id}>{item.label}</option>)}
+                                <optgroup key={group.id} label={t.shell.groups[group.id]}>
+                                    {group.tabs.map(item => <option key={item.id} value={item.id}>{t.shell.tabs[item.id]}</option>)}
                                 </optgroup>
                             ))}
                         </select>
@@ -429,8 +438,8 @@ export default function DiscordBotDashboard() {
 
                     <nav className="hidden lg:block w-[212px] shrink-0 overflow-y-auto custom-scrollbar border-r border-[var(--dc-line)] bg-[var(--dc-rail)] pb-3">
                         {GROUPS.map(group => (
-                            <section key={group.label}>
-                                <p className="text-[10.5px] font-bold uppercase tracking-wider text-white/35 px-3.5 pt-3.5 pb-1.5">{group.label}</p>
+                            <section key={group.id}>
+                                <p className="text-[10.5px] font-bold uppercase tracking-wider text-white/35 px-3.5 pt-3.5 pb-1.5">{t.shell.groups[group.id]}</p>
                                 {group.tabs.map(item => {
                                     const isActive = activeTab === item.id;
                                     return (
@@ -440,11 +449,11 @@ export default function DiscordBotDashboard() {
                                             }`}>
                                             <span aria-hidden className={`absolute left-0 top-0 bottom-0 w-[2px] ${isActive ? 'bg-[#5865f2]' : 'bg-transparent'}`} />
                                             <span className={`shrink-0 ${isActive ? 'text-[#8f98f8]' : 'text-white/35'}`}>{item.icon}</span>
-                                            <span className="truncate">{item.label}</span>
+                                            <span className="truncate">{t.shell.tabs[item.id]}</span>
                                             {/* Nur Bereiche, die man ein- und ausschalten kann, haben einen Punkt */}
                                             {item.id in overview && (
                                                 <span className={`dc-dot${overview[item.id] ? ' is-on' : ''}`}
-                                                    title={overview[item.id] ? 'Eingerichtet' : 'Noch nicht eingerichtet'} />
+                                                    title={overview[item.id] ? t.shell.configured : t.shell.notConfigured} />
                                             )}
                                         </button>
                                     );
@@ -459,6 +468,7 @@ export default function DiscordBotDashboard() {
                         <GeneralTab
                             prefix={prefix} setPrefix={setPrefix}
                             botNickname={botNickname} setBotNickname={setBotNickname}
+                            botLanguage={botLanguage} setBotLanguage={setBotLanguage}
                             isSaving={isSaving} saveStatus={saveStatus}
                             handleSaveSettings={handleSaveSettings}
                             dirty={sharedDirty}
@@ -470,7 +480,7 @@ export default function DiscordBotDashboard() {
                             welcomeMessage={welcomeMessage} setWelcomeMessage={setWelcomeMessage}
                             welcomeStyle={welcomeStyle} setWelcomeStyle={setWelcomeStyle}
                             imageLayout={welcomeImageLayout} setImageLayout={setWelcomeImageLayout}
-                            serverName={selectedServer.name} serverId={selectedServer.id} botName={botNickname} dirty={sharedDirty} serverEmojis={serverEmojis}
+                            serverName={selectedServer.name} serverId={selectedServer.id} botName={botNickname} botLanguage={botLanguage} dirty={sharedDirty} serverEmojis={serverEmojis}
                             channels={channels}
                             isSaving={isSaving} saveStatus={saveStatus}
                             handleSaveSettings={handleSaveSettings}
@@ -482,7 +492,7 @@ export default function DiscordBotDashboard() {
                             leaveMessage={leaveMessage} setLeaveMessage={setLeaveMessage}
                             leaveStyle={leaveStyle} setLeaveStyle={setLeaveStyle}
                             imageLayout={leaveImageLayout} setImageLayout={setLeaveImageLayout}
-                            serverName={selectedServer.name} serverId={selectedServer.id} botName={botNickname} dirty={sharedDirty} serverEmojis={serverEmojis}
+                            serverName={selectedServer.name} serverId={selectedServer.id} botName={botNickname} botLanguage={botLanguage} dirty={sharedDirty} serverEmojis={serverEmojis}
                             channels={channels}
                             isSaving={isSaving} saveStatus={saveStatus}
                             handleSaveSettings={handleSaveSettings}

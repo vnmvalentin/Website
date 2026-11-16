@@ -6,15 +6,19 @@ import { BOSSES } from "../data/bosses.js";
 import { generateWorld } from "./worldgen.js";
 import { spawnEnemy, findSpawnPoint, pickElite } from "./enemies.js";
 import { spawnBoss } from "./bosses/index.js";
-import { spawnItem, rollItem, giveItem } from "./loot.js";
+import { spawnItem, rollItem, giveItem, vacuumXp } from "./loot.js";
 import { floatText, ring, shake, burst } from "./fx.js";
 import { enemyPoolFor } from "../data/biomes.js";
 import { coefficient } from "./difficulty.js";
 import { ascEliteChance } from "./ascension.js";
+import { initDirector } from "./director.js";
+import { noteStage } from "./timeline.js";
 import { hashSeed, makeRng, dist2 } from "./util.js";
 
 export const TELEPORTER_RADIUS = 600;
-export const CHARGE_TIME = 75;
+export const CHARGE_TIME = 60;
+// Nach so vielen Sekunden zeigt sich der Teleporter von selbst auf der Karte (vorher 150)
+export const TELEPORTER_HINT = 90;
 
 export function loadStage(g) {
   const biome = BIOMES[g.stageIndex];
@@ -29,8 +33,9 @@ export function loadStage(g) {
   g.curse = false;
   g.stageTime = 0;
   g.prompt = null;
+  noteStage(g);
   g.coeff = coefficient(g.time, g.stagesCleared, g.difficulty);
-  g.director = { credits: 20 * g.coeff, t: 4 };
+  g.director = initDirector();
 
   const p = g.player;
   p.x = w.spawn.x; p.y = w.spawn.y;
@@ -87,9 +92,9 @@ export function updateStage(g, dt) {
     }
   }
 
-  if (!t.discovered && (dist2(p.x, p.y, t.x, t.y) < 900 * 900 || g.stageTime > 150)) {
+  if (!t.discovered && (dist2(p.x, p.y, t.x, t.y) < 900 * 900 || g.stageTime > TELEPORTER_HINT)) {
     t.discovered = true;
-    g.events.push({ type: "message", text: g.stageTime > 150 ? "Der Teleporter pulsiert — er ist jetzt auf der Karte" : "Teleporter gefunden" });
+    g.events.push({ type: "message", text: g.stageTime > TELEPORTER_HINT ? "Der Teleporter pulsiert — er ist jetzt auf der Karte" : "Teleporter gefunden" });
   }
 
   if (t.state === "charging") {
@@ -107,6 +112,7 @@ export function updateStage(g, dt) {
 function teleporterReady(g) {
   const t = g.teleporter;
   t.state = "ready";
+  vacuumXp(g); // was an Erfahrung noch herumliegt, kommt mit
   // Alle restlichen Gegner zerfallen (ohne Beute und ohne Kill-Effekte)
   for (const e of g.enemies) if (!e.dead) { e.dead = true; burst(g, e.x, e.y, "#b8b0a0", 8, 150); }
   g.enemies = [];
@@ -134,6 +140,7 @@ export function onBossKilled(g, e) {
     return;
   }
   if (g.teleporter.charge >= 1) teleporterReady(g);
+  else g.events.push({ type: "hordeEvent", kind: "rush" }); // der Boss ist gefallen, der Teleporter lädt noch → Ansturm (director.js)
 }
 
 export function leaveStage(g) {

@@ -46,7 +46,8 @@ export default function KitSelect({ profile, mode = "normal", onBack, onStart, b
 
   return (
     <div className="absolute inset-0 overflow-y-auto av-scroll">
-      <div className="w-full max-w-[1300px] mx-auto px-4 md:px-8 py-6 md:py-10">
+      {/* Unten Platz für die feste Startleiste am Handy (unten) */}
+      <div className="w-full max-w-[1300px] mx-auto px-4 md:px-8 pt-6 pb-6 md:py-10">
         <div className="flex items-center gap-4 mb-6">
           <button onClick={onBack} className="av-btn av-btn-stone av-btn-sm"><ArrowLeft size={15} /> Zurück</button>
           <h1 className="av-title text-[28px] md:text-[36px]">{daily ? "Tageslauf" : "Kit wählen"}</h1>
@@ -59,8 +60,9 @@ export default function KitSelect({ profile, mode = "normal", onBack, onStart, b
           </p>
         )}
 
-        <div className="grid lg:grid-cols-[minmax(0,1fr)_420px] gap-8">
-          <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3 content-start">
+        {/* grid-cols-1 statt der stillen auto-Spalte: sonst wird das Raster am Handy breiter als der Bildschirm */}
+        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_420px] gap-8">
+          <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3 content-start min-w-0">
             {KIT_ORDER.map((id) => {
               const k = KITS[id];
               const open = unlocked.includes(id);
@@ -148,11 +150,21 @@ export default function KitSelect({ profile, mode = "normal", onBack, onStart, b
             </>}
 
             {error && <p className="mt-4 av-blood text-[15px]">{error}</p>}
-            <button onClick={start} disabled={!isUnlocked || busy} className="av-btn av-btn-lg w-full mt-5">
+            <button onClick={start} disabled={!isUnlocked || busy} className="av-btn av-btn-lg w-full mt-5 av-kit-start-inline">
               {isUnlocked ? <><Play size={20} fill="currentColor" /> Lauf starten</> : <><Lock size={18} /> Ab Stufe {kitLevel[kitId]}</>}
             </button>
           </div>
         </div>
+      </div>
+      {/* Handy: Start immer erreichbar, ohne unter die Kit-Details zu scrollen */}
+      <div className="av-kit-startbar">
+        <div className="min-w-0">
+          <div className="av-title text-[18px] truncate">{kit.name}</div>
+          <div className="text-[13px] av-faint truncate">{isUnlocked ? kit.role : `Ab Stufe ${kitLevel[kitId]}`}</div>
+        </div>
+        <button onClick={start} disabled={!isUnlocked || busy} className="av-btn shrink-0">
+          {isUnlocked ? <><Play size={18} fill="currentColor" /> Lauf starten</> : <Lock size={18} />}
+        </button>
       </div>
     </div>
   );

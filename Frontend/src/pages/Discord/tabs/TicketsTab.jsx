@@ -1,17 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { Trash2, Plus, ChevronUp, ChevronDown, X, ChevronRight } from 'lucide-react';
+import { Plus, ChevronUp, ChevronDown, X, ChevronRight } from 'lucide-react';
 import { DcTabs } from '../ui';
+import { isErrorStatus, serverErrorText, useDiscordText } from '../discordI18n.js';
 
-function formatDate(ms) {
+function formatDate(ms, locale) {
     if (!ms) return '—';
-    return new Date(ms).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+    return new Date(ms).toLocaleString(locale, { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
 
 function Accordion({ title, subtitle, children, defaultOpen = false }) {
     const [open, setOpen] = useState(defaultOpen);
     return (
         <div className="border border-white/5 rounded-md overflow-hidden">
-            <button onClick={() => setOpen(o => !o)}
+            <button onClick={() => setOpen(o => !o)} aria-expanded={open}
                 className="w-full flex items-center justify-between px-5 py-4 bg-[#0e0e1a]/85 hover:bg-white/5 transition-colors text-left">
                 <div>
                     <p className="text-white font-semibold text-sm">{title}</p>
@@ -24,19 +25,21 @@ function Accordion({ title, subtitle, children, defaultOpen = false }) {
     );
 }
 
+const statusLineClass = (status) => `text-sm font-medium ${isErrorStatus(status) ? 'text-red-400' : 'text-white'}`;
+
 export default function TicketsTab({ selectedServer, channels, serverRoles }) {
+    const t = useDiscordText();
+    const tt = t.tickets;
     const [setupChannelId, setSetupChannelId] = useState('');
-    const [embedTitle, setEmbedTitle] = useState('Support Ticket');
-    const [embedDescription, setEmbedDescription] = useState('Klicke auf den Button um ein Ticket zu erstellen.');
+    // Vorbelegung für neue Einrichtungen in der Sprache des Dashboards
+    const [embedTitle, setEmbedTitle] = useState(tt.defaultTitle);
+    const [embedDescription, setEmbedDescription] = useState(tt.defaultDesc);
     const [embedColor, setEmbedColor] = useState('#5865F2');
     const [categoryId, setCategoryId] = useState('');
     const [handlerRoleIds, setHandlerRoleIds] = useState([]);
     const [categories, setCategories] = useState([]);
     const [hasConfig, setHasConfig] = useState(false);
-    const [fields, setFields] = useState([
-        { label: 'Name', placeholder: 'Dein Name...', required: true, style: 1 },
-        { label: 'Problembeschreibung', placeholder: 'Beschreibe dein Problem...', required: true, style: 2 },
-    ]);
+    const [fields, setFields] = useState(() => tt.defaultFields.map((f, i) => ({ ...f, required: true, style: i === 0 ? 1 : 2 })));
     const [history, setHistory] = useState([]);
     const [historyDays, setHistoryDays] = useState(7);
     const [expandedTicket, setExpandedTicket] = useState(null);
@@ -57,7 +60,7 @@ export default function TicketsTab({ selectedServer, channels, serverRoles }) {
             .then(d => {
                 if (d.config) {
                     setSetupChannelId(d.config.setupChannelId || '');
-                    setEmbedTitle(d.config.embedTitle || 'Support Ticket');
+                    setEmbedTitle(d.config.embedTitle || tt.defaultTitle);
                     setEmbedDescription(d.config.embedDescription || '');
                     setEmbedColor(d.config.embedColor || '#5865F2');
                     setCategoryId(d.config.categoryId || '');
@@ -70,6 +73,7 @@ export default function TicketsTab({ selectedServer, channels, serverRoles }) {
                 }
                 if (d.fields?.length > 0) setFields(d.fields);
             });
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedServer]);
 
     useEffect(() => {
@@ -87,16 +91,16 @@ export default function TicketsTab({ selectedServer, channels, serverRoles }) {
                 body: JSON.stringify({ setupChannelId, embedTitle, embedDescription, embedColor, categoryId: categoryId || null, handlerRoleIds }),
             });
             const data = await res.json();
-            if (res.ok) { setHasConfig(true); setConfigStatus('Gespeichert & Nachricht gesendet!'); }
-            else setConfigStatus(`Fehler: ${data.error}`);
-        } catch { setConfigStatus('Netzwerkfehler.'); }
+            if (res.ok) { setHasConfig(true); setConfigStatus(tt.sentSaved); }
+            else setConfigStatus(t.common.errorWith(serverErrorText(t, data)));
+        } catch { setConfigStatus(t.common.networkError); }
         finally { setIsSavingConfig(false); setTimeout(() => setConfigStatus(''), 4000); }
     };
 
     const handleDeleteConfig = async () => {
         await fetch(`/api/discord/settings/${selectedServer.id}/ticket-config`, { method: 'DELETE' });
         setHasConfig(false); setSetupChannelId('');
-        setConfigStatus('Setup entfernt.'); setView('setup');
+        setConfigStatus(tt.removedSetup); setView('setup');
         setTimeout(() => setConfigStatus(''), 3000);
     };
 
@@ -109,8 +113,8 @@ export default function TicketsTab({ selectedServer, channels, serverRoles }) {
                 body: JSON.stringify({ fields }),
             });
             const data = await res.json();
-            setFieldsStatus(res.ok ? 'Felder gespeichert!' : `Fehler: ${data.error}`);
-        } catch { setFieldsStatus('Netzwerkfehler.'); }
+            setFieldsStatus(res.ok ? tt.fieldsSaved : t.common.errorWith(serverErrorText(t, data)));
+        } catch { setFieldsStatus(t.common.networkError); }
         finally { setIsSavingFields(false); setTimeout(() => setFieldsStatus(''), 3000); }
     };
 
@@ -125,45 +129,45 @@ export default function TicketsTab({ selectedServer, channels, serverRoles }) {
     const toggleHandlerRole = id => setHandlerRoleIds(p => p.includes(id) ? p.filter(r => r !== id) : [...p, id]);
 
     const statusBadge = s => ({
-        open:    <span className="text-xs bg-green-500/20 text-green-400 px-2 py-0.5 rounded-md font-medium">Offen</span>,
-        closed:  <span className="text-xs bg-gray-500/20 text-white/50 px-2 py-0.5 rounded-md font-medium">Geschlossen</span>,
-        deleted: <span className="text-xs bg-red-500/20 text-red-400 px-2 py-0.5 rounded-md font-medium">Gelöscht</span>,
+        open:    <span className="text-xs bg-green-500/20 text-green-400 px-2 py-0.5 rounded-md font-medium">{tt.status.open}</span>,
+        closed:  <span className="text-xs bg-gray-500/20 text-white/50 px-2 py-0.5 rounded-md font-medium">{tt.status.closed}</span>,
+        deleted: <span className="text-xs bg-red-500/20 text-red-400 px-2 py-0.5 rounded-md font-medium">{tt.status.deleted}</span>,
     }[s] || null);
 
     return (
         <div className="space-y-6">
             {/* Header */}
             <div>
-                <h2 className="dc-h2">Ticket-System</h2>
-                <p>Nutzer erstellen Tickets per Button — der Bot öffnet automatisch einen privaten Kanal.</p>
+                <h2 className="dc-h2">{tt.title}</h2>
+                <p>{tt.intro}</p>
             </div>
 
             <DcTabs value={view} onChange={setView} tabs={[
-                ['setup', 'Einrichtung'],
-                ['history', 'Verlauf', history.length || undefined],
+                ['setup', tt.tabSetup],
+                ['history', tt.tabHistory, history.length || undefined],
             ]} />
 
             {/* Einstellungen (aufklappbar) */}
             {view === 'setup' && (
                 <div className="space-y-3 max-w-2xl">
                     <Accordion
-                        title="Nachricht & Einrichtung"
-                        subtitle="Wo der Bot die Setup-Nachricht sendet und wie sie aussieht"
+                        title={tt.msgTitle}
+                        subtitle={tt.msgSub}
                         defaultOpen={!hasConfig}>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div>
-                                <label className="dc-label">Kanal für Setup-Nachricht <span className="text-red-400">*</span></label>
+                                <label className="dc-label">{tt.setupChannel} <span className="text-red-400">*</span></label>
                                 <select value={setupChannelId} onChange={e => setSetupChannelId(e.target.value)}
                                     className="dc-input w-full">
-                                    <option value="">-- Kanal auswählen --</option>
+                                    <option value="">{t.common.pickChannel}</option>
                                     {channels.map(c => <option key={c.id} value={c.id}># {c.name}</option>)}
                                 </select>
                             </div>
                             <div>
-                                <label className="dc-label">Kategorie für Ticket-Kanäle <span className="text-white/40 font-normal">(optional)</span></label>
+                                <label className="dc-label">{tt.category} <span className="text-white/40 font-normal">{t.common.optional}</span></label>
                                 <select value={categoryId} onChange={e => setCategoryId(e.target.value)}
                                     className="dc-input w-full">
-                                    <option value="">-- Keine Kategorie --</option>
+                                    <option value="">{tt.noCategory}</option>
                                     {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                                 </select>
                             </div>
@@ -171,12 +175,12 @@ export default function TicketsTab({ selectedServer, channels, serverRoles }) {
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div>
-                                <label className="dc-label">Embed-Titel</label>
+                                <label className="dc-label">{tt.embedTitle}</label>
                                 <input value={embedTitle} onChange={e => setEmbedTitle(e.target.value)}
                                     className="dc-input w-full" />
                             </div>
                             <div>
-                                <label className="dc-label">Farbe</label>
+                                <label className="dc-label">{tt.color}</label>
                                 <div className="flex gap-2">
                                     <input type="color" value={embedColor} onChange={e => setEmbedColor(e.target.value)}
                                         className="dc-card h-[46px] w-14 cursor-pointer p-1 shrink-0" />
@@ -187,16 +191,16 @@ export default function TicketsTab({ selectedServer, channels, serverRoles }) {
                         </div>
 
                         <div>
-                            <label className="dc-label">Embed-Beschreibung</label>
+                            <label className="dc-label">{tt.embedDesc}</label>
                             <textarea value={embedDescription} onChange={e => setEmbedDescription(e.target.value)} rows={3}
                                 className="dc-input w-full resize-none" />
                         </div>
 
                         <div>
-                            <label className="dc-label">Bearbeiter-Rollen <span className="text-white/40 font-normal">(sehen alle Ticket-Kanäle)</span></label>
+                            <label className="dc-label">{tt.handlers} <span className="text-white/40 font-normal">{tt.handlersHint}</span></label>
                             <div className="flex flex-wrap gap-2">
                                 {serverRoles.map(r => (
-                                    <button key={r.id} onClick={() => toggleHandlerRole(r.id)}
+                                    <button key={r.id} onClick={() => toggleHandlerRole(r.id)} aria-pressed={handlerRoleIds.includes(r.id)}
                                         className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors border ${
                                             handlerRoleIds.includes(r.id)
                                                 ? 'border-indigo-500/60 bg-indigo-500/10 text-indigo-300'
@@ -212,70 +216,70 @@ export default function TicketsTab({ selectedServer, channels, serverRoles }) {
                         <div className="flex items-center gap-3 pt-1">
                             <button onClick={handleSaveConfig} disabled={isSavingConfig || !setupChannelId}
                                 className="dc-btn">
-                                {isSavingConfig ? 'Sende...' : hasConfig ? 'Aktualisieren & neu senden' : 'Setup senden'}
+                                {isSavingConfig ? tt.sending : hasConfig ? tt.resend : tt.send}
                             </button>
                             {hasConfig && (
                                 <button onClick={handleDeleteConfig}
                                     className="bg-red-500/10 hover:bg-red-500/20 text-red-400 font-bold py-2.5 px-5 rounded-md transition-colors">
-                                    Entfernen
+                                    {t.common.remove}
                                 </button>
                             )}
-                            {configStatus && <span className="text-sm font-medium text-white">{configStatus}</span>}
+                            {configStatus && <span className={statusLineClass(configStatus)}>{configStatus}</span>}
                         </div>
                     </Accordion>
 
                     <Accordion
-                        title="Modal-Felder"
-                        subtitle="Was der User beim Erstellen eines Tickets ausfüllt (max. 5 Felder)">
+                        title={tt.fieldsTitle}
+                        subtitle={tt.fieldsSub}>
                         <div className="space-y-3">
                             {fields.map((f, i) => (
                                 <div key={i} className="dc-card p-4 space-y-3">
                                     <div className="flex items-center justify-between">
-                                        <span className="text-white/40 text-xs">Feld {i + 1}</span>
+                                        <span className="text-white/40 text-xs">{tt.fieldN(i + 1)}</span>
                                         <div className="flex items-center gap-1">
-                                            <button onClick={() => moveField(i, -1)} disabled={i === 0} className="p-1 text-white/40 hover:text-white disabled:opacity-30"><ChevronUp size={13} /></button>
-                                            <button onClick={() => moveField(i, 1)} disabled={i === fields.length - 1} className="p-1 text-white/40 hover:text-white disabled:opacity-30"><ChevronDown size={13} /></button>
-                                            <button onClick={() => removeField(i)} className="p-1 text-red-400 hover:text-red-300 ml-1"><X size={13} /></button>
+                                            <button onClick={() => moveField(i, -1)} disabled={i === 0} title={tt.moveUp} aria-label={tt.moveUp} className="p-1 text-white/40 hover:text-white disabled:opacity-30"><ChevronUp size={13} /></button>
+                                            <button onClick={() => moveField(i, 1)} disabled={i === fields.length - 1} title={tt.moveDown} aria-label={tt.moveDown} className="p-1 text-white/40 hover:text-white disabled:opacity-30"><ChevronDown size={13} /></button>
+                                            <button onClick={() => removeField(i)} title={t.common.remove} aria-label={t.common.remove} className="p-1 text-red-400 hover:text-red-300 ml-1"><X size={13} /></button>
                                         </div>
                                     </div>
                                     <div className="grid grid-cols-2 gap-3">
                                         <div>
-                                            <label className="block text-white/50 text-xs mb-1">Label <span className="text-red-400">*</span></label>
-                                            <input value={f.label} onChange={e => updateField(i, 'label', e.target.value)} placeholder="z.B. Name"
+                                            <label className="block text-white/50 text-xs mb-1">{tt.label} <span className="text-red-400">*</span></label>
+                                            <input value={f.label} onChange={e => updateField(i, 'label', e.target.value)} placeholder={tt.labelPh}
                                                 className="dc-input w-full" />
                                         </div>
                                         <div>
-                                            <label className="block text-white/50 text-xs mb-1">Platzhalter</label>
-                                            <input value={f.placeholder} onChange={e => updateField(i, 'placeholder', e.target.value)} placeholder="z.B. Dein Name..."
+                                            <label className="block text-white/50 text-xs mb-1">{tt.placeholder}</label>
+                                            <input value={f.placeholder} onChange={e => updateField(i, 'placeholder', e.target.value)} placeholder={tt.placeholderPh}
                                                 className="dc-input w-full" />
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-5">
                                         <label className="flex items-center gap-2 cursor-pointer">
                                             <input type="checkbox" checked={f.required} onChange={e => updateField(i, 'required', e.target.checked)} className="rounded accent-indigo-500" />
-                                            <span className="text-white/60 text-sm">Pflichtfeld</span>
+                                            <span className="text-white/60 text-sm">{tt.required}</span>
                                         </label>
                                         <div className="flex items-center gap-2">
-                                            <span className="text-white/40 text-xs">Typ:</span>
-                                            <button onClick={() => updateField(i, 'style', 1)}
-                                                className={`text-xs px-2.5 py-1 rounded-md transition-colors ${f.style === 1 ? 'bg-indigo-600 text-white font-bold' : 'bg-white/5 text-white/50 hover:bg-white/10'}`}>Kurz</button>
-                                            <button onClick={() => updateField(i, 'style', 2)}
-                                                className={`text-xs px-2.5 py-1 rounded-md transition-colors ${f.style === 2 ? 'bg-indigo-600 text-white font-bold' : 'bg-white/5 text-white/50 hover:bg-white/10'}`}>Absatz</button>
+                                            <span className="text-white/40 text-xs">{tt.type}</span>
+                                            <button onClick={() => updateField(i, 'style', 1)} aria-pressed={f.style === 1}
+                                                className={`text-xs px-2.5 py-1 rounded-md transition-colors ${f.style === 1 ? 'bg-indigo-600 text-white font-bold' : 'bg-white/5 text-white/50 hover:bg-white/10'}`}>{tt.short}</button>
+                                            <button onClick={() => updateField(i, 'style', 2)} aria-pressed={f.style === 2}
+                                                className={`text-xs px-2.5 py-1 rounded-md transition-colors ${f.style === 2 ? 'bg-indigo-600 text-white font-bold' : 'bg-white/5 text-white/50 hover:bg-white/10'}`}>{tt.paragraph}</button>
                                         </div>
                                     </div>
                                 </div>
                             ))}
                             <button onClick={addField} disabled={fields.length >= 5}
                                 className="flex items-center gap-1.5 text-sm bg-white/5 hover:bg-white/10 text-white/60 px-4 py-2 rounded-md transition-colors disabled:opacity-40 w-full justify-center">
-                                <Plus size={14} /> Feld hinzufügen {fields.length < 5 && `(${5 - fields.length} verbleibend)`}
+                                <Plus size={14} /> {tt.addField} {fields.length < 5 && tt.remaining(5 - fields.length)}
                             </button>
                         </div>
                         <div className="flex items-center gap-3 pt-1">
                             <button onClick={handleSaveFields} disabled={isSavingFields || fields.some(f => !f.label.trim())}
                                 className="dc-btn">
-                                {isSavingFields ? 'Speichere...' : 'Felder speichern'}
+                                {isSavingFields ? t.common.saving : tt.saveFields}
                             </button>
-                            {fieldsStatus && <span className="text-sm font-medium text-white">{fieldsStatus}</span>}
+                            {fieldsStatus && <span className={statusLineClass(fieldsStatus)}>{fieldsStatus}</span>}
                         </div>
                     </Accordion>
                 </div>
@@ -286,14 +290,14 @@ export default function TicketsTab({ selectedServer, channels, serverRoles }) {
             <div className="dc-card p-6 space-y-4 max-w-4xl">
                 <div className="flex items-center justify-between flex-wrap gap-3">
                     <div>
-                        <h3 className="text-white font-semibold">Ticket-Verlauf</h3>
-                        <p className="text-white/40 text-xs mt-0.5">{history.length} Ticket{history.length !== 1 ? 's' : ''} in den letzten {historyDays} Tagen</p>
+                        <h3 className="text-white font-semibold">{tt.historyTitle}</h3>
+                        <p className="text-white/40 text-xs mt-0.5">{tt.historyCount(history.length, historyDays)}</p>
                     </div>
                     <div className="flex gap-2">
                         {[7, 14, 30].map(d => (
-                            <button key={d} onClick={() => setHistoryDays(d)}
+                            <button key={d} onClick={() => setHistoryDays(d)} aria-pressed={historyDays === d}
                                 className={`text-xs px-3 py-1.5 rounded-md font-medium transition-colors ${historyDays === d ? 'bg-indigo-600 text-white' : 'bg-white/5 text-white/50 hover:bg-white/10'}`}>
-                                {d} Tage
+                                {t.common.days(d)}
                             </button>
                         ))}
                     </div>
@@ -301,27 +305,27 @@ export default function TicketsTab({ selectedServer, channels, serverRoles }) {
 
                 {history.length === 0 ? (
                     <div className="py-8 text-center text-white/30 text-sm">
-                        Keine Tickets in diesem Zeitraum.
+                        {tt.none}
                     </div>
                 ) : (
                     <div className="space-y-1.5">
-                        {history.map(t => (
-                            <div key={t.id} className="border border-white/5 rounded-md overflow-hidden">
-                                <button onClick={() => setExpandedTicket(expandedTicket === t.id ? null : t.id)}
+                        {history.map(ticket => (
+                            <div key={ticket.id} className="border border-white/5 rounded-md overflow-hidden">
+                                <button onClick={() => setExpandedTicket(expandedTicket === ticket.id ? null : ticket.id)} aria-expanded={expandedTicket === ticket.id}
                                     className="w-full flex items-center gap-3 px-4 py-3 hover:bg-white/3 transition-colors text-left">
-                                    <ChevronRight size={14} className={`text-white/30 shrink-0 transition-transform duration-150 ${expandedTicket === t.id ? 'rotate-90' : ''}`} />
-                                    <span className="text-white/30 text-xs w-8 shrink-0">#{t.id}</span>
-                                    <span className="text-white text-sm font-medium flex-1 truncate">{t.creatorName || t.creatorId}</span>
-                                    {statusBadge(t.status)}
-                                    <span className="text-white/30 text-xs shrink-0 hidden sm:block">{formatDate(t.createdAt)}</span>
+                                    <ChevronRight size={14} className={`text-white/30 shrink-0 transition-transform duration-150 ${expandedTicket === ticket.id ? 'rotate-90' : ''}`} />
+                                    <span className="text-white/30 text-xs w-8 shrink-0">#{ticket.id}</span>
+                                    <span className="text-white text-sm font-medium flex-1 truncate">{ticket.creatorName || ticket.creatorId}</span>
+                                    {statusBadge(ticket.status)}
+                                    <span className="text-white/30 text-xs shrink-0 hidden sm:block">{formatDate(ticket.createdAt, t.locale)}</span>
                                 </button>
-                                {expandedTicket === t.id && (
+                                {expandedTicket === ticket.id && (
                                     <div className="dc-inset border-t px-4 py-3 space-y-2.5">
                                         <div className="flex flex-wrap gap-4 text-xs text-white/40 mb-2">
-                                            <span>Erstellt: {formatDate(t.createdAt)}</span>
-                                            {t.closedAt && <span>Geschlossen: {formatDate(t.closedAt)}</span>}
+                                            <span>{tt.createdAt(formatDate(ticket.createdAt, t.locale))}</span>
+                                            {ticket.closedAt && <span>{tt.closedAt(formatDate(ticket.closedAt, t.locale))}</span>}
                                         </div>
-                                        {Object.entries(t.fieldData).map(([label, value]) => (
+                                        {Object.entries(ticket.fieldData).map(([label, value]) => (
                                             <div key={label}>
                                                 <p className="text-white/40 text-xs mb-0.5">{label}</p>
                                                 <p className="text-white text-sm">{value || '—'}</p>

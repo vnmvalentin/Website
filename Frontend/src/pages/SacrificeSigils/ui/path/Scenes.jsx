@@ -214,6 +214,28 @@ export function MerchantScene({ scene, player, act }) {
 }
 
 export function ShrineScene({ scene, player, act, zirkel }) {
+  // Erster Besuch ohne Totem (Regel seit 15.11.2026): drei fertige Totems zur Wahl
+  if (scene.first) {
+    return (
+      <SceneFrame
+        title={de.nodes.shrine.name}
+        intro={scene.taken ? "Dein erstes Totem steht. Bei späteren Besuchen lässt es sich umbauen." : "Ein Schnitzmesser liegt bereit. Wähle dein erstes Totem – Kopf und Körper sind schon zusammengesetzt."}
+        actions={<button type="button" className="ss-btn" onClick={() => act("leave")}>{de.ui.leave}</button>}
+      >
+        {!scene.taken && (
+          <div className="grid sm:grid-cols-3 gap-3">
+            {scene.offers.map((o, i) => (
+              <button key={i} type="button" className="ss-panel p-3 text-left text-[var(--bone)] hover:brightness-110" onClick={() => { sound.play("creak"); act("take", { index: i }); }}>
+                <p className="text-xs uppercase tracking-wide ss-dim">{headKind(o.head)}</p>
+                <p className="ss-title flex items-center gap-1.5">{o.base?.kind === "sigil" && <SigilIcon sigil={o.base.sigil} size={18} />}{headName(o.head, zirkel)} · {baseName(o.base)}</p>
+                <p className="text-sm ss-dim">{o.head.kind === "side" ? baseDesc(o.base) : `Trifft ${headTarget(o.head, zirkel)}. ${baseDesc(o.base)}`}</p>
+              </button>
+            ))}
+          </div>
+        )}
+      </SceneFrame>
+    );
+  }
   return (
     <SceneFrame
       title={de.nodes.shrine.name}

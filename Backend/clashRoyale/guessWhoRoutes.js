@@ -6,6 +6,8 @@
 // Server-autoritativ für Pools, Geheimkarten, Zug und Raten; die Antworten gibt der Gegner selbst (wie am Tisch).
 // Systemmeldungen gehen als Code + Name raus, der Browser übersetzt sie (DE/EN). State nur im Speicher.
 const { ALL_CARDS } = require("./core/cards");
+// Partien für den Admin-Reiter „Spiele“ (Andockstelle von Spur A)
+const { zaehlePartie } = require("../lib/spielStatistik");
 
 // Rastergrößen: Spalten × Zeilen (Client legt die Spalten danach fest)
 const GRIDS = { "4x4": 16, "5x4": 20, "6x4": 24, "6x5": 30, "6x6": 36, "7x6": 42, "7x7": 49 };
@@ -199,6 +201,7 @@ function registerGuessWhoSocket(socket, io) {
     c.me.secret = id;
     if (c.room.players[1]?.secret && c.room.players[2]?.secret) {
       c.room.status = "playing";
+      zaehlePartie("cr-wer-bin-ich"); // beide haben gewählt → eine Runde mit zwei Spielern beginnt
       sys(c.room, "start", c.room.players[c.room.turn].name);
     }
     broadcast(io, c.room);

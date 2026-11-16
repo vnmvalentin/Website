@@ -10,12 +10,12 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createRace, stepRace, ranking, WORLD_W, MARBLE_R, STEPS_PER_SECOND } from './marbleSim';
 import { planeMessages } from './streamToolConfig';
 import './overlayScenes.css';
+import { useOverlayText } from './overlayI18n';
 
 const STAGE_W = 1920;
 const FONT = 'Inter, Roboto, system-ui, sans-serif';
 
 const clamp = (v, min, max) => Math.min(max, Math.max(min, v));
-const fmt = (n) => Math.round(n || 0).toLocaleString('de-DE');
 
 /** Sekunden -> "m:ss" */
 function mmss(sec) {
@@ -170,6 +170,7 @@ function Loco() {
  * sofort data.level, sondern das Level, mit dem er zuletzt eingefahren ist.
  */
 function Train({ data, module, offsetRef, still }) {
+  const { t } = useOverlayText();
   const ended = !!data.endedAt;
   const liveLevel = clamp(Math.round(data.level) || 1, 1, 60);
   const [level, setLevel] = useState(liveLevel);
@@ -262,10 +263,10 @@ function Train({ data, module, offsetRef, still }) {
             <Loco />
             {/* Schrift liegt außerhalb der Zeichnung: die wird für die Fahrt nach
                 links gespiegelt, Text darf das nicht mitmachen */}
-            <div className="sts-cab-text">{showTimer && remaining > 0 ? mmss(remaining) : 'Hype'}</div>
+            <div className="sts-cab-text">{showTimer && remaining > 0 ? mmss(remaining) : t.hype}</div>
             <div className="sts-boiler-info">
               <div className="sts-boiler-top">
-                <b>Level {level}</b>
+                <b>{t.level(level)}</b>
                 {module.showProgress !== false && <span>{Math.round(pct)} %</span>}
               </div>
               {module.showProgress !== false && (
@@ -273,7 +274,7 @@ function Train({ data, module, offsetRef, still }) {
               )}
             </div>
             {/* Nach einem Aufstieg fährt die Lok mit einem Schild ein */}
-            {arrivals > 0 && !still && <div key={arrivals} className="sts-levelup">Level {level}</div>}
+            {arrivals > 0 && !still && <div key={arrivals} className="sts-levelup">{t.level(level)}</div>}
           </div>
         </div>
       </div>
@@ -288,6 +289,7 @@ const loadTrain3d = () => import('./hypeTrain3d');
 const TRAIN3D_H = 360;
 
 function Train3D({ data, module, offsetRef, still, onFail }) {
+  const { t } = useOverlayText();
   const canvasRef = useRef(null);
   const hudRef = useRef(null);
   const viewRef = useRef(null);
@@ -390,21 +392,21 @@ function Train3D({ data, module, offsetRef, still, onFail }) {
         <div className="sts3-hud" style={{ zoom: Math.max(0.7, size) }}>
           {joined && (
             <div key={joined.key} className="sts3-joined">
-              <b>{joined.name}</b> steigt ein{joined.more > 0 ? ` (+${joined.more})` : ''}
+              <b>{joined.name}</b> {t.hopsOn}{joined.more > 0 ? ` (+${joined.more})` : ''}
             </div>
           )}
-          {levelUp > 0 && !still && <div key={levelUp} className="sts3-levelup">Level {shownLevel}!</div>}
+          {levelUp > 0 && !still && <div key={levelUp} className="sts3-levelup">{t.levelUp(shownLevel)}</div>}
           {/* Das Level steht als große Zahl im Farbblock — die eine Angabe, die
               man auch in einem verkleinerten Stream noch lesen soll */}
           <div className={`sts3-hud-card${golden ? ' is-golden' : ''}`}>
-            <div className="sts3-hud-lvl"><small>Level</small><b>{shownLevel}</b></div>
+            <div className="sts3-hud-lvl"><small>{t.levelWord}</small><b>{shownLevel}</b></div>
             <div className="sts3-hud-body">
               <div className="sts3-hud-row">
-                <span className="sts3-hud-kicker">{golden ? 'Goldener Hype Train' : 'Hype Train'}</span>
+                <span className="sts3-hud-kicker">{golden ? t.goldenTrain : t.hypeTrain}</span>
                 {showTimer && remaining > 0 && <span className="sts3-hud-timer">{mmss(remaining)}</span>}
               </div>
               <div className="sts3-hud-row">
-                <span className="sts3-hud-people">{people.length} {people.length === 1 ? 'Fahrgast' : 'Fahrgäste'}</span>
+                <span className="sts3-hud-people">{t.passengers(people.length)}</span>
                 {module.showProgress !== false && <span className="sts3-hud-pct">{Math.round(pct)} %</span>}
               </div>
               {module.showProgress !== false && (
@@ -669,8 +671,9 @@ export function RaidStormScene({ data, module, offsetRef }) {
   const canvasRef = useRef(null);
   // Die erkannten Raider kommen nach (Twitch zieht die Zuschauerliste verzögert
   // nach) — die Zeichenschleife liest sie deshalb bei jedem Bild frisch
-  const liveRef = useRef({ data, module });
-  liveRef.current = { data, module };
+  const { t, num } = useOverlayText();
+  const liveRef = useRef({ data, module, t, num });
+  liveRef.current = { data, module, t, num };
 
   const id = data?.id;
   const size = clamp(Number(module.scale) || 1, 0.4, 2);
@@ -680,11 +683,11 @@ export function RaidStormScene({ data, module, offsetRef }) {
     const canvas = canvasRef.current;
     if (!id || !canvas) return undefined;
     const ctx = canvas.getContext('2d');
-    const { data: ev, module: mod } = liveRef.current;
+    const { data: ev, module: mod, t: tx, num: n } = liveRef.current;
     const figures = buildCrowd(ev, mod, laneH, size);
     const leader = { name: ev.raider.name, avatar: loadImage(ev.raider.avatar) };
     const dir = mod.direction === 'left' ? -1 : 1;
-    const flag = { title: ev.raider.name || 'Raid', sub: `${fmt(ev.viewers)} Zuschauer`, color: mod.accent };
+    const flag = { title: ev.raider.name || tx.raid, sub: tx.viewers(n(ev.viewers)), color: mod.accent };
     const span = STAGE_W + 300;
 
     let raf = 0;
@@ -753,6 +756,7 @@ function PlaneArt({ color }) {
  * @param {boolean} still  Dashboard: steht mittig im Bild, zum Ausrichten der Höhe
  */
 export function PlaneBannerScene({ module, test, offsetRef, still = false }) {
+  const { t } = useOverlayText();
   const messages = useMemo(() => planeMessages(module), [module.messages]); // eslint-disable-line react-hooks/exhaustive-deps
   const [flight, setFlight] = useState(null);
   const groupRef = useRef(null);
@@ -814,7 +818,7 @@ export function PlaneBannerScene({ module, test, offsetRef, still = false }) {
     return () => { anim.onfinish = null; anim.cancel(); busy.current = false; };
   }, [flightKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const text = still ? (messages[0] || 'Deine Nachricht') : flight?.text;
+  const text = still ? (messages[0] || t.planeFallback) : flight?.text;
   if (!text || !module.enabled) return null;
 
   const size = clamp(Number(module.scale) || 1, 0.4, 2);
@@ -998,6 +1002,7 @@ function drawMarble(ctx, m, player, image, color, label) {
 const loadMarble3d = () => import('./marble3d');
 
 function MarbleRace({ data, module, offsetRef, onResult, onPlacings }) {
+  const { t } = useOverlayText();
   const canvasRef = useRef(null);
   const layerRef = useRef(null);
   const [top, setTop] = useState([]);
@@ -1145,14 +1150,14 @@ function MarbleRace({ data, module, offsetRef, onResult, onPlacings }) {
           <li key={`${i}-${name}`}><b>{i + 1}</b><span>{name}</span></li>
         ))}
       </ol>
-      <span className="sts-race-count">{count} / {players.length} im Ziel</span>
+      <span className="sts-race-count">{t.finished(count, players.length)}</span>
 
       {winner && (
         <div className="sts-winner">
           <Face person={winnerFull || winner} color={module.accent} className="is-big" />
           <div>
             <span className="stw-kicker" style={{ color: module.accent }}>
-              Sieger{winner.wins > 1 ? ` · ${winner.wins}. Sieg` : ''}
+              {t.marbleWinner(winner.wins)}
             </span>
             <strong>{winner.name}</strong>
           </div>
@@ -1163,6 +1168,7 @@ function MarbleRace({ data, module, offsetRef, onResult, onPlacings }) {
 }
 
 function MarbleLobby({ data, module, offsetRef }) {
+  const { t } = useOverlayText();
   const [, tick] = useState(0);
   const timed = data.joinEndsAt > 0;
   useEffect(() => {
@@ -1178,15 +1184,15 @@ function MarbleLobby({ data, module, offsetRef }) {
   return (
     <div className="sts-lobby">
       <p className="sts-lobby-call">
-        Schreib <b style={{ color: module.accent }}>{data.command}</b> in den Chat
+        {t.joinBefore} <b style={{ color: module.accent }}>{data.command}</b> {t.joinAfter}
       </p>
       <div className="sts-lobby-meta">
-        <span>{data.players.length} {data.players.length === 1 ? 'Murmel' : 'Murmeln'} dabei</span>
-        {timed && module.timer !== false && <span className="sts-lobby-time">Start in {mmss(left)}</span>}
+        <span>{t.marblesIn(data.players.length)}</span>
+        {timed && module.timer !== false && <span className="sts-lobby-time">{t.startIn(mmss(left))}</span>}
       </div>
       {data.top?.length > 0 && (
         <div className="sts-lobby-top">
-          <b>Bestenliste</b>
+          <b>{t.leaderboard}</b>
           {data.top.map((e, i) => (
             <span key={`${i}-${e.name}`}>{i + 1}. {e.name} <i>{e.wins}</i></span>
           ))}
@@ -1209,28 +1215,27 @@ function MarbleLobby({ data, module, offsetRef }) {
   );
 }
 
-const MARBLE_CHIP = {
-  join: { cls: 'live', label: 'Anmeldung offen' },
-  race: { cls: 'lock', label: 'Rennen läuft' },
-  done: { cls: 'done', label: 'Entschieden' },
-};
+/** Schild je Phase; der Text kommt aus overlayI18n (marblePhase). */
+const MARBLE_CHIP = { join: 'live', race: 'lock', done: 'done' };
 
 /**
  * Die Murmelbahn als Karte. Während des Rennens rechnet sie selbst und meldet
  * den Sieger über onResult(raceId, playerId), danach Platz 1–3 über onPlacings(raceId, [ids]).
  */
 export function MarbleRunWidget({ data, module, offsetRef, onResult, onPlacings, width = WORLD_W }) {
+  const { t } = useOverlayText();
   if (!data) return null;
   const alpha = clamp((module.opacity ?? 88) / 100, 0, 1);
   const racing = data.phase !== 'join' && !!data.seed;
-  const chip = MARBLE_CHIP[data.phase] || MARBLE_CHIP.join;
+  const phase = MARBLE_CHIP[data.phase] ? data.phase : 'join';
+  const chip = { cls: MARBLE_CHIP[phase], label: t.marblePhase[phase] };
 
   return (
     // Immer flach: hinter einem Canvas dieser Größe wäre die Glas-Unschärfe
     // die teuerste Sache im ganzen Overlay
     <div className="stw-card is-flat sts-marbles" style={{ width, background: `rgba(16, 16, 20, ${alpha})` }}>
       <div className="sts-marbles-head">
-        <span className="stw-kicker" style={{ color: module.accent }}>Murmelbahn</span>
+        <span className="stw-kicker" style={{ color: module.accent }}>{t.marbleRun}</span>
         <span className={`stw-chip ${chip.cls}`}>{chip.label}</span>
       </div>
       {racing

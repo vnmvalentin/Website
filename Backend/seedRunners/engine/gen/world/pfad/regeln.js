@@ -69,10 +69,12 @@ export function ohneMechanikErreichbar({ grid, entities, ohne, anker, cls, von, 
     // Liegt das Ziel außerhalb des Ausschnitts, kommt ein Sprung ohnehin nicht hin
     if (Math.abs(ziel.x0 - von.x) > 38 && Math.abs(ziel.x1 - von.x) > 38) return false;
     if (Math.abs(ziel.row - von.y) > 28) return false;
+    // (alle Proben auf derselben Karte: nur einmal einlesen, probe.js `merk`)
+    const merk = {};
     for (const dir of [-1, 1]) {
       const kanteX = dir > 0 ? (plat.x1 + 1) * TILE : plat.x0 * TILE;
       for (const zug of schlichteZuege(dir, gruendlich)) {
-        const aus = ausschnittWelt(grid, ents, von, cls, { x: Math.round((von.x + ziel.x0) / 2), y: Math.round((von.y + ziel.row) / 2) });
+        const aus = ausschnittWelt(grid, ents, von, cls, { x: Math.round((von.x + ziel.x0) / 2), y: Math.round((von.y + ziel.row) / 2) }, merk);
         aus.welt.flags.sw = sw;
         const r = spieleZug(aus, zugEingabe(zug, kanteX - aus.x0 * TILE), zugFertig, 600);
         if (r.tot) continue;

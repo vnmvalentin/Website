@@ -38,10 +38,10 @@ export default function RulesDialog({ open, onClose }) {
             </p>
           </section>
           <section className="py-3">
-            <h3 className="wf-section-title mb-1">Die Welt kippt</h3>
+            <h3 className="wf-section-title mb-1">Die Welt wechselt</h3>
             <p className="wf-dim">
-              Der Tisch schwebt immer über der Welt, die gerade gilt. Legt jemand eine andere Farbe, dreht sich die neue Welt unter
-              den Tisch — und mit ihr wechselt das Gesetz. Bei der Wirbel-Karte dreht sich der Tisch einmal herum, danach wird
+              Der Tisch schwebt immer über der Welt, die gerade gilt. Legt jemand eine andere Farbe, wird es kurz dunkel und der
+              Tisch steht in der neuen Welt — und mit ihr wechselt das Gesetz. Bei der Wirbel-Karte dreht sich der Tisch einmal herum, danach wird
               andersherum gespielt (die Pfeile am Tischrand zeigen die Richtung).
             </p>
           </section>
@@ -87,6 +87,34 @@ export default function RulesDialog({ open, onClose }) {
             <p className="wf-dim">
               Partner sitzen sich gegenüber. „Gegner“ auf den Karten und bei Weltereignissen meint dann nur das andere Team — dein
               Partner bleibt von Feuerwalze, Ausbruch und Finsternis verschont. Ein Ziel darfst du trotzdem frei wählen.
+              Die Karten deines Partners siehst du oben rechts, er sieht deine.
+            </p>
+          </section>
+          <section className="py-3">
+            <h3 className="wf-section-title mb-1">Antworten: Spiegel und Stapeln</h3>
+            <p className="wf-dim">
+              Greift dich jemand mit Sturm, Hagel, Meteor, Frost, Saat, Strahl oder Flaschenpost an und du hältst einen Spiegel,
+              darfst du ihn sofort legen: Der Angriff trifft dann den, der ihn gelegt hat — er zieht selbst, friert selbst ein
+              oder (beim Sturm) sein nächster Zug fällt aus. Gegen einen Hagel darfst du stattdessen auch selbst einen Hagel drauflegen: Dann
+              zieht der Nächste 4 Karten (oder legt wieder einen drauf, dann sind es 6). Du kannst den Angriff auch hinnehmen
+              und die Karten behalten. Gegen Feuerwalze und Weltereignisse gibt es keine Antwort. Auf deinem eigenen Zug
+              passt der Spiegel immer, bewirkt dann aber nichts — die Welt bleibt, wie sie ist.
+            </p>
+          </section>
+          <section className="py-3">
+            <h3 className="wf-section-title mb-1">Nebel</h3>
+            <p className="wf-dim">
+              Im Nebel sieht niemand, wie viele Karten du hältst: Über deiner Figur steht ein Fragezeichen, dein Fächer
+              verschwindet in einer Wolke. Er hält {RULES.FOG_TURNS} deiner Züge — und lichtet sich sofort, sobald du nur noch eine
+              Karte hast. Im 2 gegen 2 sieht dein Partner weiter alles.
+            </p>
+          </section>
+          <section className="py-3">
+            <h3 className="wf-section-title mb-1">Echo und Kettenreaktion</h3>
+            <p className="wf-dim">
+              Das Echo wiederholt die zuletzt gelegte Effektkarte, egal von wem (fahr mit dem Zeiger darüber, dann steht dort,
+              welche das gerade ist). Supernova und Konjunktion laden die anderen Welten auf: Wird dabei eine voll, bricht sie
+              sofort aus — auch mehrere hintereinander.
             </p>
           </section>
           <section className="py-3">

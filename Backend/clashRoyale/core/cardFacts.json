@@ -1,0 +1,1384 @@
+{
+ "quelle": "Frontend/src/pages/ClashRoyale/data (kartenSpiegel.js)",
+ "karten": {
+  "archer-queen": {
+   "type": "troop",
+   "elixir": 5,
+   "released": 2021,
+   "hp": 1000,
+   "damage": 225,
+   "dps": 188
+  },
+  "archers": {
+   "type": "troop",
+   "elixir": 3,
+   "released": 2016
+  },
+  "arrows": {
+   "type": "spell",
+   "elixir": 3,
+   "released": 2016,
+   "damage": 122,
+   "of": {
+    "damage": [
+     "Schaden gegen Truppen, ohne Kronenturm-Schaden, pro Welle (×3)",
+     "Damage to troops, not crown towers, per wave (×3)"
+    ]
+   }
+  },
+  "baby-dragon": {
+   "type": "troop",
+   "elixir": 4,
+   "released": 2016,
+   "hp": 1152,
+   "damage": 168,
+   "dps": 112
+  },
+  "balloon": {
+   "type": "troop",
+   "elixir": 5,
+   "released": 2016,
+   "hp": 1679,
+   "damage": 640,
+   "dps": 320,
+   "win": 5
+  },
+  "bandit": {
+   "type": "troop",
+   "elixir": 3,
+   "released": 2017,
+   "hp": 906,
+   "damage": 194,
+   "dps": 194
+  },
+  "barbarian-barrel": {
+   "type": "spell",
+   "elixir": 2,
+   "released": 2018,
+   "hp": 670,
+   "damage": 191,
+   "dps": 147,
+   "of": {
+    "damage": [
+     "Schaden gegen Truppen, ohne Kronenturm-Schaden",
+     "Damage to troops, not crown towers"
+    ]
+   }
+  },
+  "barbarian-hut": {
+   "type": "building",
+   "elixir": 6,
+   "released": 2016,
+   "hp": 1164,
+   "damage": 192,
+   "dps": 148,
+   "of": {
+    "hp": [
+     "Hütte",
+     "Hut"
+    ],
+    "damage": [
+     "Barbaren",
+     "Barbarians"
+    ],
+    "dps": [
+     "Barbaren",
+     "Barbarians"
+    ]
+   }
+  },
+  "barbarians": {
+   "type": "troop",
+   "elixir": 5,
+   "released": 2016,
+   "hp": 716,
+   "damage": 192,
+   "dps": 137
+  },
+  "bats": {
+   "type": "troop",
+   "elixir": 2,
+   "released": 2017,
+   "hp": 81,
+   "damage": 81,
+   "dps": 62
+  },
+  "battle-healer": {
+   "type": "troop",
+   "elixir": 4,
+   "released": 2019,
+   "hp": 1920,
+   "damage": 268,
+   "dps": 134,
+   "tank": true
+  },
+  "battle-ram": {
+   "type": "troop",
+   "elixir": 4,
+   "released": 2017,
+   "hp": 967,
+   "damage": 286,
+   "dps": 220,
+   "of": {
+    "hp": [
+     "Rammbock",
+     "Ram"
+    ],
+    "damage": [
+     "Rammbock, ohne Sturmangriff",
+     "Ram, without charge"
+    ],
+    "dps": [
+     "Rammbock, ohne Sturmangriff",
+     "Ram, without charge"
+    ]
+   },
+   "win": 13
+  },
+  "berserker": {
+   "type": "troop",
+   "elixir": 2,
+   "released": 2025,
+   "hp": 896,
+   "damage": 102,
+   "dps": 170
+  },
+  "bomb-tower": {
+   "type": "building",
+   "elixir": 4,
+   "released": 2016,
+   "hp": 1356,
+   "damage": 222,
+   "dps": 123
+  },
+  "bomber": {
+   "type": "troop",
+   "elixir": 2,
+   "released": 2016,
+   "hp": 304,
+   "damage": 225,
+   "dps": 125
+  },
+  "boss-bandit": {
+   "type": "troop",
+   "elixir": 6,
+   "released": 2025,
+   "hp": 2624,
+   "damage": 244,
+   "dps": 222,
+   "tank": true
+  },
+  "bowler": {
+   "type": "troop",
+   "elixir": 5,
+   "released": 2016,
+   "hp": 2081,
+   "damage": 289,
+   "dps": 116,
+   "tank": true
+  },
+  "cannon": {
+   "type": "building",
+   "elixir": 3,
+   "released": 2016,
+   "hp": 824,
+   "damage": 212,
+   "dps": 212
+  },
+  "cannon-cart": {
+   "type": "troop",
+   "elixir": 5,
+   "released": 2017,
+   "hp": 1809,
+   "damage": 212,
+   "dps": 236
+  },
+  "clone": {
+   "type": "spell",
+   "elixir": 3,
+   "released": 2016
+  },
+  "dark-prince": {
+   "type": "troop",
+   "elixir": 4,
+   "released": 2016,
+   "hp": 1200,
+   "damage": 266,
+   "dps": 190,
+   "tank": true
+  },
+  "dart-goblin": {
+   "type": "troop",
+   "elixir": 3,
+   "released": 2017,
+   "hp": 261,
+   "damage": 156,
+   "dps": 195
+  },
+  "earthquake": {
+   "type": "spell",
+   "elixir": 3,
+   "released": 2019,
+   "damage": 84,
+   "of": {
+    "damage": [
+     "Schaden gegen Truppen, ohne Kronenturm-Schaden, pro Welle (×3)",
+     "Damage to troops, not crown towers, per wave (×3)"
+    ]
+   }
+  },
+  "electro-dragon": {
+   "type": "troop",
+   "elixir": 5,
+   "released": 2018,
+   "hp": 1049,
+   "damage": 192,
+   "dps": 250,
+   "of": {
+    "damage": [
+     "pro Treffer, ×3 je Angriff",
+     "per hit, ×3 per attack"
+    ]
+   }
+  },
+  "electro-giant": {
+   "type": "troop",
+   "elixir": 7,
+   "released": 2020,
+   "hp": 3952,
+   "damage": 163,
+   "dps": 91,
+   "win": 17,
+   "tank": true
+  },
+  "electro-spirit": {
+   "type": "troop",
+   "elixir": 1,
+   "released": 2020,
+   "hp": 215,
+   "damage": 99
+  },
+  "electro-wizard": {
+   "type": "troop",
+   "elixir": 4,
+   "released": 2016,
+   "hp": 714,
+   "damage": 115,
+   "dps": 128,
+   "of": {
+    "damage": [
+     "pro Treffer, ×2 je Angriff",
+     "per hit, ×2 per attack"
+    ]
+   }
+  },
+  "elite-barbarians": {
+   "type": "troop",
+   "elixir": 6,
+   "released": 2016,
+   "hp": 1341,
+   "damage": 384,
+   "dps": 274
+  },
+  "elixir-collector": {
+   "type": "building",
+   "elixir": 6,
+   "released": 2016,
+   "hp": 1070
+  },
+  "elixir-golem": {
+   "type": "troop",
+   "elixir": 3,
+   "released": 2019,
+   "hp": 1569,
+   "damage": 253,
+   "dps": 230,
+   "of": {
+    "hp": [
+     "Golem, ohne Teilstücke",
+     "Golem, without splits"
+    ],
+    "damage": [
+     "Golem",
+     "Golem"
+    ],
+    "dps": [
+     "Golem",
+     "Golem"
+    ]
+   },
+   "win": 18,
+   "tank": true
+  },
+  "executioner": {
+   "type": "troop",
+   "elixir": 5,
+   "released": 2017,
+   "hp": 1280,
+   "damage": 168,
+   "dps": 373,
+   "of": {
+    "damage": [
+     "pro Treffer, ×2 je Angriff",
+     "per hit, ×2 per attack"
+    ]
+   }
+  },
+  "fire-spirit": {
+   "type": "troop",
+   "elixir": 1,
+   "released": 2016,
+   "hp": 215,
+   "damage": 207
+  },
+  "fireball": {
+   "type": "spell",
+   "elixir": 4,
+   "released": 2016,
+   "damage": 688,
+   "of": {
+    "damage": [
+     "Schaden gegen Truppen, ohne Kronenturm-Schaden",
+     "Damage to troops, not crown towers"
+    ]
+   }
+  },
+  "firecracker": {
+   "type": "troop",
+   "elixir": 3,
+   "released": 2020,
+   "hp": 304,
+   "damage": 64,
+   "dps": 107,
+   "of": {
+    "damage": [
+     "pro Treffer, ×5 je Angriff",
+     "per hit, ×5 per attack"
+    ]
+   }
+  },
+  "fisherman": {
+   "type": "troop",
+   "elixir": 3,
+   "released": 2019,
+   "hp": 870,
+   "damage": 194,
+   "dps": 149
+  },
+  "flying-machine": {
+   "type": "troop",
+   "elixir": 4,
+   "released": 2017,
+   "hp": 614,
+   "damage": 171,
+   "dps": 155
+  },
+  "freeze": {
+   "type": "spell",
+   "elixir": 4,
+   "released": 2016,
+   "damage": 115,
+   "of": {
+    "damage": [
+     "Schaden gegen Truppen, ohne Kronenturm-Schaden",
+     "Damage to troops, not crown towers"
+    ]
+   }
+  },
+  "furnace": {
+   "type": "troop",
+   "elixir": 4,
+   "released": 2016,
+   "hp": 727,
+   "of": {
+    "hp": [
+     "Ofen",
+     "Furnace"
+    ]
+   }
+  },
+  "giant": {
+   "type": "troop",
+   "elixir": 5,
+   "released": 2016,
+   "hp": 3968,
+   "damage": 253,
+   "dps": 169,
+   "win": 2,
+   "tank": true
+  },
+  "giant-skeleton": {
+   "type": "troop",
+   "elixir": 6,
+   "released": 2016,
+   "hp": 3361,
+   "damage": 276,
+   "dps": 212,
+   "tank": true
+  },
+  "giant-snowball": {
+   "type": "spell",
+   "elixir": 2,
+   "released": 2018,
+   "damage": 179,
+   "of": {
+    "damage": [
+     "Schaden gegen Truppen, ohne Kronenturm-Schaden",
+     "Damage to troops, not crown towers"
+    ]
+   }
+  },
+  "goblin-barrel": {
+   "type": "spell",
+   "elixir": 3,
+   "released": 2016,
+   "hp": 202,
+   "damage": 120,
+   "dps": 109,
+   "of": {
+    "damage": [
+     "Schaden gegen Truppen, ohne Kronenturm-Schaden",
+     "Damage to troops, not crown towers"
+    ]
+   },
+   "win": 10
+  },
+  "goblin-cage": {
+   "type": "building",
+   "elixir": 4,
+   "released": 2019,
+   "hp": 780,
+   "damage": 337,
+   "dps": 306,
+   "of": {
+    "hp": [
+     "Käfig",
+     "Cage"
+    ],
+    "damage": [
+     "Kobold-Schläger",
+     "Goblin Brawler"
+    ],
+    "dps": [
+     "Kobold-Schläger",
+     "Goblin Brawler"
+    ]
+   }
+  },
+  "goblin-curse": {
+   "type": "spell",
+   "elixir": 2,
+   "released": 2024
+  },
+  "goblin-demolisher": {
+   "type": "troop",
+   "elixir": 4,
+   "released": 2024,
+   "hp": 1300,
+   "damage": 186,
+   "dps": 155,
+   "win": 24
+  },
+  "goblin-drill": {
+   "type": "building",
+   "elixir": 4,
+   "released": 2021,
+   "hp": 1313,
+   "damage": 120,
+   "dps": 109,
+   "of": {
+    "hp": [
+     "Bohrer",
+     "Drill"
+    ],
+    "damage": [
+     "Kobolde",
+     "Goblins"
+    ],
+    "dps": [
+     "Kobolde",
+     "Goblins"
+    ]
+   },
+   "win": 16
+  },
+  "goblin-gang": {
+   "type": "troop",
+   "elixir": 3,
+   "released": 2017,
+   "hp": 202,
+   "damage": 120,
+   "dps": 109,
+   "of": {
+    "hp": [
+     "Messer-Kobold",
+     "Goblin"
+    ],
+    "damage": [
+     "Messer-Kobold",
+     "Goblin"
+    ],
+    "dps": [
+     "Messer-Kobold",
+     "Goblin"
+    ]
+   }
+  },
+  "goblin-giant": {
+   "type": "troop",
+   "elixir": 6,
+   "released": 2018,
+   "hp": 3022,
+   "damage": 176,
+   "dps": 117,
+   "of": {
+    "hp": [
+     "Riese, ohne Speerkobolde",
+     "Giant, without Spear Goblins"
+    ],
+    "damage": [
+     "Riese",
+     "Giant"
+    ],
+    "dps": [
+     "Riese",
+     "Giant"
+    ]
+   },
+   "win": 20,
+   "tank": true
+  },
+  "goblin-hut": {
+   "type": "building",
+   "elixir": 4,
+   "released": 2016,
+   "hp": 1228,
+   "damage": 81,
+   "dps": 48,
+   "of": {
+    "hp": [
+     "Hütte",
+     "Hut"
+    ],
+    "damage": [
+     "Speerkobolde",
+     "Spear Goblins"
+    ],
+    "dps": [
+     "Speerkobolde",
+     "Spear Goblins"
+    ]
+   }
+  },
+  "goblin-machine": {
+   "type": "troop",
+   "elixir": 5,
+   "released": 2024,
+   "hp": 2150,
+   "damage": 212,
+   "dps": 177,
+   "tank": true
+  },
+  "goblins": {
+   "type": "troop",
+   "elixir": 2,
+   "released": 2016,
+   "hp": 202,
+   "damage": 125,
+   "dps": 114
+  },
+  "goblinstein": {
+   "type": "troop",
+   "elixir": 5,
+   "released": 2024,
+   "hp": 2393,
+   "damage": 128,
+   "dps": 71,
+   "of": {
+    "hp": [
+     "Monster",
+     "Monster"
+    ],
+    "damage": [
+     "Monster",
+     "Monster"
+    ],
+    "dps": [
+     "Monster",
+     "Monster"
+    ]
+   },
+   "tank": true
+  },
+  "golden-knight": {
+   "type": "troop",
+   "elixir": 4,
+   "released": 2021,
+   "hp": 1799,
+   "damage": 161,
+   "dps": 179,
+   "tank": true
+  },
+  "golem": {
+   "type": "troop",
+   "elixir": 8,
+   "released": 2016,
+   "hp": 5120,
+   "damage": 312,
+   "dps": 125,
+   "of": {
+    "hp": [
+     "Golem, ohne Golemites",
+     "Golem, without Golemites"
+    ],
+    "damage": [
+     "Golem",
+     "Golem"
+    ],
+    "dps": [
+     "Golem",
+     "Golem"
+    ]
+   },
+   "win": 4,
+   "tank": true
+  },
+  "graveyard": {
+   "type": "spell",
+   "elixir": 5,
+   "released": 2016,
+   "hp": 81,
+   "damage": 81,
+   "dps": 74,
+   "of": {
+    "damage": [
+     "Schaden gegen Truppen, ohne Kronenturm-Schaden",
+     "Damage to troops, not crown towers"
+    ]
+   },
+   "win": 9
+  },
+  "guards": {
+   "type": "troop",
+   "elixir": 3,
+   "released": 2016,
+   "hp": 81,
+   "damage": 117,
+   "dps": 117
+  },
+  "heal-spirit": {
+   "type": "troop",
+   "elixir": 1,
+   "released": 2020,
+   "hp": 215,
+   "damage": 110
+  },
+  "hog-rider": {
+   "type": "troop",
+   "elixir": 4,
+   "released": 2016,
+   "hp": 1697,
+   "damage": 317,
+   "dps": 198,
+   "win": 1
+  },
+  "hunter": {
+   "type": "troop",
+   "elixir": 4,
+   "released": 2017,
+   "hp": 885,
+   "damage": 84,
+   "dps": 382,
+   "of": {
+    "damage": [
+     "pro Treffer, ×10 je Angriff",
+     "per hit, ×10 per attack"
+    ]
+   }
+  },
+  "ice-golem": {
+   "type": "troop",
+   "elixir": 2,
+   "released": 2016,
+   "hp": 1315,
+   "damage": 84,
+   "dps": 34,
+   "tank": true
+  },
+  "ice-spirit": {
+   "type": "troop",
+   "elixir": 1,
+   "released": 2016,
+   "hp": 215,
+   "damage": 110
+  },
+  "ice-wizard": {
+   "type": "troop",
+   "elixir": 3,
+   "released": 2016,
+   "hp": 688,
+   "damage": 89,
+   "dps": 52
+  },
+  "inferno-dragon": {
+   "type": "troop",
+   "elixir": 4,
+   "released": 2016,
+   "hp": 1295
+  },
+  "inferno-tower": {
+   "type": "building",
+   "elixir": 5,
+   "released": 2016,
+   "hp": 1748
+  },
+  "knight": {
+   "type": "troop",
+   "elixir": 3,
+   "released": 2016,
+   "hp": 1766,
+   "damage": 202,
+   "dps": 168,
+   "tank": true
+  },
+  "lava-hound": {
+   "type": "troop",
+   "elixir": 7,
+   "released": 2016,
+   "hp": 3581,
+   "damage": 53,
+   "dps": 41,
+   "of": {
+    "hp": [
+     "Lavahund, ohne Welpen",
+     "Hound, without Pups"
+    ],
+    "damage": [
+     "Lavahund",
+     "Hound"
+    ],
+    "dps": [
+     "Lavahund",
+     "Hound"
+    ]
+   },
+   "win": 6,
+   "tank": true
+  },
+  "lightning": {
+   "type": "spell",
+   "elixir": 6,
+   "released": 2016,
+   "damage": 1057,
+   "of": {
+    "damage": [
+     "Schaden gegen Truppen, ohne Kronenturm-Schaden",
+     "Damage to troops, not crown towers"
+    ]
+   }
+  },
+  "little-prince": {
+   "type": "troop",
+   "elixir": 3,
+   "released": 2023,
+   "hp": 698,
+   "damage": 104,
+   "dps": 87,
+   "of": {
+    "hp": [
+     "Prinz, ohne Wächter",
+     "Prince, without Guardienne"
+    ],
+    "damage": [
+     "Prinz",
+     "Prince"
+    ],
+    "dps": [
+     "Prinz",
+     "Prince"
+    ]
+   }
+  },
+  "lumberjack": {
+   "type": "troop",
+   "elixir": 4,
+   "released": 2016,
+   "hp": 1282,
+   "damage": 256,
+   "dps": 320
+  },
+  "magic-archer": {
+   "type": "troop",
+   "elixir": 4,
+   "released": 2018,
+   "hp": 529,
+   "damage": 133,
+   "dps": 121
+  },
+  "mega-knight": {
+   "type": "troop",
+   "elixir": 7,
+   "released": 2017,
+   "hp": 3993,
+   "damage": 268,
+   "dps": 158,
+   "tank": true
+  },
+  "mega-minion": {
+   "type": "troop",
+   "elixir": 3,
+   "released": 2016,
+   "hp": 837,
+   "damage": 312,
+   "dps": 208
+  },
+  "mighty-miner": {
+   "type": "troop",
+   "elixir": 4,
+   "released": 2022,
+   "hp": 2250,
+   "tank": true
+  },
+  "miner": {
+   "type": "troop",
+   "elixir": 3,
+   "released": 2016,
+   "hp": 1210,
+   "damage": 194,
+   "dps": 149,
+   "win": 11
+  },
+  "mini-pekka": {
+   "type": "troop",
+   "elixir": 4,
+   "released": 2016
+  },
+  "minion-giant": {
+   "type": "troop",
+   "elixir": 4,
+   "released": 2026,
+   "win": 25,
+   "tank": true
+  },
+  "minion-horde": {
+   "type": "troop",
+   "elixir": 5,
+   "released": 2016
+  },
+  "minions": {
+   "type": "troop",
+   "elixir": 3,
+   "released": 2016
+  },
+  "mirror": {
+   "type": "spell",
+   "elixir": 0,
+   "released": 2016
+  },
+  "monk": {
+   "type": "troop",
+   "elixir": 5,
+   "released": 2022,
+   "hp": 2214,
+   "damage": 140,
+   "dps": 175,
+   "tank": true
+  },
+  "mortar": {
+   "type": "building",
+   "elixir": 4,
+   "released": 2016,
+   "hp": 1369,
+   "damage": 266,
+   "dps": 53,
+   "win": 8
+  },
+  "mother-witch": {
+   "type": "troop",
+   "elixir": 4,
+   "released": 2020,
+   "hp": 529,
+   "damage": 133,
+   "dps": 133,
+   "of": {
+    "hp": [
+     "Mutterhexe",
+     "Mother Witch"
+    ],
+    "damage": [
+     "Mutterhexe",
+     "Mother Witch"
+    ],
+    "dps": [
+     "Mutterhexe",
+     "Mother Witch"
+    ]
+   }
+  },
+  "musketeer": {
+   "type": "troop",
+   "elixir": 4,
+   "released": 2016,
+   "hp": 721,
+   "damage": 217,
+   "dps": 217
+  },
+  "night-witch": {
+   "type": "troop",
+   "elixir": 4,
+   "released": 2017,
+   "hp": 906,
+   "damage": 314,
+   "dps": 242,
+   "of": {
+    "hp": [
+     "Nachthexe, ohne Fledermäuse",
+     "Night Witch, without Bats"
+    ],
+    "damage": [
+     "Nachthexe",
+     "Night Witch"
+    ],
+    "dps": [
+     "Nachthexe",
+     "Night Witch"
+    ]
+   }
+  },
+  "pekka": {
+   "type": "troop",
+   "elixir": 7,
+   "released": 2016,
+   "hp": 3760,
+   "damage": 842,
+   "dps": 468,
+   "tank": true
+  },
+  "phoenix": {
+   "type": "troop",
+   "elixir": 4,
+   "released": 2022,
+   "hp": 1052,
+   "damage": 217,
+   "dps": 217
+  },
+  "poison": {
+   "type": "spell",
+   "elixir": 4,
+   "released": 2016,
+   "damage": 92,
+   "of": {
+    "damage": [
+     "Schaden gegen Truppen, ohne Kronenturm-Schaden, pro Welle (×8)",
+     "Damage to troops, not crown towers, per wave (×8)"
+    ]
+   }
+  },
+  "prince": {
+   "type": "troop",
+   "elixir": 5,
+   "released": 2016,
+   "hp": 1920,
+   "damage": 391,
+   "dps": 279
+  },
+  "princess": {
+   "type": "troop",
+   "elixir": 3,
+   "released": 2016,
+   "hp": 261,
+   "damage": 168,
+   "dps": 56
+  },
+  "rage": {
+   "type": "spell",
+   "elixir": 2,
+   "released": 2016,
+   "damage": 179,
+   "of": {
+    "damage": [
+     "Schaden gegen Truppen, ohne Kronenturm-Schaden",
+     "Damage to troops, not crown towers"
+    ]
+   }
+  },
+  "ram-rider": {
+   "type": "troop",
+   "elixir": 5,
+   "released": 2018,
+   "hp": 1766,
+   "damage": 250,
+   "dps": 139,
+   "of": {
+    "hp": [
+     "Widder",
+     "Ram"
+    ],
+    "damage": [
+     "Widder, ohne Reiterin",
+     "Ram, without Rider"
+    ],
+    "dps": [
+     "Widder, ohne Reiterin",
+     "Ram, without Rider"
+    ]
+   },
+   "win": 12
+  },
+  "rascals": {
+   "type": "troop",
+   "elixir": 5,
+   "released": 2018,
+   "hp": 1868,
+   "damage": 217,
+   "dps": 145,
+   "of": {
+    "hp": [
+     "Rabauken-Junge",
+     "Rascal Boy"
+    ],
+    "damage": [
+     "Rabauken-Junge",
+     "Rascal Boy"
+    ],
+    "dps": [
+     "Rabauken-Junge",
+     "Rascal Boy"
+    ]
+   }
+  },
+  "rocket": {
+   "type": "spell",
+   "elixir": 6,
+   "released": 2016,
+   "damage": 1484,
+   "of": {
+    "damage": [
+     "Schaden gegen Truppen, ohne Kronenturm-Schaden",
+     "Damage to troops, not crown towers"
+    ]
+   }
+  },
+  "ronin": {
+   "type": "troop",
+   "elixir": 5,
+   "released": 2026
+  },
+  "royal-delivery": {
+   "type": "spell",
+   "elixir": 3,
+   "released": 2020,
+   "hp": 547,
+   "damage": 133,
+   "dps": 102,
+   "of": {
+    "damage": [
+     "Schaden gegen Truppen, ohne Kronenturm-Schaden",
+     "Damage to troops, not crown towers"
+    ]
+   }
+  },
+  "royal-ghost": {
+   "type": "troop",
+   "elixir": 3,
+   "released": 2017,
+   "hp": 1210,
+   "damage": 261,
+   "dps": 145
+  },
+  "royal-giant": {
+   "type": "troop",
+   "elixir": 6,
+   "released": 2016,
+   "hp": 3164,
+   "damage": 307,
+   "dps": 171,
+   "win": 3,
+   "tank": true
+  },
+  "royal-hogs": {
+   "type": "troop",
+   "elixir": 5,
+   "released": 2018,
+   "hp": 837,
+   "damage": 74,
+   "dps": 62,
+   "win": 14
+  },
+  "royal-recruits": {
+   "type": "troop",
+   "elixir": 7,
+   "released": 2018,
+   "hp": 547,
+   "damage": 133,
+   "dps": 102
+  },
+  "rune-giant": {
+   "type": "troop",
+   "elixir": 4,
+   "released": 2025,
+   "hp": 2662,
+   "damage": 120,
+   "dps": 80,
+   "win": 23,
+   "tank": true
+  },
+  "skeleton-army": {
+   "type": "troop",
+   "elixir": 3,
+   "released": 2016,
+   "hp": 81,
+   "damage": 81,
+   "dps": 74
+  },
+  "skeleton-barrel": {
+   "type": "troop",
+   "elixir": 3,
+   "released": 2017,
+   "hp": 532,
+   "damage": 81,
+   "dps": 74,
+   "of": {
+    "hp": [
+     "Fass",
+     "Barrel"
+    ],
+    "damage": [
+     "Skelette",
+     "Skeletons"
+    ],
+    "dps": [
+     "Skelette",
+     "Skeletons"
+    ]
+   },
+   "win": 19
+  },
+  "skeleton-dragons": {
+   "type": "troop",
+   "elixir": 4,
+   "released": 2020,
+   "hp": 560,
+   "damage": 161,
+   "dps": 81
+  },
+  "skeleton-king": {
+   "type": "troop",
+   "elixir": 4,
+   "released": 2021,
+   "hp": 2298,
+   "damage": 204,
+   "dps": 128,
+   "tank": true
+  },
+  "skeletons": {
+   "type": "troop",
+   "elixir": 1,
+   "released": 2016,
+   "hp": 81,
+   "damage": 81,
+   "dps": 74
+  },
+  "sparky": {
+   "type": "troop",
+   "elixir": 6,
+   "released": 2016,
+   "hp": 1451,
+   "damage": 1331,
+   "dps": 333
+  },
+  "spear-goblins": {
+   "type": "troop",
+   "elixir": 2,
+   "released": 2016,
+   "hp": 133,
+   "damage": 81,
+   "dps": 51
+  },
+  "spirit-empress": {
+   "type": "troop",
+   "elixir": 6,
+   "released": 2025,
+   "hp": 1798,
+   "damage": 309,
+   "dps": 193
+  },
+  "suspicious-bush": {
+   "type": "troop",
+   "elixir": 2,
+   "released": 2024,
+   "hp": 81,
+   "damage": 256,
+   "dps": 183,
+   "of": {
+    "hp": [
+     "Busch",
+     "Bush"
+    ],
+    "damage": [
+     "Busch-Kobolde",
+     "Bush Goblins"
+    ],
+    "dps": [
+     "Busch-Kobolde",
+     "Bush Goblins"
+    ]
+   },
+   "win": 22
+  },
+  "tesla": {
+   "type": "building",
+   "elixir": 4,
+   "released": 2016,
+   "hp": 1152,
+   "damage": 220,
+   "dps": 200
+  },
+  "the-log": {
+   "type": "spell",
+   "elixir": 2,
+   "released": 2016,
+   "damage": 266,
+   "of": {
+    "damage": [
+     "Schaden gegen Truppen, ohne Kronenturm-Schaden",
+     "Damage to troops, not crown towers"
+    ]
+   }
+  },
+  "three-musketeers": {
+   "type": "troop",
+   "elixir": 9,
+   "released": 2016,
+   "hp": 883,
+   "win": 21
+  },
+  "tombstone": {
+   "type": "building",
+   "elixir": 3,
+   "released": 2016,
+   "hp": 529,
+   "damage": 81,
+   "dps": 74,
+   "of": {
+    "hp": [
+     "Grabstein",
+     "Tombstone"
+    ],
+    "damage": [
+     "Skelette",
+     "Skeletons"
+    ],
+    "dps": [
+     "Skelette",
+     "Skeletons"
+    ]
+   }
+  },
+  "tornado": {
+   "type": "spell",
+   "elixir": 3,
+   "released": 2016,
+   "damage": 84,
+   "of": {
+    "damage": [
+     "Schaden gegen Truppen, ohne Kronenturm-Schaden",
+     "Damage to troops, not crown towers"
+    ]
+   }
+  },
+  "valkyrie": {
+   "type": "troop",
+   "elixir": 4,
+   "released": 2016,
+   "hp": 1907,
+   "damage": 266,
+   "dps": 177,
+   "tank": true
+  },
+  "vines": {
+   "type": "spell",
+   "elixir": 3,
+   "released": 2025,
+   "damage": 153,
+   "of": {
+    "damage": [
+     "Schaden gegen Truppen, ohne Kronenturm-Schaden, pro Welle (×2)",
+     "Damage to troops, not crown towers, per wave (×2)"
+    ]
+   }
+  },
+  "void": {
+   "type": "spell",
+   "elixir": 5,
+   "released": 2024
+  },
+  "wall-breakers": {
+   "type": "troop",
+   "elixir": 2,
+   "released": 2019,
+   "hp": 330,
+   "damage": 391,
+   "win": 15
+  },
+  "witch": {
+   "type": "troop",
+   "elixir": 5,
+   "released": 2016,
+   "hp": 839,
+   "damage": 135,
+   "dps": 123,
+   "of": {
+    "hp": [
+     "Hexe, ohne Skelette",
+     "Witch, without Skeletons"
+    ],
+    "damage": [
+     "Hexe",
+     "Witch"
+    ],
+    "dps": [
+     "Hexe",
+     "Witch"
+    ]
+   }
+  },
+  "wizard": {
+   "type": "troop",
+   "elixir": 5,
+   "released": 2016,
+   "hp": 832,
+   "damage": 281,
+   "dps": 201
+  },
+  "x-bow": {
+   "type": "building",
+   "elixir": 6,
+   "released": 2016,
+   "hp": 1600,
+   "damage": 43,
+   "dps": 108,
+   "win": 7
+  },
+  "zap": {
+   "type": "spell",
+   "elixir": 2,
+   "released": 2016,
+   "damage": 192,
+   "of": {
+    "damage": [
+     "Schaden gegen Truppen, ohne Kronenturm-Schaden",
+     "Damage to troops, not crown towers"
+    ]
+   }
+  },
+  "zappies": {
+   "type": "troop",
+   "elixir": 4,
+   "released": 2017,
+   "hp": 529,
+   "damage": 117,
+   "dps": 53
+  }
+ }
+}

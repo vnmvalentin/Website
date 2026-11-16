@@ -18,8 +18,17 @@ export const SKIN_COLORS = [
   { name: 'Rot', hex: '#ef4b4b' },
   { name: 'Grau', hex: '#8d93a6' },
 ];
-export const SKIN_HATS = ['Ohne', 'Spitzhut', 'Zylinder', 'Antenne', 'Hörner', 'Kappe', 'Propeller', 'Blume', 'Heiligenschein', 'Pilz'];
-export const SKIN_FACES = ['Normal', 'Brille', 'Schläfrig', 'Grimmig', 'Einauge', 'Schnurrbart'];
+// Neue Einträge immer hinten anhängen — gespeicherte Skins und der Server zählen nach Index.
+// Der Server würfelt Bots mit diesen Anzahlen (Backend/worldflip/roomManager.js, botSkin) — dort mitziehen.
+export const SKIN_HATS = [
+  'Ohne', 'Spitzhut', 'Zylinder', 'Antenne', 'Hörner', 'Kappe', 'Propeller', 'Blume', 'Heiligenschein', 'Pilz',
+  'Katzenohren', 'Partyhut', 'Pudelmütze', 'Cowboyhut', 'Kochmütze', 'Piratenhut', 'Hasenohren', 'Wikingerhelm',
+  'Sombrero', 'Doktorhut', 'Kopfhörer', 'Einhorn', 'Frosch', 'Weihnachtsmütze', 'Schleife', 'Quietscheente',
+];
+export const SKIN_FACES = [
+  'Normal', 'Brille', 'Schläfrig', 'Grimmig', 'Einauge', 'Schnurrbart',
+  'Katze', ':3', 'UwU', 'Fröhlich', 'Herzaugen', 'Zunge raus', 'Vampir', 'Sternaugen', 'Staunend',
+];
 
 const idx = (v, n, fallback) => (Number.isInteger(v) && v >= 0 && v < n ? v : fallback);
 

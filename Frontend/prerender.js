@@ -6,6 +6,10 @@ import { preview } from 'vite';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const toAbsolute = (p) => path.resolve(__dirname, p);
+// Build-Ordner, aus dem gelesen und in den geschrieben wird — für Probeläufe abweichend per PRERENDER_OUT_DIR
+const OUT_DIR = process.env.PRERENDER_OUT_DIR || 'dist';
+const DOMAIN = 'https://vnmvalentin.de';
+const CONCURRENCY = 4;
 
 const routesToPrerender = [
   '/',
@@ -24,6 +28,7 @@ const routesToPrerender = [
   '/clash/wordle',
   '/clash/farbe',
   '/clash/viewer-games',
+  '/clash/heute',
   '/tools',
   '/contact',
   // Clash Royale: die Minigame-Hubseite ist die wichtigste Unterseite überhaupt und war
@@ -38,26 +43,143 @@ const routesToPrerender = [
   // Sacrifice & Sigils: Startseite, Anleitung und Kartenbuch sind reine Inhaltsseiten (Spiel läuft erst nach Klick)
   '/sacrifice-and-sigils',
   '/sacrifice-and-sigils/anleitung',
+  // Clash-Royale-Stats (Ausbauplan „cr-suche“): Übersichten mit Live-Daten. Die Kartenseiten und die meistgespielten
+  // Decks findet FOLLOW unten über die Links auf diesen Seiten.
+  '/clash/karten',
+  '/clash/decks',
+  '/clash/ranglisten',
+  '/clash/crown-series',
+  '/clash/baukasten',
 ];
+
+// Unterseiten, die das Vorrendern selbst über die Links einer fertigen Seite findet — wie ein Suchmaschinen-Crawler.
+// Sie kommen samt englischer Fassung (?lang=en, wie bei allen Stats-Seiten) in die Sitemap. Spielerseiten fehlen
+// bewusst: sie stehen auf noindex.
+const FOLLOW = [
+  { from: '/clash/karten', link: /^\/clash\/karten\/[a-z0-9-]+$/ },
+  { from: '/clash/decks', link: /^\/clash\/decks\/[a-z0-9-]+(,[a-z0-9-]+){7}$/ },
+];
+// Was an Stats-Seiten in die Sitemap gehört (fehlende Einträge ergänzt extendSitemap), mit Gewicht
+const SITEMAP_RULES = [
+  { re: /^\/clash\/(karten|decks|ranglisten|crown-series|baukasten|heute)$/, priority: 0.8 },
+  { re: /^\/clash\/karten\/./, priority: 0.6 },
+  { re: /^\/clash\/decks\/./, priority: 0.5 },
+];
+
+// ── Live-Daten der Stats-Seiten ─────────────────────────────────────────────
+// Beim Vorrendern läuft kein Backend. Anfragen der /clash-Seiten an /api/clash/scout beantwortet deshalb der Live-Server
+// (dieselbe öffentliche Route), je Adresse einmal geholt und für alle Seiten wiederverwendet. Der Server lässt 90 Abrufe
+// pro Minute je Absender zu → nacheinander mit Abstand, bei 429 warten und neu versuchen. Ohne Netz (oder mit
+// PRERENDER_LIVE_API=off) entstehen Kartenseiten ohne Live-Zahlen — ihre Kampfwerte stecken im Bundle —, Seiten, die
+// nur aus Live-Daten bestehen (LIVE_REQUIRED), werden dann gar nicht geschrieben.
+const LIVE_API = process.env.PRERENDER_LIVE_API !== 'off';
+const LIVE_PREFIX = '/api/clash/scout/';
+const LIVE_SPACING_MS = 750;
+const LIVE_ROUTES = /^\/clash(\/|$)/;
+const LIVE_REQUIRED = /^\/clash\/(decks|ranglisten|crown-series)(\/|$)/;
+const API_DOWN = { status: 503, contentType: 'application/json', body: Buffer.from('{"ok":false,"key":"apiDown"}') };
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const liveCache = new Map();
+let liveQueue = Promise.resolve();
+
+async function fetchLive(pathAndQuery) {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const res = await fetch(DOMAIN + pathAndQuery, { signal: AbortSignal.timeout(20000) });
+      if (res.status === 429) { await sleep(25000); continue; }
+      return { status: res.status, contentType: res.headers.get('content-type') || 'application/json', body: Buffer.from(await res.arrayBuffer()) };
+    } catch { /* Netz weg oder Zeit abgelaufen — noch einmal */ }
+  }
+  console.log(`⚠️ Live-Daten nicht erreichbar: ${pathAndQuery}`);
+  return API_DOWN;
+}
+
+function liveApi(pathAndQuery) {
+  if (!LIVE_API) return Promise.resolve(API_DOWN);
+  if (!liveCache.has(pathAndQuery)) {
+    const job = liveQueue.then(() => fetchLive(pathAndQuery));
+    liveQueue = job.then(() => sleep(LIVE_SPACING_MS));
+    liveCache.set(pathAndQuery, job);
+  }
+  return liveCache.get(pathAndQuery);
+}
+
+// ── Sitemap ─────────────────────────────────────────────────────────────────
+// public/sitemap.xml bleibt die von Hand gepflegte Grundlage; hier kommen nur fehlende Stats-Seiten dazu, jeweils
+// deutsch (kanonisch, ohne Parameter) und englisch (?lang=en) mit gegenseitigen hreflang-Verweisen.
+function extendSitemap(routes) {
+  const file = toAbsolute(`${OUT_DIR}/sitemap.xml`);
+  let xml;
+  try { xml = fs.readFileSync(file, 'utf8'); } catch {
+    console.error('⚠️ sitemap.xml fehlt im Build — keine Einträge ergänzt');
+    return;
+  }
+  const have = new Set([...xml.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1].trim()));
+  const day = new Date().toISOString().slice(0, 10);
+  const esc = (s) => s.replace(/&/g, '&amp;');
+  const entries = [];
+  for (const route of [...routes].sort()) {
+    const rule = SITEMAP_RULES.find((r) => r.re.test(route));
+    const de = DOMAIN + route;
+    if (!rule || have.has(de)) continue;
+    const en = `${de}?lang=en`;
+    const alternates = [['de', de], ['en', en], ['x-default', de]]
+      .map(([lang, href]) => `<xhtml:link rel="alternate" hreflang="${lang}" href="${esc(href)}"/>`).join('\n    ');
+    for (const [loc, prio] of [[de, rule.priority], [en, Math.max(0.1, rule.priority - 0.2)]]) {
+      entries.push(`  <url>\n    <loc>${esc(loc)}</loc>\n    <lastmod>${day}</lastmod>\n    <changefreq>daily</changefreq>\n    <priority>${prio.toFixed(1)}</priority>\n    ${alternates}\n  </url>`);
+    }
+  }
+  if (!entries.length) return;
+  xml = xml.replace('</urlset>', `\n  <!-- ── Beim Vorrendern ergänzt (Frontend/prerender.js) ── -->\n${entries.join('\n')}\n</urlset>`);
+  fs.writeFileSync(file, xml);
+  console.log(`🗺️ Sitemap: ${entries.length} Einträge ergänzt`);
+}
 
 (async () => {
   console.log('🚀 Starte optimiertes Prerendering...');
   const failedRoutes = [];
+  // Selbst gefundene Seiten (FOLLOW) und Seiten ohne Live-Daten: fehlen sie, fehlt nur diese eine — der Build läuft weiter
+  const skippedRoutes = [];
+  const writtenRoutes = [];
+  const known = new Set(routesToPrerender);
+  const queue = routesToPrerender.map((route) => ({ route, found: false }));
 
   const server = await preview({
     preview: { port: 8080, open: false },
-    build: { outDir: 'dist' },
+    build: { outDir: OUT_DIR },
     configFile: false,
     logLevel: 'error',
   });
-  
+
   const url = server.resolvedUrls.local[0];
+  const origin = new URL(url).origin;
   const browser = await puppeteer.launch({ headless: true });
 
-  for (const route of routesToPrerender) {
+  async function renderRoute({ route, found }) {
     const page = await browser.newPage();
-    
+    const skip = (why) => { skippedRoutes.push(route); console.log(`⚠️ ${route}: ${why} — übersprungen.`); };
+    let liveFailed = false;
+
     try {
+      // Stats-Seiten: ihre Datenabrufe beantwortet der Live-Server (liveApi oben)
+      if (LIVE_ROUTES.test(route)) {
+        await page.setRequestInterception(true);
+        page.on('request', (req) => {
+          let u = null;
+          try { u = new URL(req.url()); } catch { /* data:/blob:-Adressen */ }
+          if (!u || u.origin !== origin || !u.pathname.startsWith(LIVE_PREFIX)) {
+            req.continue().catch(() => {});
+            return;
+          }
+          liveApi(u.pathname + u.search)
+            .then((r) => {
+              if (r.status >= 400) liveFailed = true;
+              return req.respond({ status: r.status, contentType: r.contentType, body: r.body });
+            })
+            .catch(() => req.abort().catch(() => {}));
+        });
+      }
+
       // 1. Seite laden. /clash-royale hält eine offene Socket.io-Verbindung — dort wird
       // 'networkidle0' nie erreicht, deshalb nach einem Timeout einfach weiterlaufen.
       await page.goto(`${url}${route.substring(1)}`, { waitUntil: 'networkidle0', timeout: 15000 })
@@ -185,16 +307,21 @@ const routesToPrerender = [
         : rootLength < 500 ? `hat ein praktisch leeres #root (${rootLength} Zeichen)`
         : null;
       if (problem) {
+        if (found) { skip(problem); return; }
         failedRoutes.push(route);
         console.error(`❌ ${route}: ${problem} — wird NICHT geschrieben.`);
-        continue;
+        return;
       }
+      // Eine gefundene Seite, die sich selbst aus dem Index nimmt (z. B. unbekannte Karte), gehört weder auf die Platte
+      // noch in die Sitemap; Seiten, die nur aus Live-Daten bestehen, zeigten ohne sie bloß eine Fehlermeldung
+      if (found && /<meta name="robots" content="noindex/.test(html)) { skip('steht auf noindex'); return; }
+      if (liveFailed && LIVE_REQUIRED.test(route)) { skip('Live-Daten fehlen'); return; }
 
       const htmlPath = route === '/'
         ? 'index.html' 
         : `${route.substring(1)}/index.html`;
       
-      const filePath = toAbsolute(`dist/${htmlPath}`);
+      const filePath = toAbsolute(`${OUT_DIR}/${htmlPath}`);
       const dirPath = path.dirname(filePath);
 
       if (!fs.existsSync(dirPath)) {
@@ -202,14 +329,50 @@ const routesToPrerender = [
       }
 
       fs.writeFileSync(filePath, html);
+      writtenRoutes.push(route);
       console.log(`✅ Prerendered & Cleaned: ${route}`);
-      
+
+      // Unterseiten über die Links dieser Seite finden (FOLLOW) — sie landen hinten in der Warteschlange
+      const follow = FOLLOW.find((f) => f.from === route);
+      if (follow) {
+        const hrefs = await page.$$eval('a[href]', (links) => links.map((a) => a.getAttribute('href') || ''));
+        let added = 0;
+        for (const href of hrefs) {
+          const target = href.split(/[?#]/)[0];
+          if (!follow.link.test(target) || known.has(target)) continue;
+          known.add(target);
+          queue.push({ route: target, found: true });
+          added++;
+        }
+        console.log(`🔎 ${route}: ${added} Unterseiten gefunden`);
+      }
+
     } catch (e) {
-      console.error(`❌ Fehler bei ${route}:`, e);
+      if (found) skip(`Fehler ${e?.message || e}`);
+      else console.error(`❌ Fehler bei ${route}:`, e);
     } finally {
       await page.close();
     }
   }
+
+  // Die Startseite zuerst und allein: ihre fertige index.html liefert die Vorschau danach als Hülle aller übrigen
+  // Adressen aus — während sie geschrieben wird, soll keine andere Seite sie laden. Danach mehrere Tabs gleichzeitig.
+  if (queue[0]?.route === '/') await renderRoute(queue.shift());
+  let active = 0;
+  const worker = async () => {
+    for (;;) {
+      const job = queue.shift();
+      if (!job) {
+        // Leer heißt erst fertig, wenn kein Tab mehr läuft — eine laufende Seite kann noch Unterseiten nachschieben
+        if (!active) return;
+        await sleep(100);
+        continue;
+      }
+      active++;
+      try { await renderRoute(job); } finally { active--; }
+    }
+  };
+  await Promise.all(Array.from({ length: CONCURRENCY }, worker));
 
   await browser.close();
   // server.close() statt server.httpServer.close(): erstens die öffentliche, awaitbare
@@ -221,6 +384,11 @@ const routesToPrerender = [
   // das löst den libuv-Absturz "Assertion failed: !(handle->flags & UV_HANDLE_CLOSING)"
   // aus (dieselbe Windows-Eigenheit wie der Kommentar an closeDb() in garden/store/farms.js).
   await server.close();
+
+  extendSitemap(writtenRoutes);
+  if (skippedRoutes.length) {
+    console.log(`\n⚠️ Übersprungen (nicht vorgerendert, nicht in der Sitemap): ${skippedRoutes.join(', ')}`);
+  }
 
   if (failedRoutes.length) {
     console.error(`\n💥 Prerendering fehlgeschlagen für: ${failedRoutes.join(', ')}`);

@@ -18,11 +18,17 @@
 //                                          Erstbefüllung wie POST /accounts auf, siehe
 //                                          addAccountForUser in crWinTrackerRoutes.js)
 //   !tracker list                       — alle verknüpften Accounts mit Spielername auflisten
+//
+// Dazu Befehle für ALLE Zuschauer (winTrackerViewer.js): !rang/!rank, !session, !deck, !rekord/!record — jeder im
+// Editor einzeln einschaltbar (Standard aus), mit Abklingzeit je Befehl und Kanal.
 const db = require("./winTrackerStore");
 // addAccountForUser für "!tracker add" — dieselbe Erstbefüllung (Spielerdaten, Battlelog, Deck,
-// Stufen-Anker) wie POST /accounts, nicht ein zweites Mal ausgeschrieben.
-const { addAccountForUser } = require("../routes/crWinTrackerRoutes");
+// Stufen-Anker) wie POST /accounts, nicht ein zweites Mal ausgeschrieben. overlayStateForSettings liefert die
+// Zahlen des Overlays für die Zuschauer-Befehle.
+const { addAccountForUser, overlayStateForSettings } = require("../routes/crWinTrackerRoutes");
 const { humanizeKey } = require("./seasonalModes");
+const viewer = require("./winTrackerViewer");
+const { seasonWindow, seasonKeyAt } = require("./winTrackerRecap");
 
 const getSettingsByChatChannel = db.prepare(
   "SELECT * FROM cr_wintracker_settings WHERE chat_channel = ? AND chat_enabled = 1"
@@ -45,6 +51,15 @@ const setSeasonalSessionResetStmt = db.prepare("UPDATE cr_wintracker_seasonal SE
 // Challenges (trackMode "c:<key>") teilen sich einen Reset-Zeitpunkt.
 const setChallengeSessionResetStmt = db.prepare("UPDATE cr_wintracker_accounts SET challenge_session_reset_at = ? WHERE account_id = ?");
 const getSeasonalLabelStmt = db.prepare("SELECT label, progress_key FROM cr_wintracker_seasonal WHERE account_id = ? AND prefix = ?");
+// !rekord: höchste Medaillen (nur in Ultimate Champion sind es Medaillen) und bester Platz seit Saisonbeginn, dazu der
+// höchste Trophäenstand überhaupt — aus dem Verlauf, den jeder Sync schreibt (cr_wintracker_snapshots)
+const seasonBestStmt = db.prepare(`SELECT
+    MAX(CASE WHEN league_number = 7 THEN season_medals END) AS medals,
+    MIN(CASE WHEN pol_rank > 0 THEN pol_rank END) AS rank
+  FROM cr_wintracker_snapshots WHERE account_id = ? AND at >= ?`);
+const bestTrophiesStmt = db.prepare("SELECT MAX(trophies) AS trophies FROM cr_wintracker_snapshots WHERE account_id = ?");
+const activeAccountIdStmt = db.prepare("SELECT account_id FROM cr_wintracker_accounts WHERE user_id = ? AND is_active = 1");
+const viewerCooldowns = viewer.createCooldowns();
 
 const normalizeChannel = (ch) => String(ch || "").trim().toLowerCase().replace(/^#/, "");
 // Gleiche Normalisierung wie crApi.js: O wird als 0 gelesen (Verwechslungsgefahr in der Spielschrift).
@@ -88,8 +103,7 @@ const T = {
     listEmpty: () => `Noch kein Account verknüpft.`,
     listPrefix: (n) => `${n} Account${n === 1 ? "" : "s"}: `,
     listEntry: (name, tag, active) => `#${tag} (${name}${active ? ", aktiv" : ""})`,
-    modeLabels: { medals: "Ranked (Medaillen)", trophies: "Trophäenstraße", "2v2": "2v2 Ranked",
-      "c:20win": "20-Siege-Challenge", "c:classic": "Classic Challenge", "c:grand": "Grand Challenge" },
+    modeLabels: viewer.MODE_LABELS.de,
   },
   en: {
     help: "Commands: !tracker set #TAG, !tracker reset, !tracker add #TAG, !tracker list",
@@ -103,8 +117,7 @@ const T = {
     listEmpty: () => `No account linked yet.`,
     listPrefix: (n) => `${n} account${n === 1 ? "" : "s"}: `,
     listEntry: (name, tag, active) => `#${tag} (${name}${active ? ", active" : ""})`,
-    modeLabels: { medals: "Ranked (medals)", trophies: "Trophy Road", "2v2": "2v2 Ranked",
-      "c:20win": "20 Win Challenge", "c:classic": "Classic Challenge", "c:grand": "Grand Challenge" },
+    modeLabels: viewer.MODE_LABELS.en,
   },
 };
 const dict = (row) => (row?.language === "en" ? T.en : T.de);
@@ -176,7 +189,34 @@ function cmdList(row, t) {
  * @param {string} message  Chatzeile
  * @returns {Promise<{ reply: string|null }>}
  */
+/**
+ * Zuschauer-Befehl (!rang, !session, !deck, !rekord) — jeder darf ihn auslösen, solange der Streamer ihn im Editor
+ * eingeschaltet hat und die Abklingzeit um ist (Moderatoren und Streamer immer). Sonst still: null.
+ */
+function viewerReplyFor(channel, tags, cmd) {
+  const ch = normalizeChannel(channel);
+  const row = getSettingsByChatChannel.get(ch);
+  if (!row) return null;
+  if (!viewer.normalizeViewerCommands(row.viewer_cmds).includes(cmd)) return null;
+  if (!viewerCooldowns.take(ch, cmd, viewer.normalizeCooldownS(row.viewer_cooldown_s), isAllowedSender(tags || {}))) return null;
+  const lang = row.language === "en" ? "en" : "de";
+  const state = overlayStateForSettings(row);
+  let record = null;
+  if (cmd === "rekord" && state.hasAccount) {
+    const accountId = activeAccountIdStmt.get(row.user_id)?.account_id;
+    if (accountId) {
+      const season = seasonWindow(seasonKeyAt(Date.now()));
+      const best = seasonBestStmt.get(accountId, season ? season.start : 0) || {};
+      record = { seasonMedals: best.medals || 0, seasonRank: best.rank || 0, bestTrophies: bestTrophiesStmt.get(accountId)?.trophies || 0 };
+    }
+  }
+  return viewer.viewerReply(cmd, { state, lang, record });
+}
+
 async function applyTrackerChatLine(channel, tags, message) {
+  const viewerCmd = viewer.parseViewerCommand(message);
+  if (viewerCmd) return { reply: viewerReplyFor(channel, tags, viewerCmd) };
+
   const m = /^!tracker(?:\s+(.*))?$/i.exec(String(message || "").trim());
   if (!m) return { reply: null };
 

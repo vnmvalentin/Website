@@ -24,6 +24,9 @@ const GUEST_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-
 const GUEST_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 const GUEST_MAX = 3000;
 const SCHEMA = 2;
+// Ära der Bestenliste. Mit dem Horde-Umbau (November 2026) sind alte und neue Punkte nicht mehr vergleichbar: die
+// Bestwerte der Ära 1 wandern beim ersten Aufruf nach user.classic ("Klassik", eingefroren), die Listen beginnen neu.
+const ERA = 2;
 const MAX_SNAPSHOT_BYTES = 24_000;
 const HISTORY_SIZE = 20;
 
@@ -58,8 +61,22 @@ function ensureUser(db, id, name) {
     delete u.powerups; delete u.loadout; delete u.unlockedSlots; delete u.activeRun; delete u.activeSkin;
     u.v = SCHEMA;
   }
+  if ((u.era || 1) < ERA) {
+    const classic = classicOf(u);
+    if (classic.best) u.classic = classic;
+    u.best = null;
+    delete u.kitBest; delete u.weekBest; delete u.daily;
+    u.highScore = 0;
+    u.era = ERA;
+  }
   delete u.refundNotice; // Hinweis auf die frühere Credit-Erstattung
   return u;
+}
+
+// Die eingefrorenen Bestwerte eines Kontos. Wer seit dem Umbau noch nicht da war, hat sie noch an der alten Stelle.
+function classicOf(u) {
+  if ((u.era || 1) >= ERA) return u.classic || { best: null, kitBest: {} };
+  return { best: u.best || null, kitBest: u.kitBest || (u.best ? { [u.best.kitId]: u.best } : {}) };
 }
 
 function profilePayload(u) {
@@ -77,6 +94,7 @@ function profilePayload(u) {
     runs: u.runs || 0,
     wins: u.wins || 0,
     best: u.best || null,
+    classicBest: u.classic?.best ? scoreOf(u.classic.best) : 0,
     legacyHighScore: u.legacyHighScore || 0,
     activeRun: u.activeRun ? { kitId: u.activeRun.kitId, difficulty: u.activeRun.difficulty, mode: u.activeRun.mode || "normal", ascension: u.activeRun.ascension || 0, stageIndex: u.activeRun.snapshot?.stageIndex ?? 0, loop: u.activeRun.snapshot?.loop ?? 0, time: u.activeRun.snapshot?.time ?? 0, hasSnapshot: !!u.activeRun.snapshot } : null,
     achievements: u.achievements || [],
@@ -109,8 +127,9 @@ function mergeGuestInto(user, guest) {
 }
 
 const int = (v, max) => Math.max(0, Math.min(max, Math.floor(Number(v) || 0)));
-// Bestwert = meiste Punkte. Alte Einträge (vor den Punkten) werden aus ihren gespeicherten Werten nachgerechnet.
-const scoreOf = (entry) => entry.score ?? P.runScore({ kills: entry.kills, stagesCleared: entry.stages, timeSec: entry.timeSec, won: entry.won, difficulty: entry.difficulty });
+// Bestwert = meiste Punkte. Sehr alte Einträge (vor den Punkten, Oktober 2026) werden aus ihren gespeicherten Werten
+// nachgerechnet — mit der damaligen Formel, sie stehen alle in der Klassik-Liste.
+const scoreOf = (entry) => entry.score ?? P.classicScore({ kills: entry.kills, stagesCleared: entry.stages, timeSec: entry.timeSec, won: entry.won, difficulty: entry.difficulty });
 const better = (a, b) => !b || scoreOf(a) > scoreOf(b);
 
 // Bestwerte pro Kit und pro Woche (für die Filter der Bestenliste). Ältere Konten haben nur user.best.
@@ -133,7 +152,10 @@ function cleanExtra(b) {
     champions: int(b.champions, 60),
     loop: int(b.loop, 20),
     itemCount: int(b.itemCount, 500),
-    weapons: list(b.weapons, 6, (w) => (w && ID_RE.test(w.id) ? { id: w.id, level: Math.max(1, int(w.level, 5)) } : null)),
+    bestStreak: int(b.bestStreak, 400000),
+    giants: int(b.giants, 200),
+    boons: int(b.boons, 500),
+    weapons: list(b.weapons, 6, (w) => (w && ID_RE.test(w.id) ? { id: w.id, level: Math.max(1, int(w.level, 8)) } : null)),
     itemStacks: list(b.itemStacks, 60, (it) => (it && ID_RE.test(it.id) ? { id: it.id, n: Math.max(1, int(it.n, 99)) } : null)),
     deathCause: b.deathCause && typeof b.deathCause === "object"
       ? { name: cleanText(b.deathCause.name, 40), affixes: list(b.deathCause.affixes, 3, (a) => cleanText(a, 20) || null), boss: !!b.deathCause.boss, champion: !!b.deathCause.champion }
@@ -181,8 +203,8 @@ module.exports = function createAdventureRouter({ requireAuth, optionalAuth }) {
     const g = String(req.get("x-adventure-guest") || "").toLowerCase();
     if (!GUEST_RE.test(g)) return res.status(400).json({ error: "Keine Gast-ID." });
     const guests = loadGuestData();
-    const guest = guests[g];
-    if (!guest) return res.json({ success: true, merged: false });
+    if (!guests[g]) return res.json({ success: true, merged: false });
+    const guest = ensureUser(guests, g); // hebt einen alten Gaststand in die aktuelle Ära, bevor er übernommen wird
     const db = loadGameData();
     const user = ensureUser(db, req.twitchId, req.twitchLogin);
     mergeGuestInto(user, guest);
@@ -259,13 +281,17 @@ module.exports = function createAdventureRouter({ requireAuth, optionalAuth }) {
     const elapsed = (Date.now() - run.startedAt) / 1000;
     const stagesCleared = Math.min(int(b.stagesCleared, 60), Math.floor(elapsed / 35));
     const bossesKilled = Math.min(int(b.bossesKilled, 70), stagesCleared + 1);
-    const kills = Math.min(int(b.kills, 100000), Math.floor(elapsed * 8) + 50);
+    // Kills: der Nachschub ist bei 40 pro Sekunde gedeckelt (engine/director.js), im Schnitt eines Laufs sind es 10–15
+    const kills = Math.min(int(b.kills, 400000), Math.floor(elapsed * 30) + 50);
     const timeSec = Math.min(int(b.timeSec, 36000), Math.floor(elapsed) + 30);
     const won = !!b.won && bossesKilled >= 6;
     const mode = run.mode || "normal";
     const ascension = run.ascension || 0;
     const result = { kills, stagesCleared, bossesKilled, timeSec, won, difficulty: run.difficulty, mode, ascension, kitId: run.kitId };
     const extra = cleanExtra(b);
+    // Serie und Kolosse können nicht größer sein als die geprüften Kills (ein Koloss kommt frühestens alle 75 s)
+    extra.bestStreak = Math.min(extra.bestStreak, kills);
+    extra.giants = Math.min(extra.giants, Math.floor(elapsed / 75) + 1);
 
     const before = P.levelInfo(user.xp);
     const unlocksBefore = P.unlocksFor(before.level, user.skins);
@@ -321,14 +347,17 @@ module.exports = function createAdventureRouter({ requireAuth, optionalAuth }) {
     });
   });
 
-  // ?scope=all|week|daily und optional ?kit=<id>. Der Tageslauf hat keinen Kit-Filter (jeder spielt denselben Seed).
+  // ?scope=all|week|daily|classic und optional ?kit=<id>. Der Tageslauf hat keinen Kit-Filter (jeder spielt denselben
+  // Seed). "classic" ist die eingefrorene Liste von vor dem Horde-Umbau.
   router.get("/leaderboard", (req, res) => {
     const db = loadGameData();
-    const scope = ["week", "daily"].includes(req.query.scope) ? req.query.scope : "all";
+    const scope = ["week", "daily", "classic"].includes(req.query.scope) ? req.query.scope : "all";
     const kit = P.KIT_IDS.includes(req.query.kit) ? req.query.kit : null;
     const week = M.weekKey();
     const day = M.dayKey();
     const pick = (u) => {
+      if (scope === "classic") { const c = classicOf(u); return kit ? c.kitBest?.[kit] ?? (c.best?.kitId === kit ? c.best : null) : c.best; }
+      if ((u.era || 1) < ERA) return null; // noch nicht gehoben: was da steht, ist Klassik
       if (scope === "daily") return u.daily?.day === day ? u.daily.best : null;
       if (scope === "week") return u.weekBest?.week === week ? (kit ? u.weekBest.kits?.[kit] : u.weekBest.all) : null;
       if (kit) return u.kitBest?.[kit] ?? (u.best?.kitId === kit ? u.best : null);
@@ -397,7 +426,7 @@ module.exports.publicStats = function publicStats(twitchId) {
     level: P.levelInfo(u.xp || 0).level,
     runs: u.runs || 0,
     wins: u.wins || 0,
-    bestScore: u.best ? scoreOf(u.best) : 0,
+    bestScore: (u.era || 1) >= ERA && u.best ? scoreOf(u.best) : classicOf(u).best ? scoreOf(classicOf(u).best) : 0,
     achievements: (u.achievements || []).length,
     achievementsTotal: M.ACHIEVEMENT_DEFS.length,
   };

@@ -57,6 +57,22 @@ Nachher:
 
 **Stand:** Seit dem 15.10.2026 auf dem Server eingetragen. Sicherungen liegen unter `/root/nginx-backups/`.
 
+### Nachtrag 16.11.2026: vorgerenderte Seiten ohne 301 auf den Schrägstrich
+
+`$uri/` in `try_files` trifft bei vorgerenderten Seiten den Ordner (`dist/clash/`) — nginx antwortete deshalb auf `/clash`
+mit 301 nach `/clash/`, während Canonical und Sitemap die Adresse ohne Schrägstrich nennen. Seitdem steht in
+`location /` vor dem `try_files`:
+
+```nginx
+        if (-f $request_filename/index.html) { rewrite ^(.*[^/])$ $1/index.html last; }
+```
+
+**Falle:** NICHT einfach `try_files $uri $uri/index.html @spa;` schreiben. Dann liefert nginx die Datei direkt aus
+`location /` aus, und die Regel `location ~* \.html$` mit `Cache-Control: no-store` greift nicht mehr — Browser hielten
+alte Seiten mit gelöschten Skript-Dateien. Die interne Weiterleitung (`rewrite … last`) landet in der .html-Regel.
+Sicherung davor: `/root/nginx-backups/mywebsite.2026-11-16-vor-slash`. Geprüft: `/clash`, `/tools`, `/nuzlocke`,
+`/clash-royale?lang=en` → 200 mit no-store; Startseite, nicht vorgerenderte Seiten, API, Sitemap und Bot-Vorschau unverändert.
+
 ## 3. Prüfen und laden
 
 ```sh

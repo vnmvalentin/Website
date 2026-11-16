@@ -14,7 +14,10 @@ import {
 import { TwitchGlyph } from '../../../components/BrandGlyphs';
 import SEO from '../../../components/SEO';
 import { TwitchAuthContext } from '../../../components/TwitchAuthContext';
-import { leagueIconUrl, leagueName, MEDAL_ICON_URL, LEAGUE_MEDAL_ICON_URL, seasonalBadgeUrl, challengeBadgeUrl } from '../data/leagueIcons';
+import {
+  leagueIconUrl, leagueName, MEDAL_ICON_URL, LEAGUE_MEDAL_ICON_URL, seasonalBadgeUrl, challengeBadgeUrl,
+  crownLeagueIconUrl, crownLeagueName, CROWN_LEAGUE_COUNT, CROWN_KING_LEAGUE_FROM,
+} from '../data/leagueIcons';
 import { trophyArenaIcon, trophyArenaName } from '../data/trophyArenas';
 import trophyIcon from '../../../assets/clashRoyale/ui/trophy.png';
 import trophy2v2Icon from '../../../assets/clashRoyale/ui/trophy2v2.webp';
@@ -41,7 +44,11 @@ const fmt = (n, lang) => (n || 0).toLocaleString(lang === 'en' ? 'en-US' : 'de-D
 const isSeasonalMode = (mode) => typeof mode === 'string' && mode.startsWith('s:');
 // Challenges (Classic/Grand/20 Win): trackMode "c:<key>"
 const challengeKeyOf = (mode) => (typeof mode === 'string' && mode.startsWith('c:') ? mode.slice(2) : null);
-const CHALLENGE_MODES = ['c:classic', 'c:grand', 'c:20win'];
+// Grand Duels (c:grandduel) hat keine eigene Kachel: es ist dasselbe Crown-Series-Symbol und
+// schaltet sich am Grand-Duel-Wochenende von selbst ein.
+const CHALLENGE_MODES = ['c:duel', 'c:global', 'c:classic', 'c:grand', 'c:20win'];
+// Abklingzeiten der Zuschauer-Befehle in Sekunden — dieselbe Liste wie COOLDOWNS_S im Backend (lib/winTrackerViewer.js)
+const VIEWER_COOLDOWNS = [15, 30, 60, 120];
 
 // Gemeinsamer Stil der Leisten-Chips oben — derselbe wie im Hub und auf den Turnierseiten.
 const chipClass = 'cr-chip flex items-center gap-2 h-11 rounded-xl font-cr text-[15px] text-white transition-colors';
@@ -264,7 +271,10 @@ function TrackedValue({ acc, t, lang, onLadderStepChange }) {
   if (acc.challenge) {
     const c = acc.challenge;
     icon = checkIcon; value = c.wins; goal = c.maxWins;
-    note = wt(t, 'challengeNote', { attempt: c.attempt, losses: c.losses, maxLosses: c.maxLosses, best: c.bestWins });
+    // King Grand Duel: feste Zahl an Duellen statt Niederlagen-Grenze
+    note = c.maxGames > 0
+      ? wt(t, 'challengeNoteGames', { attempt: c.attempt, games: c.wins + c.losses, maxGames: c.maxGames, best: c.bestWins })
+      : wt(t, 'challengeNote', { attempt: c.attempt, losses: c.losses, maxLosses: c.maxLosses, best: c.bestWins });
   } else if (acc.seasonal) {
     icon = LEAGUE_MEDAL_ICON_URL; value = acc.seasonal.trophies; goal = acc.seasonal.qualifyWins || null;
     // Qualifikationsphase: Wert = Siege, Ziel daneben, darunter wie viele noch fehlen
@@ -520,6 +530,34 @@ function VisualPicker({ options, value, onChange, readOnly, columns = 3 }) {
   );
 }
 
+// Crown-Series-Liga wählen: die Spiel-API liefert sie nicht, also klickt man sein Abzeichen an
+// (nochmal klicken = keine Liga). Bestimmt das Abzeichen im Overlay und die Grand-Duel-Regel.
+function CrownLeaguePicker({ value, onChange, t }) {
+  const league = Number(value) || 0;
+  return (
+    <div className="space-y-2.5">
+      <div>
+        <h3 className="font-cr text-base text-white">{t.crownLeagueHeading}</h3>
+        <p className="text-white/50 text-sm leading-relaxed">{t.crownLeagueHint}</p>
+      </div>
+      <div className="grid grid-cols-5 sm:grid-cols-7 gap-2" role="group" aria-label={t.crownLeagueHeading}>
+        {Array.from({ length: CROWN_LEAGUE_COUNT }, (_, i) => i + 1).map(n => (
+          <button key={n} type="button" title={crownLeagueName(n)} aria-label={crownLeagueName(n)}
+            aria-pressed={n === league} onClick={() => onChange(n === league ? 0 : n)}
+            className="cr-tile-btn justify-center p-2">
+            <img src={crownLeagueIconUrl(n)} alt="" className="h-10 w-auto object-contain" />
+          </button>
+        ))}
+      </div>
+      <p className="text-white/70 text-sm">
+        {league
+          ? <><span className="font-cr text-white">{crownLeagueName(league)}</span> · {league >= CROWN_KING_LEAGUE_FROM ? t.crownLeagueRuleKing : t.crownLeagueRuleQueen}</>
+          : t.crownLeagueNone}
+      </p>
+    </div>
+  );
+}
+
 // Mini-Diagramm für die Deck-Platzierung: Streifen an der Seite, an der das Deck andockt.
 function PlacementPreview({ side }) {
   const isRow = side === 'left' || side === 'right';
@@ -599,7 +637,7 @@ function ModuleControlRow({ t, moduleKey, label, description, visible, onToggle,
 }
 
 // ── Einstellungs-Reiter (Overlay) ───────────────────────────────────────────
-function SettingsTab({ t, overlayKey, settings, onSettingsChange, apiConfigured, activeAccount, onResetSession, flashError }) {
+function SettingsTab({ t, overlayKey, settings, onSettingsChange, apiConfigured, activeAccount, onResetSession, onCrownLeagueChange, flashError }) {
   const { user: authUser } = useContext(TwitchAuthContext);
   // Im Admin-Modus gilt der Chat-Kanal des bearbeiteten Nutzers
   const user = api.getActingAs() ? { login: api.getActingAs().login } : authUser;
@@ -639,6 +677,7 @@ function SettingsTab({ t, overlayKey, settings, onSettingsChange, apiConfigured,
     }
   };
   const toggle = (key) => (value) => applyPatch({ [key]: value });
+  const viewerCommands = Array.isArray(settings.viewerCommands) ? settings.viewerCommands : [];
 
   // "Session" hat keinen eigenen Sichtbarkeits-Schalter in der DB — sie zählt als sichtbar,
   // sobald mindestens eine ihrer Unter-Optionen an ist (genau wie das Overlay es auswertet).
@@ -811,6 +850,8 @@ function SettingsTab({ t, overlayKey, settings, onSettingsChange, apiConfigured,
               onClick={() => onResetSession(activeAccount)}>
               {t.resetSessionBtn}
             </ChunkyButton>
+            <CrownLeaguePicker t={t} value={activeAccount.crownLeague}
+              onChange={(league) => onCrownLeagueChange(activeAccount, league)} />
           </SubTabPane>
         )}
 
@@ -913,6 +954,27 @@ function SettingsTab({ t, overlayKey, settings, onSettingsChange, apiConfigured,
             ))}
           </div>
           <p className="text-white/40 text-xs leading-relaxed">{t.chatCmdDescPost}</p>
+
+          {/* Befehle für alle Zuschauer (Backend: lib/winTrackerViewer.js) — jeder einzeln, Standard aus */}
+          <div className="pt-5 mt-1 border-t border-white/10 space-y-1">
+            <p className="cr-eyebrow">{t.viewerCmdTitle}</p>
+            <p className="text-white/45 text-xs leading-snug pb-1">{settings.chatEnabled ? t.viewerCmdDesc : t.viewerCmdNeedsChat}</p>
+            {t.viewerCmdList.map((cmd) => (
+              <OptionRow key={cmd.id} label={cmd.code} note={cmd.desc} disabled={!settings.chatEnabled}
+                checked={viewerCommands.includes(cmd.id)}
+                onChange={(on) => applyPatch({ viewerCommands: on ? [...viewerCommands, cmd.id] : viewerCommands.filter((id) => id !== cmd.id) })} />
+            ))}
+            <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 py-1.5">
+              <div className="min-w-0">
+                <p className="text-white text-sm font-semibold leading-tight">{t.viewerCooldownLabel}</p>
+                <p className="text-white/45 text-xs mt-0.5 leading-snug">{t.viewerCooldownNote}</p>
+              </div>
+              <SegmentedControl
+                options={VIEWER_COOLDOWNS.map((s) => ({ id: String(s), label: `${s} s` }))}
+                value={String(settings.viewerCooldownS ?? 30)}
+                onChange={(id) => applyPatch({ viewerCooldownS: Number(id) })} />
+            </div>
+          </div>
         </SubTabPane>
         )}
       </div>
@@ -977,6 +1039,7 @@ export default function WinTrackerPage() {
     bgColor: '#0c0c12', bgOpacity: 88, bgGradient: false, bgColor2: '#1a1a2e', borderColor: '',
     last5Style: 'result', last5Direction: 'newestLeft', last5NewBadge: true,
     showDeck: true, showProfile: true, deckPlacement: 'top', language: 'de', chatChannel: '', chatEnabled: false,
+    viewerCommands: [], viewerCooldownS: 30,
     paginateOverlay: false, paginateIntervalS: 6, showClan: false,
     overlayTheme: 'classic', royalePanel: 'blue', royalePattern: true, squareCorners: false, overlayScale: 100,
     overlayWidth: 0, overlayHeight: 0,
@@ -1072,6 +1135,19 @@ export default function WinTrackerPage() {
     } catch (e) { flashError(e.message); }
   };
 
+  // Crown-Series-Liga: sofort zeigen, bei einem Fehler zurück auf den alten Wert
+  const handleCrownLeagueChange = async (acc, league) => {
+    const before = acc.crownLeague || 0;
+    setAccounts(prev => prev.map(a => a.accountId === acc.accountId ? { ...a, crownLeague: league } : a));
+    try {
+      const res = await api.setAccountCrownLeague(acc.accountId, league);
+      setAccounts(prev => prev.map(a => a.accountId === acc.accountId ? res.account : a));
+    } catch (e) {
+      setAccounts(prev => prev.map(a => a.accountId === acc.accountId ? { ...a, crownLeague: before } : a));
+      flashError(e.message);
+    }
+  };
+
   const handleLadderStepChange = async (acc, step) => {
     const max = acc.ladder?.maxSteps || 0;
     if (!max || step === acc.ladder.step) return;
@@ -1146,7 +1222,7 @@ export default function WinTrackerPage() {
       <div className="min-h-full flex flex-col">
         {/* ── Obere Zeile wie im Hub: zurück zur Website | Sprache + Einstellungen ──────── */}
         <div className="shrink-0 flex items-center gap-2 px-3 md:px-6 pt-3 md:pt-5 relative z-20">
-          <Link to="/clash" className={`${chipClass} px-3.5`} title={t.backToWebsite}>
+          <Link to="/clash?reiter=streamer" className={`${chipClass} px-3.5`} title={t.backToWebsite}>
             <ArrowLeftToLine size={16} />
             <span className="hidden sm:inline">{t.backToWebsite}</span>
           </Link>
@@ -1240,6 +1316,7 @@ export default function WinTrackerPage() {
                 <SettingsTab t={t} overlayKey={overlayKey} settings={settings} onSettingsChange={setSettings} apiConfigured={apiConfigured}
                   activeAccount={activeAccount}
                   onResetSession={handleResetSession}
+                  onCrownLeagueChange={handleCrownLeagueChange}
                   flashError={flashError} />
               )}
 

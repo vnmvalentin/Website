@@ -1,37 +1,17 @@
-// Sprachwahl der Clash-Royale-Seiten.
+// Sprachwahl der Clash-Royale-Minigames und Turniere (DE, EN, ES).
 //
-// Die Sprache steht in der URL (?lang=en, ?lang=es), damit jede Sprachfassung direkt
-// verlinkbar und für Suchmaschinen als eigene Seite adressierbar ist. Der Wechsel
-// schreibt die URL per replaceState um, ohne einen Navigationseintrag zu erzeugen —
-// der Zurück-Button soll nicht zwischen Sprachständen hin- und herspringen.
+// Seit Nov. 2026 die eine Sprachwahl der Website (i18n/language.js): ?lang=en bzw. ?lang=es in der Adresse gilt für
+// den Besuch, sonst die zuletzt gewählte (siteLang), sonst Deutsch. Die Sprache steht immer in der Adresse (syncUrl),
+// damit jede Sprachfassung direkt verlinkbar und für Suchmaschinen als eigene Seite adressierbar ist; umgeschrieben
+// wird per replaceState, der Zurück-Button springt also nicht zwischen Sprachständen hin und her.
+// Wer hier Spanisch wählt und danach eine Seite ohne Spanisch öffnet, bekommt dort Englisch (pickLang im Kern).
 
-import { useCallback, useState } from 'react';
+import { useLanguage as useSiteLanguage } from '../../i18n/language';
 import { dictFor } from './i18n';
 
 const SUPPORTED_LANGS = ['de', 'en', 'es'];
 
-const readLangFromUrl = () => {
-  try {
-    const raw = new URLSearchParams(window.location.search).get('lang');
-    return SUPPORTED_LANGS.includes(raw) ? raw : 'de';
-  } catch {
-    return 'de';
-  }
-};
-
 export function useLanguage() {
-  const [lang, setLang] = useState(readLangFromUrl);
-
-  const changeLang = useCallback((next) => {
-    if (!SUPPORTED_LANGS.includes(next)) return;
-    setLang(next);
-    try {
-      const url = new URL(window.location.href);
-      if (next === 'de') url.searchParams.delete('lang');
-      else url.searchParams.set('lang', next);
-      window.history.replaceState({}, '', url.pathname + url.search);
-    } catch { /* URL-Umschreiben ist Komfort, kein Muss */ }
-  }, []);
-
-  return { lang, t: dictFor(lang), changeLang };
+  const { lang, setLang } = useSiteLanguage({ supported: SUPPORTED_LANGS, syncUrl: true });
+  return { lang, t: dictFor(lang), changeLang: setLang };
 }

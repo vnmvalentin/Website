@@ -35,6 +35,7 @@ module.exports = function ({ requireAuth, discordClient }) {
                     rank: offset + i + 1,
                     userId: r.user_id,
                     name: m?.displayName || 'Ehemaliges Mitglied',
+                    former: !m,
                     avatar: m ? m.displayAvatarURL({ size: 64 }) : null,
                     points: r.points, wins: r.wins, losses: r.losses,
                     biggestWin: r.biggest_win, voiceMinutes: r.voice_minutes, messages: r.messages,
@@ -47,18 +48,18 @@ module.exports = function ({ requireAuth, discordClient }) {
     router.post('/:guildId/loyalty/adjust', ...guard, express.json(), (req, res) => {
         const { userId, mode, amount } = req.body || {};
         const n = Math.round(Number(amount));
-        if (!/^\d{5,25}$/.test(String(userId || ''))) return res.status(400).json({ error: 'Ungültiges Mitglied' });
-        if (!Number.isFinite(n) || n < 0 || n > 1_000_000_000) return res.status(400).json({ error: 'Ungültiger Betrag' });
+        if (!/^\d{5,25}$/.test(String(userId || ''))) return res.status(400).json({ error: 'Ungültiges Mitglied', code: "bad_member" });
+        if (!Number.isFinite(n) || n < 0 || n > 1_000_000_000) return res.status(400).json({ error: 'Ungültiger Betrag', code: "bad_amount" });
         let points;
         if (mode === 'add') points = store.addPoints(req.params.guildId, userId, n);
         else if (mode === 'remove') points = store.addPoints(req.params.guildId, userId, -n);
         else if (mode === 'set') points = store.setPoints(req.params.guildId, userId, n);
-        else return res.status(400).json({ error: 'Ungültige Aktion' });
+        else return res.status(400).json({ error: 'Ungültige Aktion', code: "bad_action" });
         res.json({ points });
     });
 
     router.post('/:guildId/loyalty/reset', ...guard, express.json(), (req, res) => {
-        if (req.body?.confirm !== 'ZURÜCKSETZEN') return res.status(400).json({ error: 'Bestätigung fehlt' });
+        if (req.body?.confirm !== 'ZURÜCKSETZEN') return res.status(400).json({ error: 'Bestätigung fehlt', code: "confirm_missing" });
         res.json({ removed: store.resetGuild(req.params.guildId) });
     });
 

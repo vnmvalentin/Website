@@ -3,6 +3,7 @@
 // abweichen, was die Zuschauer wirklich sehen.
 import React, { useEffect, useRef, useState } from 'react';
 import './overlayWidgets.css';
+import { useOverlayText } from './overlayI18n';
 
 export const STAGE_W = 1920;
 export const STAGE_H = 1080;
@@ -10,7 +11,6 @@ export const STAGE_H = 1080;
 /** Ab wie vielen Optionen die Vorhersage von Versus-Balken auf Liste umschaltet. */
 const VERSUS_MAX_OUTCOMES = 2;
 
-const fmt = (n) => Math.round(n || 0).toLocaleString('de-DE');
 const clamp = (v, min, max) => Math.min(max, Math.max(min, v));
 
 /** Sekunden -> "m:ss" */
@@ -32,8 +32,8 @@ function shade(hex, amt) {
   return `#${((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1)}`;
 }
 
-/** Kartenhintergrund aus der eingestellten Deckkraft. */
-function cardStyle(module, width) {
+/** Kartenhintergrund aus der eingestellten Deckkraft. Auch für die Alerts (OverlayAlerts.jsx). */
+export function cardStyle(module, width) {
   const alpha = clamp((module.opacity ?? 80) / 100, 0, 1);
   const style = { width, background: `rgba(16, 16, 20, ${alpha})` };
   // Ecken aus dem gemeinsamen Design. --stw-r reicht den Wert an die inneren
@@ -73,12 +73,12 @@ function soleLeader(ids, values) {
 }
 
 /** "54 Gewinner teilen sich 12.400 Punkte" — die Gewinner bekommen den ganzen Pot. */
-function payoutText(winners, pot, short) {
+function payoutText(t, num, winners, pot, short) {
   const n = Math.round(winners);
-  if (n <= 0) return 'Niemand lag richtig';
-  if (short) return `${fmt(n)} Gewinner · ${fmt(pot)} Punkte`;
-  if (n === 1) return `1 Gewinner bekommt ${fmt(pot)} Punkte`;
-  return `${fmt(n)} Gewinner teilen sich ${fmt(pot)} Punkte`;
+  if (n <= 0) return t.payoutNone;
+  if (short) return t.payoutShort(n, num(n), num(pot));
+  if (n === 1) return t.payoutOne(num(pot));
+  return t.payoutMany(num(n), num(pot));
 }
 
 /**
@@ -272,6 +272,7 @@ function CleanTimebar({ frac, color }) {
 }
 
 export function PollWidget({ data, module, width = 640 }) {
+  const { t, num } = useOverlayText();
   const head = module.showHead !== false;
   const running = data.status === 'ACTIVE';
   const votes = data.choices.map((c) => c.votes || 0);
@@ -289,8 +290,8 @@ export function PollWidget({ data, module, width = 640 }) {
       <FeedBar
         module={module}
         head={head}
-        kicker="Abstimmung"
-        title={data.title || 'Abstimmung'}
+        kicker={t.poll}
+        title={data.title || t.poll}
         items={data.choices.map((choice, i) => {
           const top = votes[i] === maxVotes && maxVotes > 0;
           return {
@@ -302,7 +303,7 @@ export function PollWidget({ data, module, width = 640 }) {
             state: running ? (top ? 'lead' : '') : (top ? 'win' : 'lose'),
           };
         })}
-        time={running ? (module.timer ? mmss(remaining) : '') : 'Beendet'}
+        time={running ? (module.timer ? mmss(remaining) : '') : t.ended}
         word={!running}
         urgent={urgent}
       />
@@ -315,15 +316,15 @@ export function PollWidget({ data, module, width = 640 }) {
       <div className={cleanClass(module, head)} style={cardStyle(module, width)}>
         {head && (
           <CleanHead
-            kicker="Abstimmung"
+            kicker={t.poll}
             accent={module.accent}
-            meta={`${fmt(tTotal)} ${Math.round(tTotal) === 1 ? 'Stimme' : 'Stimmen'}`}
-            time={running ? (module.timer ? mmss(remaining) : '') : 'Beendet'}
+            meta={t.votes(Math.round(tTotal), num(tTotal))}
+            time={running ? (module.timer ? mmss(remaining) : '') : t.ended}
             word={!running}
             urgent={urgent}
           />
         )}
-        <h3 className="stw-c-title">{data.title || 'Abstimmung'}</h3>
+        <h3 className="stw-c-title">{data.title || t.poll}</h3>
 
         <div className="stw-c-rows">
           {data.choices.map((choice, i) => {
@@ -334,10 +335,10 @@ export function PollWidget({ data, module, width = 640 }) {
                 index={i + 1}
                 color={choice.color || module.accent}
                 name={choice.title}
-                sub={fmt(tVotes[i])}
+                sub={num(tVotes[i])}
                 pct={tTotal > 0 ? (tVotes[i] / tTotal) * 100 : 0}
                 state={running ? (top ? 'lead' : '') : (top ? 'win' : 'lose')}
-                tag={!running && top && winners === 1 ? 'Gewinner' : ''}
+                tag={!running && top && winners === 1 ? t.winner : ''}
                 flash={flash.id === (choice.id || i) ? flash.n : 0}
               />
             );
@@ -357,16 +358,16 @@ export function PollWidget({ data, module, width = 640 }) {
 
       {head && (
         <CardHead
-          kicker="Abstimmung"
+          kicker={t.poll}
           accent={module.accent}
-          chip={running ? { cls: 'live', label: 'Läuft' } : { cls: 'done', label: 'Beendet' }}
+          chip={running ? { cls: 'live', label: t.running } : { cls: 'done', label: t.ended }}
           showTimer={module.timer}
           remaining={running ? remaining : 0}
           urgent={urgent}
         />
       )}
 
-      <h3 className="stw-title">{data.title || 'Abstimmung'}</h3>
+      <h3 className="stw-title">{data.title || t.poll}</h3>
 
       <div className="stw-opts">
         {data.choices.map((choice, i) => {
@@ -378,7 +379,7 @@ export function PollWidget({ data, module, width = 640 }) {
                 <span className="stw-opt-key">{i + 1}</span>
                 <span className="stw-opt-name">{choice.title}</span>
                 <span className="stw-opt-val">
-                  <b>{Math.round(pct)}</b>%<i>· {fmt(tVotes[i])}</i>
+                  <b>{Math.round(pct)}</b>%<i>· {num(tVotes[i])}</i>
                 </span>
               </div>
               <div className="stw-track">
@@ -396,8 +397,8 @@ export function PollWidget({ data, module, width = 640 }) {
       </div>
 
       <div className="stw-foot">
-        <span>{fmt(tTotal)} {Math.round(tTotal) === 1 ? 'Stimme' : 'Stimmen'}</span>
-        <span>{data.hint || 'Im Twitch-Chat abstimmen'}</span>
+        <span>{t.votes(Math.round(tTotal), num(tTotal))}</span>
+        <span>{data.demo ? t.demoHint : t.pollHint}</span>
       </div>
     </div>
   );
@@ -448,6 +449,8 @@ function GoalBar({ percent, color, height, left, right, flat }) {
 }
 
 export function GoalWidget({ data, module, width = 460 }) {
+  const { t, num } = useOverlayText();
+  const label = data.label || t.goal;
   const [current, percent] = useTweenArray([data.reached, data.percent]);
   // 'full' = Zahl über dem Balken, 'inline' = Zahlen im Balken,
   // 'bar' = nur der Balken, Beschriftung und Zahlen darin
@@ -458,7 +461,7 @@ export function GoalWidget({ data, module, width = 460 }) {
     ? (module.barHeight ?? 14)
     : Math.max(BAR_TEXT_MIN_H, module.barHeight ?? 14);
 
-  const counts = `${fmt(current)} / ${fmt(data.target)}`;
+  const counts = `${num(current)} / ${num(data.target)}`;
   const pctText = `${Math.round(percent)} %`;
 
   return (
@@ -466,8 +469,8 @@ export function GoalWidget({ data, module, width = 460 }) {
       <div className={`stw-goal is-${variant}`}>
         {variant !== 'bar' && (
           <div className="stw-goal-top">
-            <span className="stw-kicker" style={{ color: module.accent }}>{data.label}</span>
-            {data.done && <span className="stw-chip done">Erreicht</span>}
+            <span className="stw-kicker" style={{ color: module.accent }}>{label}</span>
+            {data.done && <span className="stw-chip done">{t.reached}</span>}
             {showPct && variant === 'full' && <span className="stw-goal-pct">{pctText}</span>}
           </div>
         )}
@@ -476,8 +479,8 @@ export function GoalWidget({ data, module, width = 460 }) {
           <>
             {data.note && <div className="stw-goal-note">{data.note}</div>}
             <div className="stw-goal-count">
-              <b>{fmt(current)}</b>
-              <span>/ {fmt(data.target)}</span>
+              <b>{num(current)}</b>
+              <span>/ {num(data.target)}</span>
             </div>
           </>
         )}
@@ -487,7 +490,7 @@ export function GoalWidget({ data, module, width = 460 }) {
           color={data.color}
           height={height}
           flat={clean}
-          left={variant === 'bar' ? data.label : (variant === 'inline' ? counts : '')}
+          left={variant === 'bar' ? label : (variant === 'inline' ? counts : '')}
           right={variant === 'bar' ? counts : (variant === 'inline' && showPct ? pctText : '')}
         />
       </div>
@@ -541,6 +544,7 @@ function statsWidth(items, layout, centered) {
 }
 
 export function StatsWidget({ data, module, width }) {
+  const { t, num } = useOverlayText();
   const layout = module.layout === 'column' || module.layout === 'list' ? module.layout : 'row';
   // Die Liste ist von Haus aus zweispaltig (links Wort, rechts Zahl) — mittig
   // gibt es dort nichts auszurichten, auch nicht in der Kopfzeile.
@@ -557,7 +561,7 @@ export function StatsWidget({ data, module, width }) {
   const value = (item, i) => {
     if (item.key === 'uptime') return uptimeText(uptime);
     if (item.value === null || item.value === undefined) return '–';
-    return fmt(tweened[i]);
+    return num(tweened[i]);
   };
 
   const cls = ['stw-stats', `is-${layout}`, centered ? 'is-center' : ''].filter(Boolean).join(' ');
@@ -571,14 +575,14 @@ export function StatsWidget({ data, module, width }) {
           <div className="stw-stats-head">
             {data.label && <span className="stw-kicker" style={{ color: module.accent }}>{data.label}</span>}
             {module.liveDot !== false && (
-              <span className={`stw-chip ${data.live ? 'live' : ''}`}>{data.live ? 'Live' : 'Offline'}</span>
+              <span className={`stw-chip ${data.live ? 'live' : ''}`}>{data.live ? t.live : t.offline}</span>
             )}
           </div>
         )}
 
         <div className="stw-stats-grid">
           {data.items.map((item, i) => {
-            const cap = <span className="stw-stat-cap">{item.label}</span>;
+            const cap = <span className="stw-stat-cap">{t.statLabels[item.key] || item.label}</span>;
             const val = <span className="stw-stat-val" style={{ color: data.color }}>{value(item, i)}</span>;
             return (
               <div key={item.key} className="stw-stat">
@@ -641,6 +645,7 @@ function clipEmbedUrl(id, muted) {
 const ENTER_MS = 500; // etwas mehr als die 0,45 s Einblendung der Karte
 
 export function RaidClipWidget({ data, module, preview = false, width = 800 }) {
+  const { t, num } = useOverlayText();
   const clip = data.clip;
   const videoRef = useRef(null);
   const [ended, setEnded] = useState(false);
@@ -707,10 +712,10 @@ export function RaidClipWidget({ data, module, preview = false, width = 800 }) {
     <div className={`stw-card is-flat${module.style !== 'classic' ? ' stw-c' : ''}`} style={cardStyle(module, width)}>
       {module.showRaider !== false && (
         <div className="stw-raid-head">
-          <span className="stw-kicker" style={{ color: data.color || module.accent }}>Raid</span>
+          <span className="stw-kicker" style={{ color: data.color || module.accent }}>{t.raid}</span>
           <span className="stw-raid-who">{data.raider.name || data.raider.login}</span>
           {data.raider.viewers > 0 && (
-            <span className="stw-raid-count">{fmt(data.raider.viewers)} Zuschauer</span>
+            <span className="stw-raid-count">{t.viewers(num(data.raider.viewers))}</span>
           )}
         </div>
       )}
@@ -729,7 +734,7 @@ export function RaidClipWidget({ data, module, preview = false, width = 800 }) {
           />
         ) : playing ? (
           <iframe
-            title="Clip des Raiders"
+            title={t.raidClipTitle}
             src={clipEmbedUrl(clip.id, muted)}
             width="100%"
             height="100%"
@@ -741,7 +746,7 @@ export function RaidClipWidget({ data, module, preview = false, width = 800 }) {
           <div className="stw-raid-still">
             {clip.thumbnail
               ? <img src={clip.thumbnail} alt="" />
-              : <span className="stw-raid-empty">Clip</span>}
+              : <span className="stw-raid-empty">{t.clip}</span>}
           </div>
         )}
       </div>
@@ -749,7 +754,7 @@ export function RaidClipWidget({ data, module, preview = false, width = 800 }) {
       {clip?.title && (
         <div className="stw-raid-foot">
           <span className="stw-raid-title">{clip.title}</span>
-          {clip.creator && <span className="stw-raid-by">von {clip.creator}</span>}
+          {clip.creator && <span className="stw-raid-by">{t.clipBy(clip.creator)}</span>}
         </div>
       )}
     </div>
@@ -758,15 +763,16 @@ export function RaidClipWidget({ data, module, preview = false, width = 800 }) {
 
 /* ── Vorhersage ─────────────────────────────────────────────────────────── */
 
-function statusChip(status) {
-  if (status === 'ACTIVE') return { cls: 'live', label: 'Einsätze offen' };
-  if (status === 'LOCKED') return { cls: 'lock', label: 'Gesperrt' };
-  if (status === 'RESOLVED') return { cls: 'done', label: 'Entschieden' };
-  return { cls: '', label: 'Abgebrochen' };
+function statusChip(t, status) {
+  if (status === 'ACTIVE') return { cls: 'live', label: t.predStatus.ACTIVE };
+  if (status === 'LOCKED') return { cls: 'lock', label: t.predStatus.LOCKED };
+  if (status === 'RESOLVED') return { cls: 'done', label: t.predStatus.RESOLVED };
+  return { cls: '', label: t.predStatus.CANCELED };
 }
 
 /** Zwei Optionen: die klassische Versus-Ansicht, bei der beide Seiten gegeneinander drücken. */
 function VersusBody({ outcomes, points, users, winnerId }) {
+  const { t, num } = useOverlayText();
   const [A, B] = outcomes;
   const sum = points[0] + points[1];
   const pctA = sum > 0 ? (points[0] / sum) * 100 : 50;
@@ -788,10 +794,10 @@ function VersusBody({ outcomes, points, users, winnerId }) {
         <div className="stw-side-in">
           <div className="stw-pct-row">
             <span className="stw-pct">{Math.round(pctA)}%</span>
-            <span className="stw-win-badge">Gewonnen</span>
+            <span className="stw-win-badge">{t.won}</span>
           </div>
           <div className="stw-nm">{A.title}</div>
-          <div className="stw-sub">{fmt(points[0])} Punkte · {fmt(users[0])}</div>
+          <div className="stw-sub">{t.points(num(points[0]))} · {num(users[0])}</div>
         </div>
       </div>
 
@@ -799,11 +805,11 @@ function VersusBody({ outcomes, points, users, winnerId }) {
         style={{ width: `calc(${(100 - widthA).toFixed(2)}% + 26px)`, background: `linear-gradient(200deg, ${shade(B.color, 0.22)}, ${B.color})` }}>
         <div className="stw-side-in">
           <div className="stw-pct-row">
-            <span className="stw-win-badge">Gewonnen</span>
+            <span className="stw-win-badge">{t.won}</span>
             <span className="stw-pct">{Math.round(100 - pctA)}%</span>
           </div>
           <div className="stw-nm">{B.title}</div>
-          <div className="stw-sub">{fmt(points[1])} Punkte · {fmt(users[1])}</div>
+          <div className="stw-sub">{t.points(num(points[1]))} · {num(users[1])}</div>
         </div>
       </div>
     </div>
@@ -818,6 +824,7 @@ function VersusBody({ outcomes, points, users, winnerId }) {
  * die Zeilen darunter liefern die genauen Zahlen und beschriften jede Farbe.
  */
 function ShareBody({ outcomes, points, users, winnerId }) {
+  const { t, num } = useOverlayText();
   const sum = points.reduce((s, p) => s + p, 0);
   const ranked = outcomes
     .map((o, i) => ({ o, points: points[i], users: users[i], pct: sum > 0 ? (points[i] / sum) * 100 : 100 / outcomes.length }))
@@ -840,9 +847,9 @@ function ShareBody({ outcomes, points, users, winnerId }) {
           <div key={o.id} className={`stw-legend-row${winnerId === o.id ? ' is-win' : ''}${winnerId && winnerId !== o.id ? ' is-lose' : ''}`}>
             <span className="stw-dot" style={{ background: o.color }} />
             <span className="stw-legend-nm">{o.title}</span>
-            {winnerId === o.id && <span className="stw-win-badge">Gewonnen</span>}
+            {winnerId === o.id && <span className="stw-win-badge">{t.won}</span>}
             <span className="stw-legend-pct">{Math.round(pct)}%</span>
-            <span className="stw-legend-sub">{fmt(p)} · {fmt(u)}</span>
+            <span className="stw-legend-sub">{num(p)} · {num(u)}</span>
           </div>
         ))}
       </div>
@@ -856,9 +863,10 @@ function ShareBody({ outcomes, points, users, winnerId }) {
  * zeigt, wer vorn liegt, ohne dass man die Zahlen lesen muss.
  */
 function CleanDuel({ outcomes, points, winnerId, flash }) {
+  const { t, num, decimal } = useOverlayText();
   const sum = points[0] + points[1];
   const pctA = sum > 0 ? (points[0] / sum) * 100 : 50;
-  const odds = (i) => (points[i] > 0 ? sum / points[i] : 1).toFixed(1).replace('.', ',');
+  const odds = (i) => decimal(points[i] > 0 ? sum / points[i] : 1);
   const state = (o) => (winnerId ? (winnerId === o.id ? ' is-win' : ' is-lose') : '');
 
   const side = (i, pct) => {
@@ -869,10 +877,10 @@ function CleanDuel({ outcomes, points, winnerId, flash }) {
         <div className="stw-c-side-name">
           <i style={{ background: o.color }} />
           <span>{o.title}</span>
-          {winnerId === o.id && <span className="stw-c-tag">Gewonnen</span>}
+          {winnerId === o.id && <span className="stw-c-tag">{t.won}</span>}
         </div>
         <b className="stw-c-side-pct">{Math.round(pct)}<small>%</small></b>
-        <div className="stw-c-side-sub">{fmt(points[i])} Punkte · Quote {odds(i)}</div>
+        <div className="stw-c-side-sub">{t.points(num(points[i]))} · {t.odds} {odds(i)}</div>
       </div>
     );
   };
@@ -894,6 +902,7 @@ function CleanDuel({ outcomes, points, winnerId, flash }) {
 }
 
 export function PredictionWidget({ data, module, width = 740 }) {
+  const { t, num, decimal } = useOverlayText();
   const head = module.showHead !== false;
   const open = data.status === 'ACTIVE';
   const outcomes = data.outcomes;
@@ -912,7 +921,7 @@ export function PredictionWidget({ data, module, width = 740 }) {
   // Auszahlung: steht erst fest, wenn Twitch den Gewinner nennt
   const winnerAt = data.winnerId ? outcomes.findIndex((o) => o.id === data.winnerId) : -1;
   const payoutFor = (short) => (winnerAt >= 0
-    ? payoutText(outcomes[winnerAt].users, outcomes.reduce((s, o) => s + o.points, 0), short)
+    ? payoutText(t, num, outcomes[winnerAt].users, outcomes.reduce((s, o) => s + o.points, 0), short)
     : '');
   const payout = payoutFor(false);
 
@@ -921,8 +930,8 @@ export function PredictionWidget({ data, module, width = 740 }) {
       <FeedBar
         module={module}
         head={head}
-        kicker="Vorhersage"
-        title={data.title || 'Vorhersage'}
+        kicker={t.prediction}
+        title={data.title || t.prediction}
         items={outcomes
           .map((o, i) => ({
             id: o.id,
@@ -933,7 +942,7 @@ export function PredictionWidget({ data, module, width = 740 }) {
             state: data.winnerId ? (data.winnerId === o.id ? 'win' : 'lose') : '',
           }))
           .sort((a, b) => b.pct - a.pct)}
-        time={open ? (module.timer ? mmss(remaining) : '') : (payoutFor(true) || statusChip(data.status).label)}
+        time={open ? (module.timer ? mmss(remaining) : '') : (payoutFor(true) || statusChip(t, data.status).label)}
         word={!open}
         urgent={urgent}
       />
@@ -941,20 +950,20 @@ export function PredictionWidget({ data, module, width = 740 }) {
   }
 
   if (module.style !== 'classic') {
-    const chip = statusChip(data.status);
+    const chip = statusChip(t, data.status);
     return (
       <div className={cleanClass(module, head)} style={cardStyle(module, width)}>
         {head && (
           <CleanHead
-            kicker="Vorhersage"
+            kicker={t.prediction}
             accent={module.accent}
-            meta={`${fmt(sum)} Punkte · ${fmt(totalUsers)} dabei`}
+            meta={t.predMeta(num(sum), num(totalUsers))}
             time={open ? (module.timer ? mmss(remaining) : '') : chip.label}
             word={!open}
             urgent={urgent}
           />
         )}
-        <h3 className="stw-c-title">{data.title || 'Vorhersage'}</h3>
+        <h3 className="stw-c-title">{data.title || t.prediction}</h3>
 
         {isVersus
           ? <CleanDuel outcomes={outcomes} points={points} winnerId={data.winnerId} flash={flash} />
@@ -969,10 +978,10 @@ export function PredictionWidget({ data, module, width = 740 }) {
                     index={0}
                     color={o.color}
                     name={o.title}
-                    sub={`${fmt(p)} · ${fmt(u)}`}
+                    sub={`${num(p)} · ${num(u)}`}
                     pct={sum > 0 ? (p / sum) * 100 : 0}
                     state={data.winnerId ? (data.winnerId === o.id ? 'win' : 'lose') : ''}
-                    tag={data.winnerId === o.id ? 'Gewonnen' : ''}
+                    tag={data.winnerId === o.id ? t.won : ''}
                     flash={flash.id === o.id ? flash.n : 0}
                   />
                 ))}
@@ -994,16 +1003,16 @@ export function PredictionWidget({ data, module, width = 740 }) {
 
       {head && (
         <CardHead
-          kicker="Vorhersage"
+          kicker={t.prediction}
           accent={module.accent}
-          chip={statusChip(data.status)}
+          chip={statusChip(t, data.status)}
           showTimer={module.timer && open}
           remaining={remaining}
           urgent={urgent}
         />
       )}
 
-      <h3 className="stw-title">{data.title || 'Vorhersage'}</h3>
+      <h3 className="stw-title">{data.title || t.prediction}</h3>
 
       {isVersus
         ? <VersusBody outcomes={outcomes} points={points} users={users} winnerId={data.winnerId} />
@@ -1012,18 +1021,18 @@ export function PredictionWidget({ data, module, width = 740 }) {
       {isVersus && (
         <div className="stw-odds">
           <span style={{ color: outcomes[0].color }}>
-            {(points[0] > 0 ? sum / points[0] : 1).toFixed(1).replace('.', ',')} : 1
+            {decimal(points[0] > 0 ? sum / points[0] : 1)} : 1
           </span>
-          <span className="vs-label">VERSUS</span>
+          <span className="vs-label">{t.versus}</span>
           <span style={{ color: outcomes[1].color }}>
-            {(points[1] > 0 ? sum / points[1] : 1).toFixed(1).replace('.', ',')} : 1
+            {decimal(points[1] > 0 ? sum / points[1] : 1)} : 1
           </span>
         </div>
       )}
 
       <div className="stw-foot" style={{ paddingTop: 16 }}>
-        <span>{fmt(sum)} Kanalpunkte im Pot</span>
-        <span>{fmt(totalUsers)} Teilnehmer</span>
+        <span>{t.pot(num(sum))}</span>
+        <span>{t.participants(num(totalUsers))}</span>
       </div>
     </div>
   );

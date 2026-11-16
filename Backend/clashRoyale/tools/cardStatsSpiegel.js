@@ -1,6 +1,7 @@
 // cardStatsSpiegel.js — Spiegelt die Kampfwerte aller Karten (Leben, Schaden, Angriffstempo, Tempo, Reichweite …)
 // aus dem Clash-Royale-Wiki (clashroyale.fandom.com) in eine JSON-Datei fürs Frontend
-// (Frontend/src/pages/ClashRoyale/data/cardStats.json, genutzt vom Höher-Tiefer-Spiel unter /clash).
+// (Frontend/src/pages/ClashRoyale/data/cardStats.json, genutzt vom Höher-Tiefer-Spiel, dem Wordle und der
+// Kartenseite unter /clash). Dazu das Erscheinungsjahr (released) aus dem Abschnitt „History“.
 //
 // Warum das Wiki: Die offizielle API (/v1/cards) liefert nur Name, Elixier, Seltenheit — keine Werte. Die
 // RoyaleAPI-Datensammlung (cr-api-data) ist seit Okt. 2023 eingefroren (14 neuere Karten fehlen, alte Balance).
@@ -112,6 +113,26 @@ function lastChange(w) {
   return dates.at(-1) || null;
 }
 
+/**
+ * Erscheinungsjahr laut Abschnitt „History“: Er ist nach Jahren gegliedert und beginnt mit dem Jahr, in dem die
+ * Karte ins Spiel kam (bei Karten, die es vorab in einer Challenge gab, zählt diese — wie im Wiki). Ersatz: das
+ * früheste Datum im Abschnitt; ganz neue Karten haben noch keinen Abschnitt, nur ReleaseDate in der Infobox.
+ */
+function releaseYear(w) {
+  const i = w.search(/==\s*History\s*==/);
+  if (i < 0) {
+    const box = w.match(/ReleaseDate\s*=[^|}]*?(20\d{2})/);
+    return box ? Number(box[1]) : null;
+  }
+  const rest = w.slice(i).replace(/^==\s*History\s*==/, "");
+  const end = rest.search(/\n==[^=]/);
+  const h = end < 0 ? rest : rest.slice(0, end);
+  const line = h.match(/^\s*(?:={2,}\s*|''')?(20\d{2})(?:\s*={2,}|''')?\s*$/m);
+  if (line) return Number(line[1]);
+  const years = [...h.matchAll(/\d{1,2}\/\d{1,2}\/(20\d{2})/g)].map((m) => Number(m[1]));
+  return years.length ? Math.min(...years) : null;
+}
+
 function shape(card, w) {
   const a = attributes(w);
   const v = vars(w);
@@ -155,6 +176,8 @@ function shape(card, w) {
   if (Object.keys(of).length) out.of = of;
   const changed = lastChange(w);
   if (changed) out.changed = changed;
+  const released = releaseYear(w);
+  if (released) out.released = released;
   return out;
 }
 

@@ -6,6 +6,10 @@
 // Unschärfe an der Grenze ändern an den Zahlen praktisch nichts.
 'use strict';
 
+// Muster in den Kämpfen (nach Niederlagen in Folge, Tageszeit, Sitzungslänge) — dieselbe Auswertung wie der Reiter
+// „Form“ im Profil der Stats
+const { formPatterns } = require('./formPatterns');
+
 const RESET_HOUR_UTC = 9;
 const KEY_RE = /^(\d{4})-(\d{2})$/;
 const TZ = 'Europe/Berlin';
@@ -82,6 +86,7 @@ const SUB_NAMES = [
   [/^All_Random/i, 'All Random'], [/^Draft_Competitive/i, 'Draft (Competitive)'], [/^DraftMode/i, 'Draft'],
   [/^PickMode/i, 'Pick Mode'], [/^Touchdown/i, 'Touchdown'], [/Blackout/i, 'Blackout'], [/^EventDeck_4Card/i, '4-Card Deck'],
   [/^Challenge_AllCards_EventDeck/i, 'All Cards'], [/^Friendly$/i, 'Classic'], [/^TeamVsTeam$/i, '2v2'],
+  [/^Competitive_Multideck/i, 'Crown Series'],
 ];
 function humanMode(gameMode) {
   const g = String(gameMode || '');
@@ -396,6 +401,12 @@ function computeRecap(battles, opts = {}) {
     if ((metric === 'medals' || metric === 'points') && offset !== null) {
       r.medals = { start: offset, end: offset + v, gain: v, approx };
     }
+  }
+
+  // Muster der Saison (Frontend: scout/FormInsights.jsx). Der Tracker kennt nur das eigene Deck, nicht das des Gegners —
+  // „schwere Gegnerkarten“ fehlen hier deshalb. Uhrzeit in Berlin wie der übrige Rückblick.
+  if (!pointsMode) {
+    r.form = formPatterns(list.map((b) => ({ t: b.battle_time_ms, result: b.result, myCards: parseDeck(b.deck) })), { tz: TZ });
   }
 
   if (pointsMode) {

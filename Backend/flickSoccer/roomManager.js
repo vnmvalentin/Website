@@ -18,6 +18,8 @@ const INTRO_MS = 2900; // VS-Einblendung zum Anpfiff (VsIntro.jsx, 2700 ms)
 const SETTLE_MS = 250;
 const TIMEOUT_GRACE_MS = 600; // Laufzeit im Netz: Zugzeit erst etwas später als angezeigt beenden
 
+const { zaehlePartie } = require('../lib/spielStatistik');
+
 function createRoomManager({ engine, send, now = Date.now }) {
   const rooms = new Map(); // code -> room
   const sockets = new Map(); // socketId -> { code, seat: 0 | 1 | null }
@@ -74,6 +76,7 @@ function createRoomManager({ engine, send, now = Date.now }) {
   }
 
   function startMatch(room) {
+    zaehlePartie('flick-soccer'); // Admin-Reiter „Spiele“; Revanche und Turnierspiel zählen je als Partie
     room.match = engine.createMatch({
       settings: room.settings,
       formations: [room.seats[0].formation, room.seats[1].formation],
@@ -474,9 +477,16 @@ function createRoomManager({ engine, send, now = Date.now }) {
     rooms.delete(code);
   }
 
+  // Admin-Reiter „Spiele“ (lib/spielStatistik.js): offene Räume und die verbundenen Spieler darin
+  function stats() {
+    let spieler = 0;
+    for (const room of rooms.values()) for (const s of room.seats) if (s && s.connected) spieler += 1;
+    return { raeume: rooms.size, spieler };
+  }
+
   return {
     createLocked, lockedInfo, forceStart, closeLocked,
-    create, join, setFormation, setSkin, setSettings, setReady, shoot, emote, rematch, leave, disconnect, tick,
+    create, join, setFormation, setSkin, setSettings, setReady, shoot, emote, rematch, leave, disconnect, tick, stats,
     _rooms: rooms,
   };
 }

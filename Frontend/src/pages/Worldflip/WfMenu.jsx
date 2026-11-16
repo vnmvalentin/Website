@@ -23,7 +23,7 @@ export default function WfMenu() {
     <div className="flex-1 flex flex-col">
       <SEO
         title="Worldflip"
-        description="3D-Kartenspiel im Browser: Karten ablegen, während vier Welten um den Tisch kippen und ausbrechen. 13 Effektkarten, 12 Weltereignisse — gegen Bots, online zu viert oder 2 gegen 2."
+        description="3D-Kartenspiel im Browser: Karten ablegen, während vier Welten um den Tisch kippen und ausbrechen. 19 Effektkarten, 12 Weltereignisse — gegen Bots, online zu viert oder 2 gegen 2."
         path="/worldflip"
         keywords="Kartenspiel, 3D, Browser, online, Multiplayer, Worldflip"
       />

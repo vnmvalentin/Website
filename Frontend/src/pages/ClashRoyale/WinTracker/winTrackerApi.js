@@ -43,6 +43,9 @@ export const activateAccount = (accountId) =>
 export const refreshAccount = (accountId) =>
   apiFetch(`/api/cr-wintracker/accounts/${accountId}/refresh`, { method: "POST" });
 
+// Crown-Series-Liga (1–13, 0 = keine) — die Spiel-API liefert sie nicht
+export const setAccountCrownLeague = (accountId, league) =>
+  apiFetch(`/api/cr-wintracker/accounts/${accountId}/crown-league`, { method: "PUT", body: JSON.stringify({ league }) });
 export const setAccountLadderStep = (accountId, step) =>
   apiFetch(`/api/cr-wintracker/accounts/${accountId}/ladder-step`, { method: "PUT", body: JSON.stringify({ step }) });
 

@@ -22,6 +22,13 @@ import {
 const TAU = Math.PI * 2;
 const FOV_EGO = 84;        // weit: der Ball ist oft schräg über einem
 const FOV_WATCH = 58;
+// Ansicht von hinten: Die Kamera hängt in Blickrichtung hinter dem eigenen Blob. Der
+// Drehpunkt liegt über dem Kopf, damit die Figur unter dem Fadenkreuz steht und nicht davor.
+const FOV_THIRD = 72;
+const THIRD_DIST = 280;
+const THIRD_LIFT = 45;     // Drehpunkt so weit über dem Scheitel
+const THIRD_MIN_Y = 24;    // nicht in den Sand tauchen, wenn man steil nach oben schaut
+const THIRD_OPACITY = 0.55; // eigene Figur durchscheinend: Der Ball dahinter bleibt sichtbar
 const GLASS_HEIGHT = 520;  // so hoch ist die Bande sichtbar (sie wirkt in jeder Höhe)
 
 // Ring mit Punkt in der Mitte, liegt im Sand genau unter dem Ball. Bewusst kräftig — er ist
@@ -251,9 +258,8 @@ export function createBeach3D(canvas, { mode }) {
   const blobs = {};
   for (const slot of [1, 2, 3, 4]) {
     const group = new THREE.Group();
-    group.add(new THREE.Mesh(blobGeo, own(new THREE.MeshStandardMaterial({
-      color: SLOT_COLOR[slot].hex, roughness: 0.32,
-    }))));
+    const bodyMat = own(new THREE.MeshStandardMaterial({ color: SLOT_COLOR[slot].hex, roughness: 0.32 }));
+    group.add(new THREE.Mesh(blobGeo, bodyMat));
     const eyes = [-1, 1].map((side) => {
       const eye = new THREE.Mesh(eyeGeo, eyeMat);
       eye.position.set(UPPER_RADIUS * 0.72, UPPER_SPHERE + 2, side * 10);
@@ -264,7 +270,7 @@ export function createBeach3D(canvas, { mode }) {
     group.visible = false;
     scene.add(group);
     blobs[slot] = {
-      group, eyes, shadow: makeShadow(), yaw: teamOf(slot) === 1 ? 0 : Math.PI,
+      group, eyes, bodyMat, ghost: false, shadow: makeShadow(), yaw: teamOf(slot) === 1 ? 0 : Math.PI,
       label: null, labelText: "",
     };
   }
@@ -311,10 +317,11 @@ export function createBeach3D(canvas, { mode }) {
   /**
    * @param st    interpolierter Stand: ball {x,y,z,vx,vz}, blobs {slot: {x,y,z,s,yaw,pitch}}
    * @param opts  slots, names, mySlot, dt; look {yaw, pitch} = eigener Blick (nur Spieler),
-   *              punch = true im Bild, in dem der eigene Schlag den Ball getroffen hat
+   *              punch = true im Bild, in dem der eigene Schlag den Ball getroffen hat,
+   *              third = Ansicht von hinten statt aus den Augen
    * @returns     Lage des Balls im Bild (für den Pfeil am Rand) — dasselbe Objekt jedes Mal
    */
-  function render(st, { slots, names, mySlot, look: myLook, punch: hitNow, dt = 16 }) {
+  function render(st, { slots, names, mySlot, look: myLook, punch: hitNow, third = false, dt = 16 }) {
     time += dt;
     const k = 1 - Math.exp(-dt / 160);
     const active = new Set(slots);
@@ -324,8 +331,17 @@ export function createBeach3D(canvas, { mode }) {
       const b = blobs[slot];
       const src = st.blobs[slot];
       const on = active.has(slot) && !!src;
-      // Den eigenen Körper sieht man nicht — er stünde sonst vor der Kamera
-      b.group.visible = on && !(ego && slot === mySlot);
+      const mine = ego && slot === mySlot;
+      // Aus den Augen sieht man den eigenen Körper nicht — er stünde sonst vor der Kamera.
+      // Von hinten ist er durchscheinend, damit er den Ball nicht verdeckt.
+      b.group.visible = on && !(mine && !third);
+      const ghost = mine && third;
+      if (b.ghost !== ghost) {
+        b.ghost = ghost;
+        b.bodyMat.transparent = ghost;
+        b.bodyMat.opacity = ghost ? THIRD_OPACITY : 1;
+        b.bodyMat.needsUpdate = true;
+      }
       b.shadow.visible = on;
       if (!on) continue;
       b.group.position.set(src.x, src.y, src.z);
@@ -335,11 +351,12 @@ export function createBeach3D(canvas, { mode }) {
 
       // Dorthin drehen, wohin der Spieler schaut (lokal +x ist vorn), gedämpft — man sieht
       // dem Gegner an, wohin er zielt. Sim-yaw wächst nach +z, die Drehung um y nach -z.
-      const target = -(src.yaw || 0);
+      // Die eigene Figur folgt der Maus sofort (wie die Kamera), nicht dem Stand aus dem Netz.
+      const target = -(mine ? myLook.yaw : src.yaw || 0);
       let diff = target - b.yaw;
       while (diff > Math.PI) diff -= TAU;
       while (diff < -Math.PI) diff += TAU;
-      b.yaw += diff * Math.min(1, k * 4);
+      b.yaw += mine ? diff : diff * Math.min(1, k * 4);
       b.group.rotation.y = b.yaw;
 
       // Pupillen folgen dem Blick nach oben und unten
@@ -403,7 +420,28 @@ export function createBeach3D(canvas, { mode }) {
     if (hitNow) punch = 1;
     punch *= Math.exp(-dt / 90);
     let fov = FOV_WATCH;
-    if (ego) {
+    if (ego && third) {
+      // Hinter dem eigenen Blob, Blickrichtung = Schlagrichtung: Das Fadenkreuz zeigt weiter
+      // dorthin, wohin der Ball fliegt. Ungedämpft wie die Ich-Sicht. Steht man an der
+      // Grundlinie, liegt die Kamera hinter der Scheibe — Abpraller von der Rückwand
+      // passieren dann VOR der Kamera.
+      const me = st.blobs[mySlot];
+      const sc = me.s || 1;
+      const cp = Math.cos(myLook.pitch);
+      const fx = Math.cos(myLook.yaw) * cp;
+      const fy = Math.sin(myLook.pitch);
+      const fz = Math.sin(myLook.yaw) * cp;
+      const pivotY = me.y + (UPPER_SPHERE + UPPER_RADIUS + THIRD_LIFT) * sc;
+      camera.position.set(
+        me.x - fx * THIRD_DIST,
+        Math.max(THIRD_MIN_Y, pivotY - fy * THIRD_DIST),
+        me.z - fz * THIRD_DIST,
+      );
+      cam.at.set(camera.position.x + fx, camera.position.y + fy, camera.position.z + fz);
+      camera.lookAt(cam.at);
+      cam.init = false;
+      fov = FOV_THIRD + punch * 4;
+    } else if (ego) {
       // Aus den Augen des eigenen Blobs. Ort ungedämpft aus dem Spielstand, Blick direkt
       // von der Maus: Jede Dämpfung hier fühlt sich wie Verzögerung an.
       const me = st.blobs[mySlot];

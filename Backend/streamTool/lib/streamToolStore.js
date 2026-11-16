@@ -13,7 +13,8 @@ const fs = require('fs');
 const { DATA_DIR: dataDir } = require('../../lib/dataDir');
 if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
 
-const db = new Database(path.join(dataDir, 'stream_tool.db'));
+// STREAM_TOOL_DB: andere Datei (oder ':memory:') für Prüfläufe — nie gegen die Live-Daten testen
+const db = new Database(process.env.STREAM_TOOL_DB || path.join(dataDir, 'stream_tool.db'));
 db.pragma('journal_mode = WAL');
 
 db.exec(`CREATE TABLE IF NOT EXISTS stream_tool_settings (

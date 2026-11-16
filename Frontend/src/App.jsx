@@ -6,6 +6,8 @@ import Home from "./pages/Website/Home";
 import NotFound from "./pages/Website/NotFound";
 import TwitchAuthProvider from "./components/TwitchAuthProvider";
 import AnalyticsTracker from "./components/AnalyticsTracker";
+import LeistungTracker from "./components/LeistungTracker";
+import Anmeldung from "./components/Anmeldung";
 import { VisitMemory } from "./utils/visitMemory";
 import { ToolScroll } from "./components/toolShell/ToolParts";
 import { seedRunnersRoutes } from "./pages/SeedRunners/routes";
@@ -150,8 +152,12 @@ export default function App() {
   return (
     <TwitchAuthProvider>
       <AnalyticsTracker />
+      {/* Ladezeiten, Reaktion und Bildrate echter Besucher (utils/leistungMessung.js) */}
+      <LeistungTracker />
       {/* "Schnell weiter" auf der Startseite: meistbesuchte Bereiche, nur im Browser gespeichert */}
       <VisitMemory />
+      {/* Konto für alle Anmeldewege: Anmelde-Dialog (Twitch, Discord, Gast) und Hinweise (utils/konto.js) */}
+      <Anmeldung />
       <LazyRouteBoundary>
       <Suspense fallback={<PageFallback />}>
         <Routes>

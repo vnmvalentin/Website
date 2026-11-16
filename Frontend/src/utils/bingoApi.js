@@ -14,6 +14,7 @@ async function apiFetch(path, opts = {}) {
       || (res.status >= 500 ? "Der Server ist gerade nicht erreichbar. Bitte versuch es gleich noch einmal." : `Anfrage fehlgeschlagen (HTTP ${res.status})`);
     const err = new Error(msg);
     err.status = res.status;
+    err.code = json?.code || ""; // fester Fehler-Code des Servers, damit die Seite ihn übersetzen kann (bingoI18n.js)
     err.payload = json;
     throw err;
   }
@@ -134,7 +135,10 @@ export async function getOverlay(overlayKey, since = 0) {
   });
   const json = await res.json().catch(() => ({}));
   if (!res.ok) {
-    throw new Error(json?.error || `HTTP ${res.status}`);
+    const err = new Error(json?.error || `HTTP ${res.status}`);
+    err.status = res.status;
+    err.code = json?.code || "";
+    throw err;
   }
   return json;
 }

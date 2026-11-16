@@ -19,15 +19,23 @@ const klemme = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 
 /**
  * Welt auf einem Ausschnitt um `mitte`, Spieler auf der Standkachel `start` (Luft über Fels).
+ * `merk`: ein leeres Objekt, das der Aufrufer über mehrere Aufrufe hinweg mitgibt, SOLANGE sich Raster und Elemente nicht
+ * ändern (alle Varianten eines Zugs, alle schlichten Züge der Notwendigkeitsprüfung). Die eingelesene Karte desselben
+ * Ausschnitts wird dann wiederverwendet — die Sim verändert eine Karte nie, jede Welt bekommt ihren eigenen Zustand.
+ * (Gemessen 14.11.2026: Ausschnitt schneiden + einlesen waren 19 % der Bauzeit, fast immer für dieselbe Karte.)
  * @returns {{ welt: object, x0: number, y0: number }}  x0/y0: Rasterkoordinate der linken oberen Ecke des Ausschnitts
  */
-export function ausschnittWelt(grid, entities, start, cls, mitte = start) {
+export function ausschnittWelt(grid, entities, start, cls, mitte = start, merk = null) {
   const W = grid[0].length;
   const H = grid.length;
   const fw = Math.min(FENSTER_W, W);
   const fh = Math.min(FENSTER_H, H);
   const x0 = klemme(Math.round(mitte.x - fw / 2), 0, W - fw);
   const y0 = klemme(Math.round(mitte.y - fh / 2), 0, H - fh);
+  const schluessel = merk ? `${x0},${y0},${start.x},${start.y}` : null;
+  if (merk && merk.schluessel === schluessel && merk.grid === grid && merk.entities === entities) {
+    return { welt: createWorld(merk.karte, { tuning: classTuning(cls) }), x0, y0 };
+  }
   const rows = [];
   for (let y = y0; y < y0 + fh; y++) {
     let z = grid[y].slice(x0, x0 + fw).join('');
@@ -41,7 +49,9 @@ export function ausschnittWelt(grid, entities, start, cls, mitte = start) {
   const ents = entities
     .filter((e) => drin(e) && (e.type !== 'portal' || ids.has(e.pair)))
     .map((e) => ({ ...e, tx: e.tx - x0, ty: e.ty - y0 }));
-  const welt = createWorld(parseMap(rows, { entities: ents }), { tuning: classTuning(cls) });
+  const karte = parseMap(rows, { entities: ents });
+  if (merk) { merk.schluessel = schluessel; merk.grid = grid; merk.entities = entities; merk.karte = karte; }
+  const welt = createWorld(karte, { tuning: classTuning(cls) });
   return { welt, x0, y0 };
 }
 

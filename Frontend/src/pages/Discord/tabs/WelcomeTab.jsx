@@ -1,20 +1,21 @@
 import React from 'react';
 import MemberMessageForm from './MemberMessageForm';
-
-const VARIABLES = [
-    ['[USER]', 'Erwähnung des neuen Mitglieds'],
-    ['[SERVER]', 'Servername'],
-    ['[MEMBER]', 'Aktuelle Mitgliederzahl'],
-];
+import { useDiscordText } from '../discordI18n.js';
 
 export default function WelcomeTab({ welcomeChannel, setWelcomeChannel, welcomeMessage, setWelcomeMessage, welcomeStyle, setWelcomeStyle, handleSaveSettings, ...shared }) {
+    const t = useDiscordText();
+    const variables = [
+        ['[USER]', t.welcome.vars.user],
+        ['[SERVER]', t.welcome.vars.server],
+        ['[MEMBER]', t.welcome.vars.member],
+    ];
     return (
         <MemberMessageForm
             kind="welcome"
-            title="Willkommens-Nachrichten"
-            description="Wird gesendet, wenn ein neues Mitglied beitritt."
-            channelLabel="Begrüßungs-Kanal"
-            variables={VARIABLES}
+            title={t.welcome.title}
+            description={t.welcome.description}
+            channelLabel={t.welcome.channelLabel}
+            variables={variables}
             channel={welcomeChannel} setChannel={setWelcomeChannel}
             message={welcomeMessage} setMessage={setWelcomeMessage}
             style={welcomeStyle} setStyle={setWelcomeStyle}

@@ -16,6 +16,7 @@ import { leagueIconUrl, leagueName, MEDAL_ICON_URL, LEAGUE_MEDAL_ICON_URL, seaso
 import { cardImageUrl } from '../data/cards';
 import * as api from './winTrackerApi';
 import { dictForWt } from './wtI18n';
+import FormInsights from '../scout/FormInsights';
 
 const chipClass = 'cr-chip flex items-center gap-2 h-11 rounded-xl font-cr text-[15px] text-white transition-colors';
 const fill = (s, p) => String(s).replace(/\{(\w+)\}/g, (_, k) => (p[k] ?? ''));
@@ -518,6 +519,9 @@ export default function WinTrackerRecapPage() {
                     </div>
                   </Panel>
                 </div>
+
+                {/* Muster der Saison: nach Niederlagen in Folge, Tageszeit, Sitzungslänge (Backend lib/formPatterns.js) */}
+                {!special && r.form && <FormInsights patterns={r.form} lang={lang} />}
 
                 <Panel icon={CrCards} title={t.rp.decksTitle}>
                   {r.decks.length > 0 ? (

@@ -3,16 +3,24 @@
 // Zustand
 //   n, hands[n][], deck[], pile[] (oberste Karte = letzte), turn, dir (1 | -1), world (0–3),
 //   charges[4] (Ladung je Welt, bleibt beim Weltwechsel erhalten), next[4] (nächstes Ereignis je Welt),
-//   shield[n], frozen[n] (Zustände der Spieler), teams (null | Team je Platz), dark (Züge, die noch blind gespielt
-//   werden), darkBy, drawn[] (IDs der in diesem Zug gezogenen Karten), combo (Zahl, die per Strömung nachgelegt
-//   werden darf, sonst null), winner, winTeam, turnNo, rng
+//   shield[n], frozen[n], out[n] (Zustände der Spieler; out = setzt den nächsten Zug aus), fog[n] (Nebel: so viele eigene
+//   Züge bleibt die Kartenzahl noch verborgen), teams (null | Team je Platz),
+//   dark (Züge, die noch blind gespielt werden), darkBy, drawn[] (IDs der in diesem Zug gezogenen Karten),
+//   combo (Zahl, die per Strömung nachgelegt werden darf, sonst null),
+//   lastFx (Art der zuletzt gelegten Effektkarte — das, was ein Echo wiederholt),
+//   react (null | offener Angriff, auf den das Ziel antworten darf: { by, seat, k, plus, again }),
+//   winner, winTeam, turnNo, rng
 //
 // Karte   { id, w: 0–3 | -1 (passt immer), k: Kartenart (constants.KINDS), n: Zahl bei k === 'n' }
 //
 // Züge    { t: 'play', id, world?, target? }   world bei Karten, die immer passen; target bei Karten mit Ziel
 //         { t: 'draw' }                        ziehen (im Vulkan 2); passt etwas davon, darf man es noch legen
 //         { t: 'pass' }                        nach dem Ziehen oder in einer Strömungs-Kette weitergeben
+//   Antworten auf einen Angriff (nur react.seat, solange react gesetzt ist):
+//         { t: 'react', id }                   Spiegel legen (wirft zurück) oder — gegen Hagel — selbst einen Hagel drauflegen
+//         { t: 'take' }                        hinnehmen
 //
+// Wer gerade handeln darf, sagt actorOf(): das Ziel eines offenen Angriffs, sonst wer am Zug ist.
 // apply() liefert den neuen Zustand und die Ereignisse in der Reihenfolge, in der sie abgespielt werden.
 import { RULES, ANIM, KINDS, EVENTS_BY_WORLD } from './constants.js';
 
@@ -33,27 +41,32 @@ function shuffle(s, arr) {
   return arr;
 }
 
-/** Alle 93 Karten: je Welt 14 Zahlen, 2 Kipp, 1 Sturm und 2×2 eigene Karten; dazu 9 Karten, die immer passen. */
+/**
+ * Alle 117 Karten: je Welt 15 Zahlen (eine 0, 1–7 doppelt), 2 Wirbel, 2 Hagel, 1 Sturm und ihre drei eigenen Karten
+ * (je 2, Supernova 3); dazu 12 Karten, die immer passen (4 Portal, 2 Finsternis, 3 Zünder, 3 Spiegel).
+ */
 export function buildDeck() {
   const cards = [];
   const add = (w, k, n = 0) => cards.push({ id: cards.length, w, k, n });
   for (let w = 0; w < 4; w += 1) {
+    add(w, 'n', 0);
     for (let n = 1; n <= RULES.NUMBERS; n += 1) {
       add(w, 'n', n);
       add(w, 'n', n);
     }
     add(w, 'kipp');
     add(w, 'kipp');
+    for (let i = 0; i < RULES.HAGEL_PER_WORLD; i += 1) add(w, 'hagel');
     add(w, 'sturm');
     for (const k of Object.keys(KINDS)) {
       if (KINDS[k].world !== w) continue;
-      add(w, k);
-      add(w, k);
+      for (let i = 0; i < (KINDS[k].copies || 2); i += 1) add(w, k);
     }
   }
   for (let i = 0; i < 4; i += 1) add(-1, 'portal');
   for (let i = 0; i < 2; i += 1) add(-1, 'finsternis');
   for (let i = 0; i < 3; i += 1) add(-1, 'zuender');
+  for (let i = 0; i < 3; i += 1) add(-1, 'spiegel');
   return cards;
 }
 
@@ -80,9 +93,10 @@ export function createGame({ players, handSize = RULES.DEFAULT_HAND, seed = 1, t
   const s = {
     n, hands: [], deck: [], pile: [], turn: 0, dir: 1, world: 0,
     charges: [0, 0, 0, 0], next: [],
-    shield: new Array(n).fill(false), frozen: new Array(n).fill(false),
+    shield: new Array(n).fill(false), frozen: new Array(n).fill(false), out: new Array(n).fill(false), fog: new Array(n).fill(0),
     teams: teams ? [0, 1, 0, 1] : null,
-    dark: 0, darkBy: null, drawn: [], combo: null, winner: null, winTeam: null, turnNo: 0, rng: seed | 0,
+    dark: 0, darkBy: null, drawn: [], combo: null, lastFx: null, react: null,
+    winner: null, winTeam: null, turnNo: 0, rng: seed | 0,
   };
   s.deck = shuffle(s, buildDeck());
   for (let p = 0; p < n; p += 1) s.hands.push(s.deck.splice(0, handSize));
@@ -97,6 +111,8 @@ export function createGame({ players, handSize = RULES.DEFAULT_HAND, seed = 1, t
 
 export const topCard = (s) => s.pile[s.pile.length - 1];
 export const nextSeat = (s, seat) => (seat + s.dir + s.n) % s.n;
+/** Wer gerade handeln darf: das Ziel eines offenen Angriffs, sonst wer am Zug ist. */
+export const actorOf = (s) => (s.react ? s.react.seat : s.turn);
 /** Sind die zwei Plätze Gegner? (ohne Teams: jeder gegen jeden) */
 export const isFoe = (s, a, b) => a !== b && (!s.teams || s.teams[a] !== s.teams[b]);
 export const foesOf = (s, seat) => s.hands.map((_, p) => p).filter((p) => isFoe(s, seat, p));
@@ -109,7 +125,6 @@ export function isLegal(s, card) {
   if (s.drawn.length && !s.drawn.includes(card.id)) return false;
   if (card.w < 0) return true;
   if (card.w === s.world) return true;
-  if (card.k === 'n' && s.world === 3) return true; // Kosmos: schwerelos
   const top = topCard(s);
   if (top.w < 0) return false;
   if (card.k === 'n') return top.k === 'n' && top.n === card.n;
@@ -117,6 +132,36 @@ export function isLegal(s, card) {
 }
 
 export const legalCards = (s, seat) => s.hands[seat].filter((c) => isLegal(s, c));
+
+/** Welt, die nach dieser Karte gilt (chosen: gewählte Welt bei Karten, die immer passen). Der Spiegel lässt die Welt, wie sie ist. */
+export function worldAfter(s, card, chosen = null) {
+  if (card.k === 'spiegel') return s.world;
+  if (card.w < 0) return chosen === null ? s.world : chosen;
+  return card.w;
+}
+
+/** Was eine Karte gerade auslöst: ihre eigene Art, beim Echo die zuletzt gelegte Effektkarte, sonst null. */
+export function effectOf(s, card) {
+  if (card.k === 'n' || card.k === 'spiegel') return null; // der Spiegel wirkt nur als Antwort
+  return card.k === 'echo' ? s.lastFx : card.k;
+}
+
+/** Kosmos — Wurmlöcher: Gilt das Gesetz für diese Zahl? (im Kosmos gelegt oder sie führt in den Kosmos) */
+export const isCosmic = (s, card) => card.k === 'n' && (card.n === 0 || card.n === 7) && (s.world === 3 || card.w === 3);
+
+/** Muss zu dieser Karte ein Mitspieler gewählt werden? (Zielkarten, Echo einer Zielkarte, die 7 im Kosmos) */
+export function needsTarget(s, card) {
+  if (card.k === 'n') return card.n === 7 && isCosmic(s, card);
+  const k = effectOf(s, card);
+  return !!(k && KINDS[k].target);
+}
+
+/** Karten, mit denen `seat` auf den offenen Angriff antworten darf: Spiegel, gegen Hagel auch ein eigener Hagel. */
+export function answersOf(s, seat) {
+  const q = s.react;
+  if (!q || q.seat !== seat) return [];
+  return s.hands[seat].filter((c) => c.k === 'spiegel' || (c.k === 'hagel' && q.k === 'hagel'));
+}
 
 /** Welt und Ziel, wenn der Spieler nichts gewählt hat (blind gespielt, Zugzeit abgelaufen, Bot). */
 export function autoChoice(s, seat, card) {
@@ -130,10 +175,11 @@ export function autoChoice(s, seat, card) {
       world = w;
     }
   }
-  // Ziel: der Gegner mit den wenigsten Karten (er ist am gefährlichsten)
-  const foes = foesOf(s, seat);
-  let target = foes[0];
-  for (const p of foes) if (s.hands[p].length < s.hands[target].length) target = p;
+  // Ziel: der Gegner mit den wenigsten Karten (er ist am gefährlichsten) — beim Tausch (7 im Kosmos) irgendwer
+  // mit den wenigsten Karten
+  const pool = card.k === 'n' ? s.hands.map((_, p) => p).filter((p) => p !== seat) : foesOf(s, seat);
+  let target = pool[0];
+  for (const p of pool) if (s.hands[p].length < s.hands[target].length) target = p;
   return { world, target };
 }
 
@@ -146,7 +192,10 @@ const clone = (s) => ({
   next: s.next.slice(),
   shield: s.shield.slice(),
   frozen: s.frozen.slice(),
+  out: s.out.slice(),
+  fog: s.fog.slice(),
   drawn: s.drawn.slice(),
+  react: s.react ? { ...s.react } : null,
 });
 
 // Zieht bis zu `count` Karten; ist der Stapel leer, wird die Ablage (ohne oberste Karte) neu gemischt.
@@ -182,9 +231,20 @@ function blocked(s, seat, events) {
   return true;
 }
 
-function endTurn(s, events, { skip = false, again = false } = {}) {
+// Alle Hände wandern einen Platz in Spielrichtung weiter (Flut, 0 im Kosmos)
+function rotateHands(s) {
+  const hands = s.hands;
+  s.hands = hands.map((_, p) => hands[(p - s.dir + s.n) % s.n]);
+}
+
+// Zug abschließen: gezogene Karten und Kette vergessen, Finsternis und der eigene Nebel laufen einen Zug weiter
+function closeTurn(s, events) {
   s.drawn = [];
   s.combo = null;
+  if (s.fog[s.turn] > 0) {
+    s.fog[s.turn] -= 1;
+    if (s.fog[s.turn] === 0) events.push({ t: 'unfog', seat: s.turn });
+  }
   if (s.dark > 0) {
     s.dark -= 1;
     if (s.dark === 0) {
@@ -192,23 +252,33 @@ function endTurn(s, events, { skip = false, again = false } = {}) {
       events.push({ t: 'light' });
     }
   }
+}
+
+function endTurn(s, events, { skip = false, again = false } = {}) {
+  closeTurn(s, events);
   let nx = s.turn;
   if (!again) {
     nx = nextSeat(s, s.turn);
     if (skip) nx = nextSeat(s, nx);
-    // Eingefrorene tauen auf und setzen dafür aus
-    for (let i = 0; i < s.n && s.frozen[nx]; i += 1) {
+  }
+  // Wer aussetzen muss, wird übersprungen: Eingefrorene tauen dabei auf
+  for (let i = 0; i < s.n && (s.frozen[nx] || s.out[nx]); i += 1) {
+    if (s.frozen[nx]) {
       s.frozen[nx] = false;
       events.push({ t: 'thaw', seat: nx });
-      nx = nextSeat(s, nx);
+    } else {
+      s.out[nx] = false;
+      events.push({ t: 'sitout', seat: nx });
     }
+    nx = nextSeat(s, nx);
   }
   s.turn = nx;
   s.turnNo += 1;
   events.push({ t: 'turn', seat: nx });
 }
 
-// Weltereignis der Welt w auslösen (by = wer die Ladung voll gemacht hat)
+// Weltereignis der Welt w auslösen (by = wer die Ladung voll gemacht hat). Liefert das Ereignis (e.again: by ist
+// gleich noch einmal dran).
 function erupt(s, w, by, events) {
   const ev = s.next[w];
   const e = { t: 'erupt', world: w, ev, by };
@@ -232,8 +302,7 @@ function erupt(s, w, by, events) {
     e.losses = [];
     discardRandom(s, by, 1, e.losses);
   } else if (ev === 'flut') {
-    const hands = s.hands;
-    s.hands = hands.map((_, p) => hands[(p - s.dir + s.n) % s.n]);
+    rotateHands(s);
     e.rotate = s.dir;
   } else if (ev === 'strudel') {
     const pool = shuffle(s, s.hands.flat());
@@ -265,16 +334,28 @@ function erupt(s, w, by, events) {
   } else if (ev === 'loch') {
     e.losses = [];
     for (const p of all) if (counts[p] >= 3) discardRandom(s, p, 1, e.losses);
-  } else if (ev === 'polsprung') {
-    s.dir = -s.dir;
-    e.flip = s.dir;
-  } else if (ev === 'zwilling') {
-    const a = pick(s, all);
-    const b = pick(s, all.filter((p) => p !== a));
-    [s.hands[a], s.hands[b]] = [s.hands[b], s.hands[a]];
-    e.swap = [a, b];
+  } else if (ev === 'zeitschleife') {
+    e.again = true;
+  } else if (ev === 'konjunktion') {
+    for (let o = 0; o < 4; o += 1) if (o !== w) s.charges[o] = Math.min(RULES.CHARGE_MAX, s.charges[o] + 2);
   }
+  e.charges = s.charges.slice();
   events.push(...pre, e);
+  return e;
+}
+
+// Alles ausbrechen lassen, was voll ist — die aktuelle Welt zuerst. Konjunktion und Supernova können weitere Welten
+// füllen: Die brechen gleich hinterher aus (Kettenreaktion). forced: Welt, die der Zünder auf jeden Fall auslöst.
+function eruptions(s, by, events, flow, forced = null) {
+  const run = (w) => {
+    if (erupt(s, w, by, events).again) flow.again = true;
+  };
+  if (forced !== null) run(forced);
+  for (let guard = 0; guard < 8; guard += 1) {
+    const w = [0, 1, 2, 3].map((i) => (s.world + i) % 4).find((x) => s.charges[x] >= RULES.CHARGE_MAX);
+    if (w === undefined) break;
+    run(w);
+  }
 }
 
 function win(s, seat, events) {
@@ -282,7 +363,217 @@ function win(s, seat, events) {
   s.winTeam = s.teams ? s.teams[seat] : null;
   s.drawn = [];
   s.combo = null;
+  s.react = null;
   events.push({ t: 'win', seat, team: s.winTeam });
+}
+
+// Darf das Ziel auf diesen Angriff antworten? Nur wer handeln kann (nicht geblendet, eingefroren oder weggeweht) und
+// eine Antwort auf der Hand hat: einen Spiegel — oder, gegen Hagel, selbst einen Hagel.
+function canAnswer(s, by, victim, k) {
+  if (victim === by || isBlind(s, victim) || s.frozen[victim] || s.out[victim]) return false;
+  return s.hands[victim].some((c) => c.k === 'spiegel' || (c.k === 'hagel' && k === 'hagel'));
+}
+
+/**
+ * Ein Angriff der Art k trifft `victim`. mirror: Platz dessen, der ihn mit dem Spiegel zurückgeworfen hat (dann ist
+ * victim der Absender selbst und ein Schild hilft ihm nicht; beim Sturm fällt dann sein nächster Zug aus, bei Hagel und
+ * Meteor zieht er nur).
+ * Liefert true, wenn der Getroffene sofort aussetzt (er ist der Nächste in der Reihe).
+ */
+function hit(s, by, victim, k, plus, events, mirror) {
+  const back = mirror !== null;
+  const tag = back ? { mirror } : {};
+  if (k === 'sturm') {
+    if (back) s.out[victim] = true;
+    events.push({ t: 'skip', by, seat: victim, ...tag });
+    return !back;
+  }
+  if (!back && blocked(s, victim, events)) return false;
+  if (k === 'hagel' || k === 'meteor') {
+    // Hagel lässt nur ziehen; der Meteor lässt zusätzlich aussetzen — zurückgeworfen zieht der Absender aber nur
+    const stun = k === 'meteor';
+    const pre = [];
+    const cards = drawCards(s, victim, plus, pre);
+    events.push(...pre, { t: k, by, seat: victim, n: cards.length, plus, cards, ...tag });
+    return stun && !back;
+  }
+  if (k === 'frost') {
+    s.frozen[victim] = true;
+    events.push({ t: 'frost', by, seat: victim, ...tag });
+  } else if (k === 'strahl') {
+    const pre = [];
+    const cards = drawCards(s, victim, plus, pre);
+    events.push(...pre, { t: 'beam', by, seat: victim, n: cards.length, cards, ...tag });
+  } else if (k === 'saat') {
+    // Zurückgeworfen: Statt eine Karte loszuwerden, bekommt der Absender eine von dem, der gespiegelt hat
+    const [from, to] = back ? [mirror, by] : [by, victim];
+    if (s.hands[from].length) {
+      const [given] = s.hands[from].splice(Math.floor(rand(s) * s.hands[from].length), 1);
+      s.hands[to].push(given);
+      events.push({ t: 'gift', from, to, card: given, ...tag });
+    }
+  } else if (k === 'flaschenpost') {
+    // Zurückgeworfen: Wer gespiegelt hat, sieht die Karten des Absenders
+    const looker = back ? mirror : by;
+    events.push({ t: 'peek', by: looker, seat: victim, cards: s.hands[victim].slice(), ...tag });
+  }
+  return false;
+}
+
+/**
+ * Wirkung der Kartenart k, gelegt von seat (auch als Echo). Liefert einen offenen Angriff, wenn das Ziel antworten
+ * darf — sonst null. flow sammelt, was der Zug am Ende bewirkt: skip, again, forced (Zünder).
+ */
+function effect(s, seat, k, { world, target, debt }, flow, events) {
+  const kind = KINDS[k];
+  if (kind.attack) {
+    const victim = kind.target ? target : nextSeat(s, seat);
+    const plus = (kind.plus || 0) + (k === 'hagel' ? debt : 0);
+    if (canAnswer(s, seat, victim, k)) return { by: seat, seat: victim, k, plus };
+    if (hit(s, seat, victim, k, plus, events, null)) flow.skip = true;
+    return null;
+  }
+  if (k === 'kipp') {
+    s.dir = -s.dir;
+    events.push({ t: 'flip', dir: s.dir });
+    if (s.n === 2) flow.skip = true; // zu zweit: man ist gleich wieder dran
+  } else if (k === 'walze') {
+    const pre = [];
+    const draws = [];
+    for (const p of foesOf(s, seat)) {
+      if (blocked(s, p, pre)) continue;
+      const cards = drawCards(s, p, 1, pre);
+      if (cards.length) draws.push({ seat: p, cards });
+    }
+    events.push(...pre, { t: 'walze', by: seat, draws });
+  } else if (k === 'brandopfer') {
+    const losses = [];
+    discardRandom(s, seat, 1, losses);
+    events.push({ t: 'burn', seat, losses });
+  } else if (k === 'welle') {
+    flow.again = true;
+    events.push({ t: 'again', seat });
+  } else if (k === 'schild') {
+    s.shield[seat] = true;
+    events.push({ t: 'shield', seat });
+  } else if (k === 'supernova') {
+    for (let o = 0; o < 4; o += 1) if (o !== world) s.charges[o] = Math.min(RULES.CHARGE_MAX, s.charges[o] + 1);
+    events.push({ t: 'nova', by: seat, charges: s.charges.slice() });
+  } else if (k === 'nebel') {
+    s.fog[seat] = RULES.FOG_TURNS + 1; // der laufende Zug zählt beim Abschluss schon einen ab
+    events.push({ t: 'fog', seat });
+  } else if (k === 'finsternis') {
+    s.dark = s.n; // der eigene Zugwechsel zählt schon einen ab
+    s.darkBy = seat;
+    events.push({ t: 'dark', by: seat });
+  } else if (k === 'zuender') {
+    flow.forced = world;
+  }
+  return null;
+}
+
+/**
+ * Eine Karte legen (sie ist schon geprüft). debt: aufgelaufene Karten eines Hagels, auf den dieser Hagel gelegt wird.
+ * Endet mit dem Zugwechsel, einem Sieg — oder einem offenen Angriff (s.react), auf den das Ziel erst antworten darf.
+ */
+function doPlay(s, seat, card, a, events, debt = 0) {
+  const auto = autoChoice(s, seat, card);
+  const world = worldAfter(s, card, Number.isInteger(a.world) && a.world >= 0 && a.world < 4 ? a.world : auto.world);
+  const cosmic = isCosmic(s, card);
+  let target = null;
+  if (needsTarget(s, card)) target = Number.isInteger(a.target) && a.target >= 0 && a.target < s.n && a.target !== seat ? a.target : auto.target;
+  const fx = effectOf(s, card);
+
+  s.hands[seat].splice(s.hands[seat].indexOf(card), 1);
+  s.pile.push(card);
+  const from = s.world;
+  s.world = world;
+  s.charges[world] = Math.min(RULES.CHARGE_MAX, s.charges[world] + (world === 2 ? 2 : 1)); // Dschungel: Wildwuchs
+  events.push({ t: 'play', seat, card, world, charges: s.charges.slice(), ...(card.k === 'echo' && fx ? { echo: fx } : {}) });
+  if (world !== from) events.push({ t: 'world', from, to: world });
+  if (!s.hands[seat].length) return win(s, seat, events);
+  if (card.k !== 'n' && card.k !== 'echo' && card.k !== 'spiegel') s.lastFx = card.k;
+
+  const flow = { skip: false, again: false, forced: null };
+  let ask = null;
+  if (cosmic && card.n === 7) {
+    // Kosmos — Wurmlöcher: Hand mit einem Spieler tauschen
+    [s.hands[seat], s.hands[target]] = [s.hands[target], s.hands[seat]];
+    events.push({ t: 'swap', a: seat, b: target });
+  } else if (cosmic) {
+    // … und die 0 reicht alle Hände in Spielrichtung weiter
+    rotateHands(s);
+    events.push({ t: 'rotate', dir: s.dir });
+  } else if (fx) {
+    ask = effect(s, seat, fx, { world, target, debt }, flow, events);
+  }
+  // Die Saat war die vorletzte Karte: Hand leer
+  if (!s.hands[seat].length) return win(s, seat, events);
+
+  if (ask) {
+    // Erst bricht aus, was voll ist — dann darf das Ziel antworten. Der Zug endet mit der Antwort.
+    eruptions(s, seat, events, flow, flow.forced);
+    s.drawn = [];
+    s.combo = null;
+    s.react = { ...ask, again: flow.again };
+    events.push({ t: 'ask', seat: ask.seat, by: ask.by, k: ask.k });
+    return null;
+  }
+
+  eruptions(s, seat, events, flow, flow.forced);
+
+  // Ozean: Strömung — nach einer Zahl darf dieselbe Zahl nachgelegt werden
+  if (card.k === 'n' && world === 1 && !isBlind(s, seat) && s.hands[seat].some((c) => c.k === 'n' && c.n === card.n)) {
+    s.drawn = [];
+    s.combo = card.n;
+    events.push({ t: 'combo', seat, n: card.n });
+    return null;
+  }
+  return endTurn(s, events, flow);
+}
+
+// Antwort auf einen offenen Angriff: hinnehmen, mit dem Spiegel zurückwerfen oder (Hagel) einen Hagel drauflegen
+function answer(s, seat, a, events) {
+  const q = s.react;
+  if (a.t === 'take') {
+    s.react = null;
+    const skip = hit(s, q.by, seat, q.k, q.plus, events, null);
+    if (!s.hands[q.by].length) return win(s, q.by, events); // die Saat war die vorletzte Karte
+    return endTurn(s, events, { skip, again: q.again });
+  }
+  if (a.t !== 'react') return 'Antworte erst auf den Angriff.';
+  const card = s.hands[seat].find((c) => c.id === a.id);
+  if (!card || !(card.k === 'spiegel' || (card.k === 'hagel' && q.k === 'hagel'))) return 'Damit kannst du nicht antworten.';
+  s.react = null;
+
+  if (card.k === 'spiegel') {
+    // Der Spiegel verschwindet unter der Ablage — oben bleibt die Karte, die er zurückwirft
+    s.hands[seat].splice(s.hands[seat].indexOf(card), 1);
+    s.pile.unshift(card);
+    events.push({ t: 'reflect', seat, to: q.by, card });
+    if (!s.hands[seat].length) return win(s, seat, events);
+    hit(s, q.by, q.by, q.k, q.plus, events, seat);
+    if (!s.hands[seat].length) return win(s, seat, events); // die zurückgeworfene Saat nahm die letzte Karte mit
+    return endTurn(s, events, { again: q.again });
+  }
+
+  // Hagel auf Hagel: Damit ist der eigene Zug gespielt, die Karten wandern zum Nächsten weiter
+  closeTurn(s, events);
+  s.turn = seat;
+  s.turnNo += 1;
+  events.push({ t: 'turn', seat });
+  return doPlay(s, seat, card, {}, events, q.plus);
+}
+
+// Der Nebel lichtet sich, sobald jemand nur noch eine Karte hält (die letzte Karte soll jeder sehen)
+function liftFog(s, events) {
+  if (s.winner !== null) return;
+  for (let p = 0; p < s.n; p += 1) {
+    if (s.fog[p] > 0 && s.hands[p].length <= 1) {
+      s.fog[p] = 0;
+      events.push({ t: 'unfog', seat: p });
+    }
+  }
 }
 
 /**
@@ -291,10 +582,17 @@ function win(s, seat, events) {
  */
 export function apply(state, seat, action) {
   if (state.winner !== null) return { ok: false, error: 'Die Runde ist vorbei.' };
-  if (seat !== state.turn) return { ok: false, error: 'Du bist nicht dran.' };
+  if (seat !== actorOf(state)) return { ok: false, error: 'Du bist nicht dran.' };
   const a = action && typeof action === 'object' ? action : {};
   const s = clone(state);
   const events = [];
+
+  if (s.react) {
+    const error = answer(s, seat, a, events);
+    if (typeof error === 'string') return { ok: false, error };
+    liftFog(s, events);
+    return { ok: true, state: s, events };
+  }
   const blind = isBlind(s, seat);
 
   if (a.t === 'draw') {
@@ -304,6 +602,7 @@ export function apply(state, seat, action) {
     s.drawn = cards.map((c) => c.id);
     // Sehend und nichts davon passt: Zug ist vorbei. Blind weiß man es nicht — dann entscheidet der Spieler.
     if (!cards.length || (!blind && !cards.some((c) => isLegal(s, c)))) endTurn(s, events);
+    liftFog(s, events);
     return { ok: true, state: s, events };
   }
 
@@ -314,9 +613,8 @@ export function apply(state, seat, action) {
   }
 
   if (a.t !== 'play') return { ok: false, error: 'Unbekannter Zug.' };
-  const idx = s.hands[seat].findIndex((c) => c.id === a.id);
-  if (idx < 0) return { ok: false, error: 'Diese Karte hast du nicht.' };
-  const card = s.hands[seat][idx];
+  const card = s.hands[seat].find((c) => c.id === a.id);
+  if (!card) return { ok: false, error: 'Diese Karte hast du nicht.' };
 
   if (!isLegal(s, card)) {
     if (!blind || s.combo !== null) return { ok: false, error: 'Die Karte passt nicht.' };
@@ -326,115 +624,28 @@ export function apply(state, seat, action) {
     const cards = drawCards(s, seat, 1, events);
     events.push({ t: 'draw', seat, n: cards.length, cards });
     endTurn(s, events);
+    liftFog(s, events);
     return { ok: true, state: s, events };
   }
 
-  // Welt und Ziel
-  const kind = KINDS[card.k];
-  const auto = autoChoice(s, seat, card);
-  let world = card.w;
-  if (card.w < 0) world = Number.isInteger(a.world) && a.world >= 0 && a.world < 4 ? a.world : auto.world;
-  let target = null;
-  if (kind.target) target = Number.isInteger(a.target) && a.target >= 0 && a.target < s.n && a.target !== seat ? a.target : auto.target;
-
-  s.hands[seat].splice(idx, 1);
-  s.pile.push(card);
-  const from = s.world;
-  s.world = world;
-  s.charges[world] = Math.min(RULES.CHARGE_MAX, s.charges[world] + (world === 2 ? 2 : 1)); // Dschungel: Wildwuchs
-  events.push({ t: 'play', seat, card, world, charges: s.charges.slice() });
-  if (world !== from) events.push({ t: 'world', from, to: world });
-
-  if (!s.hands[seat].length) {
-    win(s, seat, events);
-    return { ok: true, state: s, events };
-  }
-
-  let skip = false;
-  let again = false;
-  const k = card.k;
-  if (k === 'sturm') {
-    skip = true;
-    events.push({ t: 'skip', by: seat, seat: nextSeat(s, seat) });
-  } else if (k === 'kipp') {
-    s.dir = -s.dir;
-    events.push({ t: 'flip', dir: s.dir });
-    if (s.n === 2) skip = true; // zu zweit: man ist gleich wieder dran
-  } else if (k === 'meteor') {
-    const victim = nextSeat(s, seat);
-    if (!blocked(s, victim, events)) {
-      const pre = [];
-      const cards = drawCards(s, victim, 2, pre);
-      events.push(...pre, { t: 'meteor', by: seat, seat: victim, n: cards.length, cards });
-      skip = true;
-    }
-  } else if (k === 'walze') {
-    const pre = [];
-    const draws = [];
-    for (const p of foesOf(s, seat)) {
-      if (blocked(s, p, pre)) continue;
-      const cards = drawCards(s, p, 1, pre);
-      if (cards.length) draws.push({ seat: p, cards });
-    }
-    events.push(...pre, { t: 'walze', by: seat, draws });
-  } else if (k === 'frost') {
-    if (!blocked(s, target, events)) {
-      s.frozen[target] = true;
-      events.push({ t: 'frost', by: seat, seat: target });
-    }
-  } else if (k === 'welle') {
-    again = true;
-    events.push({ t: 'again', seat });
-  } else if (k === 'schild') {
-    s.shield[seat] = true;
-    events.push({ t: 'shield', seat });
-  } else if (k === 'saat') {
-    if (!blocked(s, target, events)) {
-      const [given] = s.hands[seat].splice(Math.floor(rand(s) * s.hands[seat].length), 1);
-      s.hands[target].push(given);
-      events.push({ t: 'gift', from: seat, to: target, card: given });
-    }
-  } else if (k === 'tausch') {
-    if (!blocked(s, target, events)) {
-      [s.hands[seat], s.hands[target]] = [s.hands[target], s.hands[seat]];
-      events.push({ t: 'swap', a: seat, b: target });
-    }
-  } else if (k === 'strahl') {
-    if (!blocked(s, target, events)) {
-      const pre = [];
-      const cards = drawCards(s, target, 2, pre);
-      events.push(...pre, { t: 'beam', by: seat, seat: target, n: cards.length, cards });
-    }
-  } else if (k === 'finsternis') {
-    s.dark = s.n; // der eigene Zugwechsel zählt schon einen ab
-    s.darkBy = seat;
-    events.push({ t: 'dark', by: seat });
-  }
-
-  // Die Saat war die vorletzte Karte: Hand leer
-  if (!s.hands[seat].length) {
-    win(s, seat, events);
-    return { ok: true, state: s, events };
-  }
-
-  // Weltereignis: volle Ladung oder Zünder
-  if (k === 'zuender' || s.charges[world] >= RULES.CHARGE_MAX) erupt(s, world, seat, events);
-
-  // Ozean: Strömung — nach einer Zahl darf dieselbe Zahl nachgelegt werden
-  if (k === 'n' && world === 1 && !blind && s.hands[seat].some((c) => c.k === 'n' && c.n === card.n)) {
-    s.drawn = [];
-    s.combo = card.n;
-    events.push({ t: 'combo', seat, n: card.n });
-    return { ok: true, state: s, events };
-  }
-
-  endTurn(s, events, { skip, again });
+  doPlay(s, seat, card, a, events);
+  liftFog(s, events);
   return { ok: true, state: s, events };
 }
 
-/** Was ein Platz sehen darf (seat === null: Zuschauer). Fremde Hände nur als Anzahl. */
+/**
+ * Was ein Platz sehen darf (seat === null: Zuschauer). Fremde Hände nur als Anzahl — und im Nebel nicht einmal die
+ * (counts[p] === null), außer für den Spieler selbst und seinen Partner. Nach dem Ende liegt alles offen.
+ */
 export function viewFor(s, seat) {
   const mine = seat !== null && seat >= 0 && seat < s.n;
+  const hidden = (p) => s.winner === null && s.fog[p] > 0 && (!mine || isFoe(s, seat, p));
+  // 2 gegen 2: Partner sehen die Karten des anderen — außer man ist selbst geblendet (Finsternis)
+  let mate = null;
+  if (mine && s.teams) {
+    const p = s.teams.findIndex((t, i) => i !== seat && t === s.teams[seat]);
+    if (p >= 0) mate = { seat: p, hand: isBlind(s, seat) ? null : s.hands[p] };
+  }
   return {
     n: s.n,
     turn: s.turn,
@@ -444,15 +655,21 @@ export function viewFor(s, seat) {
     next: s.next,
     shield: s.shield,
     frozen: s.frozen,
+    out: s.out,
+    fog: s.fog.map((v) => v > 0),
+    fogLeft: mine ? s.fog[seat] : 0,
     teams: s.teams,
+    mate,
     dark: s.dark,
     darkBy: s.darkBy,
     drawn: mine && seat === s.turn ? s.drawn : [],
     combo: s.combo,
+    lastFx: s.lastFx,
+    react: s.react ? { by: s.react.by, seat: s.react.seat, k: s.react.k, plus: s.react.plus } : null,
     top: topCard(s),
     pileCount: s.pile.length,
     deckCount: s.deck.length,
-    counts: s.hands.map((h) => h.length),
+    counts: s.hands.map((h, p) => (hidden(p) ? null : h.length)),
     hand: mine ? s.hands[seat] : null,
     winner: s.winner,
     winTeam: s.winTeam,
@@ -462,14 +679,21 @@ export function viewFor(s, seat) {
 
 const hideDraws = (draws, seat) => draws.map((d) => (d.seat === seat ? d : { seat: d.seat, n: d.cards.length }));
 
-/** Ereignisse für einen Platz: gezogene und verschenkte Karten anderer Spieler bleiben verdeckt. */
+/** Ereignisse für einen Platz: gezogene, verschenkte und per Flaschenpost gezeigte Karten bleiben für andere verdeckt. */
 export function eventsFor(events, seat) {
   return events.map((e) => {
-    if ((e.t === 'draw' || e.t === 'meteor' || e.t === 'beam') && e.seat !== seat) {
+    if ((e.t === 'draw' || e.t === 'hagel' || e.t === 'meteor' || e.t === 'beam') && e.seat !== seat) {
       const { cards: _cards, ...rest } = e;
       return rest;
     }
-    if (e.t === 'gift' && e.from !== seat && e.to !== seat) return { t: 'gift', from: e.from, to: e.to };
+    if (e.t === 'peek' && e.by !== seat) {
+      const { cards: _cards, ...rest } = e;
+      return rest;
+    }
+    if (e.t === 'gift' && e.from !== seat && e.to !== seat) {
+      const { card: _card, ...rest } = e;
+      return rest;
+    }
     if ((e.t === 'erupt' || e.t === 'walze') && e.draws) return { ...e, draws: hideDraws(e.draws, seat) };
     return e;
   });

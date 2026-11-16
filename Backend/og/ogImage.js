@@ -7,8 +7,9 @@
 // Die Schrift liegt bei (discord/assets/fonts) — auf dem Server ist nicht gesagt, dass überhaupt eine installiert ist.
 'use strict';
 
+const fs = require('fs');
 const path = require('path');
-const { createCanvas, GlobalFonts } = require('@napi-rs/canvas');
+const { createCanvas, GlobalFonts, loadImage } = require('@napi-rs/canvas');
 
 const FONT_DIR = path.join(__dirname, '../discord/assets/fonts');
 for (const [file, family] of [
@@ -111,9 +112,97 @@ function drawLevelPreview(ctx, preview, biome, x, y, w, h) {
   }
 }
 
+// Spielbilder (dieselben wie auf den Übersichtsseiten): auf dem Server im nginx-Wurzelverzeichnis, lokal im Frontend
+const SHOT_DIRS = [
+  process.env.OG_PREVIEW_DIR,
+  '/var/www/mywebsite/dist/media/previews',
+  path.join(__dirname, '../../Frontend/public/media/previews'),
+].filter(Boolean);
+const shotCache = new Map(); // id → { mtime, img }
+const validShot = (id) => /^[a-z0-9-]{1,40}$/.test(String(id || ''));
+
+/**
+ * Spielbild laden und dekodieren (WebP dekodiert die Bibliothek nur asynchron — ein frisch gesetztes Bild zeichnet sonst
+ * leer). Zwischengespeichert, neu gelesen, wenn die Datei sich ändert. Vor renderCard abwarten; fehlt es → null.
+ */
+async function loadShot(id) {
+  if (!validShot(id)) return null;
+  for (const dir of SHOT_DIRS) {
+    const file = path.join(dir, `${id}.webp`);
+    let mtimeMs;
+    try { ({ mtimeMs } = fs.statSync(file)); } catch { continue; }
+    const hit = shotCache.get(id);
+    if (hit && hit.mtime === mtimeMs) return hit.img;
+    try {
+      const img = await loadImage(fs.readFileSync(file));
+      shotCache.set(id, { mtime: mtimeMs, img });
+      return img;
+    } catch (e) {
+      console.warn('[og] Spielbild unlesbar:', file, e.message);
+    }
+  }
+  return null;
+}
+
+/**
+ * Link-Bild mit Spielszene: das Bild füllt die Fläche, unten liegt ein dunkler Verlauf, darauf Rubrik, Titel und eine
+ * Zeile. So sieht man im Chat sofort, was für ein Spiel es ist.
+ */
+function renderShotCard(card, img) {
+  const canvas = createCanvas(W, H);
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = BG;
+  ctx.fillRect(0, 0, W, H);
+  // Füllend zuschneiden, etwas oberhalb der Mitte (unten liegt ohnehin der Text)
+  const s = Math.max(W / img.width, H / img.height);
+  const dw = img.width * s, dh = img.height * s;
+  ctx.drawImage(img, (W - dw) / 2, (H - dh) * 0.4, dw, dh);
+  ctx.textBaseline = 'alphabetic';
+
+  // Text von unten nach oben setzen: Beschreibung (bis 2 Zeilen), Titel, Rubrik
+  const textW = W - PAD * 2;
+  ctx.font = `600 30px ${TEXT}`;
+  const lines = wrap(ctx, (card.lines || []).filter(Boolean)[0] || '', textW, 2);
+  const kickerY = H - 56 - lines.length * 42 - (lines.length ? 10 : 0) - 86;
+
+  // Dunkler Verlauf hinter dem Text, damit er auf jedem Bild lesbar bleibt (ab gut 100 px über der Rubrik)
+  const scrimTop = kickerY - 110;
+  const g = ctx.createLinearGradient(0, scrimTop, 0, H);
+  g.addColorStop(0, 'rgba(10,12,16,0)');
+  g.addColorStop(0.4, 'rgba(10,12,16,0.82)');
+  g.addColorStop(1, 'rgba(10,12,16,0.95)');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, scrimTop, W, H - scrimTop);
+  ctx.fillStyle = card.accent || INK;
+  ctx.fillRect(0, 0, W, 8);
+
+  let y = H - 56 - (lines.length - 1) * 42;
+  ctx.font = `600 30px ${TEXT}`;
+  ctx.fillStyle = '#d1d5db';
+  for (const l of lines) {
+    ctx.fillText(l, PAD, y);
+    y += 42;
+  }
+  y = H - 56 - lines.length * 42 - (lines.length ? 10 : 0);
+  ctx.font = `800 76px ${BOLD}`;
+  ctx.fillStyle = INK;
+  ctx.fillText(fit(ctx, card.title, textW), PAD, y);
+  y -= 86;
+  ctx.font = `600 26px ${TEXT}`;
+  ctx.fillStyle = card.accent || DIM;
+  ctx.fillText(fit(ctx, String(card.kicker || '').toUpperCase(), textW - 260), PAD, y);
+  ctx.textAlign = 'right';
+  ctx.fillStyle = '#d1d5db';
+  ctx.fillText('vnmvalentin.de', W - PAD, y);
+  ctx.textAlign = 'left';
+  // JPEG statt PNG: ein Spielfoto als PNG wird bis über 1 MB groß, WhatsApp zeigt Vorschaubilder über ~300 KB nicht an
+  return canvas.toBuffer('image/jpeg', 84);
+}
+
 /**
  * @param card {
  *   kicker, accent, title, lines: string[],
+ *   shot?: string,                            // Spielbild (media/previews/<shot>.webp) als Hintergrund
  *   level?: { preview, biome },              // Seed-Runners-Level: Vorschau unten
  *   table?: [{ rank, name, value }],          // Tagesrennen: Top 3
  *   stat?: { value, label },                  // große Zahl (z. B. "12/16 Spieler"), rechts oben oder unter dem Text
@@ -121,6 +210,9 @@ function drawLevelPreview(ctx, preview, biome, x, y, w, h) {
  * @returns {Buffer} PNG
  */
 function renderCard(card) {
+  // Spielbild nur, wenn loadShot es schon dekodiert hat (sonst das schlichte Bild)
+  const shot = validShot(card.shot) ? shotCache.get(card.shot)?.img : null;
+  if (shot) return renderShotCard(card, shot);
   const canvas = createCanvas(W, H);
   const ctx = canvas.getContext('2d');
   ctx.fillStyle = BG;
@@ -229,4 +321,4 @@ function renderCard(card) {
 }
 
 // fit und die Schriftnamen nutzt auch das Saisonrückblick-Bild (clashRoyale/lib/recapImage.js)
-module.exports = { renderCard, W, H, fit, BOLD, TEXT };
+module.exports = { renderCard, loadShot, W, H, fit, BOLD, TEXT };

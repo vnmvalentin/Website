@@ -2,9 +2,13 @@ import React, { useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import BingoGrid from "./BingoGrid";
 import { getOverlay, markOverlayCell } from "../../utils/bingoApi";
+import { useLanguage } from "../../i18n/language";
+import { BINGO_TEXTS, bingoErrorText } from "./bingoI18n";
 
 export default function BingoOverlayPage() {
   const { overlayKey } = useParams();
+  // OBS hat keinen eigenen Sprachspeicher: der Link aus dem Editor trägt ?lang=en, wenn der Streamer Englisch nutzt
+  const { lang } = useLanguage({ supported: BINGO_TEXTS.langs });
 
   const [state, setState] = useState({
     loading: true,
@@ -45,7 +49,7 @@ export default function BingoOverlayPage() {
         setState((s) => ({
           ...s,
           loading: false,
-          error: e.message || "Overlay nicht gefunden",
+          error: e, // übersetzt erst beim Anzeigen
         }));
       }
     };
@@ -80,7 +84,7 @@ export default function BingoOverlayPage() {
   return (
     <div className="w-screen h-screen p-0 m-0 bg-transparent">
       {state.error ? (
-        <div className="text-white/70 p-4">{state.error}</div>
+        <div className="text-white/70 p-4">{bingoErrorText(state.error, lang)}</div>
       ) : (
         <div className="w-screen h-screen flex items-center justify-center">
           <div className="w-[92vmin] h-[92vmin]">

@@ -174,7 +174,8 @@ export function createJuice({ biome: initialBiome = 'meadow', palette: initialPa
       st.flags.set(d.index, performance.now());
       const total = st.world.map.checkpoints.length;
       st.popups.push({ text: `Checkpoint ${d.index} / ${total}`, x, y: y - 22, life: 1.6, max: 1.6 });
-      flash('#c4b5fd', 0.18);
+      // (kein Bildschirm-Blitz mehr — Rückmeldung 14.11.2026: „der Screen flasht, wenn man einen Checkpoint hat“; Funken,
+      // Ring, Fahne, Einblendung und Ton zeigen ihn deutlich genug)
       snd.play('checkpoint');
     },
     finish() {
@@ -279,6 +280,17 @@ export function createJuice({ biome: initialBiome = 'meadow', palette: initialPa
     cannonShot(d) {
       sparks(d.x, d.y, 3, COLOR.hazard, { v0: 15, v1: 50, ay: 0, l0: 0.08, l1: 0.18 });
       soundAt('cannonShot', d.x, d.y);
+    },
+    // Boost-Streifen: Funken nach hinten, die Figur streckt sich
+    boost(d) {
+      const zurueck = d.dir === 'left' ? 0 : Math.PI;
+      sparks(d.x, d.y - 2, 8, ['#34d399', '#a7f3d0', '#ffffff'], { a0: zurueck - 0.5, a1: zurueck + 0.5, v0: 60, v1: 160, ay: 0, l0: 0.15, l1: 0.3 });
+      squash(1.3, 0.8);
+      snd.play('ring');
+    },
+    // Flut ausgelöst: Warnton — sie läuft gleich los
+    flut() {
+      snd.play('laserWarn');
     },
   };
 

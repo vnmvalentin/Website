@@ -1,6 +1,7 @@
 // src/components/TwitchAuthProvider.jsx
 import React, { useEffect, useRef, useState } from "react";
 import { TwitchAuthContext } from "./TwitchAuthContext";
+import { ladeKonto, kontoAbgemeldet, zeigeKontoHinweis } from "../utils/konto.js";
 
 const USER_STORAGE_KEY = "twitchUser";
 const TOKEN_STORAGE_KEY = "twitchAccessToken";
@@ -120,6 +121,8 @@ export default function TwitchAuthProvider({ children }) {
         });
 
         if (!sessRes.ok) throw new Error("Backend-Auth fehlgeschlagen");
+        // Konto (utils/konto.js): war schon ein Gast- oder Discord-Konto angemeldet, hängt der Server Twitch daran an
+        const sessData = await sessRes.json().catch(() => null);
 
         // Userdaten von Helix laden
         const userRes = await fetch("https://api.twitch.tv/helix/users", {
@@ -142,6 +145,9 @@ export default function TwitchAuthProvider({ children }) {
         setUser(normalized);
         setAccessToken(token);
         await syncBackendSession();
+        ladeKonto();
+        const kontoStatus = sessData?.konto;
+        if (kontoStatus && kontoStatus.status !== "angemeldet") zeigeKontoHinweis(kontoStatus);
 
         // URL bereinigen
         const cleanUrl = window.location.pathname + window.location.search;
@@ -187,9 +193,11 @@ export default function TwitchAuthProvider({ children }) {
     window.location.href = "https://id.twitch.tv/oauth2/authorize?" + params.toString();
   };
 
+  // Meldet die ganze Sitzung ab — auch Discord- und Gastkonten (die haben keinen Twitch-Stand, nur das Konto)
   const logout = () => {
     fetch("/api/auth/logout", { method: "POST", credentials: "include" }).catch(() => {});
     clearAuth();
+    kontoAbgemeldet();
     // Optional: Reload, um UI komplett zu resetten
     // window.location.reload();
   };

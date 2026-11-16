@@ -26,7 +26,9 @@ import ratingLeagueIcon from '../../../assets/clashRoyale/leagues/rating_league.
 import spookyChessBadge from '../../../assets/clashRoyale/ui/spooky-chess.webp';
 import challengeClassicBadge from '../../../assets/clashRoyale/ui/challenge-classic.webp';
 import challengeGrandBadge from '../../../assets/clashRoyale/ui/challenge-grand.webp';
-import crlBadge from '../../../assets/clashRoyale/ui/crl.webp';
+import crownSeriesBadge from '../../../assets/clashRoyale/ui/CR_CrownSeriesIcon.png';
+import tourneyTrophyBadge from '../../../assets/clashRoyale/ui/tourney_trophy.webp';
+import crlBadge from '../../../assets/clashRoyale/badges/crl.webp';
 
 // RoyaleAPI hostet die Embleme noch unter der alten 10-stufigen Nummerierung (die 3 inzwischen
 // entfernten Challenger-Ligen kamen davor) — daher der Offset +3 beim Bild-Lookup unten.
@@ -67,8 +69,27 @@ export const seasonalBadgeUrl = (mode) => SEASONAL_BADGES[mode] || null;
 
 // Abzeichen der Challenges (Win-Tracker trackMode "c:<key>"): Schwert im grünen bzw. goldenen Kranz
 // für Classic/Grand, das CRL-Wappen für die 20-Win-Challenge (läuft als CRL-Challenge).
-const CHALLENGE_BADGES = { classic: challengeClassicBadge, grand: challengeGrandBadge, '20win': crlBadge };
+// Crown Series (Duel + Grand Duel Weekend): Crown-Series-Logo, Global Tournament: Turnierpokal.
+const CHALLENGE_BADGES = {
+  classic: challengeClassicBadge, grand: challengeGrandBadge, '20win': crlBadge,
+  duel: crownSeriesBadge, grandduel: crownSeriesBadge, global: tourneyTrophyBadge,
+};
 export const challengeBadgeUrl = (key) => CHALLENGE_BADGES[key] || challengeClassicBadge;
+
+// Crown-Series-Ligen (crown-league-01 … 13.webp, geschnitten aus CR_CrownSeriesLeaguesRegular.png
+// und CR_KingLeagues.png): 1–8 die unteren Ligen, 9–13 King's League I–V. Die API liefert die Liga
+// nicht — der Nutzer wählt sie im Win-Tracker-Editor (crownLeague am Account, 0 = keine).
+const CROWN_LEAGUE_FILES = import.meta.glob('../../../assets/clashRoyale/badges/crown-league-*.webp', { eager: true, import: 'default' });
+const CROWN_LEAGUE_ICONS = Object.keys(CROWN_LEAGUE_FILES).sort().map((k) => CROWN_LEAGUE_FILES[k]);
+const CROWN_LEAGUE_NAMES = [
+  'Dagger League', 'Pancake League', 'Mustache League', 'Magic League', 'Hammer League', 'Armor League', 'Phantom League',
+  "Queen's League", "King's League I", "King's League II", "King's League III", "King's League IV", "King's League V",
+];
+export const CROWN_LEAGUE_COUNT = CROWN_LEAGUE_NAMES.length;
+// Ab dieser Liga spielt man am Grand-Duel-Wochenende 20 Duelle statt 12 Siege / 4 Niederlagen.
+export const CROWN_KING_LEAGUE_FROM = 9;
+export const crownLeagueIconUrl = (league) => CROWN_LEAGUE_ICONS[Number(league) - 1] || null;
+export const crownLeagueName = (league) => CROWN_LEAGUE_NAMES[Number(league) - 1] || '';
 
 // Unterhalb von Ultimate Champion zählt die Ranked-Leiter keine Medaillen, sondern Stufen:
 // Liga 1-3 haben 11, Liga 4-6 haben 10. Erst in Liga 7 (UC) gibt es wieder Medaillen.

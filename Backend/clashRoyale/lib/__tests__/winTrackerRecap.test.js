@@ -212,3 +212,17 @@ test('Sondermodus: eigene Auswertung mit Punkten, Qualifikation zählt nicht als
   assert.deepEqual([sp.wins, sp.losses], [4, 1]);
   assert.equal(sp.modes, undefined);
 });
+
+test('Muster der Saison (formPatterns): aus allen Matches, Uhrzeit in Berlin, ohne Gegnerkarten', () => {
+  const t0 = Date.UTC(2026, 9, 12, 16); // 18:00 in Berlin (Sommerzeit)
+  const list = Array.from({ length: 30 }, (_, i) => ({
+    battle_time_ms: t0 + i * 600000, result: i % 3 === 0 ? 'loss' : 'win', trophy_change: 0, crowns_for: 1, game_mode: 'Ranked1v1_NewArena2',
+  }));
+  const r = computeRecap(list);
+  assert.equal(r.form.n, 30);
+  assert.equal(r.form.wins, 20);
+  assert.equal(r.form.sessions, 1);
+  assert.equal(r.form.timeOfDay.find((b) => b.key === 'evening').n, 30);
+  assert.deepEqual(r.form.hardCards, []);
+  assert.equal(computeRecap([]).form.n, 0);
+});

@@ -1022,6 +1022,13 @@ export default class Renderer {
             }
             ctx.restore();
         }
+        // Lichtschein leuchtender Deko (Lampen, Feuerschale …). _collectDeco sammelt sie
+        // auch hier in this._lichter, ausgewertet wurden sie aber nur in der Draufsicht
+        // (_dunkelheitMitLicht) — in 2,5D blieben Deko-Lampen nachts deshalb dunkel.
+        if (n > 0.02) this._maleDekoLicht3d(player, welt3d, n);
+        // Die Liste nicht an den Wetterschleier unten weiterreichen: der rechnet mit der
+        // flachen 2D-Kamera und stanzte Löcher an falschen Stellen.
+        this._lichter.length = 0;
         if (saison) {
             const scale = Math.max(0.15, Math.min(1, Number(this._renderProfile?.particleScale) || 1));
             zeichneSaisonLuft(ctx, canvas, saison, this.frame, player, scale, weather?.type);
@@ -1959,6 +1966,64 @@ export default class Renderer {
         }
         ctx.restore();
     }
+    /**
+     * Schein der leuchtenden Deko in der 2,5D-Ansicht (draw3dStehend).
+     *
+     * Wie bei den Weglaternen dort: additiv auf die durchsichtige Leinwand über dem
+     * 3D-Boden, nach dem Abdunkeln. Der Leuchtpunkt wird NICHT als Bodenpunkt
+     * projiziert, sondern über dem projizierten Fuß um `hoehe` im dortigen Maßstab
+     * angehoben — genau so stehen die Bilder aufrecht (siehe `setze`), sonst säße
+     * der Schein hinter der Lampe auf dem Boden. Obergrenze und Flackern wie in der
+     * Draufsicht (_sichtbareLichter).
+     *
+     * @param {number} staerke Dunkelheit 0..1 — der Schein blendet mit der Nacht ein
+     */
+    _maleDekoLicht3d(player, welt3d, staerke) {
+        const lichter = this._lichter;
+        if (!lichter || lichter.length === 0) return;
+        const { ctx, canvas } = this;
+        const q = this._projDekoLicht || (this._projDekoLicht = { sx: 0, sy: 0, s: 1, nebel: 0 });
+        const kandidaten = [];
+        for (const l of lichter) {
+            const { hoehe, radius } = l.licht;
+            // _collectDeco legt den Leuchtpunkt `hoehe` über den Fuß — zurückrechnen
+            if (!welt3d.projiziere(l.x, l.y + hoehe, q, canvas.width, canvas.height)) continue;
+            const r = radius * q.s * 0.9;
+            const sx = q.sx;
+            const sy = q.sy - hoehe * q.s;
+            if (r < 1 || sx < -r || sx > canvas.width + r || sy < -r || sy > canvas.height + r) continue;
+            const dx = l.x - player.x;
+            const dy = l.y - player.y;
+            kandidaten.push({ sx, sy, r, nebel: q.nebel, licht: l.licht, x: l.x, y: l.y, distSq: dx * dx + dy * dy });
+        }
+        if (kandidaten.length === 0) return;
+        if (kandidaten.length > LICHT_MAX) {
+            kandidaten.sort((a, b) => a.distSq - b.distSq);
+            kandidaten.length = LICHT_MAX;
+        }
+        ctx.save();
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.globalAlpha = 1;
+        ctx.globalCompositeOperation = "lighter";
+        for (const k of kandidaten) {
+            const a = staerke * (1 - k.nebel);
+            if (a < 0.01) continue;
+            // Phase aus der Position: sonst flackern alle Lampen im Gleichtakt.
+            const p = this.frame * 0.08 + k.x * 0.017 + k.y * 0.011;
+            const welle = 0.5 + 0.5 * (Math.sin(p) * 0.6 + Math.sin(p * 2.7) * 0.4);
+            const f = k.licht.flackern;
+            const r = k.r * (1 - f + f * welle);
+            const [cr, cg, cb] = k.licht.farbe;
+            const g = ctx.createRadialGradient(k.sx, k.sy, 0, k.sx, k.sy, r);
+            g.addColorStop(0, `rgba(${cr}, ${cg}, ${cb}, ${(0.5 * a).toFixed(3)})`);
+            g.addColorStop(0.35, `rgba(${cr}, ${cg}, ${cb}, ${(0.2 * a).toFixed(3)})`);
+            g.addColorStop(1, `rgba(${cr}, ${cg}, ${cb}, 0)`);
+            ctx.fillStyle = g;
+            ctx.fillRect(k.sx - r, k.sy - r, r * 2, r * 2);
+        }
+        ctx.restore();
+    }
+
     // 1. ANPASSUNG: Player Objekt ergänzt für Parallax Scrolling
     /**
      * Bildschirmposition, Radius und Flackern der sichtbaren Lichtquellen.

@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { X, Send, CheckCircle2, BookOpen } from "lucide-react";
 import { api } from "../api.js";
+import { useTouchDevice } from "../ui/touchDevice.js";
 
 function Frame({ title, icon: Icon, onClose, children, width = 640 }) {
   return (
@@ -31,28 +32,43 @@ const CONTROLS = [
   ["Esc", "Pause"],
 ];
 
+// Am Handy (hud/TouchControls.jsx)
+const TOUCH_CONTROLS = [
+  ["Linke Hälfte", "Daumen aufsetzen und ziehen: laufen"],
+  ["Rechte Hälfte", "ziehen: in diese Richtung zielen und angreifen"],
+  ["Ohne Finger rechts", "der Held greift den nächsten Gegner von selbst an"],
+  ["Knöpfe unten rechts", "Spezial (groß), Zweitangriff, Bewegung, Ausrüstung"],
+  ["Benutzen", "erscheint unten, sobald eine Kiste, ein Schrein oder der Teleporter in Reichweite ist"],
+  ["Karte antippen", "Verbesserung beim Stufenaufstieg wählen"],
+  ["Pause oben rechts", "Pause, Werte, Waffen und Items"],
+];
+
 const RULES = [
-  "Jede Welt ist eine große Karte. Besiegte Gegner lassen Gold fallen, das automatisch zu dir fliegt, und geben Erfahrung.",
-  "Bei jeder neuen Stufe hält das Spiel an und du wählst aus drei Karten: eine neue Waffe, eine Waffe verbessern oder ein Talent. Waffen feuern von selbst (bis zu 4, je bis Stufe 5), Talente verbessern deine Werte (bis zu 4). Gefällt dir keine Karte, kannst du gegen Gold neu würfeln.",
-  "Evolution: Ist eine Waffe auf Stufe 5 und du hast das passende Talent, wird sie beim nächsten Aufstieg zur Evolution angeboten — eine deutlich stärkere Fassung (siehe Kodex → Waffen & Talente).",
-  "Horde-Momente: Beim Blutmond kommen 30 Sekunden lang dreimal so viele Gegner (danach gibt es ein Item), bei einer Einkreisung schließt sich ein Ring aus Gegnern um dich, und Champions — große Elite mit zwei Eigenschaften — lassen ein seltenes Item fallen.",
+  "Jede Welt ist eine große Karte. Besiegte Gegner lassen Gold und Erfahrungskristalle fallen. Gold fliegt von selbst zu dir, Kristalle sammelst du im Vorbeilaufen ein — was liegen bleibt, kommt nach ein paar Sekunden nach.",
+  "Kill-Serie: Fällt mindestens jede Sekunde ein Gegner, wächst deine Serie, und Kills klingen immer höher. Bei 25, 50, 100 … Kills in Folge fliegen alle Kristalle der Welt auf einmal zu dir.",
+  "Die Horde: Gegner kommen zu Dutzenden und werden mit der Zeit immer mehr. Die Masse fällt mit einem Treffer — gefährlich ist die Zahl. Dazwischen laufen Kämpfer, große Brocken mit angekündigten Angriffen und alle paar Minuten ein Koloss, der sich nicht wegstoßen lässt und beim Tod Leben fallen lässt.",
+  "Bei jeder neuen Stufe hält das Spiel an und du wählst aus drei Karten: eine neue Waffe, eine Waffe verbessern oder ein Talent. Waffen feuern von selbst (bis zu 6, je bis Stufe 8), Talente verbessern deine Werte (bis zu 4). Gefällt dir keine Karte, kannst du gegen Gold neu würfeln. Ist alles ausgebaut, wählst du Segen — kleine Boni, die sich beliebig oft stapeln.",
+  "Evolution: Ist eine Waffe mindestens auf Stufe 5 und du hast das passende Talent, wird sie beim nächsten Aufstieg zur Evolution angeboten — eine deutlich stärkere Fassung, die sich noch dreimal ausbauen lässt (siehe Kodex → Waffen & Talente).",
+  "Horde-Momente: Beim Blutmond kommt 30 Sekunden lang ein Vielfaches der Horde (danach gibt es ein Item), bei einer Einkreisung schließt sich ein Ring aus Gegnern um dich, und Champions — große Elite mit zwei Eigenschaften — lassen ein seltenes Item fallen.",
   "Kisten kosten Gold und geben Items. Items stapeln sich und verbessern deine Werte oder lösen Effekte aus. Große Kisten geben seltene Items, Ausrüstungstruhen eine Fähigkeit für die Taste Q.",
   "Schreine: Glücksschrein (Chance auf ein Item), Kampfschrein (Elite-Gegner, die ein seltenes Item hüten), Heilquelle, Schicksalsschrein (1 von 3 Items wählen), Opferaltar (Leben gegen ein legendäres Item), Fluchschrein (stärkere Gegner, dafür +50 % Beute bis zur nächsten Welt) und Würfelschrein (tauscht ein Item gegen eins der nächsten Seltenheit).",
-  "Die Schwierigkeit steigt mit der Zeit — oben rechts siehst du, wie gefährlich es gerade ist. Wer trödelt, trifft auf stärkere Gegner.",
-  "Findest du den Teleporter und aktivierst ihn, erscheint der Boss der Welt. Besiege ihn und bleib im roten Kreis, bis der Teleporter geladen ist — dann geht es mit E weiter.",
+  "Die Schwierigkeit steigt mit der Zeit und mit jeder Welt — oben rechts siehst du, wie gefährlich es gerade ist. Die späten Welten ziehen deutlich an, und wer trödelt, trifft auf stärkere Gegner.",
+  "Findest du den Teleporter und aktivierst ihn, erscheint der Boss der Welt. Besiege ihn und bleib im roten Kreis, bis der Teleporter geladen ist — dann geht es mit E weiter. Fällt der Boss vorher, stürmt die Horde an, bis die Ladung voll ist.",
   "Rote Flächen am Boden kündigen Angriffe an. Wer rechtzeitig herausläuft, nimmt keinen Schaden.",
   "Nach fünf Welten wartet Thunderwing. Wer ihn besiegt, gewinnt — oder spielt im nächsten Zyklus weiter.",
   "Jeder Lauf gibt Account-XP. Mit neuen Stufen werden Kits, weitere Items und Boni frei. Erfolge schalten Farbvarianten der Kits frei.",
   "Tageslauf: jeden Tag eine Welt für alle, mit eigener Bestenliste. Wer auf Albtraum gewinnt, schaltet Albtraum+ frei — fünf Stufen mit jeweils einem zusätzlichen Nachteil und mehr Punkten.",
-  "Im Pausenmenü (Esc) stellst du Lautstärke, Schadenszahlen, Bildschirmwackeln und die kurze Pause beim Aufheben von Items ein.",
+  "Die Lautstärke regelst du oben rechts, im Lauf direkt unter der Uhr. Im Pausenmenü (Esc) stellst du außerdem Schadenszahlen, Bildschirmwackeln und die kurze Pause beim Aufheben von Items ein.",
 ];
 
 export function HelpDialog({ onClose }) {
+  const touch = useTouchDevice();
+  const controls = touch ? TOUCH_CONTROLS : CONTROLS;
   return (
     <Frame title="Handbuch" icon={BookOpen} onClose={onClose} width={720}>
       <h3 className="av-label mb-2">Steuerung</h3>
       <dl className="grid grid-cols-[auto_1fr] gap-x-5 gap-y-1.5 mb-6">
-        {CONTROLS.map(([k, v]) => (
+        {controls.map(([k, v]) => (
           <React.Fragment key={k}><dt className="av-torch whitespace-nowrap">{k}</dt><dd className="av-dim">{v}</dd></React.Fragment>
         ))}
       </dl>

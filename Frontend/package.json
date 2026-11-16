@@ -16,6 +16,8 @@
     "art:prompts": "node src/pages/SacrificeSigils/tools/artPrompts.js",
     "art:generate": "node src/pages/SacrificeSigils/tools/artGenerate.js",
     "art:comfy": "node src/pages/SacrificeSigils/tools/artComfy.js",
+    "adventure:figuren": "node src/pages/Adventure/render3d/tools/bakeFigures.mjs",
+    "adventure:bilder": "node src/pages/Adventure/render3d/tools/thumbs.mjs",
     "garden:art": "node src/pages/GardenGame/tools/farmArt.js",
     "garden:art:uebernehmen": "node src/pages/GardenGame/tools/farmArtUebernehmen.js",
     "preview": "vite preview",

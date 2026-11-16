@@ -3,15 +3,20 @@ import React, { useContext, useEffect, useState, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { TwitchAuthContext } from "../../components/TwitchAuthContext";
 import { joinByKey } from "../../utils/bingoApi";
+import { useLanguage } from "../../i18n/language";
+import { BINGO_TEXTS, bingoErrorText } from "./bingoI18n";
 
 export default function BingoJoinPage() {
   const { joinKey } = useParams();
   const navigate = useNavigate();
-  const { user, login, authLoaded } = useContext(TwitchAuthContext); 
-  // HINWEIS: Falls dein Context "authLoaded" oder "loading" nicht exportiert, 
+  const { user, login, authLoaded } = useContext(TwitchAuthContext);
+  // HINWEIS: Falls dein Context "authLoaded" oder "loading" nicht exportiert,
   // wird unten der Fallback greifen.
+  // Sprache: der Einladungslink trägt ?lang=en, wenn der Host die Seite auf Englisch nutzt
+  const { lang } = useLanguage({ supported: BINGO_TEXTS.langs });
+  const t = BINGO_TEXTS.dict(lang);
 
-  const [error, setError] = useState("");
+  const [error, setError] = useState(null); // Fehler vom Server, übersetzt erst beim Anzeigen
   const [status, setStatus] = useState("checking"); // checking -> joining | needLogin
   const attemptRef = useRef(false);
 
@@ -26,7 +31,7 @@ export default function BingoJoinPage() {
           const json = await joinByKey(joinKey);
           navigate(`/Bingo/${json.sessionId}`);
         } catch (e) {
-          setError(e.message || "Join fehlgeschlagen");
+          setError(e);
           setStatus("error");
         }
         return;
@@ -67,27 +72,27 @@ export default function BingoJoinPage() {
 
   return (
     <div className="page-fade relative z-10 max-w-xl mx-auto rounded-lg border border-line bg-surface/80 p-6 mt-12">
-      <h1 className="font-display text-2xl font-bold">Bingo Session beitreten</h1>
+      <h1 className="font-display text-2xl font-bold">{t.joinTitle}</h1>
 
       {status === "checking" && (
         <div className="mt-3 text-white/70">
-          Überprüfe Zugang...
+          {t.checking}
         </div>
       )}
 
       {status === "needLogin" && (
         <div className="mt-3 text-white/70">
-          Login wird gestartet...
+          {t.needLogin}
         </div>
       )}
 
       {status === "joining" && (
-        <div className="mt-3 text-white/70">Joine...</div>
+        <div className="mt-3 text-white/70">{t.joining}</div>
       )}
 
       {status === "error" && (
         <div className="mt-3 text-red-200">
-          {error}
+          {error ? bingoErrorText(error, lang) : t.joinFailed}
         </div>
       )}
     </div>

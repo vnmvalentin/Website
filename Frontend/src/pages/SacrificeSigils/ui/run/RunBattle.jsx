@@ -10,6 +10,7 @@ import GameScreen from "../GameScreen.jsx";
 import Seals from "./Seals.jsx";
 import NpcPortrait from "../common/NpcPortrait.jsx";
 import { opponentName, npcDef } from "./names.js";
+import { npcDecor, npcMask } from "./npcMask.js";
 import { de } from "../../i18n/de.js";
 import { sound } from "../../audio/sound.js";
 
@@ -85,6 +86,9 @@ export default function RunBattle({ game, battleKey, onBusy, onSurrender }) {
     return { batches: out, seat: lastInfo?.seat ?? 0, info: lastInfo, latest: last };
   }, [game.batches, battleKey, you]);
 
+  // Phase des Bosses beim Hinsetzen. Den Wechsel zu Phase 2 zeigt die Szene selbst (Sprung in der Maske), wenn die
+  // Animation beim Ereignis ankommt — über die Sicht käme er zu früh (die ist dem Ablauf voraus)
+  const [startPhase] = useState(() => latest?.battle?.boss?.phase || 1);
   const timers = useMemo(() => {
     if (!info) return {};
     const t = {};
@@ -133,9 +137,38 @@ export default function RunBattle({ game, battleKey, onBusy, onSurrender }) {
     </div>
   );
   const boss = info.kind === "boss" ? npc : null;
+  // Am Tisch im Kerzenlicht (Phase 6): der NPC sitzt mit seiner Maske gegenüber; Hausregel und Lebenssiegel liegen als
+  // Zettel links neben dem Brett (dort ist zwischen Waage und Knochenhaufen Platz); Aufgeben steht im Pausenmenü.
+  const oppName = latest.players[1 - seat].name;
+  const sealLine = (q) => `${rv.players[q].seals} von ${rv.settings.seals}`;
+  const notes = [
+    {
+      id: "lauf", x: -51, z: 16.5, w: 23, h: rule ? 10.5 : 6.2, ry: 0.04,
+      lines: [
+        { text: info.kind === "duel" ? `Duell gegen ${oppName}` : oppName, size: 1.05 },
+        ...(rule ? [{ text: `${bossPhase > 1 ? `${de.run.bossPhase2} · ` : ""}${de.run.rules[rule.id]}`, size: 0.78, wrap: true }] : []),
+        { text: `Siegel: ${sealLine(you)}${oppSeat !== null && oppSeat !== undefined ? ` · ${rv.players[oppSeat].name} ${sealLine(oppSeat)}` : ""}`, size: 0.74 },
+      ],
+    },
+  ];
+  const table = {
+    oppMask: npc ? npcMask(npc, info.kind === "boss") : undefined,
+    ...(info.kind === "boss" ? { oppCrown: npcDecor(true, startPhase).crown, oppCracked: npcDecor(true, startPhase).cracked } : {}),
+    title,
+    sub: <>gegen {oppName}{rule ? ` · ${de.run.houseRule}: ${de.run.rules[rule.id]}` : ""} · {de.run.seals}: {me.seals} von {rv.settings.seals}</>,
+    notes,
+    noteTip: (id) => (id === "lauf" ? (
+      <>
+        <b>{title} · gegen {oppName}</b>
+        {rule && <><br /><span className="opacity-80">{de.run.houseRule}{bossPhase > 1 ? ` (${de.run.bossPhase2})` : ""}: {de.run.rules[rule.id]}</span></>}
+        <br /><span className="opacity-80">{de.run.seals}: {sealLine(you)}{info.kind === "duel" ? " – wer das Duell verliert, verliert ein Siegel." : ""}</span>
+      </>
+    ) : null),
+    surrenderText: "Den ganzen Run aufgeben?",
+  };
   return (
     <>
-      <GameScreen key={battleKey} game={adapted} bar={bar} />
+      <GameScreen key={battleKey} game={adapted} bar={bar} table={table} />
       {boss?.phases && !introDone && latest.battle.turn <= 1 && <BossIntro boss={boss} onDone={endIntro} />}
     </>
   );

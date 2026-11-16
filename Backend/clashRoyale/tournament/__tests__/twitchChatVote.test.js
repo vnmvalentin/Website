@@ -12,6 +12,7 @@ for (const s of ['bannedCardsStore', 'crPresetStore', 'crProfileStore', 'crStrea
 
 const { lobbies, sanitizeLobby } = require('../../core/lobbies');
 const registry = require('../../core/registry');
+const { clearTurnTimer } = require('../../core/timers');
 const twitchChat = require('../../core/twitchChat');
 require('../../modes');
 
@@ -36,8 +37,10 @@ function mkLobby() {
 
 const waitPicking = (g) => new Promise(r => { const t = setInterval(() => { if (g.phase === 'picking') { clearInterval(t); r(); } }, 20); });
 
-test('Chat stimmt für den Streamer ab: Filter, Umentscheiden, Auswertung, Wechselmodus', async () => {
+test('Chat stimmt für den Streamer ab: Filter, Umentscheiden, Auswertung, Wechselmodus', async (t) => {
   const lobby = mkLobby();
+  // Auch bei einem Fehlschlag den Zug-Timer stoppen, sonst bleibt der Testprozess (und deploy.sh) hängen.
+  t.after(() => { clearTurnTimer(lobby); lobbies.delete(lobby.code); });
   const mode = registry.getMode('pyramid-draft');
   assert.deepStrictEqual(twitchChat.getChatChannels(), ['streamer']);
   const pub = sanitizeLobby(lobby).twitchChat;
@@ -49,7 +52,8 @@ test('Chat stimmt für den Streamer ab: Filter, Umentscheiden, Auswertung, Wechs
   const current = () => lobby.players[g.turnOrder[g.currentTurn]];
   while (current().id !== 's1') { mode.onTimerExpire(lobby, io); await waitPicking(g); }
   assert.ok(g.chatVote);
-  assert.strictEqual(g.turnSeconds, 30);
+  // Ist der Streamer zufällig als Erster dran, steckt im ersten Zug noch der Intro-Bonus (4 s).
+  assert.strictEqual(g.turnSeconds, 30 + (g.currentTurn === 0 ? 4 : 0));
   const opts = g.chatVote.options.length;
 
   // Klick des Streamers zählt im Chat-Zug nicht

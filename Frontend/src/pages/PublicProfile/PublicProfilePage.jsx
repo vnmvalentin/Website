@@ -113,6 +113,29 @@ function AdventureSection({ d }) {
   );
 }
 
+// Website-Stufe aus den Erfahrungspunkten aller Spiele am Konto, dazu die Abzeichen (Backend/konto, seit 16.11.2026)
+function KontoSection({ d }) {
+  return (
+    <UiSection className="lg:col-span-2" title={`Stufe ${d.stufe.stufe}`} kicker="Alle Spiele">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+        <Stat value={fmt(d.stufe.xp)} label="Erfahrungspunkte" />
+        <Stat value={d.spiele.length} label={d.spiele.length === 1 ? "Spiel mit Fortschritt" : "Spiele mit Fortschritt"} />
+        <Stat value={d.erfolge.length} label="Abzeichen" />
+      </div>
+      {d.erfolge.length > 0 && (
+        <ul className="flex flex-wrap gap-2 mt-5">
+          {d.erfolge.map((e) => (
+            <li key={`${e.spiel}:${e.erfolg}`} title={e.text?.de || ""}
+              className="rounded-md border border-amber-400/25 bg-amber-400/10 px-2.5 py-1 text-xs font-semibold text-amber-100">
+              {e.name?.de || e.erfolg}
+            </li>
+          ))}
+        </ul>
+      )}
+    </UiSection>
+  );
+}
+
 function GardenSection({ d }) {
   return (
     <Section title="Virtual Farm" kicker="Farm" to="/garden" linkLabel="Spielen">
@@ -207,6 +230,7 @@ export default function PublicProfilePage() {
             <Card as="p" className="text-sm text-white/55">Hier ist noch nichts zu sehen — {name} hat noch keine Spielstände auf der Seite.</Card>
           ) : (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+              {s.konto && <KontoSection d={s.konto} />}
               {s.winTracker && <WinTrackerSection d={s.winTracker} />}
               {s.tournaments && <TournamentsSection list={s.tournaments} />}
               {s.seedRunners && <SeedRunnersSection d={s.seedRunners} />}

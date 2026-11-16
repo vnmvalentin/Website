@@ -10,6 +10,7 @@ const {
 } = require("../garden/world/lobby");
 const ereignisse = require("../garden/world/ereignisse");
 const analytics = require("../analytics/analyticsStore");
+const { discordUebersicht } = require("./discordUebersicht");
 const { dataPath } = require("../lib/dataDir");
 
 const PATHS = {
@@ -28,7 +29,9 @@ function saveJson(key, data) {
 }
 
 // HIER: 'io' aus den Argumenten entpacken
-module.exports = function createAdminRouter({ requireAuth, STREAMER_TWITCH_ID, io }) {
+module.exports = function createAdminRouter({
+  requireAuth, STREAMER_TWITCH_ID, io, liveZahlen = () => ({}), discordClient = null, kontoStatistik = null,
+}) {
   const router = express.Router();
 
   // Helper Funktion: Sendet Update-Signal an das Dashboard
@@ -73,6 +76,49 @@ module.exports = function createAdminRouter({ requireAuth, STREAMER_TWITCH_ID, i
     } catch (e) {
       console.error("[admin] Besucherstatistik nicht lesbar:", e.message);
       res.status(500).json({ error: "Statistik nicht lesbar" });
+    }
+  });
+
+  // --- SPIELE ---
+  // GET /api/admin/spiele?days=30 — Besucher und Partien je Spiel, Trichter Startseite → Spiel (analytics) und was
+  // gerade offen ist (lib/spielStatistik.js). Live-Zahlen einzeln abgesichert: fällt ein Spiel aus, fehlt nur seine Zeile.
+  router.get("/spiele", (req, res) => {
+    try {
+      const r = analytics.getReport(req.query.days);
+      let live = {};
+      try { live = liveZahlen(); } catch (e) { console.error("[admin] Live-Zahlen:", e.message); }
+      res.json({
+        days: r.days, from: r.from, to: r.to,
+        visitors: r.totals.visitors,
+        spiele: r.spiele, trichter: r.trichter, seit: r.spieleSeit,
+        live, at: Date.now(),
+      });
+    } catch (e) {
+      console.error("[admin] Spiele-Statistik nicht lesbar:", e.message);
+      res.status(500).json({ error: "Statistik nicht lesbar" });
+    }
+  });
+
+  // --- KONTEN ---
+  // GET /api/admin/konten?days=30 — Anmeldewege und Wiederkehr neuer Konten nach 1, 7 und 30 Tagen (konto/kontoStore.js)
+  router.get("/konten", (req, res) => {
+    if (!kontoStatistik) return res.status(404).json({ error: "Konten nicht angeschlossen" });
+    try {
+      res.json(kontoStatistik(req.query.days));
+    } catch (e) {
+      console.error("[admin] Konten-Statistik nicht lesbar:", e.message);
+      res.status(500).json({ error: "Statistik nicht lesbar" });
+    }
+  });
+
+  // --- DISCORD-BOT ---
+  // GET /api/admin/discord — Server, Mitglieder, Neuzugänge, Verbindung
+  router.get("/discord", (req, res) => {
+    try {
+      res.json(discordUebersicht(discordClient));
+    } catch (e) {
+      console.error("[admin] Discord-Übersicht:", e.message);
+      res.status(500).json({ error: "Discord-Übersicht nicht lesbar" });
     }
   });
 

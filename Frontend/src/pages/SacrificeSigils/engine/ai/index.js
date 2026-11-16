@@ -11,7 +11,7 @@ import { battleAction, Resolver, LANES, HAND_LIMIT } from "../battle.js";
 import { deepClone, awaiting } from "../match.js";
 import { CARDS, cardValue, costBudget, resolveCard } from "../cards.js";
 import { pickable, poolCard, extrasTurn } from "../draft.js";
-import { reachable } from "../path.js";
+import { reachable, hasTotem } from "../path.js";
 import { parseSigil, sigilPower } from "../sigils/index.js";
 import { rand, randInt } from "../rng.js";
 import { MIN_DECK } from "../../data/events.js";
@@ -388,6 +388,8 @@ export function pathChoice(match, p, level, rng) {
       if (node.type === "merchant" && (player.shards < 3 || player.items.length >= MAX_ITEMS)) s = 0.5;
       if (node.type === "remove" && player.deck.length <= MIN_DECK + 2) s = 0;
       if (node.type === "transfer" && player.deck.length <= MIN_DECK) s = 0;
+      // Noch kein Totem: der Schrein ist die einzige Quelle
+      if (node.type === "shrine" && !hasTotem(player)) s = 9;
       s += rand(rng) * 0.5;
       if (s > bs) { bs = s; best = st; }
     }
@@ -464,6 +466,25 @@ export function sceneChoice(match, p, scene, level, rng) {
       return act({ op: "buy", index: i });
     }
     case "shrine": {
+      if (scene.first && !scene.taken) {
+        // Erstes Totem: Stamm-Totem nach Kartenzahl, Lanen-Totem fest (Moorling-Totem gibt es hier nicht mehr; Zweig bleibt für Altstände)
+        const tribes = new Map();
+        const costs = { blood: 0, bones: 0, wax: 0, salt: 0 };
+        for (const dc of player.deck) {
+          const c = CARDS[dc.baseId];
+          tribes.set(c.tribe, (tribes.get(c.tribe) || 0) + 1);
+          costs[c.cost.type] = (costs[c.cost.type] || 0) + 1;
+        }
+        let idx = 0;
+        let best = -Infinity;
+        scene.offers.forEach((/** @type {any} */ o, /** @type {number} */ i) => {
+          const sc = o.head.kind === "tribe" ? (tribes.get(o.head.tribe) || 0) * 0.8
+            : o.head.kind === "side" ? 2 + sideSigilScore(o.base.sigil, costs) : 2.5;
+          if (sc > best) { best = sc; idx = i; }
+        });
+        return act({ op: "take", index: idx });
+      }
+      if (scene.first) return act({ op: "leave" });
       if (!scene.taken) {
         // Basis bevorzugen, wenn noch keine passende da ist
         const idx = scene.offers.findIndex((/** @type {any} */ o) => o.base);

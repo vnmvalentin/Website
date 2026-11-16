@@ -6,10 +6,11 @@
 // Charge über die Animations-Queue ab und zeigt danach die neue Sicht.
 import { useCallback, useEffect, useRef, useState } from "react";
 import { io } from "socket.io-client";
-import { playerToken } from "../ui/prefs.js";
+import { playerToken, getPrefs, usePrefs } from "../ui/prefs.js";
 import { ENGINE_FINGERPRINT } from "../version.js";
 
 let batchSeq = 0;
+let gestureSeq = 0;
 
 /**
  * @param {{ code: string|null, name: string, create?: { settings: any, seed: string } | null, onCreated?: (code: string) => void,
@@ -27,6 +28,7 @@ export function useOnlineGame({ code, name, create, onCreated, prefix = "ss" }) 
   const [notice, setNotice] = useState(/** @type {string|null} */ (null));
   const [error, setError] = useState(/** @type {string|null} */ (null));
   const [kicked, setKicked] = useState(false);
+  const [gesture, setGesture] = useState(/** @type {{ n: number, seat: number, kind: string, target: any } | null} */ (null));
   const [staleClient, setStaleClient] = useState(false);
   const codeRef = useRef(code);
   const nameRef = useRef(name);
@@ -44,7 +46,7 @@ export function useOnlineGame({ code, name, create, onCreated, prefix = "ss" }) 
       setConnection("connected");
       const c = codeRef.current;
       if (c) {
-        socket.emit(`${prefix}:join`, { code: c, name: nameRef.current, token, fingerprint: ENGINE_FINGERPRINT }, (res) => {
+        socket.emit(`${prefix}:join`, { code: c, name: nameRef.current, token, mask: getPrefs().mask, fingerprint: ENGINE_FINGERPRINT }, (res) => {
           if (!res?.ok) {
             setError(res?.error || "joinFailed");
             return;
@@ -57,7 +59,7 @@ export function useOnlineGame({ code, name, create, onCreated, prefix = "ss" }) 
       } else if (createRef.current) {
         const cr = createRef.current;
         createRef.current = null;
-        socket.emit(`${prefix}:create`, { name: nameRef.current, token, settings: cr.settings, seed: cr.seed }, (res) => {
+        socket.emit(`${prefix}:create`, { name: nameRef.current, token, mask: getPrefs().mask, settings: cr.settings, seed: cr.seed }, (res) => {
           if (!res?.ok) {
             setError(res?.error || "createFailed");
             return;
@@ -87,6 +89,12 @@ export function useOnlineGame({ code, name, create, onCreated, prefix = "ss" }) 
       setNotice(n.text);
       setTimeout(() => setNotice((cur) => (cur === n.text ? null : cur)), 4000);
     });
+    // Geste eines anderen am Tisch (statt Chat): { seat, kind, target? }
+    socket.on(`${prefix}:gesture`, (g) => {
+      if (!g || typeof g.kind !== "string") return;
+      gestureSeq += 1;
+      setGesture({ n: gestureSeq, seat: g.seat, kind: g.kind, target: g.target || null });
+    });
     socket.on(`${prefix}:kicked`, () => setKicked(true));
     return () => {
       socket.disconnect();
@@ -103,7 +111,19 @@ export function useOnlineGame({ code, name, create, onCreated, prefix = "ss" }) 
     s.timeout(8000).emit(event, payload, (err, res) => resolve(err ? { ok: false, error: "timeout" } : res));
   }), []);
 
+  // Maske in den Einstellungen gewechselt (auch mitten im Spiel): dem Raum mitteilen, damit das Gegenüber sie sieht.
+  // Beim Beitreten geht sie schon mit — hier nur der spätere Wechsel. Nur im Duell (die Moorwanderung kennt keine Masken).
+  const mask = usePrefs().mask;
+  const sentMask = useRef(mask);
+  useEffect(() => {
+    if (prefix !== "ss" || you === null || connection !== "connected" || !room || sentMask.current === mask) return;
+    sentMask.current = mask;
+    call("ss:mask", { mask });
+  }, [mask, prefix, you, connection, room, call]);
+
   const send = useCallback((action) => call(`${prefix}:action`, { action }), [call, prefix]);
+  // Geste verschicken; ein älterer Server kennt das Ereignis nicht — dann verfällt sie still
+  const sendGesture = useCallback((kind, target) => { call(`${prefix}:gesture`, { kind, target }); }, [call, prefix]);
 
   const lobby = {
     setSettings: (settings, seed) => call(`${prefix}:settings`, { settings, seed }),
@@ -112,5 +132,5 @@ export function useOnlineGame({ code, name, create, onCreated, prefix = "ss" }) 
     leave: () => call(`${prefix}:leave`, {}),
   };
 
-  return { mode: "online", room, you, view, batches, timers, clockOffset, connection, notice, error, kicked, staleClient, send, lobby };
+  return { mode: "online", room, you, view, batches, timers, clockOffset, connection, notice, error, kicked, staleClient, send, lobby, gesture, sendGesture };
 }

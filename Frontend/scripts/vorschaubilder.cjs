@@ -5,10 +5,17 @@
 //   node scripts/vorschaubilder.cjs [id …]        ohne id: alle
 //
 // Overlays und Twitch-Widgets kommen aus der Galerie /tools/vorlagen (dort laufen die echten Komponenten mit
-// Beispieldaten), Spiele aus ihren Menüs oder einer gestarteten Partie gegen den Computer.
+// Beispieldaten), Spiele aus einer laufenden Partie — das Menü allein zeigt nicht, was man spielt.
+//
+// Virtual Farm (angemeldeter Spielstand) und Blobby Volley (zwei Spieler) brauchen den Prüfstand:
+//   node scripts/vorschauServer.cjs
+//   VORSCHAU_BASE=http://localhost:5191 node scripts/vorschaubilder.cjs garden blobby
+// Manche Einträge schreiben ein zweites Bild <id>-2.webp (in navigation.js als weiteres preview eingetragen).
 const path = require('path');
 const fs = require('fs');
 const puppeteer = require('puppeteer');
+const { io } = require('socket.io-client');
+const { FARM_ZEIT, FARM_KONTO } = require('./vorschauServer.cjs');
 
 const BASE = process.env.VORSCHAU_BASE || 'http://localhost:5173';
 const OUT = path.join(__dirname, '..', 'public', 'media', 'previews');
@@ -47,13 +54,119 @@ const SHOTS = {
     await clickText(p, 'Neuer Lauf');
     await wait(800);
     await clickText(p, 'Lauf starten');
-    await wait(4000);
-    await p.screenshot({ path: file, type: 'webp', quality: 80 });
-  },
-  garden: async (p, file) => {
-    await p.goto(`${BASE}/garden`, { waitUntil: 'networkidle2' });
+    // Mitten in die Horde springen (der Dev-Server legt das laufende Spiel als window.__avGame ab), der Held bleibt
+    // stehen und hält durch. Nach gut zehn Sekunden stehen die Rudel im Bild.
+    await p.waitForFunction(() => window.__avGame && window.__avGame.time > 0.5, { timeout: 30000 });
+    await p.evaluate(async () => {
+      const { loadStage } = await import('/src/pages/Adventure/engine/stage.js');
+      const { recalcStats } = await import('/src/pages/Adventure/engine/stats.js');
+      const { chooseUpgrade } = await import('/src/pages/Adventure/engine/levelup.js');
+      const g = window.__avGame, pl = g.player;
+      g.time = 560; loadStage(g); g.stageTime = 560;
+      pl.weapons = { dolche: 4, peitsche: 3, feuerkugeln: 3, donnerkeil: 2 };
+      pl.weaponOrder = Object.keys(pl.weapons);
+      for (const id of pl.weaponOrder) pl.weaponState[id] = { t: 0 };
+      pl.talents = { macht: 2, weite: 1 }; pl.talentOrder = ['macht', 'weite'];
+      pl.level = 19; pl.pendingLevels = 0; pl.gold = 180;
+      g.stats.kills = 3900;
+      g.streak.n = 180; g.streak.t = 2.5;
+      recalcStats(pl, g.kit);
+      setInterval(() => { pl.hp = pl.stats.maxHp; pl.buffs.invuln = 5; if (g.levelUp) chooseUpgrade(g, 0); }, 150);
+    });
     await wait(1500);
-    await p.screenshot({ path: file, type: 'webp', quality: 80 });
+    await p.mouse.move(820, 300);
+    await p.mouse.down();
+    await wait(12500);
+    await p.screenshot({ path: file, type: 'webp', quality: 82 });
+    await p.mouse.up();
+  },
+  // Virtual Farm: vorbereiteter Hof im Sommer (Acker in allen Wuchsstufen, Obst, Tiere, Deko), zweites Bild
+  // vom Dorfplatz mit den Ständen am Teich. Braucht den Prüfstand (siehe Kopf).
+  garden: async (p, file) => {
+    const jetzt = FARM_ZEIT;
+    // Uhr der Seite auf denselben Sommertag wie der Prüfstand (Jahreszeit und Tageslicht hängen an der Uhr)
+    await p.evaluateOnNewDocument((fix, konto) => {
+      const Echt = Date;
+      const start = Echt.now();
+      const lauf = () => fix + (Echt.now() - start);
+      window.Date = class extends Echt {
+        constructor(...a) { super(...(a.length ? a : [lauf()])); }
+        static now() { return lauf(); }
+      };
+      localStorage.setItem('twitchUser', JSON.stringify({ id: konto.twitchId, login: konto.twitchLogin, display_name: konto.twitchLogin }));
+      localStorage.setItem('twitchAccessToken', 'vorschau');
+    }, jetzt, FARM_KONTO);
+    await p.setCookie({ name: 'session', value: 'vorschau', domain: new URL(BASE).hostname, path: '/' });
+    // Lage des ersten Grundstücks aus der Karte des Spiels (Deko und Tiere speichern Weltpunkte)
+    await p.goto(`${BASE}/`, { waitUntil: 'domcontentloaded' });
+    const hof = await p.evaluate(async () => {
+      const m = await import('/src/pages/GardenGame/engine/MapConfig.js');
+      const s = m.generatePlotSlots(6).slots[0];
+      return { x: s.x, y: s.isTopRow ? s.anchorY - m.MAP_CONFIG.territoryHeight : s.anchorY, T: m.TILE_SIZE };
+    });
+    const punkt = (kx, ky) => ({ x: hof.x + kx * hof.T, y: hof.y + ky * hof.T });
+    // Links Gemüse reihenweise (reif = 2, sonst Anteil der Wuchszeit), rechts Obst und Stauden auf Lücke
+    const plotPlants = {};
+    [['mais', 2], ['karotte', 2], ['kuebi', 2], ['kohl', 0.75], ['paprika', 0.5], ['salat', 0.3], ['radieschen', 0.08]].forEach(([id, anteil], r) => {
+      for (let c = 0; c < 7; c++) {
+        plotPlants[`${c}_${r}`] = { instanceId: `e-${c}-${r}`, seedId: id, singleUse: true, cellX: c, cellY: r, plantedAt: jetzt - anteil * 36e5, growthMs: 36e5, norm: 0.7, stage: 'growing' };
+      }
+    });
+    const obst = ['apfel', 'kirsche', 'banane', 'orange', 'traube', 'tomate', 'erdbeere', 'birne', 'himbeere', 'kokosnuss', 'blaubeere', 'mango', 'pflaume', 'chili'];
+    let n = 0;
+    for (let r = 0; r < 7; r += 2) {
+      for (let c = 8; c < 15; c += 2) {
+        const reif = n % 3 === 0 ? 0 : 4;
+        plotPlants[`${c}_${r}`] = {
+          instanceId: `d-${c}-${r}`, seedId: obst[n % obst.length], singleUse: false, cellX: c, cellY: r,
+          plantedAt: jetzt - 9e6, structureGrowthMs: 1000, structureReadyAt: jetzt - 8e6, fruitCycleMs: 6e6, maxFruits: 6, stage: 'fruiting', harvested: 0,
+          fruitSlots: Array.from({ length: 6 }, (_, k) => ({ readyAt: k < reif ? jetzt - 1000 : jetzt + 3e6, size: 25 + k * 4 })),
+        };
+        n++;
+      }
+    }
+    // Tiere und Deko auf den Wiesen links und rechts vom Acker: [Name/Katalog-ID, Ordner, Datei, Kachel x, y, Breite, Höhe]
+    const tiere = [['huhn', 3, 20.3], ['ente', 4.6, 18.6], ['katze', 23.6, 23.6], ['kuh', 4.2, 23.2], ['schaf', 1.8, 21.4], ['schwein', 5.4, 22.3], ['pferd', 23.2, 19.6]]
+      .map(([art, kx, ky], i) => ({ id: `t${i}`, name: art[0].toUpperCase() + art.slice(1), rarity: 'COMMON', image: `/garden-assets/animals/${art}.png`, ability: { type: 'goldfinder', level: 2 }, slotIndex: 0, ...punkt(kx, ky) }));
+    const deko = [
+      ['cherry_blossom', 'nature', 'cherry_blossom', 2, 18, 1, 2], ['cherry_blossom', 'nature', 'cherry_blossom', 24, 18, 1, 2],
+      ['sonnenblume', 'nature', 'sonnenblume', 0, 20, 1, 2], ['sonnenblume', 'nature', 'sonnenblume', 1, 20, 1, 2], ['sonnenblume', 'nature', 'sonnenblume', 2, 20, 1, 2],
+      ['tulpenbett', 'nature', 'tulpenbett', 4, 21], ['blumen_wiese', 'nature', 'blumen_wiese', 1, 22], ['blumen_wiese2', 'nature', 'blumen_wiese2', 6, 23],
+      ['lavendel', 'nature', 'lavendel', 5, 19], ['lavendel', 'nature', 'lavendel', 6, 19], ['mohn', 'nature', 'mohn', 0, 23],
+      ['deco_bench', 'social', 'bank', 3, 22], ['vogelscheuche', 'objects', 'vogelscheuche', 6, 21, 1, 2], ['bienenkorb', 'objects', 'bienenkorb', 1, 18],
+      ['heuballen', 'objects', 'heuballen', 5, 24], ['heuballen', 'objects', 'heuballen', 6, 24], ['teich', 'objects', 'teich', 4, 18, 2, 2],
+      ['brunnen', 'objects', 'brunnen1', 26, 18, 2, 2], ['gnome1', 'objects', 'gnome1', 22, 22], ['flower1', 'nature', 'flower1', 22, 24],
+      ['flower2', 'nature', 'flower2', 23, 24], ['flower3', 'nature', 'flower3', 22, 19], ['licht_park', 'lighting', 'light3', 22, 23, 1, 2],
+      ['kuerbis_deko', 'nature', 'kuerbis', 22, 20], ['gaensebluemchen', 'nature', 'gaensebluemchen', 3, 24], ['gaensebluemchen', 'nature', 'gaensebluemchen', 25, 24],
+      ['hecke', 'nature', 'hecke', 26, 21, 2, 1],
+    ].map(([decoId, ordner, datei, kx, ky, w = 1, h = 1]) => ({
+      id: `v_${decoId}_${kx}_${ky}`, decoId, name: decoId, emoji: '', image: `/garden-assets/deco/${ordner}/${datei}.png`, rarity: 'COMMON',
+      width: w, height: h, mirrored: false, rotation: 0, slotIndex: 0, occupiedKeys: [], ...punkt(kx + 0.5, ky + 0.5),
+    }));
+    const stand = {
+      gold: 184250, goldGesamt: 5e6, xp: 50000, stateVersion: 1, twitchLogin: FARM_KONTO.twitchLogin, updatedAt: jetzt,
+      tutorialCompleted: true, ackerRaster7: true, samenKennungV1: true, tierKennungV1: true,
+      inventory: ['karotte', 'mais', 'tomate', 'apfel', 'kuebi', 'erdbeere', 'kohl'].map((id, k) => ({ instanceId: `s${k}`, seedId: id, name: id, rarity: 'COMMON', singleUse: !['tomate', 'apfel', 'erdbeere'].includes(id) })),
+      plotPlants, harvestedItems: [], petInventory: [], petPlacements: tiere, eggInventory: [], decoInventory: [], decoPlacements: deko, mailbox: [],
+      toolInventory: { hasShovel: true, backpackLevel: 1 }, inventoryMaxSlots: 60,
+    };
+    const res = await fetch(`${BASE}/api/vorschau/state/${FARM_KONTO.twitchId}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(stand) }).catch(() => null);
+    if (!res?.ok) throw new Error('Farm-Prüfstand nicht erreichbar — erst "node scripts/vorschauServer.cjs" starten und VORSCHAU_BASE setzen (siehe Kopf)');
+
+    await p.goto(`${BASE}/garden`, { waitUntil: 'networkidle2', timeout: 60000 });
+    await p.waitForFunction(() => [...document.querySelectorAll('button')].some((b) => b.innerText.trim() === 'Spielen'), { timeout: 30000 });
+    await p.evaluate(() => [...document.querySelectorAll('button')].find((b) => b.innerText.trim() === 'Spielen').click());
+    // Der Dev-Server legt Prüfhaken als window.__farmTest ab: Figur setzen, Zoom wählen
+    await p.waitForFunction(() => !!window.__farmTest?.springe, { timeout: 30000 });
+    await wait(6000);
+    // Hof: Figur auf dem Mittelweg des Ackers, so weit herausgezoomt, dass das Haus mit im Bild ist
+    await p.evaluate(() => { const z = window.__farmTest.zelleWelt(7, 3); window.__farmTest.setze(z.x, z.y); window.__farmTest.zoom(0.9); });
+    await wait(2500);
+    await p.screenshot({ path: file, type: 'webp', quality: 70 });
+    // Dorfplatz: Stände und Teich (Figur auf der Wiese daneben — direkt am Stand blendet das Spiel ihn durchsichtig)
+    await p.evaluate(() => { window.__farmTest.springe(59, 44); window.__farmTest.zoom(0.82); });
+    await wait(2500);
+    await p.screenshot({ path: file.replace('.webp', '-2.webp'), type: 'webp', quality: 70 });
   },
   // Eine Partie braucht zwei Spieler und den Server — das Brett wird deshalb in den Farben des Spiels gezeichnet
   connect4: async (p, file) => {
@@ -69,10 +182,103 @@ const SHOTS = {
     await wait(200);
     await p.screenshot({ path: file, type: 'webp', quality: 80 });
   },
+  // Blobby Volley: echte Partie. Der Browser sitzt auf Platz 1 (ein kleiner Bot drückt seine Tasten), ein zweiter
+  // Bot spielt Platz 2 direkt über den Socket. Fotografiert wird das Spielfeld mitten im Ballwechsel; das zweite Bild zeigt
+  // dieselbe Partie in der 3D-Ansicht. Braucht den Blobby-Server (Prüfstand, siehe Kopf).
   blobby: async (p, file) => {
-    await p.goto(`${BASE}/blobby`, { waitUntil: 'networkidle2' });
-    await wait(2000);
-    await p.screenshot({ path: file, type: 'webp', quality: 80 });
+    const OPTS = { path: '/blobby-socket', transports: ['websocket'] };
+    const verbinde = () => new Promise((ok, nein) => {
+      const s = io(BASE, OPTS);
+      s.on('connect', () => ok(s));
+      s.on('connect_error', () => { s.close(); nein(new Error('Blobby-Server nicht erreichbar — Prüfstand starten (siehe Kopf)')); });
+    });
+    const frage = (s, ev, daten) => new Promise((ok) => s.emit(ev, daten, ok));
+    // Raum anlegen und den Platz gleich wieder freigeben — die Seite übernimmt ihn über den gemerkten Namen
+    const a = await verbinde();
+    const raum = await frage(a, 'bv:create', { name: 'Valentin', settings: { mode: '1v1', crossNet: true, maxTouches: 0, powerups: true, field: 'classic' } });
+    a.disconnect();
+    // Das Feld ist im Fenster nur gut 550 Punkte breit — doppelte Dichte, damit das Bild Kartengröße hat
+    await p.setViewport({ width: W, height: H, deviceScaleFactor: 2.2 });
+    await p.evaluateOnNewDocument((code) => {
+      localStorage.setItem('blobby_session', JSON.stringify({ code, name: 'Valentin' }));
+      localStorage.setItem('blobby_last_name', 'Valentin');
+      localStorage.setItem('blobby_view', '2d');
+    }, raum.code);
+    await p.goto(`${BASE}/blobby/${raum.code}`, { waitUntil: 'networkidle2' });
+    await wait(1500);
+    const b = await verbinde();
+    await frage(b, 'bv:join', { code: raum.code, name: 'Mika' });
+    let tick = null;
+    b.on('bv:tick', (t) => { tick = t; });
+
+    // Bot: zum erwarteten Landepunkt laufen, springen, wenn der Ball über einem ist. Damit Punkte fallen, patzt
+    // der Empfänger ab und zu (bleibt stehen), sobald der Ball die Seite wechselt — sonst endet kein Ballwechsel.
+    const patzt = { 1: false, 2: false };
+    let seite = 0;
+    const merke = (t) => {
+      if (t.ph !== 'rally') { patzt[1] = patzt[2] = false; seite = 0; return; }
+      const s = t.b[0] < 400 ? 1 : 2;
+      if (s !== seite) { seite = s; patzt[s] = Math.random() < 0.3; }
+    };
+    const will = (t, slot) => {
+      if (patzt[slot]) return { left: false, right: false, jump: false };
+      const [bx, by, bvx, bvy] = t.b;
+      const ich = t.pl[slot];
+      const links = slot === 1;
+      let x = bx, y = by, vx = bvx, vy = bvy;
+      for (let i = 0; i < 120 && y < 360; i++) { vy += 0.287; x += vx; y += vy; if (x < 32) { x = 32; vx = -vx; } if (x > 768) { x = 768; vx = -vx; } }
+      const beiMir = links ? bx < 400 : bx > 400;
+      const landetBeiMir = links ? x < 400 : x > 400;
+      let ziel = links ? 210 : 590;
+      if (beiMir || landetBeiMir) ziel = (landetBeiMir ? x : bx) + (links ? -16 : 16);
+      ziel = links ? Math.min(360, Math.max(40, ziel)) : Math.max(440, Math.min(760, ziel));
+      const nah = beiMir && Math.abs(bx - ich[0]) < 70 && by > ich[1] - 260 && by < ich[1] - 60 && bvy > -2;
+      return { left: ziel - ich[0] < -6, right: ziel - ich[0] > 6, jump: nah || (t.ph === 'serve' && links && t.f % 150 > 75) };
+    };
+    const TASTE = { left: 'KeyA', right: 'KeyD', jump: 'KeyW' };
+    const gedrueckt = { left: false, right: false, jump: false };
+    let seq = 0, maske = -1;
+    // Ausschnitt: das Spielfeld füllt das Bild. Es ist 4:3, die Karte 16:10 — oben fällt etwas Himmel weg,
+    // unten etwas mehr Sand (der Ball fliegt oben, dort bleibt mehr stehen).
+    const ausschnitt = () => p.evaluate(() => {
+      const c = document.querySelector('canvas').getBoundingClientRect();
+      const rand = 4; // Rahmen des Spielfelds bleibt draußen
+      const w = c.width - 2 * rand, h = w / 1.6;
+      return { x: c.left + rand, y: c.top + (c.height - h) * 0.32, width: w, height: h };
+    });
+    // Guter Moment: Ball hoch in der Luft nahe am Pfeiler, ein Blob im Sprung, ein paar Punkte auf der Tafel
+    const gut = (t) => t.ph === 'rally' && t.b[1] > 115 && t.b[1] < 280 && t.b[0] > 250 && t.b[0] < 550
+      && (t.pl[1][5] === 0 || t.pl[2][5] === 0) && t.sc[0] + t.sc[1] >= 3 && t.sc[0] > 0 && t.sc[1] > 0;
+    const spiele = async (bis) => {
+      const ende = Date.now() + 240000;
+      for (;;) {
+        if (Date.now() > ende) throw new Error('kein passender Ballwechsel in 4 Minuten');
+        await wait(12);
+        const t = tick;
+        if (!t) continue;
+        merke(t);
+        const w2 = will(t, 2);
+        const m = (w2.left ? 1 : 0) | (w2.right ? 2 : 0) | (w2.jump ? 4 : 0);
+        if (m !== maske) { maske = m; b.emit('bv:input', { ...w2, seq: ++seq }); }
+        const w1 = will(t, 1);
+        for (const k of Object.keys(TASTE)) {
+          if (w1[k] !== gedrueckt[k]) { gedrueckt[k] = w1[k]; await (w1[k] ? p.keyboard.down(TASTE[k]) : p.keyboard.up(TASTE[k])); }
+        }
+        if (t.pl[2][8] >= 0) b.emit('bv:power');
+        if (bis(t)) return;
+      }
+    };
+    try {
+      await spiele(gut);
+      await p.screenshot({ path: file, type: 'webp', quality: 82, clip: await ausschnitt() });
+      // 3D-Ansicht derselben Partie: umschalten, kurz weiterspielen, nächsten guten Moment abwarten
+      await clickText(p, '3D', 'button');
+      const ab = Date.now() + 2500;
+      await spiele((t) => Date.now() > ab && gut(t));
+      await p.screenshot({ path: file.replace('.webp', '-2.webp'), type: 'webp', quality: 82, clip: await ausschnitt() });
+    } finally {
+      b.disconnect();
+    }
   },
   'seed-runners': async (p, file) => {
     await p.goto(`${BASE}/seed-runners`, { waitUntil: 'networkidle2' });
@@ -99,6 +305,80 @@ const SHOTS = {
     await p.goto(`${BASE}/worldflip/spiel`, { waitUntil: 'networkidle2' });
     await wait(5000);
     await p.screenshot({ path: file, type: 'webp', quality: 80 });
+  },
+  // Lights Out: Blick durch die Taschenlampe auf das Monster der Ebene — Anstalt (Nachtschwester im Flur), als
+  // zweites Bild der Garten (Gärtner zwischen den Mauern). Der Dev-Server legt das laufende Spiel als window.__lo ab.
+  'lights-out': async (p, file) => {
+    const ebene = async (seite, level, abstand, ziel) => {
+      await seite.evaluateOnNewDocument((lvl) => {
+        localStorage.setItem('lo:progress', JSON.stringify({ level: lvl }));
+        localStorage.setItem('lo:prefs', JSON.stringify({ sensitivity: 1, volume: 0, softScares: false, gfx: 'high' }));
+        // Ohne Fenster gibt es keine Zeigersperre — das Spiel läuft erst, wenn sie gemeldet wird
+        let gesperrt = null;
+        Object.defineProperty(Document.prototype, 'pointerLockElement', { get: () => gesperrt, configurable: true });
+        Element.prototype.requestPointerLock = function () { gesperrt = this; setTimeout(() => document.dispatchEvent(new Event('pointerlockchange')), 0); return Promise.resolve(); };
+        Document.prototype.exitPointerLock = function () { gesperrt = null; document.dispatchEvent(new Event('pointerlockchange')); };
+      }, level);
+      await seite.goto(`${BASE}/lights-out`, { waitUntil: 'networkidle2' });
+      await wait(800);
+      await clickText(seite, 'Weiter: Ebene', 'button');
+      await seite.waitForFunction(() => [...document.querySelectorAll('button')].some((b) => b.textContent.trim() === 'Los' && !b.disabled), { timeout: 180000 });
+      await seite.evaluate(() => [...document.querySelectorAll('button')].find((b) => b.textContent.trim() === 'Los').click());
+      await wait(2500);
+      // Monster in Blickrichtung vor die Spielerin stellen und dort festhalten
+      await seite.evaluate((d) => {
+        const { player, monster } = window.__lo._debug;
+        setInterval(() => {
+          monster.x = player.x - Math.sin(player.yaw) * d;
+          monster.z = player.z - Math.cos(player.yaw) * d;
+          monster.state = 'chase';
+          monster.freezeUntil = 1e9;
+          player.battery = 100;
+        }, 30);
+      }, abstand);
+      await wait(1500);
+      // In der Nähe des Monsters flackert die Lampe — mehrere Bilder, das hellste (größte Datei) bleibt
+      let bestes = null;
+      for (let i = 0; i < 8; i++) {
+        await wait(450);
+        const bild = await seite.screenshot({ type: 'webp', quality: 78 });
+        if (!bestes || bild.length > bestes.length) bestes = bild;
+      }
+      fs.writeFileSync(ziel, bestes);
+    };
+    await ebene(p, 1, 5, file);
+    const zweite = await p.browserContext().newPage();
+    await zweite.setViewport({ width: W, height: H, deviceScaleFactor: 1 });
+    try {
+      await ebene(zweite, 3, 4.5, file.replace('.webp', '-2.webp'));
+    } finally {
+      await zweite.close();
+    }
+  },
+  // Tanzfigur: der Baukasten mit einer fertig angezogenen Figur, zweites Bild mit anderem Outfit und Tanz
+  tanzfigur: async (p, file) => {
+    const figur = async (seite, look, tanz, ziel) => {
+      // Größer als das Kartenformat: der ganze Baukasten muss samt seitlichem Rand (16:10) ins Fenster passen
+      await seite.setViewport({ width: 1500, height: 1000, deviceScaleFactor: 1 });
+      await seite.evaluateOnNewDocument((l) => localStorage.setItem('tanzfigurEntwurf', JSON.stringify(l)), look);
+      await seite.goto(`${BASE}/tanzfigur`, { waitUntil: 'networkidle2' });
+      await seite.waitForFunction(() => document.querySelector('canvas') && !document.body.innerText.includes('Figur wird geladen'), { timeout: 30000 });
+      if (tanz) await clickText(seite, tanz, 'button');
+      const karte = await seite.evaluateHandle(() => document.querySelector('canvas').closest('.grid'));
+      await karte.evaluate((el) => el.scrollIntoView({ block: 'center' }));
+      await wait(2600);
+      // Ausschnitt im Kartenformat 16:10 um den Baukasten
+      const r = await karte.evaluate((el) => { const b = el.getBoundingClientRect(); return { x: b.left, y: b.top, w: b.width, h: b.height }; });
+      const breite = r.h * 1.6;
+      await seite.screenshot({ path: ziel, type: 'webp', quality: 84, clip: { x: r.x + r.w / 2 - breite / 2, y: r.y, width: breite, height: r.h } });
+    };
+    await figur(p, { hat: 'headphones', head: 'Casual2_Male', body: 'twitchHoodie', legs: 'joggerBlack', shoes: 'raveNeon', extra: 'glowsticks', skin: 1 }, null, file);
+    const zweite = await p.browserContext().newPage();
+    try {
+      await figur(zweite, { hat: 'crown', head: 'Pug', body: 'hoodieBolt', legs: 'shortsPurple', shoes: 'sneakerGold', extra: 'sunglasses', skin: 2 }, 'Disco', file.replace('.webp', '-2.webp'));
+    } finally {
+      await zweite.close();
+    }
   },
   // ── Clash Royale ──
   'cr-minigames': async (p, file) => {
@@ -188,10 +468,11 @@ const SHOTS = {
 const ICON_OUT = path.join(__dirname, '..', 'public', 'media', 'icons');
 const ICON = 128;
 const CROPS = {
-  adventures: { from: 'adventures', x: 548, y: 318, size: 104 },
   'flick-soccer': { from: 'flick-soccer', x: 143, y: 339, size: 88 },
 };
 const DRAWN = {
+  // adVentures: der Ritter als 3D-Figur (dasselbe Bild wie in den Menüs des Spiels)
+  adventures: `<img alt="" style="width:124px;height:124px;object-fit:contain" src="data:image/png;base64,${fs.readFileSync(path.join(__dirname, '..', 'public', 'media', 'av3d', 'bilder', 'held_knight.png')).toString('base64')}">`,
   connect4: `<div style="display:grid;grid-template-columns:repeat(3,26px);gap:6px;padding:11px;background:#1d2a6b;border-radius:16px;box-shadow:0 8px 0 #111a48">
     ${['', 'y', '', 'r', 'y', '', 'y', 'r', 'r'].map((c) => `<i style="width:26px;height:26px;border-radius:50%;display:block;background:${c === 'r' ? '#ef4444' : c === 'y' ? '#facc15' : '#0b0b10'};box-shadow:inset 0 ${c ? '-4px 0 rgba(0,0,0,.25)' : '3px 0 rgba(0,0,0,.45)'}"></i>`).join('')}</div>`,
   bingo: `<div style="display:grid;grid-template-columns:repeat(3,26px);gap:5px;padding:10px;background:#f5f3ff;border-radius:14px;box-shadow:0 8px 0 #5b21b6">
@@ -302,9 +583,17 @@ async function makeIcons(browser, only) {
   fs.mkdirSync(OUT, { recursive: true });
   const only = process.argv.slice(2);
   const ids = only.length ? only : Object.keys(SHOTS);
-  const browser = await puppeteer.launch({ headless: true });
+  // Mit Grafikkarte (unter Windows über d3d11): ohne sie hält die Seite den Browser für ein schwaches Gerät und zeigt
+  // adVentures in der 2D-Ansicht. Die übrigen Schalter halten die Spielschleifen der unsichtbaren Seiten im Takt.
+  const browser = await puppeteer.launch({
+    headless: true,
+    args: ['--use-angle=d3d11', '--enable-gpu', '--ignore-gpu-blocklist', '--mute-audio',
+      '--disable-background-timer-throttling', '--disable-renderer-backgrounding', '--disable-backgrounding-occluded-windows'],
+  });
   for (const id of ids) {
-    const p = await browser.newPage();
+    // Eigener Kontext je Bild: vorgetäuschte Anmeldungen und Spielstände wandern nicht ins nächste Bild
+    const ctx = await browser.createBrowserContext();
+    const p = await ctx.newPage();
     // Overlays sind kleine Ausschnitte — doppelte Auflösung, damit sie in den Karten scharf bleiben
     const overlay = /^(win-|twitch-)/.test(id);
     await p.setViewport({ width: W, height: H, deviceScaleFactor: overlay ? 2 : 1 });
@@ -315,7 +604,7 @@ async function makeIcons(browser, only) {
     } catch (e) {
       console.log('FEHLER', id, e.message);
     }
-    await p.close();
+    await ctx.close();
   }
   await browser.close();
 })();

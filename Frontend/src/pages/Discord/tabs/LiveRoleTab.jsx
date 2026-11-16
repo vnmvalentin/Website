@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from 'react';
+import { DcHelp } from '../ui';
+import { isErrorStatus, serverErrorText, useDiscordText } from '../discordI18n.js';
 
 export default function LiveRoleTab({ selectedServer, serverRoles }) {
+    const t = useDiscordText();
     const [liveRoleId, setLiveRoleId] = useState('');
     const [restrictionRoleId, setRestrictionRoleId] = useState('');
     const [enabled, setEnabled] = useState(true);
@@ -23,6 +26,7 @@ export default function LiveRoleTab({ selectedServer, serverRoles }) {
     }, [selectedServer]);
 
     const roleColor = (id) => serverRoles.find(r => r.id === id)?.color || '#ffffff';
+    const roleName = (id) => serverRoles.find(r => r.id === id)?.name;
 
     const handleSave = async () => {
         if (!liveRoleId) return;
@@ -35,9 +39,9 @@ export default function LiveRoleTab({ selectedServer, serverRoles }) {
                 body: JSON.stringify({ liveRoleId, restrictionRoleId: restrictionRoleId || null, enabled }),
             });
             const data = await res.json();
-            setSaveStatus(res.ok ? 'Gespeichert!' : `Fehler: ${data.error}`);
+            setSaveStatus(res.ok ? t.common.saved : t.common.errorWith(serverErrorText(t, data)));
         } catch {
-            setSaveStatus('Netzwerkfehler.');
+            setSaveStatus(t.common.networkError);
         } finally {
             setIsSaving(false);
             setTimeout(() => setSaveStatus(''), 3000);
@@ -49,7 +53,7 @@ export default function LiveRoleTab({ selectedServer, serverRoles }) {
         setLiveRoleId('');
         setRestrictionRoleId('');
         setEnabled(true);
-        setSaveStatus('Entfernt.');
+        setSaveStatus(t.common.removed);
         setTimeout(() => setSaveStatus(''), 3000);
     };
 
@@ -66,69 +70,62 @@ export default function LiveRoleTab({ selectedServer, serverRoles }) {
     return (
         <div className="dc-page">
             <div>
-                <h2 className="dc-h2">Live-Rolle</h2>
-                <p className="text-white/50 text-sm">Mitglieder erhalten automatisch eine Rolle, wenn sie auf Twitch live gehen.</p>
+                <h2 className="dc-h2">{t.liveRole.title}</h2>
+                <p className="text-white/50 text-sm">{t.liveRole.intro}</p>
             </div>
 
             <div className="dc-card p-6 space-y-5 max-w-2xl">
                 <div>
-                    <label className="dc-label">Live-Rolle <span className="text-red-400">*</span></label>
-                    <p className="text-white/40 text-xs mb-3">Diese Rolle wird vergeben, wenn jemand live geht.</p>
-                    <RoleSelect value={liveRoleId} onChange={setLiveRoleId} placeholder="-- Rolle auswählen --" />
+                    <label className="dc-label">{t.liveRole.role} <span className="text-red-400">*</span></label>
+                    <p className="text-white/40 text-xs mb-3">{t.liveRole.roleHint}</p>
+                    <RoleSelect value={liveRoleId} onChange={setLiveRoleId} placeholder={t.common.pickRole} />
                     {liveRoleId && (
                         <div className="flex items-center gap-2 mt-2">
                             <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: roleColor(liveRoleId) }} />
-                            <span className="text-sm text-white/70">@{serverRoles.find(r => r.id === liveRoleId)?.name}</span>
+                            <span className="text-sm text-white/70">@{roleName(liveRoleId)}</span>
                         </div>
                     )}
                 </div>
 
                 <div>
-                    <label className="dc-label">Einschränkung <span className="text-white/40 font-normal">(optional)</span></label>
-                    <p className="text-white/40 text-xs mb-3">Nur Mitglieder mit dieser Rolle erhalten die Live-Rolle. Leer = alle Mitglieder.</p>
-                    <RoleSelect value={restrictionRoleId} onChange={setRestrictionRoleId} placeholder="-- Keine Einschränkung --" />
+                    <label className="dc-label">{t.liveRole.restriction} <span className="text-white/40 font-normal">{t.common.optional}</span></label>
+                    <p className="text-white/40 text-xs mb-3">{t.liveRole.restrictionHint}</p>
+                    <RoleSelect value={restrictionRoleId} onChange={setRestrictionRoleId} placeholder={t.liveRole.noRestriction} />
                     {restrictionRoleId && (
                         <div className="flex items-center gap-2 mt-2">
                             <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: roleColor(restrictionRoleId) }} />
-                            <span className="text-sm text-white/70">Nur @{serverRoles.find(r => r.id === restrictionRoleId)?.name} Mitglieder</span>
+                            <span className="text-sm text-white/70">{t.liveRole.onlyMembers(roleName(restrictionRoleId))}</span>
                         </div>
                     )}
                 </div>
 
                 {liveRoleId && restrictionRoleId && (
                     <div className="bg-indigo-500/10 border border-indigo-500/20 rounded-md p-3 text-indigo-300 text-sm">
-                        Wenn ein Mitglied mit <strong>@{serverRoles.find(r => r.id === restrictionRoleId)?.name}</strong> live geht → bekommt <strong>@{serverRoles.find(r => r.id === liveRoleId)?.name}</strong>
+                        {t.liveRole.ruleIf} <strong>@{roleName(restrictionRoleId)}</strong> {t.liveRole.ruleGets} <strong>@{roleName(liveRoleId)}</strong>
                     </div>
                 )}
                 {liveRoleId && !restrictionRoleId && (
                     <div className="bg-white/5 border border-white/10 rounded-md p-3 text-white/60 text-sm">
-                        Jedes Mitglied, das live geht, bekommt <strong>@{serverRoles.find(r => r.id === liveRoleId)?.name}</strong>
+                        {t.liveRole.ruleAll} <strong>@{roleName(liveRoleId)}</strong>
                     </div>
                 )}
 
                 <div className="flex items-center gap-3 pt-1">
                     <button onClick={handleSave} disabled={isSaving || !liveRoleId}
                         className="dc-btn">
-                        {isSaving ? 'Speichere...' : 'Speichern'}
+                        {isSaving ? t.common.saving : t.common.save}
                     </button>
                     {loaded && liveRoleId && (
                         <button onClick={handleDelete}
                             className="bg-red-500/10 hover:bg-red-500/20 text-red-400 font-bold py-2.5 px-5 rounded-md transition-colors">
-                            Entfernen
+                            {t.common.remove}
                         </button>
                     )}
-                    {saveStatus && <span className="text-sm font-medium text-white">{saveStatus}</span>}
+                    {saveStatus && <span className={`text-sm font-medium ${isErrorStatus(saveStatus) ? 'text-red-400' : 'text-white'}`}>{saveStatus}</span>}
                 </div>
             </div>
 
-            <details className="dc-help">
-                <summary>Hinweis</summary>
-                <ul className="text-white/50 text-sm space-y-1">
-                    <li>• Mitglieder müssen ihren Twitch-Account mit Discord verbinden</li>
-                    <li>• Die Rolle wird automatisch vergeben wenn jemand live geht und wieder entzogen wenn der Stream endet</li>
-                    <li>• Ohne Einschränkung gilt die Regel für alle Mitglieder des Servers</li>
-                </ul>
-            </details>
+            <DcHelp title={t.common.note} items={t.liveRole.notes} />
         </div>
     );
 }

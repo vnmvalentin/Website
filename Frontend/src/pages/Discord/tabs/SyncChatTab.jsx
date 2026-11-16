@@ -1,7 +1,11 @@
+
 import React, { useState, useEffect } from 'react';
 import { Globe, Hash, Trash2, Plus } from 'lucide-react';
+import { DcHelp } from '../ui';
+import { isErrorStatus, serverErrorText, useDiscordText } from '../discordI18n.js';
 
 export default function SyncChatTab({ selectedServer, channels }) {
+    const t = useDiscordText();
     const [taverne, setTaverne] = useState(null); // at most one entry
     const [channelId, setChannelId] = useState('');
     const [isAdding, setIsAdding] = useState(false);
@@ -28,12 +32,12 @@ export default function SyncChatTab({ selectedServer, channels }) {
             if (res.ok) {
                 setTaverne({ id: data.id, channelId });
                 setChannelId('');
-                setStatus('Taverne aktiviert!');
+                setStatus(t.syncChat.activated);
             } else {
-                setStatus(`Fehler: ${data.error}`);
+                setStatus(t.common.errorWith(serverErrorText(t, data)));
             }
         } catch {
-            setStatus('Fehler: keine Verbindung zum Server.');
+            setStatus(t.common.networkError);
         } finally {
             setIsAdding(false);
             setTimeout(() => setStatus(''), 4000);
@@ -53,11 +57,8 @@ export default function SyncChatTab({ selectedServer, channels }) {
     return (
         <div className="dc-page">
             <div>
-                <h2 className="dc-h2">Taverne</h2>
-                <p className="text-white/50 text-sm">
-                    Wähle einen Kanal als Taverne. Alle Server mit dem Bot sind automatisch verbunden —
-                    Mitglieder können serverübergreifend miteinander schreiben.
-                </p>
+                <h2 className="dc-h2">{t.syncChat.title}</h2>
+                <p className="text-white/50 text-sm">{t.syncChat.intro}</p>
             </div>
 
             {taverne ? (
@@ -71,48 +72,36 @@ export default function SyncChatTab({ selectedServer, channels }) {
                                 <Hash size={14} className="text-white/50" />
                                 {channelName(taverne.channelId)}
                             </div>
-                            <div className="text-xs text-indigo-400 mt-0.5">Taverne aktiv</div>
+                            <div className="text-xs text-indigo-400 mt-0.5">{t.syncChat.active}</div>
                         </div>
-                        <button onClick={handleRemove}
+                        <button onClick={handleRemove} title={t.common.remove} aria-label={t.common.remove}
                             className="ml-auto text-red-400 hover:text-red-300 hover:bg-red-500/10 p-2 rounded-md transition-colors">
                             <Trash2 size={16} />
                         </button>
                     </div>
-                    <p className="text-white/40 text-sm">
-                        Um die Taverne zu wechseln, entferne zuerst den aktuellen Kanal und wähle dann einen neuen.
-                    </p>
+                    <p className="text-white/40 text-sm">{t.syncChat.switchNote}</p>
                 </div>
             ) : (
                 <div className="dc-card p-6 space-y-4 max-w-lg">
                     <h3 className="text-white font-semibold flex items-center gap-2">
-                        <Plus size={16} /> Taverne einrichten
+                        <Plus size={16} /> {t.syncChat.setup}
                     </h3>
                     <div className="flex gap-3">
                         <select value={channelId} onChange={e => setChannelId(e.target.value)}
                             className="dc-input flex-1">
-                            <option value="">-- Kanal auswählen --</option>
+                            <option value="">{t.common.pickChannel}</option>
                             {channels.map(c => <option key={c.id} value={c.id}># {c.name}</option>)}
                         </select>
                         <button onClick={handleSet} disabled={isAdding || !channelId}
                             className="dc-btn whitespace-nowrap">
-                            {isAdding ? '...' : 'Aktivieren'}
+                            {isAdding ? '...' : t.syncChat.activate}
                         </button>
                     </div>
-                    {status && <p className="text-sm font-medium text-white">{status}</p>}
+                    {status && <p className={`text-sm font-medium ${isErrorStatus(status) ? 'text-red-400' : 'text-white'}`}>{status}</p>}
                 </div>
             )}
 
-            <details className="dc-help">
-                <summary>So funktioniert es</summary>
-                <ul className="text-white/50 text-sm space-y-1">
-                    <li>• Jeder Server hat genau einen Taverne-Kanal</li>
-                    <li>• Alle Taverne-Kanäle aller Server sind miteinander verbunden</li>
-                    <li>• Nachrichten erscheinen als <span className="text-white text-xs">Nutzername (Servername)</span></li>
-                    <li>• @everyone / @here und Befehle werden blockiert</li>
-                    <li>• Der Bot benötigt <span className="text-indigo-400">Webhooks verwalten</span> im Kanal</li>
-                </ul>
-            </details>
+            <DcHelp title={t.common.howItWorks} items={t.syncChat.notes} />
         </div>
     );
 }
-

@@ -135,7 +135,9 @@ deploy_backend() {
   #                   Ebene verankert (tar: --no-wildcards-match-slash, rsync: führender Slash),
   #                   sonst träfen sie auch Code-Ordner wie discord/bot/commands/data/.
   #   node_modules/   nativ kompiliert (better-sqlite3), zieht sich der Server per npm selbst
-  #   sessions.json   eingeloggte Nutzer — sonst wirft jeder Deploy alle raus
+  #   sessions.json   Altdatei der Sitzungen: der erste Start nach dem 16.11.2026 übernimmt sie nach data/sessions.db
+  #                   (lib/sessionStore.js). Der Ausschluss muss bleiben — rsync --delete liefe VOR diesem Start und
+  #                   würde sie sonst löschen, alle wären ausgeloggt.
   #   .env / .env.*   Server-Zugangsdaten, dürfen nie vom lokalen Dev-.env überschrieben werden
   local excludes=(--no-wildcards-match-slash --exclude='./data' --exclude='./*/data' --exclude='./node_modules' --exclude='./sessions.json' --exclude='./.env' --exclude='./.env.*')
   # Wartungsfenster für #status: während der Neustart läuft, zeigt der Prüfer Gelb "Wartung" statt Rot.

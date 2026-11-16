@@ -30,6 +30,24 @@ export function grantXp(g, amount) {
   }
 }
 
+// Erfahrung liegt als Kristall am Boden und zählt erst beim Einsammeln. Liegen schon XP_MAX herum, wächst statt
+// eines neuen ein vorhandener — der Wert geht nie verloren, die Welt läuft nur nicht voll.
+export const XP_MAX = 260;
+export const XP_WAIT = 5;
+export function dropXp(g, x, y, amount) {
+  if (!(amount > 0)) return;
+  if ((g.xpCount || 0) >= XP_MAX && g.xpMergeTo && g.pickups.includes(g.xpMergeTo)) { g.xpMergeTo.value += amount; return; }
+  const k = { type: "xp", x, y, value: amount, t: 0, vx: (g.rng.next() - 0.5) * 110, vy: (g.rng.next() - 0.5) * 110 };
+  g.pickups.push(k);
+  g.xpCount = (g.xpCount || 0) + 1;
+  g.xpMergeTo = k;
+}
+
+// Sog: alle Kristalle der Welt fliegen zum Spieler (Serien-Meilenstein, fertiger Teleporter)
+export function vacuumXp(g) {
+  for (const k of g.pickups) if (k.type === "xp") k.pull = true;
+}
+
 export function dropGold(g, x, y, amount) {
   const value = Math.max(1, Math.round(amount * g.player.stats.gold));
   g.pickups.push({ type: "gold", x, y, value, t: 0, vx: (g.rng.next() - 0.5) * 120, vy: (g.rng.next() - 0.5) * 120 });
@@ -97,6 +115,8 @@ export function equip(g, id, x, y) {
 export function updatePickups(g, dt) {
   const p = g.player;
   const r2 = p.stats.pickupRadius * p.stats.pickupRadius;
+  const xr2 = r2 * 2.6; // Kristalle ziehen schon aus etwas größerer Entfernung an (Radius × 1,6)
+  let xpCount = 0;
   const keep = [];
   for (const k of g.pickups) {
     k.t += dt;
@@ -132,6 +152,17 @@ export function updatePickups(g, dt) {
         if (p.items.skarabaeus) healPlayer(g, 0.6 * p.items.skarabaeus, true); // Goldener Skarabäus
         continue;
       }
+    } else if (k.type === "xp") {
+      xpCount++;
+      // Angezogen wird, was nah liegt — und was XP_WAIT Sekunden liegen blieb, kommt von selbst (nichts geht verloren)
+      if (!k.pull && (d2 < xr2 || k.t > XP_WAIT)) k.pull = true;
+      if (k.pull) {
+        // einmal angezogen, fliegt der Kristall beschleunigt hinterher, egal wohin man läuft
+        k.sp = (k.sp || 240) + 1500 * dt;
+        const a = Math.atan2(p.y - k.y, p.x - k.x);
+        k.x += Math.cos(a) * k.sp * dt; k.y += Math.sin(a) * k.sp * dt;
+        if (d2 < 30 * 30 || d2 < (k.sp * dt) * (k.sp * dt)) { grantXp(g, k.value); g.fx.sfx.xp++; continue; }
+      }
     } else if (k.type === "heal") {
       if (d2 < r2) {
         const a = Math.atan2(p.y - k.y, p.x - k.x);
@@ -146,4 +177,5 @@ export function updatePickups(g, dt) {
     keep.push(k);
   }
   g.pickups = keep;
+  g.xpCount = xpCount;
 }

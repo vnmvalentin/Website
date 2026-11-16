@@ -116,7 +116,7 @@ export const ITEMS = {
     desc: (n) => `15 % Chance: Kill erweckt ein Skelett als Verbündeten (max. ${1 + n})`, stats: () => ({}) },
   schleimkern: { name: "Schleimkern", rarity: "boss", icon: "Droplets",
     desc: (n) => `Beim Laufen hinterlässt du Säure (${pct(0.8 * n)} alle 0,5 s)`, stats: () => ({}) },
-  spinnendruese: { name: "Spinnendrüse", rarity: "boss", icon: "Bug",
+  spinnendruese: { name: "Brutdrüse", rarity: "boss", icon: "Bug",
     desc: (n) => `Treffer verlangsamen Gegner um ${pct(Math.min(0.6, 0.3 * n))}`, stats: () => ({}) },
   kolossherz: { name: "Kolossherz", rarity: "boss", icon: "Mountain",
     desc: (n) => `+${20 * n} Rüstung, Treffer auf dich lösen eine Schockwelle aus (${pct(2 * n)})`, stats: (n) => ({ armor: 20 * n }) },

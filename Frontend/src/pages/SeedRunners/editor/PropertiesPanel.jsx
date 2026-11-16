@@ -200,6 +200,12 @@ export default function PropertiesPanel({ el, doc, checkpoint, onChange, onDelet
     case "gravityZone":
       fields.push(num("w"), num("h"));
       break;
+    case "flut":
+      fields.push(num("w"), num("h"), en("dir", dirOptions(schema.params.dir.options, false)), num("speed"), num("delay"));
+      break;
+    case "boost":
+      fields.push(en("dir", dirOptions(schema.params.dir.options, false)), num("factor"));
+      break;
     case "portal": {
       const mate = doc.elements.find((e) => e.type === "portal" && e.id === el.pair && e.pair === el.id);
       fields.push(

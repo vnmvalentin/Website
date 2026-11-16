@@ -10,14 +10,18 @@ import { useStableState } from '../../utils/useStableState';
 import { getOverlayData, reportMarbleWinner, reportMarblePlacings } from './streamToolApi';
 import {
   mergeConfig, effectiveModules, toPollView, toPredictionView, toGoalView, toRaidView, toStatsView,
-  useDemoSim, useLinger, paintDemo, DEMO_HYPE, demoMarbles,
+  useDemoSim, useLinger, paintDemo, demoHype, demoMarbles,
 } from './streamToolConfig';
+import { OverlayLangContext } from './overlayI18n';
 import {
   PollWidget, PredictionWidget, GoalWidget, RaidClipWidget, StatsWidget, WidgetFrame, STAGE_W, STAGE_H,
 } from './OverlayWidgets';
 import {
   HypeTrainScene, RaidStormScene, PlaneBannerScene, MarbleRunWidget,
 } from './OverlayScenes';
+import { AlertWidget, useAlertPlayer, playAlertSound, speakAlert, alertSpeech } from './OverlayAlerts';
+import { demoAlert } from './streamToolConfig';
+import { OVERLAY_TEXTS } from './overlayI18n';
 
 const POLL_MS = 2000;
 
@@ -85,7 +89,9 @@ export default function PollsPredictionsOverlay() {
 
   const config = mergeConfig(payload?.config);
   const m = effectiveModules(config);
-  const sim = useDemoSim(demo, demoOutcomes);
+  // Sprache der Texte im Stream: aus der Einstellung des Streamers (OBS hat keinen eigenen Sprachspeicher)
+  const lang = config.language;
+  const sim = useDemoSim(demo, demoOutcomes, lang);
 
   const now = Date.now() + clockOffset.current;
   const goals = demo ? sim.goals : payload?.goals;
@@ -99,7 +105,7 @@ export default function PollsPredictionsOverlay() {
 
   // Szenen: sie bewegen sich von selbst und brauchen den Takt oben nicht
   const scenes = payload?.scenes;
-  const marbles = demo ? demoMarbles(m.marbleRun) : scenes?.marbles;
+  const marbles = demo ? demoMarbles(m.marbleRun, lang) : scenes?.marbles;
 
   // Nachlaufende Kopien, damit das Ausblenden sichtbar wird
   const pollHeld = useLinger(pollView);
@@ -116,8 +122,18 @@ export default function PollsPredictionsOverlay() {
     reportMarblePlacings(overlayKey, raceId, ids).catch(() => {});
   }, [overlayKey]);
 
+  // Alerts: neue Einträge nacheinander abspielen, mit Ton und auf Wunsch vorgelesen
+  const alert = useAlertPlayer(payload?.alerts?.events, m.alerts, (ev) => {
+    const mod = m.alerts;
+    if (mod.sound !== false) playAlertSound(ev.kind, mod.volume ?? 60);
+    if (mod.tts) setTimeout(() => speakAlert(alertSpeech(ev, mod, lang), lang, mod.volume ?? 60), 700);
+  });
+  // ?demo=1: ein stehender Beispiel-Alert zum Ausrichten in OBS
+  const alertShown = demo ? demoAlert('sub', OVERLAY_TEXTS.dict(lang)) : alert.current;
+
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'transparent', overflow: 'hidden' }}>
+    <OverlayLangContext.Provider value={lang}>
+    <div lang={lang} style={{ position: 'fixed', inset: 0, background: 'transparent', overflow: 'hidden' }}>
       {/* OBS-Quelle gehört nicht in die Suche (zusätzlich per robots.txt gesperrt) */}
       <meta name="robots" content="noindex, nofollow" />
 
@@ -149,6 +165,10 @@ export default function PollsPredictionsOverlay() {
           {raidHeld && <RaidClipWidget data={raidHeld} module={m.raidClip} />}
         </WidgetFrame>
 
+        <WidgetFrame id="alerts" module={m.alerts} visible={(demo || alert.visible) && !!alertShown && m.alerts.enabled}>
+          {alertShown && <AlertWidget event={alertShown} module={m.alerts} still={demo} />}
+        </WidgetFrame>
+
         <WidgetFrame id="marbleRun" module={m.marbleRun} visible={!!marbles && m.marbleRun.enabled}>
           {marblesHeld && (
             <MarbleRunWidget data={marblesHeld} module={m.marbleRun} offsetRef={clockOffset} onResult={reportWinner} onPlacings={reportPlacings} />
@@ -157,7 +177,7 @@ export default function PollsPredictionsOverlay() {
 
         {/* Szenen über die ganze Bildbreite — zuletzt, damit sie vor den Karten vorbeiziehen */}
         {m.hypeTrain.enabled && (
-          <HypeTrainScene data={demo ? DEMO_HYPE : scenes?.hype} module={m.hypeTrain} offsetRef={clockOffset} still={demo} />
+          <HypeTrainScene data={demo ? demoHype(lang) : scenes?.hype} module={m.hypeTrain} offsetRef={clockOffset} still={demo} />
         )}
         {m.raidStorm.enabled && !demo && (
           <RaidStormScene data={scenes?.storm} module={m.raidStorm} offsetRef={clockOffset} />
@@ -165,5 +185,6 @@ export default function PollsPredictionsOverlay() {
         <PlaneBannerScene module={m.planeBanner} test={scenes?.plane} offsetRef={clockOffset} still={demo} />
       </div>
     </div>
+    </OverlayLangContext.Provider>
   );
 }

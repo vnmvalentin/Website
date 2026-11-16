@@ -5,6 +5,8 @@ import { Link, NavLink, Outlet } from "react-router-dom";
 import { Volume2, VolumeX, Settings2 } from "lucide-react";
 import { ShellContext } from "./shellContext.js";
 import Table3DLayer from "./battle/table3d/Table3DLayer.jsx";
+import MaskPicker from "./table/MaskPicker.jsx";
+import { TableKeeper } from "./table/TableKeeper.jsx";
 import { sound } from "../audio/sound.js";
 import { particles } from "./anim/particles.js";
 import { usePrefs, setPrefs, SPEED_OPTIONS, systemPrefersReducedMotion } from "./prefs.js";
@@ -83,6 +85,11 @@ function SettingsPopover({ onClose }) {
       <label className="flex items-center gap-2 text-sm">
         <input type="checkbox" checked={prefs.table3d !== false} onChange={(e) => setPrefs({ table3d: e.target.checked })} /> Tisch in 3D (Kerzenlicht)
       </label>
+      <label className="flex items-center gap-2 text-sm">
+        <input type="checkbox" checked={!!prefs.oldTable} onChange={(e) => setPrefs({ oldTable: e.target.checked })} /> Bisheriger Tisch (flach, ohne Gestalt)
+      </label>
+      {/* Masken gibt es nur am Tisch im Kerzenlicht (Standard) */}
+      {!prefs.oldTable && <MaskPicker />}
       <label className="flex items-center gap-2 text-sm">
         <input type="checkbox" checked={prefs.tipsOff} onChange={(e) => setPrefs({ tipsOff: e.target.checked })} /> Tutorial-Hinweise ausblenden
       </label>
@@ -178,7 +185,8 @@ export default function Shell() {
     el.classList.add("ss-shake");
   }, [prefs.reduceMotion]);
 
-  const ctx = useMemo(() => ({ showTip: setTip, setTension, shake }), [shake]);
+  const openSettings = useCallback(() => setSettingsOpen(true), []);
+  const ctx = useMemo(() => ({ showTip: setTip, setTension, shake, openSettings }), [shake, openSettings]);
 
   return (
     <ShellContext.Provider value={ctx}>
@@ -205,13 +213,15 @@ export default function Shell() {
               <button type="button" className="ss-btn ss-btn-sm ss-btn-ghost" onClick={() => setSettingsOpen((o) => !o)} aria-label={de.ui.settings} aria-expanded={settingsOpen}>
                 <Settings2 size={16} />
               </button>
-              {settingsOpen && <SettingsPopover onClose={() => setSettingsOpen(false)} />}
               <BackToSite className="ss-btn ss-btn-sm ss-btn-ghost" />
             </div>
           </div>
         </header>
+        {/* außerhalb der Leiste: am Tisch ist die Leiste ausgeblendet, die Einstellungen öffnet dann das Menü am Tisch */}
+        {settingsOpen && <SettingsPopover onClose={() => setSettingsOpen(false)} />}
         <main className="ss-content">
-          <Outlet />
+          {/* Der Tisch im Kerzenlicht bleibt über Seitenwechsel stehen (Menü → Lobby → Match) */}
+          <TableKeeper><Outlet /></TableKeeper>
         </main>
         {systemPrefersReducedMotion && !prefs.motionHintSeen && !prefs.reduceMotion && (
           <div className="ss-motion-hint ss-paper" role="status">

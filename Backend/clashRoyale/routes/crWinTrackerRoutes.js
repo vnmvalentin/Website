@@ -8,19 +8,23 @@ const db = require("../lib/winTrackerStore");
 // (lib/crApi.js) — sie waren vorher hier, in nuzlockeRoutes.js und im Modus-Scanner
 // jeweils separat ausgeschrieben.
 const {
-  isConfigured, normalizeTag, fetchBattlelog: fetchBattlelogRaw, fetchPlayerSummary, fetchEvents, resolvePolRank,
+  isConfigured, normalizeTag, fetchBattlelog: fetchBattlelogRaw, fetchPlayerSummary, fetchEvents, fetchGlobalTournaments, resolvePolRank,
 } = require("../lib/crApi");
 // Generische saisonale Ranked-Modi (Spooky Chess League & künftige) — Zuordnung Battle <-> Profil.
 const {
   normalizeSeasonalPrefix, trackableEntries, matchBattle, labelFromEvents, humanizeKey, qualifyGoal, hasQualifyPhase,
 } = require("../lib/seasonalModes");
-// Classic/Grand/20-Win-Challenge — Erkennung am Battle + Runs (Siege/Niederlagen je Versuch).
-const { classifyBattle, buildRuns, challengeState, isChallengeKey } = require("../lib/challengeModes");
+// Challenges, Crown Series, Global Tournament — Erkennung am Battle + Runs (Siege/Niederlagen je Versuch).
+const {
+  CROWN_LEAGUE_COUNT, classifyBattle, buildRuns, challengeState, isChallengeKey, countsWinsInStartingTrophies, grandDuelRules,
+} = require("../lib/challengeModes");
 // Kartenpool fürs Deck-Modul — dieselbe Liste, aus der auch die Icon-URLs im Frontend
 // entstehen (1:1 synchron gehalten, siehe Kommentar dort).
 const { ALL_CARDS } = require("../core/cards");
 const Recap = require("../lib/winTrackerRecap");
 const { renderRecap } = require("../lib/recapImage");
+// Zuschauer-Befehle im Chat: nur die Prüfung der Einstellungen (Befehle, Abklingzeit) — die Antworten baut winTrackerChat.js
+const viewerCmds = require("../lib/winTrackerViewer");
 
 // Bei offenem Overlay höchstens so oft neu bei Supercell fragen. 15 s: das Battlelog ist dort 33 s
 // gecacht, /players 60 s — kürzer bringt nichts, länger lässt ein Match unnötig lange warten.
@@ -140,7 +144,7 @@ const battleDeckJson = (cards) => {
 };
 const insertBattles = db.transaction((accountId, battles) => {
   for (const b of battles) {
-    upsertBattleStmt.run(accountId, b.battleTime, b.battleTimeMs, b.result, b.trophyChange, b.crownsFor, b.crownsAgainst, b.opponentName, b.gameMode, b.arenaRawName || "", b.seasonalPrefix || "", battleDeckJson(b.cards),
+    upsertBattleStmt.run(accountId, b.battleTime, b.battleTimeMs, b.result, b.trophyChange, b.crownsFor, b.crownsAgainst, b.opponentName, b.gameMode, b.arenaRawName || "", b.seasonalPrefix || "", battleDeckJson(b.deckCards || b.cards),
       Number.isFinite(b.startingTrophies) ? b.startingTrophies : null, String(b.type || "").slice(0, 40),
       b.challengeKey || "", Number.isInteger(b.challengeWinsBefore) ? b.challengeWinsBefore : null);
   }
@@ -400,7 +404,7 @@ function seasonalInfo(r) {
   };
 }
 
-// ── Challenges (Classic, Grand, 20 Win) ──────────────────────────────────────────────────────
+// ── Challenges (Classic, Grand, 20 Win), Crown Series (Duel/Grand Duel), Global Tournament ────
 // trackMode "c:<key>" (key aus lib/challengeModes.js). Kein Profil-Eintrag wie bei den Saison-Modi:
 // ein Battle wird beim Sync per Name erkannt (challenge_key), das Overlay baut daraus die Runs nach.
 // Verfügbar ist ein Challenge-Modus, solange er in den letzten CHALLENGE_ACTIVE_MS gespielt wurde —
@@ -433,8 +437,35 @@ const setChallengeSessionResetStmt = db.prepare("UPDATE cr_wintracker_accounts S
 function tagChallengeBattles(battles, events) {
   for (const b of battles || []) {
     b.challengeKey = gameModeGroup(b) || b.seasonalPrefix ? "" : (classifyBattle(b, events) || "");
+    // Crown Series: startingTrophies = Siege des Laufs vor dem Duell, fehlt bei 0 (live geprüft,
+    // siehe lib/challengeModes.js) — damit baut buildRuns den Lauf auch über Sync-Lücken exakt nach.
+    if (countsWinsInStartingTrophies(b.challengeKey) && !Number.isInteger(b.challengeWinsBefore)) {
+      b.challengeWinsBefore = Number.isInteger(b.startingTrophies) && b.startingTrophies >= 0 ? b.startingTrophies : 0;
+    }
   }
 }
+
+// Global Tournament: wie viele Niederlagen erlaubt sind, steht nur in GET /globaltournaments (meist
+// 5). Der Abruf läuft beim Sync mit (refreshGlobalTournament), challengeInfo liest nur den Merker —
+// ohne laufendes Turnier gilt der Standardwert aus lib/challengeModes.js.
+const GLOBAL_TOURNAMENT_CACHE_MS = 15 * 60 * 1000;
+let globalTournamentCache = { at: 0, maxLosses: null };
+async function refreshGlobalTournament() {
+  if (Date.now() - globalTournamentCache.at < GLOBAL_TOURNAMENT_CACHE_MS) return;
+  globalTournamentCache.at = Date.now();
+  try {
+    const list = await fetchGlobalTournaments(WT_TOKEN);
+    const now = Date.now();
+    const running = list.find((g) => g.maxLosses && (!g.endMs || g.endMs > now)) || list.find((g) => g.maxLosses);
+    if (running) globalTournamentCache.maxLosses = running.maxLosses;
+  } catch { /* Standardwert bleibt */ }
+}
+// Regeln, die nicht fest am Modus hängen: Niederlagen im Global Tournament (API) und die Liga im
+// Grand Duel Weekend (King's League spielt 20 Duelle statt 12 Siege / 4 Niederlagen).
+const challengeOverrides = (key, row) => (key === "global" && globalTournamentCache.maxLosses
+  ? { maxLosses: globalTournamentCache.maxLosses }
+  : key === "grandduel" ? grandDuelRules(row?.crown_league) : undefined);
+const setCrownLeagueStmt = db.prepare("UPDATE cr_wintracker_accounts SET crown_league = ? WHERE account_id = ?");
 
 /** Zuletzt gespielt je Challenge-Modus (nur innerhalb von CHALLENGE_ACTIVE_MS): { "c:classic": ms, … } */
 function challengeLastPlayed(accountId, nowMs = Date.now()) {
@@ -463,8 +494,14 @@ function computeChallengeSessionStartMs(row, key, nowMs = Date.now()) {
 
 /** Stand der Challenge fürs Overlay/den Editor (siehe challengeState in lib/challengeModes.js). */
 function challengeInfo(row, key, sessionStartMs = computeChallengeSessionStartMs(row, key)) {
-  const runs = buildRuns(challengeBattlesAscStmt.all(row.account_id, key, Date.now() - CHALLENGE_RUN_LOOKBACK_MS), key);
-  return { mode: CHALLENGE_MODE_PREFIX + key, ...challengeState(runs, key, sessionStartMs) };
+  const overrides = challengeOverrides(key, row);
+  const runs = buildRuns(challengeBattlesAscStmt.all(row.account_id, key, Date.now() - CHALLENGE_RUN_LOOKBACK_MS), key, overrides);
+  return {
+    mode: CHALLENGE_MODE_PREFIX + key,
+    ...challengeState(runs, key, sessionStartMs, overrides),
+    // Crown Series: vom Nutzer gewählte Liga (0 = keine) — das Overlay zeigt ihr Abzeichen
+    crownLeague: countsWinsInStartingTrophies(key) ? (row.crown_league || 0) : 0,
+  };
 }
 
 // Welche trackModes für diesen Account gerade existieren: medals/trophies immer, saisonale
@@ -701,6 +738,8 @@ function normalizeOverlayDim(raw, kind) {
   return Math.max(min, Math.min(max, n));
 }
 const updateThemeStmt = db.prepare("UPDATE cr_wintracker_settings SET overlay_theme = ?, royale_panel = ?, royale_pattern = ?, square_corners = ?, overlay_scale = ?, overlay_width = ?, overlay_height = ? WHERE user_id = ?");
+// Zuschauer-Befehle (lib/winTrackerViewer.js) — eigene Anweisung, nur geschrieben, wenn die Anfrage sie mitschickt
+const updateViewerCmdsStmt = db.prepare("UPDATE cr_wintracker_settings SET viewer_cmds = ?, viewer_cooldown_s = ? WHERE user_id = ?");
 // Gemeinsam für /me und die öffentliche Overlay-Route — beide müssen dieselben Werte liefern.
 function themeSettings(settings) {
   return {
@@ -1119,6 +1158,8 @@ function accountSummary(row) {
     seasonal: currentSeasonal ? seasonalInfo(currentSeasonal) : null,
     // Getrackte Challenge (Siege/Niederlagen des aktuellen Runs, Versuch in der Session) — sonst null
     challenge: challengeKeyOf(resolveTrackMode(row)) ? challengeInfo(row, challengeKeyOf(resolveTrackMode(row))) : null,
+    // Crown-Series-Liga (1–13, 0 = nicht gewählt) — im Editor wählbar, auch wenn gerade ein anderer Modus läuft
+    crownLeague: row.crown_league || 0,
     // In den Ligen 1-6 gibt es Stufen statt Medaillen — null ab Ultimate Champion
     ladder: computeLadder(row),
     // Deck des getrackten Modus (Ranked-, Trophy-Road- oder 2v2-Ranked-Deck) — null, solange noch
@@ -1238,6 +1279,7 @@ async function syncAccountOnce(row) {
   tagSeasonalBattles(battles, seasonalEntries);
   fillSeasonalDeltas(battles, playerOk ? player.seasonalProgress : null);
   tagChallengeBattles(battles, await getEvents());
+  if (battles.some((b) => b.challengeKey === "global")) await refreshGlobalTournament();
   // 2v2-Ranked-Matches liefern kein trophyChange — vor dem Wegschreiben aus dem aktuellen
   // Kontostand (frisch vom Profil, sonst der zuletzt gespeicherte) nachrechnen.
   const currentLeague2v2Trophies = player && !player.notFound && player.league2v2
@@ -1551,6 +1593,161 @@ function knownLoginFor(userId) {
   return s?.chat_channel ? String(s.chat_channel).toLowerCase() : "";
 }
 
+/**
+ * Inhalt des OBS-Overlays für den aktiven Account — ohne Abruf bei Supercell (den erledigt die Overlay-Route vorher).
+ * Auch die Zuschauer-Befehle im Chat (winTrackerChat.js: !rang, !session, !deck) lesen hieraus, damit Chat und
+ * Overlay garantiert dieselben Zahlen zeigen.
+ * @param {object} settings  Zeile aus cr_wintracker_settings
+ * @param {object} active    aktive Zeile aus cr_wintracker_accounts
+ */
+function overlayState(settings, active) {
+  // Generischer saisonaler Modus: eigene Zeile + eigene Statistik über seasonal_prefix. Fehlt die
+  // Zeile (sollte nicht vorkommen), lieber Ranked zeigen als einen leeren Kopf.
+  let trackMode = resolveTrackMode(active);
+  const seasonalPrefix = seasonalPrefixOf(trackMode);
+  const seasonalRow = seasonalPrefix ? getSeasonalRowStmt.get(active.account_id, seasonalPrefix) : null;
+  if (seasonalPrefix && !seasonalRow) trackMode = "medals";
+  // Challenge: Statistik über challenge_key, Kopf zeigt den aktuellen Run (siehe challengeInfo)
+  const challengeKey = challengeKeyOf(trackMode);
+  const is2v2 = trackMode === "2v2";
+  const isTrophyMode = trackMode === "trophies";
+  // Jeder Modus hat seine eigene Session/Statistik (siehe daily2v2Stmt/last5_2v2Stmt bzw.
+  // dailyTrophyStmt/last5TrophyStmt oben) — medals bleibt bei den ursprünglichen Ranked1v1-
+  // Statements. trophies lief früher fälschlich MIT über dieselben Ranked1v1-Abfragen wie
+  // medals (zwei unabhängige Fortschritte teilten sich eine Statistik).
+  //
+  // medals-Sonderfall Liga 6 -> Ultimate Champion MITTEN in einer laufenden Session: unterhalb
+  // von UC zeigt das Overlay Stufen (ladder.sessionDelta), dailyStatsStmt/last5Stmt laufen zwar
+  // im Hintergrund schon mit, werden aber nicht angezeigt. Die einzelnen Ranked-Matches tragen
+  // aber von Anfang an ihr echtes trophyChange (Supercell führt intern offenbar durchgehend
+  // Medaillen, auch unterhalb UC — nur die Stufenanzeige blendet das aus). Sobald computeLadder
+  // ab UC null liefert, schwenkt das Overlay auf dailyStatsStmt/last5Stmt um — ohne Anpassung
+  // hier zählte das dann rückwirkend ALLE Stufen-Siege dieser Session mit ihrem echten
+  // trophyChange (Bug: 7 Stufen-Siege vor dem Aufstieg erschienen instant als "+210", jedes
+  // davon in "letzte 5" plötzlich als "+30" statt der bis dahin gezeigten Stufe). ladder_anchor_ms
+  // wird bei JEDEM Liga-Wechsel neu gesetzt (siehe reanchorLadder in syncAccount) — ist die
+  // aktuelle Liga schon UC, ist das exakt der Aufstiegszeitpunkt (= Zeitstempel des
+  // Aufstiegsspiels selbst). NUR der Medaillen-Profit startet dort neu, und zwar STRIKT danach
+  // (+1): mit ">=" zählte das Aufstiegsspiel als erstes UC-Spiel mit (direkt "+30", obwohl man
+  // gerade erst angekommen war). Win/Loss + letzte 5 laufen über die ganze Session weiter — der
+  // Aufstieg ist kein Session-Ende; nur die Stufen-Anzeige wird durch den Medaillen-Profit ersetzt.
+  const sessionStart = challengeKey ? computeChallengeSessionStartMs(active, challengeKey)
+    : seasonalRow ? computeSeasonalSessionStartMs(active.account_id, seasonalPrefix, seasonalRow)
+    : is2v2 ? compute2v2SessionStartMs(active.account_id)
+    : isTrophyMode ? computeTrophySessionStartMs(active.account_id)
+    : computeSessionStartMs(active.account_id);
+  const ucProfitStart = !challengeKey && !seasonalRow && !is2v2 && !isTrophyMode && ladderStepCount(active.league_number) === 0
+    && (active.ladder_anchor_ms || 0) >= sessionStart
+    ? active.ladder_anchor_ms + 1
+    : null;
+  const daily = challengeKey ? dailyChallengeStmt.get(active.account_id, challengeKey, sessionStart)
+    : seasonalRow ? dailySeasonalStmt.get(active.account_id, seasonalPrefix, sessionStart)
+    : is2v2 ? daily2v2Stmt.get(active.account_id, sessionStart)
+    : isTrophyMode ? dailyTrophyStmt.get(active.account_id, sessionStart)
+    : dailyStatsStmt.get(active.account_id, sessionStart);
+  if (ucProfitStart !== null) daily.profit = dailyStatsStmt.get(active.account_id, ucProfitStart).profit;
+  const wins = daily.wins || 0, losses = daily.losses || 0;
+  // 2v2-Profit kommt NICHT aus SUM(trophy_change) wie bei den anderen Modi (daily.profit oben),
+  // sondern direkt aus dem Kontostand-Anker (siehe updateLeague2v2SessionAnchor) — unabhängig
+  // davon, ob battlelog für einzelne Matches ein trophyChange kennt. wins/losses bleiben aus
+  // daily2v2Stmt (crowns-basiert, nie vom team[0]/team[1]-Problem betroffen, siehe
+  // applyLeague2v2Deltas). null, solange seit dem aktuellen Sessionbeginn noch kein Sync
+  // gelaufen ist — dann zeigt das Overlay vorübergehend 0, bis der nächste Sync den Anker setzt.
+  const league2v2Anchor = is2v2 ? league2v2SessionAnchorFor(active, sessionStart) : null;
+  const league2v2Profit = league2v2Anchor === null ? 0 : (active.league2v2_trophies || 0) - league2v2Anchor;
+
+  return {
+    hasAccount: true,
+    playerName: active.player_name || active.player_tag,
+    playerTag: active.player_tag,
+    trophies: active.trophies,
+    bestTrophies: active.best_trophies,
+    seasonMedals: active.season_medals,
+    leagueNumber: active.league_number,
+    polRank: active.pol_rank,
+    // Clan-Header-Zusatz (siehe show_clan in settings) — clanName leer heißt "kein Clan".
+    clanName: active.clan_name || "",
+    clanBadgeId: active.clan_badge_id ?? null,
+    // 2v2 Ranked: eigener Medaillen-Stand, unabhängig von trophies/seasonMedals oben.
+    league2v2Trophies: active.league2v2_trophies || 0,
+    league2v2BestTrophies: active.league2v2_best_trophies || 0,
+    // Generischer saisonaler Modus (Name, Stand, Stufe) — null bei medals/trophies/2v2.
+    seasonal: seasonalRow ? seasonalInfo(seasonalRow) : null,
+    // Challenge (Classic/Grand/20 Win): Siege + Niederlagen des aktuellen Runs, Versuch in der
+    // Session, bester Run der Session — null bei allen anderen Modi.
+    challenge: challengeKey ? challengeInfo(active, challengeKey, sessionStart) : null,
+    // Ligen 1-6: Stufen statt Medaillen (null ab Ultimate Champion) — computeLadder ist
+    // 1v1-Ranked-spezifisch (greift nur bei league_number 1-6) und braucht daher IMMER den
+    // Ranked1v1-Sessionbeginn, unabhängig davon, welchen Modus der aktive Account gerade trackt
+    // (medals ist der einzige, bei dem sessionStart oben bereits der Ranked1v1-Wert ist).
+    // Nur bei medals mitschicken: alle anderen Modi zeigen nie Stufen. Ein noch offenes Overlay mit
+    // älterem Frontend-Code (OBS lädt die Seite nicht von selbst neu) kannte z.B. die Saison-Modi
+    // nicht und zeigte bei vorhandenem ladder "+0 Stufen" statt des Saison-Profits.
+    ladder: trackMode === "medals" ? computeLadder(active, sessionStart) : null,
+    daily: {
+      profit: is2v2 ? league2v2Profit : (daily.profit || 0),
+      wins,
+      losses,
+      winPct: wins + losses > 0 ? Math.round((wins / (wins + losses)) * 100) : 0,
+    },
+    // Der SQL-Query liefert immer "neueste zuerst"; last5Direction entscheidet nur noch, ob
+    // die Anzeige das so übernimmt (newestLeft, Standard: neuestes Spiel rutscht links rein,
+    // drückt den Rest nach rechts) oder umdreht (newestRight: chronologisch, neuestes rechts).
+    last5: (() => {
+      const stmt = is2v2 ? last5_2v2Stmt : isTrophyMode ? last5TrophyStmt : last5Stmt;
+      const rows = (challengeKey
+        ? last5ChallengeStmt.all(active.account_id, challengeKey, sessionStart)
+        : seasonalRow
+        ? last5SeasonalStmt.all(active.account_id, seasonalPrefix, sessionStart)
+        : stmt.all(active.account_id, sessionStart)).map((r) => {
+          const pub = battleRowToPublic(r);
+          // Spiele bis einschließlich Aufstiegsspiel waren noch Stufen-Spiele: als ±1 Stufe zeigen
+          // wie vor dem Aufstieg, nicht mit ihrem internen trophyChange (sonst plötzlich "+30").
+          if (ucProfitStart !== null && r.battle_time_ms < ucProfitStart) {
+            pub.trophyChange = r.result === "win" ? 1 : r.result === "loss" ? -1 : 0;
+          }
+          return pub;
+        });
+      return normalizeLast5Direction(settings.last5_direction) === "newestRight" ? rows.reverse() : rows;
+    })(),
+    // Deck des getrackten Modus — null, solange kein passendes Match gesynct wurde
+    // (dann blendet das Overlay das Modul einfach aus).
+    deck: resolveDeck(active, trackMode),
+    settings: {
+      showDailyProfit: !!settings.show_daily_profit,
+      showWinLossNumbers: !!settings.show_win_loss_numbers,
+      showWinLossPercent: !!settings.show_win_loss_percent,
+      showLast5: !!settings.show_last5,
+      // Pro Account gewählt — nicht global: das Overlay folgt dem aktiven Account
+      trackMode,
+      bgColor: settings.bg_color || "#0c0c12",
+      bgOpacity: typeof settings.bg_opacity === "number" ? settings.bg_opacity : 88,
+      bgGradient: !!settings.bg_gradient,
+      bgColor2: settings.bg_color_2 || "#1a1a2e",
+      // "" = automatisch (dezenter weißer Rand, von bgOpacity abgeleitet) — siehe
+      // normalizeBorderColor.
+      borderColor: settings.border_color || "",
+      last5Style: normalizeLast5Style(settings.last5_style),
+      showDeck: settings.show_deck === null || settings.show_deck === undefined ? true : !!settings.show_deck,
+      showProfile: settings.show_profile === null || settings.show_profile === undefined ? true : !!settings.show_profile,
+      deckPlacement: normalizeDeckPlacement(settings.deck_placement),
+      last5Direction: normalizeLast5Direction(settings.last5_direction),
+      last5NewBadge: settings.last5_new_badge === null || settings.last5_new_badge === undefined ? true : !!settings.last5_new_badge,
+      language: normalizeLanguage(settings.language),
+      showClan: !!settings.show_clan,
+      paginateOverlay: !!settings.paginate_overlay,
+      paginateIntervalS: normalizePaginateIntervalS(settings.paginate_interval_s),
+      ...themeSettings(settings),
+    },
+  };
+}
+
+/** overlayState für den aktiven Account eines Nutzers, { hasAccount: false } ohne aktiven Account. */
+function overlayStateForSettings(settings) {
+  const active = settings ? getActiveAccountByUser.get(settings.user_id) : null;
+  return active ? overlayState(settings, active) : { hasAccount: false };
+}
+
 module.exports = function createCrWinTrackerRouter({ requireAuth: requireLogin, isAdmin = () => false } = {}) {
   const router = express.Router();
 
@@ -1662,6 +1859,8 @@ module.exports = function createCrWinTrackerRouter({ requireAuth: requireLogin, 
         showClan: !!settings.show_clan,
         chatChannel: settings.chat_channel || "",
         chatEnabled: !!settings.chat_enabled,
+        viewerCommands: viewerCmds.normalizeViewerCommands(settings.viewer_cmds),
+        viewerCooldownS: viewerCmds.normalizeCooldownS(settings.viewer_cooldown_s),
         paginateOverlay: !!settings.paginate_overlay,
         paginateIntervalS: normalizePaginateIntervalS(settings.paginate_interval_s),
         ...themeSettings(settings),
@@ -1780,6 +1979,10 @@ module.exports = function createCrWinTrackerRouter({ requireAuth: requireLogin, 
     );
     updateThemeStmt.run(normalizeOverlayTheme(s.overlayTheme), normalizeRoyalePanel(s.royalePanel), s.royalePattern === false ? 0 : 1, s.squareCorners ? 1 : 0, normalizeOverlayScale(s.overlayScale),
       normalizeOverlayDim(s.overlayWidth, "width"), normalizeOverlayDim(s.overlayHeight, "height"), userId);
+    // Ein Editor von vor den Zuschauer-Befehlen (offener Tab) schickt das Feld nicht mit — dann bleibt die Wahl stehen
+    if (Array.isArray(s.viewerCommands)) {
+      updateViewerCmdsStmt.run(viewerCmds.normalizeViewerCommands(s.viewerCommands).join(","), viewerCmds.normalizeCooldownS(s.viewerCooldownS), userId);
+    }
     // Kanal-Joins des gemeinsamen IRC-Bots sofort abgleichen (kein Neustart nötig).
     try { require("../../lib/winchallengeIrc").refreshChannels(); } catch { /* IRC optional */ }
     res.json({ ok: true });
@@ -1863,6 +2066,18 @@ module.exports = function createCrWinTrackerRouter({ requireAuth: requireLogin, 
     res.json({ ok: true, account: accountSummary(getAccountById.get(row.account_id)) });
   });
 
+  // Crown-Series-Liga von Hand setzen (die API kennt sie nicht): 0 = keine, 1–13.
+  router.put("/accounts/:accountId/crown-league", requireAuth, (req, res) => {
+    const row = ownAccount(req, res);
+    if (!row) return;
+    const league = Number(req.body?.league);
+    if (!Number.isInteger(league) || league < 0 || league > CROWN_LEAGUE_COUNT) {
+      return res.status(400).json({ error: "Ungültige Liga" });
+    }
+    setCrownLeagueStmt.run(league, row.account_id);
+    res.json({ ok: true, account: accountSummary(getAccountById.get(row.account_id)) });
+  });
+
   // Manueller Session-Reset: setzt den Sessionbeginn auf "jetzt", ohne auf die automatische
   // 4h-Pausen-Regel zu warten (siehe computeSessionStartMs/compute2v2SessionStartMs/
   // computeTrophySessionStartMs oben) — für wer vor Stream-Start schon ein paar Spiele gespielt
@@ -1898,145 +2113,7 @@ module.exports = function createCrWinTrackerRouter({ requireAuth: requireLogin, 
       active = getAccountById.get(active.account_id);
     }
 
-    // Generischer saisonaler Modus: eigene Zeile + eigene Statistik über seasonal_prefix. Fehlt die
-    // Zeile (sollte nicht vorkommen), lieber Ranked zeigen als einen leeren Kopf.
-    let trackMode = resolveTrackMode(active);
-    const seasonalPrefix = seasonalPrefixOf(trackMode);
-    const seasonalRow = seasonalPrefix ? getSeasonalRowStmt.get(active.account_id, seasonalPrefix) : null;
-    if (seasonalPrefix && !seasonalRow) trackMode = "medals";
-    // Challenge: Statistik über challenge_key, Kopf zeigt den aktuellen Run (siehe challengeInfo)
-    const challengeKey = challengeKeyOf(trackMode);
-    const is2v2 = trackMode === "2v2";
-    const isTrophyMode = trackMode === "trophies";
-    // Jeder Modus hat seine eigene Session/Statistik (siehe daily2v2Stmt/last5_2v2Stmt bzw.
-    // dailyTrophyStmt/last5TrophyStmt oben) — medals bleibt bei den ursprünglichen Ranked1v1-
-    // Statements. trophies lief früher fälschlich MIT über dieselben Ranked1v1-Abfragen wie
-    // medals (zwei unabhängige Fortschritte teilten sich eine Statistik).
-    //
-    // medals-Sonderfall Liga 6 -> Ultimate Champion MITTEN in einer laufenden Session: unterhalb
-    // von UC zeigt das Overlay Stufen (ladder.sessionDelta), dailyStatsStmt/last5Stmt laufen zwar
-    // im Hintergrund schon mit, werden aber nicht angezeigt. Die einzelnen Ranked-Matches tragen
-    // aber von Anfang an ihr echtes trophyChange (Supercell führt intern offenbar durchgehend
-    // Medaillen, auch unterhalb UC — nur die Stufenanzeige blendet das aus). Sobald computeLadder
-    // ab UC null liefert, schwenkt das Overlay auf dailyStatsStmt/last5Stmt um — ohne Anpassung
-    // hier zählte das dann rückwirkend ALLE Stufen-Siege dieser Session mit ihrem echten
-    // trophyChange (Bug: 7 Stufen-Siege vor dem Aufstieg erschienen instant als "+210", jedes
-    // davon in "letzte 5" plötzlich als "+30" statt der bis dahin gezeigten Stufe). ladder_anchor_ms
-    // wird bei JEDEM Liga-Wechsel neu gesetzt (siehe reanchorLadder in syncAccount) — ist die
-    // aktuelle Liga schon UC, ist das exakt der Aufstiegszeitpunkt (= Zeitstempel des
-    // Aufstiegsspiels selbst). NUR der Medaillen-Profit startet dort neu, und zwar STRIKT danach
-    // (+1): mit ">=" zählte das Aufstiegsspiel als erstes UC-Spiel mit (direkt "+30", obwohl man
-    // gerade erst angekommen war). Win/Loss + letzte 5 laufen über die ganze Session weiter — der
-    // Aufstieg ist kein Session-Ende; nur die Stufen-Anzeige wird durch den Medaillen-Profit ersetzt.
-    const sessionStart = challengeKey ? computeChallengeSessionStartMs(active, challengeKey)
-      : seasonalRow ? computeSeasonalSessionStartMs(active.account_id, seasonalPrefix, seasonalRow)
-      : is2v2 ? compute2v2SessionStartMs(active.account_id)
-      : isTrophyMode ? computeTrophySessionStartMs(active.account_id)
-      : computeSessionStartMs(active.account_id);
-    const ucProfitStart = !challengeKey && !seasonalRow && !is2v2 && !isTrophyMode && ladderStepCount(active.league_number) === 0
-      && (active.ladder_anchor_ms || 0) >= sessionStart
-      ? active.ladder_anchor_ms + 1
-      : null;
-    const daily = challengeKey ? dailyChallengeStmt.get(active.account_id, challengeKey, sessionStart)
-      : seasonalRow ? dailySeasonalStmt.get(active.account_id, seasonalPrefix, sessionStart)
-      : is2v2 ? daily2v2Stmt.get(active.account_id, sessionStart)
-      : isTrophyMode ? dailyTrophyStmt.get(active.account_id, sessionStart)
-      : dailyStatsStmt.get(active.account_id, sessionStart);
-    if (ucProfitStart !== null) daily.profit = dailyStatsStmt.get(active.account_id, ucProfitStart).profit;
-    const wins = daily.wins || 0, losses = daily.losses || 0;
-    // 2v2-Profit kommt NICHT aus SUM(trophy_change) wie bei den anderen Modi (daily.profit oben),
-    // sondern direkt aus dem Kontostand-Anker (siehe updateLeague2v2SessionAnchor) — unabhängig
-    // davon, ob battlelog für einzelne Matches ein trophyChange kennt. wins/losses bleiben aus
-    // daily2v2Stmt (crowns-basiert, nie vom team[0]/team[1]-Problem betroffen, siehe
-    // applyLeague2v2Deltas). null, solange seit dem aktuellen Sessionbeginn noch kein Sync
-    // gelaufen ist — dann zeigt das Overlay vorübergehend 0, bis der nächste Sync den Anker setzt.
-    const league2v2Anchor = is2v2 ? league2v2SessionAnchorFor(active, sessionStart) : null;
-    const league2v2Profit = league2v2Anchor === null ? 0 : (active.league2v2_trophies || 0) - league2v2Anchor;
-
-    res.json({
-      hasAccount: true,
-      playerName: active.player_name || active.player_tag,
-      playerTag: active.player_tag,
-      trophies: active.trophies,
-      bestTrophies: active.best_trophies,
-      seasonMedals: active.season_medals,
-      leagueNumber: active.league_number,
-      polRank: active.pol_rank,
-      // Clan-Header-Zusatz (siehe show_clan in settings) — clanName leer heißt "kein Clan".
-      clanName: active.clan_name || "",
-      clanBadgeId: active.clan_badge_id ?? null,
-      // 2v2 Ranked: eigener Medaillen-Stand, unabhängig von trophies/seasonMedals oben.
-      league2v2Trophies: active.league2v2_trophies || 0,
-      league2v2BestTrophies: active.league2v2_best_trophies || 0,
-      // Generischer saisonaler Modus (Name, Stand, Stufe) — null bei medals/trophies/2v2.
-      seasonal: seasonalRow ? seasonalInfo(seasonalRow) : null,
-      // Challenge (Classic/Grand/20 Win): Siege + Niederlagen des aktuellen Runs, Versuch in der
-      // Session, bester Run der Session — null bei allen anderen Modi.
-      challenge: challengeKey ? challengeInfo(active, challengeKey, sessionStart) : null,
-      // Ligen 1-6: Stufen statt Medaillen (null ab Ultimate Champion) — computeLadder ist
-      // 1v1-Ranked-spezifisch (greift nur bei league_number 1-6) und braucht daher IMMER den
-      // Ranked1v1-Sessionbeginn, unabhängig davon, welchen Modus der aktive Account gerade trackt
-      // (medals ist der einzige, bei dem sessionStart oben bereits der Ranked1v1-Wert ist).
-      // Nur bei medals mitschicken: alle anderen Modi zeigen nie Stufen. Ein noch offenes Overlay mit
-      // älterem Frontend-Code (OBS lädt die Seite nicht von selbst neu) kannte z.B. die Saison-Modi
-      // nicht und zeigte bei vorhandenem ladder "+0 Stufen" statt des Saison-Profits.
-      ladder: trackMode === "medals" ? computeLadder(active, sessionStart) : null,
-      daily: {
-        profit: is2v2 ? league2v2Profit : (daily.profit || 0),
-        wins,
-        losses,
-        winPct: wins + losses > 0 ? Math.round((wins / (wins + losses)) * 100) : 0,
-      },
-      // Der SQL-Query liefert immer "neueste zuerst"; last5Direction entscheidet nur noch, ob
-      // die Anzeige das so übernimmt (newestLeft, Standard: neuestes Spiel rutscht links rein,
-      // drückt den Rest nach rechts) oder umdreht (newestRight: chronologisch, neuestes rechts).
-      last5: (() => {
-        const stmt = is2v2 ? last5_2v2Stmt : isTrophyMode ? last5TrophyStmt : last5Stmt;
-        const rows = (challengeKey
-          ? last5ChallengeStmt.all(active.account_id, challengeKey, sessionStart)
-          : seasonalRow
-          ? last5SeasonalStmt.all(active.account_id, seasonalPrefix, sessionStart)
-          : stmt.all(active.account_id, sessionStart)).map((r) => {
-            const pub = battleRowToPublic(r);
-            // Spiele bis einschließlich Aufstiegsspiel waren noch Stufen-Spiele: als ±1 Stufe zeigen
-            // wie vor dem Aufstieg, nicht mit ihrem internen trophyChange (sonst plötzlich "+30").
-            if (ucProfitStart !== null && r.battle_time_ms < ucProfitStart) {
-              pub.trophyChange = r.result === "win" ? 1 : r.result === "loss" ? -1 : 0;
-            }
-            return pub;
-          });
-        return normalizeLast5Direction(settings.last5_direction) === "newestRight" ? rows.reverse() : rows;
-      })(),
-      // Deck des getrackten Modus — null, solange kein passendes Match gesynct wurde
-      // (dann blendet das Overlay das Modul einfach aus).
-      deck: resolveDeck(active, trackMode),
-      settings: {
-        showDailyProfit: !!settings.show_daily_profit,
-        showWinLossNumbers: !!settings.show_win_loss_numbers,
-        showWinLossPercent: !!settings.show_win_loss_percent,
-        showLast5: !!settings.show_last5,
-        // Pro Account gewählt — nicht global: das Overlay folgt dem aktiven Account
-        trackMode,
-        bgColor: settings.bg_color || "#0c0c12",
-        bgOpacity: typeof settings.bg_opacity === "number" ? settings.bg_opacity : 88,
-        bgGradient: !!settings.bg_gradient,
-        bgColor2: settings.bg_color_2 || "#1a1a2e",
-        // "" = automatisch (dezenter weißer Rand, von bgOpacity abgeleitet) — siehe
-        // normalizeBorderColor.
-        borderColor: settings.border_color || "",
-        last5Style: normalizeLast5Style(settings.last5_style),
-        showDeck: settings.show_deck === null || settings.show_deck === undefined ? true : !!settings.show_deck,
-        showProfile: settings.show_profile === null || settings.show_profile === undefined ? true : !!settings.show_profile,
-        deckPlacement: normalizeDeckPlacement(settings.deck_placement),
-        last5Direction: normalizeLast5Direction(settings.last5_direction),
-        last5NewBadge: settings.last5_new_badge === null || settings.last5_new_badge === undefined ? true : !!settings.last5_new_badge,
-        language: normalizeLanguage(settings.language),
-        showClan: !!settings.show_clan,
-        paginateOverlay: !!settings.paginate_overlay,
-        paginateIntervalS: normalizePaginateIntervalS(settings.paginate_interval_s),
-        ...themeSettings(settings),
-      },
-    });
+    res.json(overlayState(settings, active));
   });
 
   return router;
@@ -2050,6 +2127,9 @@ module.exports.runBackgroundSyncOnce = runBackgroundSyncOnce;
 // Erstbefüllungs-Logik wie POST /accounts, kein zweites Mal ausgeschrieben.
 module.exports.addAccountForUser = addAccountForUser;
 module.exports.accountSummary = accountSummary;
+// Zahlen des Overlays für die Zuschauer-Befehle im Chat (winTrackerChat.js: !rang, !session, !deck, !rekord)
+module.exports.overlayState = overlayState;
+module.exports.overlayStateForSettings = overlayStateForSettings;
 // Für die Startup-Logzeile in index.js — als Zahl statt eines zweiten, von Hand gepflegten
 // Textbausteins ("alle X min/s"), sonst genau das Problem, das schon einmal auftrat: der Wert
 // wurde geändert, aber eine ANDERE Stelle sagte im Log weiter den alten.

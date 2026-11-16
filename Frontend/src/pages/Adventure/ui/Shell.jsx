@@ -3,6 +3,7 @@
 import React, { useMemo, useState } from "react";
 import { Link, Outlet } from "react-router-dom";
 import { ShellContext } from "./shellContext.js";
+import VolumeControl from "./VolumeControl.jsx";
 import "./theme.css";
 import { useFontLink } from "../../../components/shell/useFontLink";
 import BackToSite from "../../../components/shell/BackToSite";
@@ -24,7 +25,8 @@ export default function AdventureShell() {
           <header className="av-topbar shrink-0">
             <div className="max-w-[1400px] mx-auto px-4 h-12 flex items-center gap-3">
               <Link to="/adventures" className="av-logo" title="Hauptmenü">ad<b>V</b>entures</Link>
-              <BackToSite className="av-btn av-btn-stone av-btn-sm ml-auto" iconSize={15} />
+              <VolumeControl rangeOnSmall={false} className="ml-auto mr-2" />
+              <BackToSite className="av-btn av-btn-stone av-btn-sm" iconSize={15} />
             </div>
           </header>
         )}

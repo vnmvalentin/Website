@@ -9,12 +9,14 @@ module.exports = function createFeedbackRouter() {
 
   // Allgemeines Feedback (sendet an Discord)
   router.post("/main", async (req, res) => {
-      const { message, user } = req.body;
-      const username = user || "Anonym";
-
-      if (!message || message.trim().length === 0) {
+      const { message: rohNachricht, user } = req.body || {};
+      // Discord nimmt je Embed-Feld höchstens 1024 Zeichen — längere Nachrichten scheiterten früher mit Fehler 500.
+      // Kein Text (z. B. ein Objekt) wurde vorher erst bei .trim() mit Fehler 500 abgewiesen.
+      if (typeof rohNachricht !== "string" || rohNachricht.trim().length === 0) {
           return res.status(400).json({ error: "Nachricht darf nicht leer sein." });
       }
+      const message = rohNachricht.length > 1000 ? `${rohNachricht.slice(0, 1000)}…` : rohNachricht;
+      const username = typeof user === "string" && user.trim() ? user.trim().slice(0, 100) : "Anonym";
       
       if (!WEBHOOK_URL_MAIN || WEBHOOK_URL_MAIN.includes("HIER")) {
           console.error("Discord Webhook URL (Main) wurde nicht konfiguriert!");

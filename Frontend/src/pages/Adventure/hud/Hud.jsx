@@ -5,10 +5,12 @@
 // Zeit und Schwierigkeit, unten Mitte die Fähigkeiten und der Hinweis für E. Aufgehobene Items zeigt hud/ItemReveal.jsx.
 
 import React, { useState } from "react";
+import { Pause } from "lucide-react";
 import { ITEMS, RARITY } from "../data/items.js";
 import { EQUIPMENT } from "../data/equipment.js";
 import { SLOT_KEYS } from "../data/kits.js";
 import FlatSprite from "../ui/FlatSprite.jsx";
+import VolumeControl from "../ui/VolumeControl.jsx";
 import { WEAPONS, TALENTS, MAX_WEAPONS, MAX_TALENTS } from "../data/weapons.js";
 import { ItemIcon, EquipmentIcon, AbilityIcon, UpgradeIcon } from "../ui/icons.jsx";
 import { fmtTime } from "../engine/util.js";
@@ -69,17 +71,18 @@ function ItemsGrid({ items }) {
 // Waffen (oben) und Talente (unten) mit Stufenbalken; leere Plätze zeigen, wie viele noch frei sind
 function LoadoutRow({ kind, list, max, onHover }) {
   const defs = kind === "weapon" ? WEAPONS : TALENTS;
+  const size = max > 4 ? 30 : 36; // sechs Waffenplätze müssen in dieselbe Breite passen wie vier Talente
   return (
-    <div className="flex items-center gap-[9px]">
+    <div className="flex items-center" style={{ gap: max > 4 ? 6 : 9 }}>
       <span className="w-[54px] text-[11px] uppercase tracking-[0.1em] av-faint">{kind === "weapon" ? "Waffen" : "Talente"}</span>
       {Array.from({ length: max }, (_, i) => {
         const it = list[i];
-        if (!it) return <span key={i} className="w-[36px] h-[36px] shrink-0 shadow-[inset_0_0_0_2px_var(--av-stone-3)]" />;
+        if (!it) return <span key={i} className="shrink-0 shadow-[inset_0_0_0_2px_var(--av-stone-3)]" style={{ width: size, height: size }} />;
         const def = defs[it.id];
         const top = kind === "weapon" ? def.levels.length : def.max;
         return (
           <span key={it.id} className="relative" style={{ "--acc": def.color }} onMouseEnter={() => onHover({ kind, ...it })}>
-            <UpgradeIcon kind={kind} id={it.id} size={36} />
+            <UpgradeIcon kind={kind} id={it.id} size={size} />
             <span className="av-pips">{Array.from({ length: top }, (_, k) => <i key={k} className={k < it.level ? "on" : ""} />)}</span>
           </span>
         );
@@ -130,11 +133,11 @@ function WorldStatus({ hud }) {
   );
 }
 
-function CenterTop({ hud }) {
+function CenterTop({ hud, compact = false, touch = false }) {
   if (hud.boss) {
     const b = hud.boss;
     return (
-      <div className="w-[min(560px,46vw)] av-hud-panel px-3 pt-2 pb-2.5">
+      <div className={`${compact ? "w-full max-w-[560px]" : "w-[min(560px,46vw)]"} av-hud-panel px-3 pt-2 pb-2.5`}>
         <div className="flex items-baseline justify-between gap-3 mb-1">
           <span className="av-title text-[18px]" style={{ color: b.phase2 ? "#ff5a4a" : "var(--av-ink)" }}>{b.name}</span>
           <span className="text-[13px] av-faint truncate">{b.title}</span>
@@ -148,13 +151,75 @@ function CenterTop({ hud }) {
   let text = null;
   if (t.state === "idle") text = t.discovered ? "Finde Kisten — oder aktiviere den Teleporter" : "Erkunde die Welt und finde den Teleporter";
   if (t.state === "charging") text = `Teleporter lädt · ${Math.floor(t.charge * 100)} % · bleib im Kreis (noch ${Math.ceil((1 - t.charge) * CHARGE_TIME)} s)`;
-  if (t.state === "ready") text = t.final ? "Sieg! Der Teleporter führt in den nächsten Zyklus" : "Teleporter bereit — mit E weiterreisen";
+  if (t.state === "ready") text = t.final ? "Sieg! Der Teleporter führt in den nächsten Zyklus" : touch ? "Teleporter bereit — mit „Benutzen“ weiterreisen" : "Teleporter bereit — mit E weiterreisen";
   if (!text) return null;
-  return <div className="av-hud-panel px-4 py-2 text-[15px] av-num" style={{ color: t.state === "ready" ? "var(--av-moss)" : t.state === "charging" ? "var(--av-torch)" : "var(--av-dim)" }}>{text}</div>;
+  return <div className={`av-hud-panel av-num ${compact ? "px-3 py-1.5 text-[13px] text-center" : "px-4 py-2 text-[15px]"}`} style={{ color: t.state === "ready" ? "var(--av-moss)" : t.state === "charging" ? "var(--av-torch)" : "var(--av-dim)" }}>{text}</div>;
 }
 
-export default function Hud({ hud, kit, skin = "", banner }) {
+// Waffen/Talente und Items für das Pausenmenü am Handy (dort stehen sie statt dauerhaft im Bild)
+export function HudLoadout({ hud }) {
   if (!hud) return null;
+  return (
+    <div className="flex flex-col gap-3">
+      <Loadout weapons={hud.weapons} talents={hud.talents} />
+      <ItemsGrid items={hud.items} />
+    </div>
+  );
+}
+
+// Handy (RunScreen „kompakt“): eine Leiste oben — Held mit Leben und Erfahrung, Zeit und Gefahr, Pause und Ton —,
+// darunter mittig Boss, Teleporter, Champion und Meldungen. Wo die Mitte beginnt, setzt RunScreen über
+// --av-center-top/--av-center-side (rechts liegt im Querformat die Minikarte des Zeichners).
+function CompactHud({ hud, kit, skin, banner, touch, onPause }) {
+  const xpPct = hud.xpNext > 0 ? hud.xp / hud.xpNext : 0;
+  return (
+    <div className="av-hud">
+      <div className="av-hud-compact">
+        <div className="av-hud-panel av-hc-hero">
+          <div className="relative w-9 h-9 shrink-0 av-slot flex items-center justify-center">
+            <FlatSprite kind="hero" id={kit.id} skin={skin} size={32} />
+            <span className="absolute -bottom-1.5 -right-1.5 px-1 text-[11px] leading-[13px] bg-[var(--av-torch)] text-[#231305] av-num">{hud.level}</span>
+          </div>
+          <div className="flex-1 min-w-0">
+            <Bar value={hud.hp} max={hud.maxHp} color={hud.hp / hud.maxHp < 0.3 ? "#ff5a4a" : "#c7392f"}
+              label={`${Math.ceil(hud.hp)} / ${hud.maxHp}`} extra={hud.shield} extraColor="#5ec8ff" />
+            <div className="av-xpbar av-xpbar-sm mt-1"><i style={{ width: `calc(${xpPct * 100}% - 4px)` }} /></div>
+            <div className="mt-1 flex items-center gap-2 text-[12px] leading-none av-num">
+              <span className="flex items-center gap-1 av-gold"><span className="av-coin av-coin-sm" aria-hidden="true" />{hud.gold}</span>
+              {hud.streak >= 10 && <span style={{ color: "#5ec8ff" }}>Serie {hud.streak}</span>}
+              <span className="ml-auto av-faint truncate">{hud.kills} Kills</span>
+            </div>
+          </div>
+        </div>
+        <div className="av-hud-panel av-hc-time">
+          <div className="av-title text-[20px] av-num leading-none">{fmtTime(hud.time)}</div>
+          <div className="mt-1 text-[12px] leading-tight" style={{ color: hud.tier.index >= 7 ? "#ff5a4a" : hud.tier.index >= 4 ? "var(--av-torch)" : "var(--av-ink)" }}>{hud.tier.label}</div>
+          <div className="mt-0.5 text-[11px] leading-tight av-dim">{hud.loop > 0 ? `Z${hud.loop + 1} · ` : ""}Welt {hud.stageIndex + 1}</div>
+        </div>
+        <div className="av-hc-buttons">
+          <button type="button" className="av-volume-btn av-hc-btn" onClick={onPause} aria-label="Pause"><Pause size={18} /></button>
+          <VolumeControl compact buttonOnly />
+        </div>
+      </div>
+      <div className="av-hc-center">
+        <CenterTop hud={hud} compact touch={touch} />
+        <WorldStatus hud={hud} />
+        {banner && (
+          <div className="av-banner mt-3" key={banner.key}>
+            <div className="av-title text-[24px]" style={{ color: banner.color || "var(--av-ink)" }}>{banner.title}</div>
+            {banner.sub && <div className="mt-1 text-[14px] av-dim">{banner.sub}</div>}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// touch: am Handy übernehmen hud/TouchControls.jsx die Fähigkeiten-Leiste und den Hinweis für E.
+// compact: kleiner Bildschirm (RunScreen) — schmale Leiste oben, Waffen und Items im Pausenmenü (HudLoadout).
+export default function Hud({ hud, kit, skin = "", banner, touch = false, compact = false, onPause }) {
+  if (!hud) return null;
+  if (compact) return <CompactHud hud={hud} kit={kit} skin={skin} banner={banner} touch={touch} onPause={onPause} />;
   const xpPct = hud.xpNext > 0 ? hud.xp / hud.xpNext : 0;
   const tierPct = Math.round(hud.tier.progress * 100);
   return (
@@ -175,7 +240,10 @@ export default function Hud({ hud, kit, skin = "", banner }) {
           </div>
           <div className="mt-2.5 flex items-center justify-between text-[15px]">
             <span className="flex items-center gap-1.5 av-gold av-num"><span className="av-coin" aria-hidden="true" />{hud.gold}</span>
-            <span className="av-faint text-[13px] av-num">{hud.kills} Kills</span>
+            <span className="av-faint text-[13px] av-num">
+              {hud.streak >= 10 && <b className="font-normal text-[15px] mr-2" style={{ color: "#5ec8ff" }}>Serie {hud.streak}</b>}
+              {hud.kills} Kills
+            </span>
           </div>
         </div>
         <Loadout weapons={hud.weapons} talents={hud.talents} />
@@ -204,10 +272,11 @@ export default function Hud({ hud, kit, skin = "", banner }) {
           ))}
         </div>
         <div className="mt-2 text-[14px] av-dim">{hud.loop > 0 ? `Zyklus ${hud.loop + 1} · ` : ""}Welt {hud.stageIndex + 1} · {hud.stageName}</div>
+        <VolumeControl compact className="mt-2.5 w-full" />
       </div>
 
       {/* Unten Mitte: Hinweis + Fähigkeiten */}
-      <div className="absolute bottom-5 left-1/2 -translate-x-1/2 flex flex-col items-center gap-4">
+      {!touch && <div className="absolute bottom-5 left-1/2 -translate-x-1/2 flex flex-col items-center gap-4">
         {hud.prompt && (
           <div className="av-hud-panel px-4 py-2 flex items-center gap-3 text-[15px]">
             <span className="px-1.5 bg-[var(--av-ink)] text-[var(--av-edge)] text-[13px]">E</span>
@@ -232,7 +301,7 @@ export default function Hud({ hud, kit, skin = "", banner }) {
             )}
           </div>
         </div>
-      </div>
+      </div>}
     </div>
   );
 }

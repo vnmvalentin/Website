@@ -7,6 +7,7 @@
 import { CREATURES, BOSS_LOOK } from "./creatures.js";
 import { drawHero, drawDecoy } from "./heroes.js";
 import { SKINS } from "../../data/skins.js";
+import { ENEMIES } from "../../data/enemies.js";
 
 function paint(c, spec, p) {
   if (spec.kind === "hero") return drawHero(c, spec.id, { ...p, pal: spec.skin && SKINS[spec.skin] ? SKINS[spec.skin].pal : p.pal });
@@ -15,7 +16,69 @@ function paint(c, spec, p) {
     const look = BOSS_LOOK[spec.id] || BOSS_LOOK.necromancer;
     return CREATURES[look.fig](c, { ...p, pal: { ...look.pal, ...p.pal }, boss: true });
   }
+  // Gegner mit fig + pal (data/enemies.js) sind Farbvarianten einer vorhandenen Figur
+  const def = ENEMIES[spec.id];
+  if (def?.fig) return CREATURES[def.fig](c, { ...p, pal: { ...def.pal, ...p.pal } });
   return (CREATURES[spec.id] || CREATURES.slime)(c, p);
+}
+
+// ── Stempeln ────────────────────────────────────────────────────────────────
+// Eine Horde aus hunderten Figuren jedes Bild neu aus Pfaden zu zeichnen ist zu teuer. Kleine Gegner im Normalzustand
+// (laufen oder stehen, kein Angriff) werden darum einmal je Animationsschritt auf eine eigene Fläche gezeichnet und
+// danach nur noch als Bild gestempelt. Die Animation läuft als Schleife über 2π Sekunden — alle Lauf-Formeln in
+// creatures.js nutzen ganzzahlige Frequenzen, die Schleife schließt also ohne Sprung.
+const STAMP_LOOP = Math.PI * 2;
+const STAMP_FRAMES = Math.round(STAMP_LOOP * 12); // 12 Bilder pro Sekunde
+const STAMP_MAX_RES = 1.25; // darüber wird hochskaliert (bei kleinen Figuren kaum sichtbar, spart viel Speicher)
+const STAMP_MAX_BYTES = 80e6;
+const FLASH_STEP = 9; // Aufblitzen dauert 0,08 s — dafür reicht jedes 9. Bild
+const stamps = new Map();
+let stampBytes = 0;
+
+export function clearStamps() {
+  stamps.clear();
+  stampBytes = 0;
+}
+
+function bakeStamp(entry, spec, frame, move, flash) {
+  const cv = document.createElement("canvas");
+  cv.width = entry.W; cv.height = entry.H;
+  const o = cv.getContext("2d");
+  const k = (entry.size / 100) * entry.res;
+  o.setTransform(k, 0, 0, k, entry.W / 2, entry.H - entry.size * 0.25 * entry.res);
+  paint(o, spec, { t: (frame / STAMP_FRAMES) * STAMP_LOOP, move, atk: -1, pose: "move" });
+  if (flash) {
+    o.setTransform(1, 0, 0, 1, 0, 0);
+    o.globalCompositeOperation = "source-atop";
+    o.globalAlpha = 0.75;
+    o.fillStyle = "#ffffff";
+    o.fillRect(0, 0, entry.W, entry.H);
+  }
+  stampBytes += entry.W * entry.H * 4;
+  return cv;
+}
+
+// Wie drawFigure, aber aus dem Stempelvorrat: x, y = Fußpunkt, size = Figurenhöhe, t = Animationszeit der Figur,
+// flash = gerade getroffen (weiß), res = Pixel pro Einheit der aktuellen Transformation
+export function drawFigureStamp(c, spec, x, y, size, facing, t, move, flash, res) {
+  const rq = Math.min(STAMP_MAX_RES, Math.max(0.5, Math.round(res * 8) / 8));
+  const key = `${spec.id}|${Math.round(size * 4)}|${rq}`;
+  let entry = stamps.get(key);
+  if (!entry) {
+    if (stampBytes > STAMP_MAX_BYTES) clearStamps();
+    entry = { size, res: rq, W: Math.ceil(size * 2.4 * rq), H: Math.ceil(size * 1.6 * rq), sets: [[], [], [], []] };
+    stamps.set(key, entry);
+  }
+  let frame = Math.floor((((t % STAMP_LOOP) + STAMP_LOOP) % STAMP_LOOP) / STAMP_LOOP * STAMP_FRAMES) % STAMP_FRAMES;
+  if (flash) frame -= frame % FLASH_STEP;
+  const set = entry.sets[(move ? 1 : 0) + (flash ? 2 : 0)];
+  const img = set[frame] || (set[frame] = bakeStamp(entry, spec, frame, move, flash));
+  const dw = entry.W / rq, dh = entry.H / rq;
+  if (facing < 0) {
+    c.save(); c.translate(x, y); c.scale(-1, 1);
+    c.drawImage(img, -dw / 2, -(dh - size * 0.25), dw, dh);
+    c.restore();
+  } else c.drawImage(img, x - dw / 2, y - (dh - size * 0.25), dw, dh);
 }
 
 let scratch = null;

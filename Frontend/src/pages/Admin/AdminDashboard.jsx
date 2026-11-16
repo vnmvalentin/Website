@@ -4,7 +4,7 @@ import { TwitchAuthContext } from "../../components/TwitchAuthContext";
 import {
   Radio, Gamepad2, Eye, LayoutDashboard, Swords, Sprout,
   Trophy, Grid3x3, Crown, Search, RefreshCw, Trash2, Pencil, ExternalLink,
-  Users, SlidersHorizontal, Globe, Lock, Flag, BarChart3, Clapperboard,
+  Users, SlidersHorizontal, Globe, Lock, Flag, BarChart3, Clapperboard, Bug, Gauge, Bot,
 } from "lucide-react";
 import { io } from "socket.io-client";
 import SEO from "../../components/SEO";
@@ -12,6 +12,10 @@ import GardenAdminPanel from "../GardenGame/GardenAdminPanel";
 import ModerationPanel from "../SeedRunners/mod/ModerationPanel.jsx";
 import TournamentCreatorsPanel from "../ClashRoyale/tournament/TournamentCreatorsPanel.jsx";
 import AnalyticsPanel from "./AnalyticsPanel.jsx";
+import FehlerPanel from "./FehlerPanel.jsx";
+import LeistungPanel from "./LeistungPanel.jsx";
+import SpielePanel from "./SpielePanel.jsx";
+import DiscordPanel from "./DiscordPanel.jsx";
 
 // DEINE ID
 import { STREAMER_ID } from "../../config/owner";
@@ -19,12 +23,16 @@ import { STREAMER_ID } from "../../config/owner";
 const SECTIONS = [
   { id: "overview", label: "Übersicht", icon: LayoutDashboard },
   { id: "analytics", label: "Besucher", icon: BarChart3 },
+  { id: "spiele", label: "Spiele", icon: Gamepad2 },
+  { id: "fehler", label: "Fehler", icon: Bug },
+  { id: "leistung", label: "Leistung", icon: Gauge },
   { id: "adventures", label: "adVentures", icon: Swords },
   { id: "garden", label: "Virtual Farm", icon: Sprout },
   { id: "winchallenge", label: "Win-Challenges", icon: Trophy },
   { id: "bingo", label: "Bingo", icon: Grid3x3 },
   { id: "clashroyale", label: "Clash Royale", icon: Crown },
   { id: "seedrunners", label: "Seed Runners", icon: Flag },
+  { id: "discord", label: "Discord-Bot", icon: Bot },
   { id: "broadcast", label: "Broadcast", icon: Radio },
 ];
 
@@ -287,6 +295,13 @@ export default function AdminDashboard() {
   const renderContent = () => {
       // BESUCHER TAB — holt sich seine Daten selbst und steht deshalb vor den Prüfungen auf `data`
       if (activeTab === "analytics") return <AnalyticsPanel />;
+      // FEHLER TAB — ebenso selbstständig (Backend/fehler)
+      if (activeTab === "fehler") return <FehlerPanel />;
+      // LEISTUNG TAB — ebenso selbstständig (Backend/leistung)
+      if (activeTab === "leistung") return <LeistungPanel />;
+      // SPIELE und DISCORD-BOT — ebenso selbstständig (Backend/admin/routes.js)
+      if (activeTab === "spiele") return <SpielePanel />;
+      if (activeTab === "discord") return <DiscordPanel />;
 
       if (fetchLoading) return <div className="p-8 text-center animate-pulse text-accent-soft font-semibold">Lade Daten aus der Datenbank...</div>;
 
@@ -881,7 +896,8 @@ export default function AdminDashboard() {
                       <activeSection.icon size={18} className="text-accent-soft" /> {activeSection.label}
                   </h2>
 
-                  {!["broadcast", "seedrunners", "analytics"].includes(activeTab) && (
+                  {/* Die Suche filtert nur die Listen dieser Datei; Reiter mit eigenem Panel haben keine */}
+                  {!["broadcast", "seedrunners", "analytics", "spiele", "fehler", "leistung", "discord"].includes(activeTab) && (
                       <div className="relative w-full sm:w-72">
                           <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/30" />
                           <input

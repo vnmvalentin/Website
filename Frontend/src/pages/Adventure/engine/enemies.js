@@ -2,18 +2,20 @@
 // aus (Kreis am Boden), Stürmer zeigen ihre Bahn, Explodierer leuchten vor der Detonation.
 
 import { ENEMIES, ELITE_AFFIX_IDS, ELITE_AFFIXES } from "../data/enemies.js";
-import { enemyHpMult, enemyDmgMult } from "./difficulty.js";
+import { enemyHpMult, fodderHpMult, enemyDmgMult } from "./difficulty.js";
 import { hurtPlayer, addHazard, addZone, killEnemy, tickEnemyStatus } from "./combat.js";
 import { spawnEnemyBullet } from "./projectiles.js";
 import { lightning, floatText, burst } from "./fx.js";
 import { updateBoss, spiderQueen } from "./bosses/index.js";
 import { dist, dist2, distToSegment, clamp } from "./util.js";
 import { ascEnemyHp } from "./ascension.js";
+import { enemyGrid, markGridDirty, collectObstacles } from "./grid.js";
 
 export function spawnEnemy(g, id, x, y, opts = {}) {
   const def = ENEMIES[id];
   if (!def) return null;
-  const hpMult = enemyHpMult(g.coeff);
+  const tier = def.tier || "kaempfer";
+  const hpMult = tier === "futter" ? fodderHpMult(g.coeff) : enemyHpMult(g.coeff);
   const dmgMult = enemyDmgMult(g.coeff, g.difficulty);
   const elite = opts.elite || null;
   // Eigenschaften als Liste: Elite haben eine, Champions zwei (elite = die erste, bestimmt die Farbe)
@@ -26,12 +28,14 @@ export function spawnEnemy(g, id, x, y, opts = {}) {
   if (elite) { hp *= 4; dmg *= 2; r *= 1.2; reward *= 4; }
   if (affixes.includes("hastig")) { hp *= 0.5; speed *= 1.7; }
   if (opts.champion) { hp *= 3; dmg *= 1.2; r *= 1.35; reward *= 3; }
+  // Koloss: ein Brocken in Übergröße, der durch die Horde watet — lässt sich nicht wegstoßen
+  if (opts.giant) { hp *= 9; dmg *= 1.5; r *= 1.6; reward *= 8; speed *= 0.8; }
   if (opts.minion) { hp *= 0.6; reward *= 0.3; }
   if (opts.split) { hp *= 0.35; r *= 0.75; reward *= 0.25; }
   if (g.curse) { hp *= 1.3; dmg *= 1.2; } // Fluchschrein aktiv
   hp *= ascEnemyHp(g);
   const e = {
-    uid: g.nextUid++, type: id, name: opts.champion ? `Champion: ${def.name}` : def.name, ai: def.ai,
+    uid: g.nextUid++, type: id, name: opts.champion ? `Champion: ${def.name}` : opts.giant ? `Koloss: ${def.name}` : def.name, ai: def.ai, tier, giant: !!opts.giant,
     x, y, r, hp, maxHp: hp, dmg, speed,
     elite, affixes, champion: !!opts.champion, isMinion: !!opts.minion || !!opts.split, aggro: opts.aggro ?? true, home: { x, y }, campId: opts.campId ?? null, groupId: opts.groupId ?? null,
     state: "move", t: 0, atkCd: g.rng.range(0.4, def.fireEvery || 1.5), contactCd: 0, affixT: {},
@@ -67,14 +71,20 @@ function targetOf(g) {
   return decoy || g.player;
 }
 
+// Im Gedränge trifft höchstens ein Gegner alle CONTACT_GATE Sekunden. Ohne diese Sperre schlagen in einer Horde zehn
+// Gegner im selben Augenblick zu — dann ist jede Berührung tödlich und Ausweichen sinnlos.
+export const CONTACT_GATE = 0.2;
+
 function contact(g, e, mult = 1) {
   const p = g.player;
-  if (e.contactCd > 0 || !p.alive || e.hidden) return;
+  if (e.contactCd > 0 || !p.alive || e.hidden || g.time < (p.contactGateT || 0)) return;
   const rr = e.r + p.r - 4;
   if (dist2(e.x, e.y, p.x, p.y) > rr * rr) return;
   e.contactCd = 1;
   e.attackAnimT = 0;
-  if (hurtPlayer(g, e.dmg * mult, { effect: affixEffect(e), source: e }) && hasAffix(e, "vampir")) e.hp = Math.min(e.maxHp, e.hp + e.maxHp * 0.1);
+  if (!hurtPlayer(g, e.dmg * mult, { effect: affixEffect(e), source: e })) return;
+  p.contactGateT = g.time + CONTACT_GATE;
+  if (hasAffix(e, "vampir")) e.hp = Math.min(e.maxHp, e.hp + e.maxHp * 0.1);
 }
 
 function affixEffect(e) {
@@ -93,9 +103,8 @@ function moveToward(e, tx, ty, speed, dt) {
   void dt;
 }
 
-function updateAi(g, e, dt) {
+function updateAi(g, e, dt, tgt) {
   const p = g.player;
-  const tgt = targetOf(g);
   const d = dist(e.x, e.y, tgt.x, tgt.y);
   const ang = Math.atan2(tgt.y - e.y, tgt.x - e.x);
   const def = ENEMIES[e.type];
@@ -108,19 +117,21 @@ function updateAi(g, e, dt) {
       moveToward(e, tgt.x, tgt.y, sp, dt);
       break;
 
-    case "brute":
+    case "brute": {
+      const reach = def.reach * (e.giant ? 1.6 : 1);
       if (e.state === "move") {
-        if (d > def.reach + tgt.r * 0.5) moveToward(e, tgt.x, tgt.y, sp, dt);
+        if (d > reach + tgt.r * 0.5) moveToward(e, tgt.x, tgt.y, sp, dt);
         else if (e.atkCd <= 0) {
           e.state = "windup"; e.t = 0; e.attackAnimT = 0;
-          const hx = e.x + Math.cos(ang) * def.reach * 0.55;
-          const hy = e.y + Math.sin(ang) * def.reach * 0.55;
-          addHazard(g, { shape: "circle", x: hx, y: hy, r: def.reach * 0.8, delay: 0.7, dmg: e.dmg * 1.4, effect: affixEffect(e), owner: e.uid });
+          const hx = e.x + Math.cos(ang) * reach * 0.55;
+          const hy = e.y + Math.sin(ang) * reach * 0.55;
+          addHazard(g, { shape: "circle", x: hx, y: hy, r: reach * 0.8, delay: 0.7, dmg: e.dmg * 1.4, effect: affixEffect(e), owner: e.uid });
           e.facing = tgt.x < e.x ? -1 : 1;
         }
       } else if (e.state === "windup" && e.t > 0.75) { e.state = "recover"; e.t = 0; }
       else if (e.state === "recover" && e.t > 0.5) { e.state = "move"; e.atkCd = 1.2; }
       break;
+    }
 
     case "ranged": {
       const keep = def.keep;
@@ -355,6 +366,7 @@ function updateAi(g, e, dt) {
 // Alle Gegner bewegen: Wunschrichtung + Rückstoß, Abstand zueinander, Hindernisse umgehen
 export function updateEnemies(g, dt) {
   const p = g.player;
+  const tgt = targetOf(g); // Köder oder Spieler — einmal pro Tick, nicht pro Gegner
   for (const e of g.enemies) {
     if (e.dead) continue;
     e.spawnT += dt;
@@ -381,7 +393,7 @@ export function updateEnemies(g, dt) {
         else if (e.wanderOn) moveToward(e, e.home.x, e.home.y, e.speed * 0.3, dt);
       }
     } else if (e.freezeT <= 0) {
-      updateAi(g, e, dt);
+      updateAi(g, e, dt, tgt);
     }
 
     if (e.freezeT > 0 && !e.isBoss) { e.vx = 0; e.vy = 0; }
@@ -396,32 +408,36 @@ export function updateEnemies(g, dt) {
 
   g.curAttacker = null;
 
-  // Abstand zueinander (Bosse schieben, werden aber nicht geschoben)
+  // Abstand zueinander (Bosse, Kolosse und Türme schieben, werden aber nicht geschoben). Jeder Gegner schaut nur in
+  // die neun Zellen um sich herum; große Figuren liegen in einer eigenen Liste und werden gegen alle geprüft.
   const list = g.enemies;
+  markGridDirty(g);
+  const gr = enemyGrid(g);
+  const { cell, cols, rows, head, next } = gr;
   for (let i = 0; i < list.length; i++) {
     const a = list[i];
-    if (a.dead) continue;
-    for (let j = i + 1; j < list.length; j++) {
-      const b = list[j];
-      if (b.dead) continue;
-      const dx = b.x - a.x, dy = b.y - a.y;
-      const rr = a.r + b.r;
-      const d2 = dx * dx + dy * dy;
-      if (d2 >= rr * rr || d2 === 0) continue;
-      const d = Math.sqrt(d2);
-      const push = (rr - d) * 0.5;
-      const nx = dx / d, ny = dy / d;
-      if (a.isBoss || a.ai === "turret") { b.x += nx * push * 2; b.y += ny * push * 2; }
-      else if (b.isBoss || b.ai === "turret") { a.x -= nx * push * 2; a.y -= ny * push * 2; }
-      else { a.x -= nx * push; a.y -= ny * push; b.x += nx * push; b.y += ny * push; }
+    if (a.dead || a.r > gr.bigR) continue;
+    const cx = Math.min(cols - 1, Math.max(0, Math.floor(a.x / cell))), cy = Math.min(rows - 1, Math.max(0, Math.floor(a.y / cell)));
+    for (let yy = Math.max(0, cy - 1); yy <= Math.min(rows - 1, cy + 1); yy++) {
+      for (let xx = Math.max(0, cx - 1); xx <= Math.min(cols - 1, cx + 1); xx++) {
+        for (let j = head[yy * cols + xx]; j !== -1; j = next[j]) {
+          if (j > i) separate(a, list[j]);
+        }
+      }
     }
+  }
+  for (let bi = 0; bi < gr.big.length; bi++) {
+    const a = gr.big[bi];
+    if (a.dead) continue;
+    for (let j = bi + 1; j < gr.big.length; j++) separate(a, gr.big[j]);
+    for (const b of list) if (b.r <= gr.bigR) separate(a, b);
   }
 
   // Hindernisse, Mauern, Weltrand
   for (const e of list) {
     if (e.dead) continue;
     if (!e.flying) {
-      for (const o of g.obstacles) {
+      for (const o of collectObstacles(g, e.x, e.y, e.r * 0.8, nearObstacles)) {
         const rr = o.r + e.r * 0.8;
         const dx = e.x - o.x, dy = e.y - o.y;
         const d2 = dx * dx + dy * dy;
@@ -452,12 +468,44 @@ export function updateEnemies(g, dt) {
     e.y = clamp(e.y, e.r, g.world.h - e.r);
   }
 
-  g.enemies = list.filter((e) => !e.dead);
-
-  // Weit abgehängte Gegner verschwinden (der Director schickt neue)
-  if (!g.boss) {
-    g.enemies = g.enemies.filter((e) => !e.aggro || e.isBoss || dist2(e.x, e.y, p.x, p.y) < 2300 * 2300);
+  // Aufräumen in derselben Liste: Tote raus, weit Abgehängte auch (der Director schickt neue). Futter verschwindet
+  // schon früher — es soll dort sein, wo der Spieler ist, nicht als Schleppe hinter ihm.
+  let w = 0;
+  for (let i = 0; i < list.length; i++) {
+    const e = list[i];
+    if (e.dead) continue;
+    if (e.aggro && !e.isBoss) {
+      const far = e.tier === "futter" && !e.elite ? FODDER_LEASH : g.boss ? Infinity : 2300;
+      if (dist2(e.x, e.y, p.x, p.y) > far * far) continue;
+    }
+    list[w++] = e;
   }
+  list.length = w;
+  markGridDirty(g);
 }
+
+// Zwei Gegner auseinanderschieben, wenn sie sich überlappen
+function separate(a, b) {
+  if (b.dead) return;
+  const dx = b.x - a.x, dy = b.y - a.y;
+  const rr = a.r + b.r;
+  const d2 = dx * dx + dy * dy;
+  if (d2 >= rr * rr || d2 === 0) return;
+  const d = Math.sqrt(d2);
+  const push = (rr - d) * 0.5;
+  const nx = dx / d, ny = dy / d;
+  // Rückstoß pflanzt sich fort: wer weggeschleudert wird, reißt den mit, in den er fliegt (klingt nach wenigen
+  // Gegnern ab, weil jeder nur einen Teil weitergibt und der Rückstoß schnell abklingt)
+  const ka = a.kbx * a.kbx + a.kby * a.kby, kb = b.kbx * b.kbx + b.kby * b.kby;
+  if (ka > KB_SHARE_MIN && ka > kb * 4) { if (!(b.isBoss || b.giant || b.ai === "turret")) { b.kbx += a.kbx * 0.45; b.kby += a.kby * 0.45; } a.kbx *= 0.8; a.kby *= 0.8; }
+  else if (kb > KB_SHARE_MIN && kb > ka * 4) { if (!(a.isBoss || a.giant || a.ai === "turret")) { a.kbx += b.kbx * 0.45; a.kby += b.kby * 0.45; } b.kbx *= 0.8; b.kby *= 0.8; }
+  if (a.isBoss || a.giant || a.ai === "turret") { b.x += nx * push * 2; b.y += ny * push * 2; }
+  else if (b.isBoss || b.giant || b.ai === "turret") { a.x -= nx * push * 2; a.y -= ny * push * 2; }
+  else { a.x -= nx * push; a.y -= ny * push; b.x += nx * push; b.y += ny * push; }
+}
+
+const nearObstacles = [];
+const FODDER_LEASH = 1500;
+const KB_SHARE_MIN = 150 * 150; // ab diesem Rückstoß-Tempo (px/s, quadriert) wird er weitergegeben
 
 export const eliteColor = (affix) => ELITE_AFFIXES[affix]?.color || "#ffd84a";

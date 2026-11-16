@@ -1,5 +1,6 @@
 // ui/prefs.js — Anzeige-Einstellungen (Animationen reduzieren, Tempo, gesehene Tipps), per Betrachter in localStorage.
 import { useSyncExternalStore } from "react";
+import { isLowGfx } from "../../../utils/lowGfx.js";
 
 const KEY = "ss_prefs_v1";
 /** Version der gespeicherten Einstellungen. 2 = Runde 2: „Animationen reduzieren“ standardmäßig aus, Tempo 1/1,5/2. */
@@ -7,7 +8,11 @@ const SETTINGS_VERSION = 2;
 export const SPEED_OPTIONS = [1, 1.5, 2];
 /** Wünscht das Betriebssystem weniger Bewegung? Dann einmalig ein Hinweis – die Animationen bleiben aber an. */
 export const systemPrefersReducedMotion = typeof window !== "undefined" && !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-const DEFAULTS = { v: SETTINGS_VERSION, reduceMotion: false, motionHintSeen: false, speed: 1, tipsOff: false, table3d: true, seenTips: /** @type {string[]} */ ([]), name: "" };
+// oldTable: Kampf am bisherigen (flachen) Tisch statt am Tisch im Kerzenlicht („Am Tisch“,
+//   docs/sacrifice-and-sigils/REBUILD-PLAN.md). Der neue Tisch ist seit dem 14.11.2026 Standard; das frühere Feld
+//   `newTable` (Vorschau-Schalter) wird nicht mehr gelesen.
+// mask: die eigene Maske am Tisch (Kennung aus table/masks.js) — sie sieht nur das Gegenüber
+const DEFAULTS = { v: SETTINGS_VERSION, reduceMotion: false, motionHintSeen: false, speed: 1, tipsOff: false, table3d: true, oldTable: false, mask: "wachs", seenTips: /** @type {string[]} */ ([]), name: "" };
 
 let state = load();
 const listeners = new Set();
@@ -49,6 +54,17 @@ export function usePrefs() {
     () => state,
     () => state,
   );
+}
+
+/**
+ * Läuft der Kampf am neuen Tisch? Das ist der Standard. Am bisherigen Tisch spielt, wer ihn in den Einstellungen
+ * wählt („Bisheriger Tisch“) oder wessen Browser ohne Grafikkarte rendert (Sparmodus, utils/lowGfx.js).
+ * Für einen einzelnen Aufruf per Adresse: `?tisch=neu` erzwingt den neuen, `?tisch=alt` den bisherigen.
+ */
+export function useNewTable() {
+  const prefs = usePrefs();
+  const fromUrl = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("tisch") : null;
+  return fromUrl === "neu" || (fromUrl !== "alt" && !prefs.oldTable && !isLowGfx());
 }
 
 /** Stabiler Token für Reconnect (pro Browser). */

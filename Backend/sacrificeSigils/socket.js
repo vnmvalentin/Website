@@ -7,8 +7,10 @@
 //
 // Protokoll (Präfix `ss:`; Antworten per Ack `{ ok, error?, … }`)
 //   Client → Server
-//     ss:create   { name, token, settings, seed }   Raum anlegen (Ack: code, seat, room)
-//     ss:join     { code, name, token }             Beitreten, Wiederverbinden (Token = Platz) oder Zuschauen
+//     ss:create   { name, token, mask, settings, seed }   Raum anlegen (Ack: code, seat, room)
+//     ss:join     { code, name, token, mask }       Beitreten, Wiederverbinden (Token = Platz) oder Zuschauen
+//     ss:gesture  { kind, target? }                 Geste am Tisch (eine von sechs, statt Chat); target nur beim Zeigen
+//     ss:mask     { mask }                          Maske wechseln (reine Optik, jederzeit)
 //     ss:settings { settings, seed }                Host, nur Lobby
 //     ss:ready    { ready }                         Bereit; sind beide bereit, startet das Match
 //     ss:action   { action }                        Spielzug (Engine-Aktion ohne `player`)
@@ -20,6 +22,7 @@
 //     ss:room     Lobby-Zustand (Plätze, Bereit, Einstellungen, Zuschauerzahl)
 //     ss:state    { view, events, timers, serverNow, you }   gefilterte Sicht + Ereignisse für die Animations-Queue
 //     ss:notice   { text }
+//     ss:gesture  { seat, kind, target }            Geste eines anderen (geht nicht an den Absender zurück)
 //     ss:kicked   { reason }                        Platz wurde von einem anderen Fenster übernommen
 //     mw:room / mw:state / mw:notice / mw:kicked   dasselbe für die Moorwanderung
 
@@ -27,12 +30,24 @@ const path = require('path');
 const { pathToFileURL } = require('url');
 const { createRoomManager } = require('./roomManager');
 const { createRunRoomManager } = require('./runRoomManager');
+const { meldeSpielAn } = require('../lib/spielStatistik');
 
 const TICK_MS = 500;
 const MAX_EVENTS_PER_SECOND = 30;
 const SHARED = path.join(__dirname, 'shared');
 
 let managerPromise = null;
+// Admin-Reiter „Spiele“: Räume beider Modi (1 gegen 1 und Moorwanderung); entstehen erst mit dem ersten Besucher
+let live = null;
+meldeSpielAn('sacrifice-and-sigils', () => {
+  let raeume = 0;
+  let spieler = 0;
+  for (const m of live ? [live.duel, live.run] : []) {
+    raeume += m.rooms.size;
+    for (const room of m.rooms.values()) for (const s of room.seats) if (s && s.connected) spieler += 1;
+  }
+  return { raeume, spieler };
+});
 
 function getManager(io) {
   if (!managerPromise) {
@@ -51,7 +66,8 @@ function getManager(io) {
           }
         }
       }, TICK_MS).unref();
-      return { duel: manager, run: runs };
+      live = { duel: manager, run: runs };
+      return live;
     })().catch((e) => {
       console.error('[sacrifice-sigils] Engine konnte nicht geladen werden:', e);
       managerPromise = null;
@@ -85,6 +101,9 @@ function registerSacrificeSigilsSocket(socket, io) {
     handle(`ss:${method}`, 'duel', method);
     handle(`mw:${method}`, 'run', method);
   }
+  // Gesten und Masken gibt es nur im Duell (am neuen Tisch); die Moorwanderung kennt sie nicht
+  handle('ss:gesture', 'duel', 'gesture');
+  handle('ss:mask', 'duel', 'mask');
 
   socket.on('disconnect', () => {
     if (!managerPromise) return;

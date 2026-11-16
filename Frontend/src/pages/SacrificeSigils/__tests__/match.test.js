@@ -1,4 +1,4 @@
-// Match-Ebene: Draft, Extras, Pfad-Knoten, Modifikatoren, Best-of, Determinismus, Fuzz, versteckte Information, Daten.
+// Match-Ebene: Draft, Totem-Schrein, Pfad-Knoten, Modifikatoren, Best-of, Determinismus, Fuzz, versteckte Information, Daten.
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createMatch, applyAction, awaiting, deepClone, normalizeSettings, START_SHARDS } from "../engine/match.js";
@@ -152,42 +152,64 @@ test("Getrennte Pools: je Runde 4 Karten, 2 nehmen, gleichzeitig; Legendäre ist
   }
 });
 
-test("Nach dem Draft (gemeinsam): Kopf und Nebendeck-Totem abwechselnd und exklusiv, dann Pfad mit 3 Splittern, dann Kampf 1", () => {
-  let s = playUntil(createMatch({ seed: "EXTRA" }), (x) => x.phase === "extras");
-  assert.equal(s.phase, "extras");
-  const A = s.draft.first;
-  const B = 1 - A;
-  assert.deepEqual(awaiting(s), [A]);
-  assert.equal(applyAction(s, { type: "draftExtras", player: B, head: 0 }).error, "notYourPick");
-  s = act(s, { type: "draftExtras", player: A, head: 1 });
-  assert.equal(applyAction(s, { type: "draftExtras", player: B, head: 1 }).error, "headTaken");
-  s = act(s, { type: "draftExtras", player: B, head: 0 });
-  assert.deepEqual(awaiting(s), [B]); // Nebendeck-Totem: jetzt wählt B zuerst
-  const [sideB, sideA] = s.draft.sides;
-  assert.equal(applyAction(s, { type: "draftExtras", player: B, side: "moorling" }).error, "badSide");
-  s = act(s, { type: "draftExtras", player: B, side: sideB });
-  assert.equal(applyAction(s, { type: "draftExtras", player: A, side: sideB }).error, "sideTaken");
-  s = act(s, { type: "draftExtras", player: A, side: sideA });
+test("Nach dem Draft: kein Totem, direkt auf den Pfad mit 3 Splittern; Ebene 1 hat einen Totem-Schrein; dann Kampf 1", () => {
+  let s = playUntil(createMatch({ seed: "EXTRA" }), (x) => x.phase !== "draft");
   assert.equal(s.phase, "path");
   assert.equal(s.battleNo, 0);
   assert.deepEqual(s.players.map((P) => P.shards), [START_SHARDS, START_SHARDS]);
-  assert.equal(s.players[A].sideType, "moorling"); // festes Nebendeck für beide
-  assert.equal(s.players[B].sideType, "moorling");
-  assert.deepEqual(s.players[A].totems.side, { head: { kind: "side" }, base: { kind: "sigil", sigil: sideA } });
-  assert.ok(s.players[A].totems.tribe || s.players[A].totems.lane);
+  for (const P of s.players) {
+    assert.equal(P.sideType, "moorling"); // festes Nebendeck für beide
+    assert.deepEqual(P.totems, { tribe: null, lane: null, side: null });
+    assert.deepEqual(P.heads, []);
+    assert.deepEqual(P.bases, []);
+    assert.equal(P.deck.length, PICKS_PER_PLAYER);
+  }
+  assert.ok(s.path.map.nodes[0].some((n) => n.type === "shrine"));
   for (let i = 0; i < 20 && s.phase === "path"; i++) for (const p of awaiting(s)) s = act(s, { type: "timeout", player: p });
   assert.equal(s.phase, "battle"); // kein Zwischenspiel vor Kampf 1
-  assert.equal(s.battle.starter, B);
-  assert.ok(s.players[0].deck.length >= 8);
 });
 
-test("Nach dem Draft (getrennt): Kopf und Nebendeck-Totem gleichzeitig, dasselbe Sigil ist erlaubt", () => {
-  let s = playUntil(createMatch({ seed: "EXTRA2", settings: { draftMode: "separate" } }), (x) => x.phase === "extras");
-  assert.deepEqual(awaiting(s), [0, 1]);
-  const side = s.draft.sides[1];
-  s = act(s, { type: "draftExtras", player: 1, head: 2, side });
-  s = act(s, { type: "draftExtras", player: 0, head: 2, side });
-  assert.equal(s.phase, "path");
+test("Pfadkarten: jede hat auf Ebene 1 einen Totem-Schrein, deterministisch aus dem Seed", () => {
+  for (const seed of ["A", "B", "SCHREIN", "XYZ12"]) {
+    for (let pathNo = 1; pathNo <= 4; pathNo++) {
+      const m = generateMap(seed, pathNo, 3);
+      assert.ok(m.nodes[0].some((n) => n.type === "shrine"), `${seed}/${pathNo}`);
+      assert.deepEqual(m, generateMap(seed, pathNo, 3));
+    }
+  }
+});
+
+test("Totem-Schrein ohne Totem: drei fertige Totems (zwei Stämme + Lane, kein Moorling), Nehmen setzt es gleich zusammen", () => {
+  let s = inScene({ type: "shrine" }, deckOf(10));
+  const scene = s.path.players[0].scene;
+  assert.equal(scene.first, true);
+  assert.equal(scene.offers.length, 3);
+  for (const o of scene.offers) assert.equal(combineError(o.head, o.base), null);
+  assert.ok(scene.offers.every((o) => o.head.kind !== "side"), "Moorling-Totem erst ab dem zweiten Besuch");
+  const tribes = scene.offers.filter((o) => o.head.kind === "tribe");
+  assert.equal(tribes.length, 2);
+  assert.notEqual(tribes[0].head.tribe, tribes[1].head.tribe);
+  assert.ok(scene.offers.some((o) => o.head.kind === "lane"));
+  const pick = scene.offers.findIndex((o) => o.head.kind === "tribe");
+  s = act(s, { type: "nodeAction", player: 0, op: "take", index: pick });
+  const P = s.players[0];
+  assert.deepEqual(P.totems.tribe, scene.offers[pick]);
+  assert.equal(P.heads.length, 1);
+  assert.equal(P.bases.length, 1);
+  assert.equal(applyAction(s, { type: "nodeAction", player: 0, op: "take", index: 0 }).error, "alreadyTaken");
+});
+
+test("Totem-Schrein mit Totem: wie bisher ein neues Teil (Kopf oder Körper) zum Umbauen", () => {
+  let s = playUntil(createMatch({ seed: "SCENE", settings: { pathLength: 2 } }), (x) => x.phase === "path");
+  s = deepClone(s);
+  s.path.map.nodes[0][0] = { type: "shrine" };
+  const head = { kind: "side" };
+  const base = { kind: "sigil", sigil: SIDE_TOTEM_SIGILS[0] };
+  Object.assign(s.players[0], { heads: [head], bases: [base], totems: { tribe: null, lane: null, side: { head, base } } });
+  s = act(s, { type: "chooseNode", player: 0, strand: 0 });
+  const scene = s.path.players[0].scene;
+  assert.ok(!scene.first);
+  assert.ok(scene.offers.every((o) => !!o.head !== !!o.base));
 });
 
 // ───────── Modifikatoren ─────────
@@ -345,12 +367,24 @@ for (const ev of EVENTS) {
 
 // ───────── Match-Ablauf ─────────
 test("Best-of: Pfad nach jedem Kampf außer dem letzten, Verlierer wählt den Beginner, Splitter werden verteilt", () => {
-  let s = playUntil(createMatch({ seed: "BO3" }), (x) => x.phase === "interlude");
+  // Splitter an den Ereignissen prüfen, nicht am Kontostand (auf dem zweiten Pfad kann der Händler schon kassiert haben)
+  const rng = { rng: 1 };
+  let s = createMatch({ seed: "BO3" });
+  /** @type {any} */
+  let result = null;
+  for (let guard = 0; s.phase !== "interlude" && s.phase !== "over" && guard < 5000; guard++) {
+    const p = awaiting(s)[0];
+    const r = applyAction(s, aiAction(s, p, "normal", rng));
+    const res = r.error ? applyAction(s, { type: "timeout", player: p }) : r;
+    result = res.events.find((e) => e.type === "battleResult") || result;
+    s = res.state;
+  }
   if (s.phase === "interlude") {
     const loser = s.lastLoser;
     assert.equal(s.interlude.chooser, loser);
     assert.equal(applyAction(s, { type: "chooseStarter", player: 1 - loser, starter: 0 }).error, "notChooser");
-    assert.ok(s.players[0].shards >= 2 && s.players[1].shards >= 2);
+    assert.equal(result.shards[loser], 2);
+    assert.ok(result.shards[1 - loser] >= 3);
     s = act(s, { type: "chooseStarter", player: loser, starter: 1 - loser });
     assert.equal(s.phase, "battle");
     assert.equal(s.battle.active, 1 - loser);

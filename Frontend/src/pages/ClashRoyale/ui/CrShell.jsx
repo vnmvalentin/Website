@@ -55,6 +55,9 @@ export default function CrShell() {
   const setPref = useCallback((key, value) => {
     setPrefs((prev) => {
       const next = { ...prev, [key]: value };
+      // Selbst gewählt (crPrefs.js): Hintergrund gilt dann überall, der Wechsel-Schalter zählt erst ab jetzt
+      if (key === "background") next.bgChoice = true;
+      if (key === "statsBgRotate") next.statsBgChoice = true;
       // Selbst umgeschaltet, während die Grafik-Sparwahl galt: ab jetzt zählt die eigene Wahl (crPrefs.js)
       if (prev.autoLowGfx && GFX_PREF_KEYS.includes(key)) {
         next.autoLowGfx = false;

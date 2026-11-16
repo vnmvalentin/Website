@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { X, Search, Pencil, Trash2 } from 'lucide-react';
-import { DcAddTile } from '../ui';
+import { DcAddTile, DcHelp } from '../ui';
 import EmojiTextField from '../EmojiTextField';
+import { isErrorStatus, serverErrorText, useDiscordText } from '../discordI18n.js';
 
 const EMPTY_FORM = {
     title: '',
@@ -16,6 +17,8 @@ const EMPTY_FORM = {
 };
 
 export default function ApprovalTab({ selectedServer, channels, serverRoles, serverEmojis }) {
+    const t = useDiscordText();
+    const ta = t.approval;
     const [configs, setConfigs] = useState([]);
     const [members, setMembers] = useState([]);
     const [view, setView] = useState('list');
@@ -90,9 +93,9 @@ export default function ApprovalTab({ selectedServer, channels, serverRoles, ser
 
 
     const handleSave = async () => {
-        if (!form.channelId) return alert('Bitte einen Kanal auswählen!');
-        if (form.approverIds.length === 0) return alert('Mindestens einen Genehmiger auswählen!');
-        if (!form.accessId) return alert('Bitte Rolle oder Kanal für die Freischaltung auswählen!');
+        if (!form.channelId) return alert(ta.needChannel);
+        if (form.approverIds.length === 0) return alert(ta.needApprover);
+        if (!form.accessId) return alert(ta.needAccess);
 
         setIsSaving(true);
         setSaveStatus('');
@@ -106,15 +109,15 @@ export default function ApprovalTab({ selectedServer, channels, serverRoles, ser
                 body: JSON.stringify(form),
             });
             if (res.ok) {
-                setSaveStatus(editingId ? 'Aktualisiert!' : 'Embed erstellt!');
+                setSaveStatus(editingId ? t.common.updated : ta.created);
                 loadConfigs();
                 setTimeout(() => setView('list'), 1500);
             } else {
                 const data = await res.json().catch(() => ({}));
-                setSaveStatus(`Fehler: ${data.error || 'Fehler.'}`);
+                setSaveStatus(t.common.errorWith(serverErrorText(t, data)));
             }
         } catch {
-            setSaveStatus('Fehler: keine Verbindung zum Server.');
+            setSaveStatus(t.common.networkError);
         } finally {
             setIsSaving(false);
             setTimeout(() => setSaveStatus(''), 4000);
@@ -122,7 +125,7 @@ export default function ApprovalTab({ selectedServer, channels, serverRoles, ser
     };
 
     const handleDelete = async (id) => {
-        if (!window.confirm('Wirklich löschen? Die Discord-Nachricht wird ebenfalls entfernt!')) return;
+        if (!window.confirm(ta.confirmDelete)) return;
         await fetch(`/api/discord/settings/${selectedServer.id}/approvals/${id}`, { method: 'DELETE' });
         loadConfigs();
     };
@@ -144,57 +147,57 @@ export default function ApprovalTab({ selectedServer, channels, serverRoles, ser
         return (
             <div className="">
                 <div className="flex items-center gap-3 mb-8 border-b border-white/5 pb-4">
-                    <button onClick={() => setView('list')} className="text-white/40 hover:text-white transition-colors text-xl"><X size={14} /></button>
+                    <button onClick={() => setView('list')} title={ta.back} aria-label={ta.back} className="text-white/40 hover:text-white transition-colors text-xl"><X size={14} /></button>
                     <h2 className="dc-h2">
-                        {editingId ? 'Genehmigung bearbeiten' : 'Neues Genehmigungsverfahren'}
+                        {editingId ? ta.editTitle : ta.newTitle}
                     </h2>
                 </div>
 
                 <div className="space-y-6 max-w-2xl">
                     {/* 1. Allgemein */}
                     <div className="dc-card p-5 space-y-4">
-                        <h3 className="text-white/50 font-semibold text-xs uppercase tracking-wider">1. Allgemein</h3>
+                        <h3 className="text-white/50 font-semibold text-xs uppercase tracking-wider">{ta.s1}</h3>
                         <div>
-                            <label className="dc-label">Interner Name (nur im Dashboard)</label>
+                            <label className="dc-label">{ta.internalName}</label>
                             <input
                                 type="text"
                                 value={form.title}
                                 onChange={e => setField('title', e.target.value)}
-                                placeholder="z.B. Mitglieder-Bewerbung"
+                                placeholder={ta.internalNamePh}
                                 className="dc-input w-full"
                             />
                         </div>
                         <div>
-                            <label className="dc-label">Kanal für das Embed</label>
+                            <label className="dc-label">{ta.embedChannel}</label>
                             <select
                                 value={form.channelId}
                                 onChange={e => setField('channelId', e.target.value)}
                                 disabled={!!editingId}
                                 className="dc-input w-full"
                             >
-                                <option value="">-- Kanal wählen --</option>
+                                <option value="">{ta.chooseChannel}</option>
                                 {channels.map(c => <option key={c.id} value={c.id}># {c.name}</option>)}
                             </select>
-                            {editingId && <p className="text-white/40 text-xs mt-1">Kanal kann nach dem Erstellen nicht geändert werden.</p>}
+                            {editingId && <p className="text-white/40 text-xs mt-1">{ta.channelFixed}</p>}
                         </div>
                     </div>
 
                     {/* 2. Embed Inhalt */}
                     <div className="dc-card p-5 space-y-4">
-                        <h3 className="text-white/50 font-semibold text-xs uppercase tracking-wider">2. Embed Inhalt</h3>
+                        <h3 className="text-white/50 font-semibold text-xs uppercase tracking-wider">{ta.s2}</h3>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
-                                <label className="dc-label">Embed Titel</label>
+                                <label className="dc-label">{ta.embedTitle}</label>
                                 <input
                                     type="text"
                                     value={form.embedTitle}
                                     onChange={e => setField('embedTitle', e.target.value)}
-                                    placeholder="📩 Mitgliedschaft beantragen"
+                                    placeholder={ta.embedTitlePh}
                                     className="dc-input w-full"
                                 />
                             </div>
                             <div>
-                                <label className="dc-label">Embed Farbe</label>
+                                <label className="dc-label">{ta.embedColor}</label>
                                 <div className="dc-card flex gap-2 items-center p-1.5 pr-4">
                                     <input
                                         type="color"
@@ -207,7 +210,7 @@ export default function ApprovalTab({ selectedServer, channels, serverRoles, ser
                             </div>
                         </div>
                         <div>
-                            <label className="dc-label">Embed Text</label>
+                            <label className="dc-label">{ta.embedText}</label>
                             <EmojiTextField
                                 value={form.embedText}
                                 onChange={v => setField('embedText', v)}
@@ -215,15 +218,15 @@ export default function ApprovalTab({ selectedServer, channels, serverRoles, ser
                                 emojis={serverEmojis}
                                 roles={serverRoles}
                                 channels={channels}
-                                placeholder="Beschreibe hier wie der Bewerbungsprozess abläuft..."
+                                placeholder={ta.embedTextPh}
                             />
                         </div>
                     </div>
 
                     {/* 3. Genehmiger */}
                     <div className="dc-card p-5 space-y-4">
-                        <h3 className="text-white/50 font-semibold text-xs uppercase tracking-wider">3. Genehmiger</h3>
-                        <p className="text-white/50 text-xs">Diese Mitglieder erhalten Zugriff auf den privaten Thread und können genehmigen/ablehnen.</p>
+                        <h3 className="text-white/50 font-semibold text-xs uppercase tracking-wider">{ta.s3}</h3>
+                        <p className="text-white/50 text-xs">{ta.approversHint}</p>
 
                         {form.approverIds.length > 0 && (
                             <div className="flex flex-wrap gap-2">
@@ -240,6 +243,7 @@ export default function ApprovalTab({ selectedServer, channels, serverRoles, ser
                                                 onClick={() => toggleApprover(id)}
                                                 className="text-indigo-400/60 hover:text-red-400 ml-0.5 transition-colors"
                                                 type="button"
+                                                aria-label={t.common.remove}
                                             >×</button>
                                         </span>
                                     );
@@ -255,7 +259,7 @@ export default function ApprovalTab({ selectedServer, channels, serverRoles, ser
                                     value={memberSearch}
                                     onChange={e => { setMemberSearch(e.target.value); setShowMemberDropdown(true); }}
                                     onFocus={() => setShowMemberDropdown(true)}
-                                    placeholder="Mitglied suchen..."
+                                    placeholder={ta.searchMember}
                                     className="dc-input w-full pl-9 pr-4"
                                 />
                                 {memberSearch && (
@@ -263,6 +267,7 @@ export default function ApprovalTab({ selectedServer, channels, serverRoles, ser
                                         onClick={() => { setMemberSearch(''); setShowMemberDropdown(true); }}
                                         className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white transition-colors"
                                         type="button"
+                                        aria-label={t.common.clearSearch}
                                     >×</button>
                                 )}
                             </div>
@@ -271,13 +276,13 @@ export default function ApprovalTab({ selectedServer, channels, serverRoles, ser
                                 <div className="dc-popover absolute z-50 w-full mt-1 overflow-hidden">
                                     {filteredMembers.length === 0 ? (
                                         <div className="px-4 py-3 text-white/40 text-sm text-center">
-                                            {memberSearch ? `Kein Mitglied gefunden für "${memberSearch}"` : 'Alle Mitglieder bereits ausgewählt'}
+                                            {memberSearch ? ta.noMemberFor(memberSearch) : ta.allSelected}
                                         </div>
                                     ) : (
                                         <div className="max-h-52 overflow-y-auto" style={{ scrollbarWidth: 'thin', scrollbarColor: '#06b6d4 transparent' }}>
                                             {memberSearch === '' && (
                                                 <div className="px-4 py-2 text-white/30 text-xs border-b border-white/5">
-                                                    {filteredMembers.length} Mitglieder verfügbar
+                                                    {ta.available(filteredMembers.length)}
                                                 </div>
                                             )}
                                             {filteredMembers.map(m => (
@@ -307,11 +312,11 @@ export default function ApprovalTab({ selectedServer, channels, serverRoles, ser
 
                     {/* 4. Freischaltung */}
                     <div className="dc-card p-5 space-y-4">
-                        <h3 className="text-white/50 font-semibold text-xs uppercase tracking-wider">4. Freischaltung bei Genehmigung</h3>
+                        <h3 className="text-white/50 font-semibold text-xs uppercase tracking-wider">{ta.s4}</h3>
                         <div>
-                            <label className="dc-label">Art der Freischaltung</label>
+                            <label className="dc-label">{ta.accessType}</label>
                             <div className="flex gap-3">
-                                {[['role', 'Rolle vergeben'], ['channel', 'Kanal freischalten']].map(([val, label]) => (
+                                {[['role', ta.giveRole], ['channel', ta.unlockChannel]].map(([val, label]) => (
                                     <button
                                         key={val}
                                         type="button"
@@ -329,14 +334,14 @@ export default function ApprovalTab({ selectedServer, channels, serverRoles, ser
                         </div>
                         <div>
                             <label className="dc-label">
-                                {form.accessType === 'role' ? 'Rolle auswählen' : 'Kanal auswählen'}
+                                {form.accessType === 'role' ? ta.chooseRoleLabel : ta.chooseChannelLabel}
                             </label>
                             <select
                                 value={form.accessId}
                                 onChange={e => setField('accessId', e.target.value)}
                                 className="dc-input w-full"
                             >
-                                <option value="">-- {form.accessType === 'role' ? 'Rolle' : 'Kanal'} wählen --</option>
+                                <option value="">{form.accessType === 'role' ? ta.chooseRoleOpt : ta.chooseChannel}</option>
                                 {form.accessType === 'role'
                                     ? serverRoles.map(r => <option key={r.id} value={r.id}>{r.name}</option>)
                                     : channels.map(c => <option key={c.id} value={c.id}># {c.name}</option>)
@@ -344,7 +349,7 @@ export default function ApprovalTab({ selectedServer, channels, serverRoles, ser
                             </select>
                         </div>
                         <div>
-                            <label className="dc-label">Cooldown bei Ablehnung (Stunden)</label>
+                            <label className="dc-label">{ta.cooldown}</label>
                             <input
                                 type="number"
                                 min="0"
@@ -354,9 +359,7 @@ export default function ApprovalTab({ selectedServer, channels, serverRoles, ser
                                 className="dc-input w-32"
                             />
                             <p className="text-white/40 text-xs mt-1">
-                                {form.cooldownHours === 0
-                                    ? 'Kein Cooldown — sofort erneut anfragen möglich.'
-                                    : `Nutzer müssen ${form.cooldownHours}h warten bevor sie erneut anfragen können.`}
+                                {form.cooldownHours === 0 ? ta.noCooldown : ta.cooldownNote(form.cooldownHours)}
                             </p>
                         </div>
                     </div>
@@ -364,11 +367,11 @@ export default function ApprovalTab({ selectedServer, channels, serverRoles, ser
                     {/* Save */}
                     <div className="flex items-center justify-between pt-2">
                         <button onClick={() => setView('list')} className="text-white/50 hover:text-white px-4 py-2 transition-colors">
-                            Abbrechen
+                            {t.common.cancel}
                         </button>
                         <div className="flex items-center gap-4">
                             {saveStatus && (
-                                <span className={`text-sm font-medium ${saveStatus.startsWith('Fehler') ? 'text-red-400' : 'text-green-400'}`}>
+                                <span className={`text-sm font-medium ${isErrorStatus(saveStatus) ? 'text-red-400' : 'text-green-400'}`}>
                                     {saveStatus}
                                 </span>
                             )}
@@ -377,7 +380,7 @@ export default function ApprovalTab({ selectedServer, channels, serverRoles, ser
                                 disabled={isSaving}
                                 className="dc-btn"
                             >
-                                {isSaving ? 'Speichere...' : (editingId ? 'Änderungen speichern' : 'Embed erstellen')}
+                                {isSaving ? t.common.saving : (editingId ? t.common.saveChanges : ta.createEmbed)}
                             </button>
                         </div>
                     </div>
@@ -390,12 +393,12 @@ export default function ApprovalTab({ selectedServer, channels, serverRoles, ser
     return (
         <div className="dc-page">
             <div>
-                <h2 className="dc-h2">Genehmigungsverfahren</h2>
-                <p className="text-white/50 text-sm">Nutzer klicken auf den "Anfragen"-Button im Embed — ein privater Thread wird erstellt.</p>
+                <h2 className="dc-h2">{ta.listTitle}</h2>
+                <p className="text-white/50 text-sm">{ta.listIntro}</p>
             </div>
 
-            <DcAddTile label="Neues Verfahren" onClick={() => openEditor()} large={configs.length === 0}
-                hint={configs.length === 0 ? 'Noch kein Genehmigungsverfahren erstellt. Lege das erste an.' : undefined} />
+            <DcAddTile label={ta.add} onClick={() => openEditor()} large={configs.length === 0}
+                hint={configs.length === 0 ? ta.emptyHint : undefined} />
 
             {configs.length === 0 ? null : (
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
@@ -417,18 +420,18 @@ export default function ApprovalTab({ selectedServer, channels, serverRoles, ser
                                     <button
                                         onClick={() => openEditor(cfg)}
                                         className="bg-white/5 hover:bg-indigo-500 hover:text-white text-white/50 p-2 rounded-md transition-colors"
-                                        title="Bearbeiten"
+                                        title={t.common.edit} aria-label={t.common.edit}
                                     ><Pencil size={14} /></button>
                                     <button
                                         onClick={() => handleDelete(cfg.id)}
                                         className="bg-white/5 hover:bg-red-500 text-white/50 p-2 rounded-md transition-colors"
-                                        title="Löschen"
+                                        title={t.common.delete} aria-label={t.common.delete}
                                     ><Trash2 size={14} /></button>
                                 </div>
 
-                                <h3 className="text-lg font-bold text-white mb-1 pr-20 truncate">{cfg.title || 'Unbenannt'}</h3>
+                                <h3 className="text-lg font-bold text-white mb-1 pr-20 truncate">{cfg.title || t.common.untitled}</h3>
                                 <div className="text-xs text-white/40 mb-4">
-                                    #{channelName || 'Unbekannter Kanal'} • {approverIds.length} Genehmiger • {cfg.cooldownHours}h Cooldown
+                                    #{channelName || ta.unknownChannel} • {ta.meta(approverIds.length, cfg.cooldownHours)}
                                 </div>
 
                                 <div className="space-y-2 text-sm">
@@ -436,7 +439,7 @@ export default function ApprovalTab({ selectedServer, channels, serverRoles, ser
                                         <div className="text-white/60 font-medium truncate">"{cfg.embedTitle}"</div>
                                     )}
                                     <div className="flex items-center gap-2 text-xs">
-                                        <span className="text-white/40">Freischaltung:</span>
+                                        <span className="text-white/40">{ta.unlock}</span>
                                         {cfg.accessType === 'role' && accessRole && (
                                             <span className="font-medium" style={{ color: accessRole.color !== '#000000' ? accessRole.color : '#9ca3af' }}>
                                                 @{accessRole.name}
@@ -446,7 +449,7 @@ export default function ApprovalTab({ selectedServer, channels, serverRoles, ser
                                             <span className="text-indigo-400">#{accessChannel.name}</span>
                                         )}
                                         {!accessRole && !accessChannel && (
-                                            <span className="text-red-400">Nicht konfiguriert</span>
+                                            <span className="text-red-400">{ta.notConfigured}</span>
                                         )}
                                     </div>
                                 </div>
@@ -456,16 +459,7 @@ export default function ApprovalTab({ selectedServer, channels, serverRoles, ser
                 </div>
             )}
 
-            <details className="dc-help">
-                <summary>Ablauf</summary>
-                <ol className="text-white/50 text-sm space-y-1 list-decimal list-inside">
-                    <li>Nutzer klickt auf "📩 Anfragen" im Embed</li>
-                    <li>Bot erstellt privaten Thread mit Nutzer + Genehmigern</li>
-                    <li>Genehmiger klicken auf "Genehmigen" oder "Ablehnen"</li>
-                    <li>Bei Genehmigung: Rolle/Kanal wird freigeschaltet, Nutzer erhält DM</li>
-                    <li>Bei Ablehnung: Nutzer erhält DM, Cooldown wird gesetzt</li>
-                </ol>
-            </details>
+            <DcHelp title={ta.flowTitle} items={ta.flow} ordered />
         </div>
     );
 }

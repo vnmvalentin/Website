@@ -2,6 +2,7 @@
 const fetch = (...args) => import('node-fetch').then(({ default: f }) => f(...args));
 const { getAllEnabledTwitchNotifications, updateLastAnnouncedStreamId } = require('../database/db');
 const { step } = require('../../lib/startupLog');
+const { botText } = require('./botText');
 
 const CLIENT_ID = process.env.TWITCH_CLIENT_ID;
 const CLIENT_SECRET = process.env.TWITCH_CLIENT_SECRET;
@@ -94,9 +95,10 @@ async function poll(discordClient) {
                 continue;
             }
 
-            const message = (notif.messageTemplate || '🔴 **{streamer}** ist jetzt live! {url}')
+            const t = botText(notif.guildId);
+            const message = (notif.messageTemplate || t.twitch.defaultMessage)
                 .replace(/\{streamer\}/g, stream.user_name)
-                .replace(/\{game\}/g,    stream.game_name || 'Unbekannt')
+                .replace(/\{game\}/g,    stream.game_name || t.unknown)
                 .replace(/\{title\}/g,   stream.title || '')
                 .replace(/\{url\}/g,     `https://twitch.tv/${stream.user_login}`);
 

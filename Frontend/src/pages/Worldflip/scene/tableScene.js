@@ -18,7 +18,7 @@ import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
-import { ANIM, RULES, TEAMS, WORLDS } from '../engine/index.js';
+import { ANIM, KINDS, RULES, TEAMS, WORLDS } from '../engine/index.js';
 import { cardCanvas, cardKey, CARD_W, CARD_H } from './cardArt.js';
 import { buildDrum, dotTexture, glow, FLOOR, R } from './worlds.js';
 import { createAvatar } from './avatars.js';
@@ -33,7 +33,7 @@ const DECK = new THREE.Vector3(-0.72, 0.02, 0.1);
 const CENTER = new THREE.Vector3(0, 1.4, 0);
 const HAND_DIST = 3.4; // Abstand der eigenen Hand vor der Kamera
 const FAN_SCALE = 0.74;
-const KIND_ORDER = { n: 0, kipp: 1, sturm: 2, meteor: 3, walze: 4, frost: 5, welle: 6, schild: 7, saat: 8, tausch: 9, strahl: 10, portal: 11, finsternis: 12, zuender: 13 };
+const KIND_ORDER = Object.fromEntries(Object.keys(KINDS).map((k, i) => [k, i]));
 const UP = new THREE.Vector3(0, 1, 0);
 
 const easeInOut = (k) => (k < 0.5 ? 4 * k * k * k : 1 - (-2 * k + 2) ** 3 / 2);
@@ -89,6 +89,16 @@ export function createTableScene(canvas, opts = {}) {
   camRig.add(camera);
   let baseFov = 50;
   let fovKick = 0;
+  // Schleier direkt vor der Kamera: Weltwechsel blenden ab und auf statt die Trommel zu drehen (swapWorld)
+  const veil = new THREE.Mesh(
+    new THREE.PlaneGeometry(1, 1),
+    new THREE.MeshBasicMaterial({ color: '#000000', transparent: true, opacity: 0, depthTest: false, depthWrite: false }),
+  );
+  veil.material.toneMapped = false;
+  veil.position.set(0, 0, -0.15);
+  veil.renderOrder = 1000;
+  veil.visible = false;
+  camera.add(veil);
 
   const hemi = new THREE.HemisphereLight('#ffffff', '#3a3550', 1.25);
   const sun = new THREE.DirectionalLight('#ffffff', 1.7);
@@ -231,6 +241,7 @@ export function createTableScene(canvas, opts = {}) {
   let myColor = '#f4eedf'; // Farbe des eigenen Blobs (Zeige-Arm, Rahmen der gezeigten Karte)
   let avatars = []; // je Platz oder null (eigener Platz)
   let counts = [];
+  let fogged = []; // Plätze, deren Kartenzahl mir der Nebel verbirgt (view.counts[p] === null)
   let world = 0;
   let dir = 1;
   let darkness = 0;
@@ -364,6 +375,32 @@ export function createTableScene(canvas, opts = {}) {
     }, easeIn).then(() => trash(m));
   }
 
+  // Lavabombe: ein großer glühender Brocken mit Glutspur, hoch über den Tisch auf einen Spieler (seit 16.11.2026 statt
+  // eines kleinen Geschosses — Rückmeldung: „fliegt nur eine leichte Kugel“). Der Einschlag kommt im Handler.
+  function lavaBomb(from, to, ms) {
+    const g = new THREE.Group();
+    const core = new THREE.Mesh(new THREE.IcosahedronGeometry(0.85, 1), glow('#ff7b1c', {}, 3.4));
+    const crust = new THREE.Mesh(new THREE.IcosahedronGeometry(0.95, 0), new THREE.MeshStandardMaterial({ color: '#2a1410', roughness: 1, flatShading: true, transparent: true, opacity: 0.55 }));
+    g.add(core, crust);
+    g.position.copy(from);
+    scene.add(g);
+    let trailT = 0;
+    let last = 0;
+    return anim(ms, (e, k) => {
+      g.position.lerpVectors(from, to, e);
+      g.position.y += Math.sin(e * Math.PI) * 5.5;
+      g.rotation.x += 0.12;
+      g.rotation.y += 0.07;
+      core.scale.setScalar(1 + Math.sin(k * 40) * 0.08);
+      trailT += (k - last) * ms;
+      last = k;
+      if (trailT > (low ? 140 : 70)) {
+        trailT = 0;
+        burst(Math.random() < 0.5 ? '#ffb23e' : '#ff5a1c', g.position.clone(), 7, 600, 1.2, 2);
+      }
+    }, easeIn).then(() => trash(g));
+  }
+
   // Gezackter Blitz von oben auf einen Punkt
   function bolt(to, color) {
     const g = new THREE.Group();
@@ -394,7 +431,7 @@ export function createTableScene(canvas, opts = {}) {
   function setFan(seat) {
     const av = avatars[seat];
     if (!av) return;
-    const want = Math.min(counts[seat], 14);
+    const want = fogged[seat] ? 0 : Math.min(counts[seat] || 0, 14); // im Nebel bleibt der Fächer leer
     while (av.fan.children.length > want) av.fan.remove(av.fan.children[av.fan.children.length - 1]);
     while (av.fan.children.length < want) av.fan.add(makeCard(null));
     const step = Math.min(0.2, 1.7 / Math.max(1, want));
@@ -404,7 +441,7 @@ export function createTableScene(canvas, opts = {}) {
       c.rotation.set(0, Math.PI, t * 0.085);
       c.scale.setScalar(FAN_SCALE);
     });
-    av.setNervous(counts[seat] === 1);
+    av.setNervous(!fogged[seat] && counts[seat] === 1);
   }
 
   // ── Eigene Hand ─────────────────────────────────────────────────────────────────────────
@@ -550,14 +587,25 @@ export function createTableScene(canvas, opts = {}) {
     inlayMat.color.set(WORLDS[world].color).multiplyScalar(1.7);
     worldLight.color.set(WORLDS[world].color);
   }
-  function turnDrum(ms) {
-    const from = drumAngle;
-    const to = targetAngle();
-    return anim(ms, (e, k) => {
-      drumAngle = from + (to - from) * e;
-      fovKick = Math.sin(k * Math.PI) * 9; // die Welt rauscht vorbei: kurz weiter aufziehen
+  // Welt wechseln ohne Drehung (seit 16.11.2026; vorher drehte sich die Trommel mit Zoom-Stoß — Sorge des Nutzers:
+  // davon kann Spielern übel werden). Das Bild blendet in die dunkle Farbe der neuen Welt ab, die Trommel springt
+  // verdeckt um, onSwap setzt Licht und Effekte, dann blendet es wieder auf. Die Kamera bewegt sich dabei nicht.
+  function swapWorld(ms, onSwap) {
+    const down = ms * 0.38;
+    veil.material.color.set(WORLDS[world].dark);
+    veil.material.opacity = 0;
+    veil.visible = true;
+    return anim(down, (e) => {
+      veil.material.opacity = e * 0.94;
     }).then(() => {
-      fovKick = 0;
+      drumAngle = targetAngle();
+      onSwap?.();
+      return anim(ms - down, (e) => {
+        veil.material.opacity = 0.94 * (1 - e);
+      });
+    }).then(() => {
+      veil.visible = false;
+      veil.material.opacity = 0;
     });
   }
   function setCharges(list) {
@@ -579,7 +627,11 @@ export function createTableScene(canvas, opts = {}) {
     scene.add(obj);
     return obj;
   }
-  /** Karten vom Stapel (oder von `from`) zu einem Platz; eigene Karten landen in der Hand. */
+  /**
+   * Karten vom Stapel (oder von `from`) zu einem Platz; eigene Karten landen in der Hand. Fremde Karten fliegen seit
+   * 16.11.2026 langsamer und im hohen Bogen (Rückmeldung: man sah nicht, wie viele jemand zieht); sind alle
+   * angekommen, meldet opts.onDealt(seat, count) die Zahl — GameTable zeigt sie als „+N“ am Namensschild.
+   */
   function deal(seat, cards, count, from) {
     const jobs = [];
     const origin = from || deck.getWorldPosition(new THREE.Vector3()).add(new THREE.Vector3(0, deckLift + 0.05, 0));
@@ -595,10 +647,10 @@ export function createTableScene(canvas, opts = {}) {
       obj.visible = false;
       scene.add(obj);
       jobs.push(
-        wait(i * 160).then(() => {
+        wait(i * 170).then(() => {
           obj.visible = true;
           sfx.draw();
-          return fly(obj, anchor(seat), anchorQuat(seat), 380, 0.7, FAN_SCALE);
+          return fly(obj, anchor(seat), anchorQuat(seat), 520, 1.3, FAN_SCALE);
         }).then(() => {
           dropCard(obj);
           counts[seat] += 1;
@@ -607,6 +659,11 @@ export function createTableScene(canvas, opts = {}) {
       );
     }
     if (seat === mySeat && count) sfx.draw();
+    // Die Zahl erscheint, wenn die Karten da sind — ohne die Dauer des Ereignisses zu verlängern
+    if (count > 0) {
+      const landed = jobs.length ? Promise.all(jobs) : wait((count - 1) * 160 + 420);
+      landed.then(() => { if (!disposed) opts.onDealt?.(seat, count); });
+    }
     return Promise.all(jobs);
   }
   const dealAll = (draws) => (draws || []).map((d) => {
@@ -655,6 +712,18 @@ export function createTableScene(canvas, opts = {}) {
     [counts[a], counts[b]] = [counts[b], counts[a]];
     setFan(a);
     setFan(b);
+  }
+  // Alle Hände wandern einen Platz weiter (step = Spielrichtung): Flut und die 0 im Kosmos
+  function passHands(step, ms) {
+    const jobs = [];
+    for (let p = 0; p < n; p += 1) jobs.push(seatBundle(p, (p + step + n) % n, ms));
+    if (mySeat !== null) clearHand(anchor((mySeat - step + n) % n));
+    jobs.push(wait(ms).then(() => {
+      const old = counts.slice();
+      for (let p = 0; p < n; p += 1) counts[(p + step + n) % n] = old[p];
+      for (let p = 0; p < n; p += 1) setFan(p);
+    }));
+    return Promise.all(jobs);
   }
   // Richtungswechsel: nicht die Welt dreht sich, sondern der Tisch wirbelt einmal in der NEUEN Spielrichtung herum,
   // die Ablage hüpft hoch, und große Pfeile kreisen in dieser Richtung um den Tisch
@@ -736,6 +805,18 @@ export function createTableScene(canvas, opts = {}) {
     anim(ms * 0.2, (e) => set(len * (1 - e)), easeIn).then(() => trash(arm));
     await wait(ms * 0.2);
   }
+
+  /** Ein Spiegel hat den Angriff zurückgeworfen: Eine Lichtscherbe fliegt vom Spiegel (`from`) auf den Absender. */
+  async function rebound(from, to, ms) {
+    avatars[to]?.setTargeted(true);
+    const end = body(to);
+    await projectile(body(from), end, '#e9deff', ms * 0.7, 2.4, 0.34);
+    if (to === mySeat) shake = Math.max(shake, 0.4);
+    ring(new THREE.Vector3(end.x, 0.1, end.z), '#c9a2ff', 500, 2.2);
+    await wait(ms * 0.3);
+  }
+  /** Vor einem Angriff: aufs Ziel zeigen — oder, wenn er zurückgeworfen wurde (e.mirror = Platz des Spiegels), der Rückprall. */
+  const aim = (e, by, to, ms) => (Number.isInteger(e.mirror) ? rebound(e.mirror, to, ms) : point(by, to, ms));
 
   function setActive(seat) {
     avatars.forEach((av, s) => av?.setActive(s === seat));
@@ -829,12 +910,12 @@ export function createTableScene(canvas, opts = {}) {
       sfx.world();
       ambience(e.to);
       world = e.to;
-      applyWorldLook();
-      shake = Math.max(shake, 0.16);
-      lightKick = Math.max(lightKick, 1);
-      burst(WORLDS[e.to].color, new THREE.Vector3(0, 0.2, 0), 50, 1200, 9, 2);
-      await turnDrum(ANIM.world * 0.9);
-      await wait(ANIM.world * 0.1);
+      await swapWorld(ANIM.world * 0.55, () => {
+        applyWorldLook();
+        lightKick = Math.max(lightKick, 1);
+        burst(WORLDS[e.to].color, new THREE.Vector3(0, 0.2, 0), 50, 1200, 9, 2);
+      });
+      await wait(ANIM.world * 0.45);
     },
 
     async flip(e) {
@@ -845,7 +926,7 @@ export function createTableScene(canvas, opts = {}) {
 
     // Sturm: erst zeigen, dann fliegt die Figur davon und bleibt weg, bis sie wieder dran ist
     async skip(e) {
-      await point(e.by, e.seat, 800);
+      await aim(e, e.by, e.seat, 800);
       sfx.skip();
       const av = avatars[e.seat];
       if (av) {
@@ -863,9 +944,50 @@ export function createTableScene(canvas, opts = {}) {
       await wait(ANIM.skip - 800);
     },
 
+    // Hagel: zeigen, dann prasseln Eiskörner auf das Ziel
+    async hagel(e) {
+      await aim(e, e.by, e.seat, 800);
+      sfx.hagel();
+      const to = body(e.seat);
+      const mat = glow('#dff4ff', {}, 1.9);
+      const geo = new THREE.IcosahedronGeometry(0.2, 0);
+      const jobs = [];
+      const stones = Math.min(22, 8 + (e.plus || 2) * 2); // gestapelt prasselt es dichter
+      const gap = 770 / (stones - 1);
+      for (let i = 0; i < stones; i += 1) {
+        const stone = new THREE.Mesh(geo, mat);
+        const end = to.clone().add(new THREE.Vector3((Math.random() - 0.5) * 1.8, -0.9, (Math.random() - 0.5) * 1.8));
+        const start = end.clone().add(new THREE.Vector3(1.5, 11 + Math.random() * 3, -2));
+        stone.position.copy(start);
+        stone.scale.setScalar(0.7 + Math.random() * 0.9);
+        stone.visible = false;
+        scene.add(stone);
+        jobs.push(wait(i * gap).then(() => {
+          stone.visible = true;
+          return anim(380, (k) => {
+            stone.position.lerpVectors(start, end, k);
+            stone.rotation.x += 0.4;
+          }, easeIn);
+        }).then(() => {
+          scene.remove(stone);
+          burst('#dff4ff', end, 8, 450, 2.5, 6);
+          if (i % 3 === 0) {
+            avatars[e.seat]?.hit();
+            if (e.seat === mySeat) shake = Math.max(shake, 0.3);
+          }
+        }));
+      }
+      await Promise.all(jobs); // 770 + 380 = 1150 ms
+      geo.dispose();
+      mat.dispose();
+      ring(new THREE.Vector3(to.x, 0.1, to.z), '#bfe9ff', 600, 2.8, true);
+      unmark(e.seat);
+      await Promise.all([deal(e.seat, e.cards, e.n), wait(ANIM.hagel - 800 - 1150)]);
+    },
+
     // Meteor: zeigen, dann stürzt ein großer brennender Brocken aus dem Himmel auf das Ziel
     async meteor(e) {
-      await point(e.by, e.seat, 900);
+      await aim(e, e.by, e.seat, 900);
       sfx.meteor();
       const to = body(e.seat);
       const m = new THREE.Group();
@@ -941,10 +1063,11 @@ export function createTableScene(canvas, opts = {}) {
 
     // Frost: zeigen, Eissplitter fliegt zum Ziel, Eiszacken schießen aus dem Boden, das Ziel erstarrt
     async frost(e) {
-      await point(e.by, e.seat, 800);
+      const back = Number.isInteger(e.mirror);
+      await aim(e, e.by, e.seat, back ? 1220 : 800);
       sfx.frost();
       const to = body(e.seat);
-      await projectile(handOf(e.by), to, '#bfe9ff', 420, 1.6, 0.3);
+      if (!back) await projectile(handOf(e.by), to, '#bfe9ff', 420, 1.6, 0.3);
       avatars[e.seat]?.setFrozen(true);
       avatars[e.seat]?.hit();
       if (e.seat === mySeat) shake = Math.max(shake, 0.35);
@@ -990,6 +1113,132 @@ export function createTableScene(canvas, opts = {}) {
       await wait(ANIM.shield);
     },
 
+    // Antwort mit dem Spiegel: Die Karte wird bei dem gezeigt, der sie legt, dann blitzt eine große Scheibe dem
+    // Absender entgegen und zerspringt (der Rückprall selbst gehört zum nächsten Ereignis, siehe aim)
+    async reflect(e) {
+      const mine = e.seat === mySeat;
+      const obj = (mine ? takeFromHand(e.card.id) : null) || spawnCard(e.seat, e.card);
+      counts[e.seat] = Math.max(0, counts[e.seat] - 1);
+      setFan(e.seat);
+      avatars[e.seat]?.hop();
+      sfx.mirror();
+      const show = mine ? new THREE.Vector3(0, 2.1, 4.3) : body(e.seat).multiplyScalar(0.4).add(new THREE.Vector3(0, 1.7, 0.4));
+      const scale = (2.5 * show.distanceTo(camera.getWorldPosition(new THREE.Vector3()))) / 5.8;
+      await fly(obj, show, camera.getWorldQuaternion(new THREE.Quaternion()), 450, 0.5, scale);
+      await anim(ANIM.reflect * 0.55 - 450, (k) => {
+        obj.position.y = show.y + Math.sin(k * Math.PI * 2) * 0.05;
+      }, linear);
+      dropCard(obj);
+      burst('#e9deff', show, 40, 700, 5, 3);
+      sfx.reflect();
+      const p = body(e.seat);
+      lightKick = 1.6;
+      const disc = new THREE.Mesh(new THREE.CircleGeometry(1.2, 6), glow('#efe6ff', { transparent: true, side: THREE.DoubleSide, depthWrite: false }, 2.4));
+      disc.position.copy(p);
+      disc.lookAt(body(e.to));
+      scene.add(disc);
+      ring(new THREE.Vector3(p.x, 0.15, p.z), '#c9a2ff', 500, 2.6);
+      await anim(ANIM.reflect * 0.3, (ek, k) => {
+        disc.scale.setScalar(0.3 + ek * 1.1);
+        disc.material.opacity = 1 - k * k;
+      }, easeOut);
+      trash(disc);
+      burst('#e9deff', p, 50, 800, 6, 4);
+      await wait(ANIM.reflect * 0.15);
+    },
+
+    // Jemand darf auf einen Angriff antworten: Er ist jetzt der, auf den alle schauen
+    async ask(e) {
+      setActive(e.seat);
+      await wait(ANIM.ask);
+    },
+
+    // Aussetzen (nach einem zurückgeworfenen Sturm, Hagel oder Meteor): kurzer Windstoß am Platz
+    async sitout(e) {
+      sfx.splash();
+      avatars[e.seat]?.setAway(false); // wer weggeweht war, ist nach dem verpassten Zug wieder da
+      burst('#ffffff', body(e.seat), 24, 600, 3, 1);
+      await wait(ANIM.sitout);
+    },
+
+    // Brandopfer: Eine eigene Karte steigt auf und verbrennt
+    async burn(e) {
+      sfx.burn();
+      lightKick = 1.2;
+      const jobs = e.losses.map((l) => {
+        const to = anchor(l.seat).add(new THREE.Vector3(0, 2.6, 0));
+        return lose(l, to, ANIM.burn * 0.5).then(() => {
+          burst('#ff7b1c', to, 50, 800, 4, 2);
+          burst('#ffe27a', to, 20, 600, 2.5, 1);
+        });
+      });
+      if (!e.losses.length) burst('#ff7b1c', body(e.seat), 30, 700, 3, 2);
+      await Promise.all([...jobs, wait(ANIM.burn)]);
+    },
+
+    // Flaschenpost: zeigen, dann fliegt eine Flasche hin und kommt mit dem Blick in die Karten zurück
+    async peek(e) {
+      await aim(e, e.by, e.seat, 800);
+      sfx.peek();
+      const from = handOf(e.by);
+      const to = body(e.seat);
+      await projectile(from, to, '#8fd3ff', 500, 2.2, 0.26);
+      avatars[e.seat]?.hit();
+      burst('#bfe1ff', to, 30, 700, 3, 2);
+      ring(new THREE.Vector3(to.x, 0.12, to.z), '#5fb6ff', 600, 2.2, true);
+      await projectile(to, from, '#ffffff', 500, 2.2, 0.2);
+      unmark(e.seat);
+      await wait(ANIM.peek - 800 - 1000);
+    },
+
+    // Supernova: greller Blitz über dem Tisch, dann antwortet jede Welt mit einem Ring in ihrer Farbe
+    async nova(e) {
+      sfx.nova();
+      shake = Math.max(shake, 0.5);
+      lightKick = 2.6;
+      const star = new THREE.Mesh(new THREE.IcosahedronGeometry(0.5, 1), glow('#ffffff', { transparent: true }, 4));
+      star.position.set(0, 2.4, 0);
+      scene.add(star);
+      burst('#ffffff', star.position, 120, 1400, 10, 1);
+      burst('#c9a2ff', star.position, 80, 1400, 8, 1);
+      const grow = anim(ANIM.nova * 0.5, (ek, k) => {
+        star.scale.setScalar(0.4 + ek * 2.2);
+        star.material.opacity = 1 - k * k;
+      }, easeOut).then(() => trash(star));
+      for (let w = 0; w < 4; w += 1) wait(250 + w * 180).then(() => ring(new THREE.Vector3(0, 0.05, 0), WORLDS[w].color, 800, 3.1));
+      await wait(ANIM.nova * 0.6);
+      setCharges(e.charges);
+      await Promise.all([grow, wait(ANIM.nova * 0.4)]);
+    },
+
+    // Kosmos — die 0: Alle Hände wandern einen Platz in Spielrichtung weiter
+    async rotate(e) {
+      sfx.swap();
+      ring(CENTER, '#c9a2ff', 1200, 2.2, true);
+      wait(200).then(() => ring(CENTER, '#ff9ee0', 1000, 1.6, true));
+      lightKick = 1;
+      await passHands(e.dir, ANIM.rotate * 0.7);
+      await wait(ANIM.rotate * 0.3);
+    },
+
+    // Nebel zieht auf: Wolke vor den Karten, der Fächer verschwindet darin
+    async fog(e) {
+      sfx.fog();
+      avatars[e.seat]?.setFog(true);
+      fogged[e.seat] = e.seat !== mySeat && (mySeat === null || isFoe(e.seat, mySeat));
+      setFan(e.seat);
+      burst('#d9d2ee', body(e.seat), 50, 1200, 3, 0.4);
+      await wait(ANIM.fog);
+    },
+    // … und lichtet sich wieder (die Karten zeigt der nächste Abgleich)
+    async unfog(e) {
+      sfx.splash();
+      avatars[e.seat]?.setFog(false);
+      fogged[e.seat] = false;
+      burst('#d9d2ee', body(e.seat), 30, 800, 4, 1);
+      await wait(ANIM.unfog);
+    },
+
     // Dornenschild fängt einen Angriff ab und zerspringt
     async block(e) {
       sfx.block();
@@ -1012,7 +1261,7 @@ export function createTableScene(canvas, opts = {}) {
 
     // Saat: zeigen, dann wandert eine Karte von Hand zu Hand
     async gift(e) {
-      await point(e.from, e.to, 800);
+      await aim(e, e.from, e.to, 800);
       sfx.swap();
       const obj = (e.from === mySeat && e.card ? takeFromHand(e.card.id) : null) || spawnCard(e.from, null);
       counts[e.from] = Math.max(0, counts[e.from] - 1);
@@ -1044,7 +1293,7 @@ export function createTableScene(canvas, opts = {}) {
 
     // Strahl: zeigen, dann fahren Blitze in einer Lichtsäule auf das Ziel nieder
     async beam(e) {
-      await point(e.by, e.seat, 800);
+      await aim(e, e.by, e.seat, 800);
       sfx.beam();
       const to = body(e.seat);
       const column = new THREE.Mesh(new THREE.CylinderGeometry(0.75, 0.75, 16, 12, 1, true), glow('#c9a2ff', { transparent: true, opacity: 0.35, side: THREE.DoubleSide, depthWrite: false }, 1.8));
@@ -1088,17 +1337,29 @@ export function createTableScene(canvas, opts = {}) {
       burst(color, new THREE.Vector3(0, -0.5, 0), 140, 1700, 11);
       ring(new THREE.Vector3(0, 0.2, 0), color, 900, 8, true);
       wait(200).then(() => ring(new THREE.Vector3(0, 0.2, 0), '#ffffff', 800, 6.5, true));
-      await wait(ANIM.erupt * 0.3);
+      // Erst wenn das große Band (GameTable SPLASH_MS, 1,8 s) weg ist, kommt die Wirkung — vorher flog die Lavabombe
+      // unsichtbar dahinter (16.11.2026). Bombe + drei Karten enden so nach ~3,5 s, innerhalb von ANIM.erupt.
+      await wait(ANIM.erupt * 0.42);
 
       const part = ANIM.erupt * 0.42;
       const jobs = [rumble];
       if (e.draws) {
-        if (w === 0) {
+        if (w === 0 && e.ev === 'lavabombe') {
+          // Ein großer Brocken auf einen Spieler, Einschlag mit Glutring
+          await Promise.all(e.draws.map((d) => lavaBomb(new THREE.Vector3(0, -1, 0), body(d.seat), part * 0.55)));
+          for (const d of e.draws) {
+            const at = body(d.seat);
+            burst('#ff7b1c', at, 110, 1100, 7);
+            burst('#ffd27a', at, 40, 700, 4);
+            ring(new THREE.Vector3(at.x, 0.3, at.z), '#ff7b1c', 800, 4.5, true);
+            avatars[d.seat]?.hit();
+          }
+          shake = Math.max(shake, 0.9);
+          lightKick = Math.max(lightKick, 1.4);
+        } else if (w === 0) {
           // Lavabrocken fliegen zu den Getroffenen
-          const size = e.ev === 'lavabombe' ? 0.6 : 0.3;
-          await Promise.all(e.draws.map((d) => projectile(new THREE.Vector3(0, -1, 0), body(d.seat), '#ffb23e', part * 0.5, 4.5, size)));
-          for (const d of e.draws) burst('#ff7b1c', body(d.seat), e.ev === 'lavabombe' ? 70 : 30, 800, 5);
-          if (e.ev === 'lavabombe') shake = Math.max(shake, 0.7);
+          await Promise.all(e.draws.map((d) => projectile(new THREE.Vector3(0, -1, 0), body(d.seat), '#ffb23e', part * 0.5, 4.5, 0.35)));
+          for (const d of e.draws) burst('#ff7b1c', body(d.seat), 30, 800, 5);
         } else {
           for (const d of e.draws) burst(color, body(d.seat), 34, 1000, 3.5);
         }
@@ -1112,15 +1373,7 @@ export function createTableScene(canvas, opts = {}) {
           jobs.push(lose(l, to, part).then(() => (w === 3 ? null : burst(color, to, 20, 600, 3))));
         }
       }
-      if (e.rotate) {
-        for (let p = 0; p < n; p += 1) jobs.push(seatBundle(p, (p + e.rotate + n) % n, part));
-        if (mySeat !== null) clearHand(anchor((mySeat - e.rotate + n) % n));
-        jobs.push(wait(part).then(() => {
-          const old = counts.slice();
-          for (let p = 0; p < n; p += 1) counts[(p + e.rotate + n) % n] = old[p];
-          for (let p = 0; p < n; p += 1) setFan(p);
-        }));
-      }
+      if (e.rotate) jobs.push(passHands(e.rotate, part));
       if (e.mix) {
         // Strudel: alle Hände in die Mitte, einmal herum, wieder hinaus
         const q = flatQuat(0);
@@ -1130,8 +1383,6 @@ export function createTableScene(canvas, opts = {}) {
         if (mySeat !== null) clearHand(CENTER.clone());
         ring(CENTER, color, part, 4, true);
       }
-      if (e.swap) jobs.push(swapHands(e.swap[0], e.swap[1], part));
-      if (e.flip) jobs.push(flipWorld(e.flip, part));
       if (e.freeze) {
         for (const p of e.freeze) {
           avatars[p]?.setFrozen(true);
@@ -1139,10 +1390,22 @@ export function createTableScene(canvas, opts = {}) {
           burst('#51cf66', body(p), 40, 900, 4, 2);
         }
       }
+      if (e.again) {
+        // Zeitschleife: Ringe ziehen sich um den, der gleich noch einmal dran ist
+        const p = body(e.by);
+        avatars[e.by]?.hop();
+        for (let i = 0; i < 3; i += 1) jobs.push(wait(i * 220).then(() => ring(new THREE.Vector3(p.x, 0.15, p.z), i % 2 ? '#ffffff' : color, 700, 2.6, true)));
+      }
+      if (e.ev === 'konjunktion') {
+        // die anderen Welten antworten: je ein Ring in ihrer Farbe
+        for (let o = 0; o < 4; o += 1) {
+          if (o !== w) jobs.push(wait(o * 200).then(() => ring(new THREE.Vector3(0, 0.05, 0), WORLDS[o].color, 800, 3.1)));
+        }
+      }
       await Promise.all(jobs);
       await wait(ANIM.erupt * 0.2);
       charges[w] = 0;
-      setCharges(charges);
+      setCharges(e.charges || charges);
     },
 
     async dark(e) {
@@ -1201,6 +1464,7 @@ export function createTableScene(canvas, opts = {}) {
     mySeat = my;
     teams = teamOf;
     counts = new Array(n).fill(0);
+    fogged = [];
     if (my !== null) myColor = SKIN_COLORS[normalizeSkin(skins[my], my).c].hex;
     avatars = [];
     for (let s = 0; s < n; s += 1) {
@@ -1225,23 +1489,22 @@ export function createTableScene(canvas, opts = {}) {
     dir = view.dir;
     applyWorldLook();
     ambience(world);
-    if (fresh) {
-      drumAngle = targetAngle();
-    } else if (Math.abs(targetAngle() - drumAngle) > 0.01) {
-      turnDrum(500);
-    }
+    // Steht die Trommel nach den Ereignissen noch falsch, springt sie (nie drehen, siehe swapWorld)
+    drumAngle = targetAngle();
     setCharges(view.charges);
     darkTarget = view.dark > 0 ? 1 : 0;
     blind = view.dark > 0 && mySeat !== null && view.darkBy !== null && isFoe(view.darkBy, mySeat);
     counts = view.counts.slice();
+    fogged = view.counts.map((c) => c === null);
     const won = (s) => view.winner !== null && (s === view.winner || (view.winTeam !== null && !!teams && teams[s] === view.winTeam));
     for (let s = 0; s < n; s += 1) {
       setFan(s);
       avatars[s]?.setShield(view.shield[s]);
       avatars[s]?.setFrozen(view.frozen[s]);
+      avatars[s]?.setFog(!!view.fog?.[s]);
       avatars[s]?.setCheer(won(s));
     }
-    setActive(view.winner === null ? view.turn : -1);
+    setActive(view.winner === null ? (view.react ? view.react.seat : view.turn) : -1);
     if (view.winner === null) avatars[view.turn]?.setAway(false);
     else avatars.forEach((av) => av?.setAway(false));
 

@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
 import { Tv, Pencil, Trash2 } from 'lucide-react';
+import { DcHelp, Rich } from '../ui';
+import { isErrorStatus, serverErrorText, useDiscordText } from '../discordI18n.js';
 
 const VARIABLES = ['{streamer}', '{game}', '{title}', '{url}'];
-const DEFAULT_MSG = '🔴 **{streamer}** ist jetzt live! Spiel: {game}\n{url}';
 
 // Findet ein "@wort" direkt vor der Cursor-Position (ohne Leerzeichen dazwischen)
 function findMentionQuery(value, cursorPos) {
@@ -13,6 +14,9 @@ function findMentionQuery(value, cursorPos) {
 }
 
 export default function TwitchNotifTab({ selectedServer, channels, serverRoles = [] }) {
+    const t = useDiscordText();
+    // Vorlage für neue Meldungen in der Sprache des Dashboards
+    const DEFAULT_MSG = t.twitch.defaultMessage;
     const [notifs, setNotifs] = useState([]);
     const [twitchUsername, setTwitchUsername] = useState('');
     const [channelId, setChannelId] = useState('');
@@ -165,12 +169,12 @@ export default function TwitchNotifTab({ selectedServer, channels, serverRoles =
                     setNotifs(prev => [...prev, { id: data.id, twitchUsername, channelId, messageTemplate: templateForStorage, enabled: 1 }]);
                 }
                 resetForm();
-                setSaveStatus('Gespeichert!');
+                setSaveStatus(t.common.saved);
             } else {
-                setSaveStatus(`Fehler: ${data.error}`);
+                setSaveStatus(t.common.errorWith(serverErrorText(t, data)));
             }
         } catch {
-            setSaveStatus('Fehler: keine Verbindung zum Server.');
+            setSaveStatus(t.common.networkError);
         } finally {
             setIsSaving(false);
             setTimeout(() => setSaveStatus(''), 3000);
@@ -193,32 +197,32 @@ export default function TwitchNotifTab({ selectedServer, channels, serverRoles =
     return (
         <div className="dc-page">
             <div>
-                <h2 className="dc-h2">Twitch Benachrichtigungen</h2>
-                <p className="text-white/50 text-sm">Sende automatisch eine Nachricht wenn ein Twitch-Kanal live geht.</p>
+                <h2 className="dc-h2">{t.twitch.title}</h2>
+                <p className="text-white/50 text-sm">{t.twitch.intro}</p>
             </div>
 
             <div className="dc-card p-6 space-y-4 max-w-2xl">
                 <h3 className="text-white font-semibold flex items-center gap-2">
-                    {editingId ? 'Bearbeiten' : 'Neue Benachrichtigung'}
+                    {editingId ? t.common.edit : t.twitch.newTitle}
                 </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                        <label className="dc-label">Twitch Nutzername</label>
+                        <label className="dc-label">{t.twitch.user}</label>
                         <input value={twitchUsername} onChange={e => setTwitchUsername(e.target.value)}
-                            placeholder="z.B. shroud"
+                            placeholder={t.twitch.userPh}
                             className="dc-input w-full" />
                     </div>
                     <div>
-                        <label className="dc-label">Discord Kanal</label>
+                        <label className="dc-label">{t.twitch.channel}</label>
                         <select value={channelId} onChange={e => setChannelId(e.target.value)}
                             className="dc-input w-full">
-                            <option value="">-- Kanal auswählen --</option>
+                            <option value="">{t.common.pickChannel}</option>
                             {channels.map(c => <option key={c.id} value={c.id}># {c.name}</option>)}
                         </select>
                     </div>
                 </div>
                 <div className="relative">
-                    <label className="dc-label">Nachrichtenvorlage</label>
+                    <label className="dc-label">{t.twitch.template}</label>
                     <textarea ref={textareaRef} value={messageTemplate} onChange={handleTemplateChange}
                         onKeyDown={handleTemplateKeyDown}
                         onClick={e => updateMentionState(e.target.value, e.target.selectionStart)}
@@ -235,7 +239,7 @@ export default function TwitchNotifTab({ selectedServer, channels, serverRoles =
                                     <span className="text-white text-sm truncate">{r.name}</span>
                                 </div>
                             )) : (
-                                <div className="px-3 py-2 text-white/40 text-xs">Keine passende Rolle gefunden</div>
+                                <div className="px-3 py-2 text-white/40 text-xs">{t.twitch.noRole}</div>
                             )}
                         </div>
                     )}
@@ -247,26 +251,26 @@ export default function TwitchNotifTab({ selectedServer, channels, serverRoles =
                             </button>
                         ))}
                     </div>
-                    <p className="text-white/40 text-xs mt-2">Klicke auf eine Variable um sie einzufügen. Tippe <span className="text-white/50">@</span> um eine Rolle zu markieren. Markdown wird unterstützt.</p>
+                    <p className="text-white/40 text-xs mt-2"><Rich text={t.twitch.hint} className="text-white/50" /></p>
                 </div>
                 <div className="flex items-center gap-3 pt-1">
                     <button onClick={handleSave} disabled={isSaving || !twitchUsername || !channelId}
                         className="dc-btn">
-                        {isSaving ? 'Speichere...' : editingId ? 'Aktualisieren' : 'Hinzufügen'}
+                        {isSaving ? t.common.saving : editingId ? t.common.update : t.common.add}
                     </button>
                     {editingId && (
                         <button onClick={resetForm}
                             className="bg-white/5 hover:bg-white/10 text-white/50 font-bold py-2.5 px-5 rounded-md transition-colors">
-                            Abbrechen
+                            {t.common.cancel}
                         </button>
                     )}
-                    {saveStatus && <span className="text-sm font-medium text-white">{saveStatus}</span>}
+                    {saveStatus && <span className={`text-sm font-medium ${isErrorStatus(saveStatus) ? 'text-red-400' : 'text-white'}`}>{saveStatus}</span>}
                 </div>
             </div>
 
             {notifs.length > 0 && (
                 <div className="max-w-2xl space-y-3">
-                    <h3 className="text-white font-semibold text-lg">Aktive Benachrichtigungen</h3>
+                    <h3 className="text-white font-semibold text-lg">{t.twitch.active}</h3>
                     {notifs.map(n => (
                         <div key={n.id} className="dc-card p-4 flex items-start gap-4">
                             <Tv size={18} className="text-white/40 shrink-0" />
@@ -279,9 +283,9 @@ export default function TwitchNotifTab({ selectedServer, channels, serverRoles =
                                 <p className="text-white/40 text-xs truncate">{formatMentionsForDisplay(n.messageTemplate)}</p>
                             </div>
                             <div className="flex gap-2 shrink-0">
-                                <button onClick={() => startEdit(n)}
+                                <button onClick={() => startEdit(n)} title={t.common.edit} aria-label={t.common.edit}
                                     className="text-white/50 hover:text-white hover:bg-white/5 p-2 rounded-md transition-colors"><Pencil size={14} /></button>
-                                <button onClick={() => handleDelete(n.id)}
+                                <button onClick={() => handleDelete(n.id)} title={t.common.delete} aria-label={t.common.delete}
                                     className="text-red-400 hover:text-red-300 hover:bg-red-500/10 p-2 rounded-md transition-colors"><Trash2 size={14} /></button>
                             </div>
                         </div>
@@ -289,14 +293,7 @@ export default function TwitchNotifTab({ selectedServer, channels, serverRoles =
                 </div>
             )}
 
-            <details className="dc-help">
-                <summary>Hinweis</summary>
-                <ul className="text-white/50 text-sm space-y-1">
-                    <li>• Der Bot prüft alle 2 Minuten ob neue Streams live sind</li>
-                    <li>• Eine Benachrichtigung wird nur einmal pro Stream-Session gesendet</li>
-                    <li>• Mehrere Twitch-Kanäle können gleichzeitig überwacht werden</li>
-                </ul>
-            </details>
+            <DcHelp title={t.common.note} items={t.twitch.notes} />
         </div>
     );
 }

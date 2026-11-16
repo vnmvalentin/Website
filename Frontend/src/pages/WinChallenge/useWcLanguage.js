@@ -1,70 +1,18 @@
-// Sprachwahl der Win-Challenge-Seiten.
+// Sprachwahl der Win-Challenge-Seiten — seit 15.11.2026 die gemeinsame Sprachwahl der Website (i18n/language.js).
 //
-// Wie bei den Clash-Royale-Seiten steht die Sprache in der URL (?lang=en), damit die englische
-// Fassung eine eigene, verlinkbare Adresse für Suchmaschinen hat. Zusätzlich merkt sich der
-// Browser die Wahl — ein Streamer öffnet den Editor über sein Lesezeichen ohne ?lang und soll
-// trotzdem in seiner Sprache landen.
-//
-// Bewusst KEINE Erkennung über die Browsersprache: der Google-Crawler meldet Englisch und sähe
-// dann unter der deutschen Adresse den englischen Text.
+// Die Sprache steht immer in der Adresse (?lang=en), damit die englische Fassung eine eigene, verlinkbare Adresse für
+// Suchmaschinen hat. Ein Streamer, der den Editor über sein Lesezeichen ohne ?lang öffnet, landet trotzdem in seiner
+// zuletzt gewählten Sprache (die frühere eigene Speicherung „wcLang“ wird dabei übernommen).
 
-import { useCallback, useEffect, useState } from "react";
+import { useLanguage } from "../../i18n/language";
 import { WC_LANGS, dictForWc } from "./wcI18n";
-
-const STORAGE_KEY = "wcLang";
-
-function readParam() {
-  try {
-    const raw = new URLSearchParams(window.location.search).get("lang");
-    return WC_LANGS.includes(raw) ? raw : null;
-  } catch {
-    return null;
-  }
-}
-
-function readStored() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return WC_LANGS.includes(raw) ? raw : null;
-  } catch {
-    return null;
-  }
-}
-
-function writeUrl(lang) {
-  try {
-    const url = new URL(window.location.href);
-    if (lang === "de") url.searchParams.delete("lang");
-    else url.searchParams.set("lang", lang);
-    // replaceState: der Zurück-Button soll nicht zwischen Sprachständen hin- und herspringen
-    window.history.replaceState(window.history.state, "", url.pathname + url.search);
-  } catch { /* URL-Umschreiben ist Komfort, kein Muss */ }
-}
 
 /**
  * @returns {{ lang: "de"|"en", t: object, changeLang: (next: string) => void, explicit: boolean }}
- *   explicit  true, wenn die Sprache beim Öffnen aus der URL oder aus dem Browser-Speicher kam —
- *             dann hat sie Vorrang vor der im Overlay gespeicherten Sprache
+ *   explicit  true, wenn die Sprache beim Öffnen gewählt war (Adresse, Browser-Speicher oder vorher in diesem Besuch)
+ *             — dann hat sie Vorrang vor der im Overlay gespeicherten Sprache
  */
 export function useWcLanguage() {
-  const [initial] = useState(() => {
-    const fromUrl = readParam();
-    const stored = fromUrl ? null : readStored();
-    return { lang: fromUrl || stored || "de", explicit: !!(fromUrl || stored), fromStorage: !!stored };
-  });
-  const [lang, setLang] = useState(initial.lang);
-
-  // Gemerkte Sprache ohne ?lang in der Adresse: die URL nachziehen, damit beides übereinstimmt.
-  useEffect(() => {
-    if (initial.fromStorage) writeUrl(initial.lang);
-  }, [initial]);
-
-  const changeLang = useCallback((next) => {
-    if (!WC_LANGS.includes(next)) return;
-    setLang(next);
-    writeUrl(next);
-    try { localStorage.setItem(STORAGE_KEY, next); } catch { /* privater Modus: dann eben nur für diese Sitzung */ }
-  }, []);
-
-  return { lang, t: dictForWc(lang), changeLang, explicit: initial.explicit };
+  const { lang, setLang, explicit } = useLanguage({ supported: WC_LANGS, syncUrl: true });
+  return { lang, t: dictForWc(lang), changeLang: setLang, explicit };
 }

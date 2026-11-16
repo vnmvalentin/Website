@@ -92,6 +92,85 @@
 .av-logo { font-family: var(--av-font-display); font-weight: 700; font-size: 22px; color: var(--av-ink); white-space: nowrap; line-height: 1; }
 .av-logo b { color: var(--av-torch); font-weight: 700; }
 
+/* ── Lautstärke (ui/VolumeControl.jsx): Kopfleiste und im Spiel unter der Uhr ── */
+.av-volume { display: inline-flex; align-items: center; gap: 8px; }
+.av-volume-btn {
+  display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; flex: none;
+  color: var(--av-ink); background: var(--av-stone-3); box-shadow: inset 0 0 0 2px var(--av-edge);
+  cursor: pointer; transition: background-color 100ms;
+}
+.av-volume-btn:hover { background: var(--av-stone-2); }
+.av-volume-range { width: 92px; height: 20px; accent-color: var(--av-torch); cursor: pointer; }
+.av-volume-compact .av-volume-btn { width: 26px; height: 26px; }
+.av-volume-compact .av-volume-range { flex: 1; width: auto; min-width: 0; }
+.av-hud .av-volume { pointer-events: auto; }
+
+/* ── Heldenwahl am Handy (screens/KitSelect.jsx): Startleiste klebt unten, der Knopf in den Details entfällt ── */
+.av-kit-startbar {
+  position: sticky; bottom: 0; z-index: 5; display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 12px max(16px, env(safe-area-inset-right, 0px)) calc(12px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px));
+  background: var(--av-stone); border-top: 4px solid var(--av-edge);
+}
+@media (min-width: 768px) and (min-height: 521px) { .av-kit-startbar { display: none; } }
+@media (max-width: 767px), (max-height: 520px) { .av-kit-start-inline { display: none; } }
+
+/* ── Kompaktes HUD am Handy (hud/Hud.jsx CompactHud): eine Leiste oben, darunter die Mitte ── */
+.av-hud-compact {
+  position: absolute; display: flex; gap: 8px; align-items: flex-start;
+  top: max(8px, env(safe-area-inset-top, 0px)); left: max(8px, env(safe-area-inset-left, 0px)); right: max(8px, env(safe-area-inset-right, 0px));
+}
+.av-hc-hero { flex: 1 1 auto; min-width: 0; max-width: 300px; display: flex; gap: 10px; align-items: center; padding: 6px 8px; }
+.av-hc-time { flex: none; margin-left: auto; padding: 6px 9px; text-align: right; }
+.av-hc-buttons { flex: none; display: flex; flex-direction: column; gap: 6px; pointer-events: auto; }
+.av-hc-buttons .av-volume-btn { width: 36px; height: 36px; box-shadow: inset 0 0 0 2px var(--av-edge), 0 0 0 2px var(--av-edge); -webkit-tap-highlight-color: transparent; }
+.av-hc-center {
+  position: absolute; display: flex; flex-direction: column; align-items: center; gap: 8px;
+  top: var(--av-center-top, 76px); left: var(--av-center-side, 8px); right: var(--av-center-side, 8px);
+}
+.av-xpbar-sm { height: 8px; }
+/* Stufenwahl am Handy (hud/LevelUp.jsx compact): Karten bleiben große Tippflächen, nur knapper */
+.av-levelup-compact .av-upgrade { padding: 12px 12px 12px; }
+.av-levelup-compact .av-upgrade .av-title { font-size: 16px; }
+.av-levelup-compact .av-upgrade .av-dim { font-size: 13px; margin-top: 8px; }
+.av-coin-sm { width: 11px; height: 11px; box-shadow: inset 0 0 0 2px #f5cf4a; }
+
+/* ── Touch-Steuerung (hud/TouchControls.jsx): Stick links, Zielen rechts, Knöpfe unten rechts ── */
+.av-touch { position: absolute; inset: 0; z-index: 15; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+.av-touch-zone { position: absolute; top: 0; bottom: 0; width: 50%; }
+.av-touch-left { left: 0; }
+.av-touch-right { right: 0; }
+.av-stick {
+  display: none; position: absolute; left: 0; top: 0; width: 116px; height: 116px; border-radius: 50%; pointer-events: none;
+  background: rgb(18 16 22 / 0.35); box-shadow: inset 0 0 0 3px rgb(239 230 210 / 0.35);
+}
+.av-stick-knob { position: absolute; left: 32px; top: 32px; width: 52px; height: 52px; border-radius: 50%; background: rgb(239 230 210 / 0.6); box-shadow: 0 0 0 3px var(--av-edge); }
+.av-stick-aim { background: rgb(240 163 60 / 0.16); box-shadow: inset 0 0 0 3px rgb(240 163 60 / 0.5); }
+.av-stick-aim .av-stick-knob { background: rgb(240 163 60 / 0.75); }
+.av-touch-skills {
+  position: absolute; width: 172px; height: 172px;
+  right: max(12px, env(safe-area-inset-right, 0px)); bottom: max(14px, env(safe-area-inset-bottom, 0px));
+}
+.av-touch-btn {
+  position: absolute; width: 62px; height: 62px; display: flex; align-items: center; justify-content: center; overflow: hidden;
+  color: var(--av-ink); background: rgb(42 38 50 / 0.85); box-shadow: inset 0 0 0 2px var(--av-edge), 0 0 0 3px var(--av-edge);
+  touch-action: none; -webkit-tap-highlight-color: transparent;
+}
+.av-touch-btn:active { background: var(--av-stone-3); }
+.av-touch-btn-big { width: 80px; height: 80px; right: 0; bottom: 0; }
+.av-touch-skills > .av-touch-btn:nth-child(2) { right: 96px; bottom: 6px; }
+.av-touch-skills > .av-touch-btn:nth-child(3) { right: 10px; bottom: 96px; }
+.av-touch-skills > .av-touch-btn:nth-child(4) { right: 92px; bottom: 90px; }
+.av-touch-pause {
+  position: absolute; right: max(16px, env(safe-area-inset-right, 0px)); top: 252px; width: 44px; height: 44px;
+  display: flex; align-items: center; justify-content: center; color: var(--av-ink);
+  background: rgb(18 16 22 / 0.86); box-shadow: 0 0 0 3px var(--av-edge); -webkit-tap-highlight-color: transparent;
+}
+.av-touch-use {
+  position: absolute; left: 50%; bottom: max(28px, env(safe-area-inset-bottom, 0px)); translate: -50% 0;
+  display: flex; align-items: center; gap: 10px; padding: 12px 18px; font-size: 16px; color: var(--av-ink);
+  background: rgb(18 16 22 / 0.9); box-shadow: 0 0 0 3px var(--av-torch); touch-action: none; -webkit-tap-highlight-color: transparent;
+}
+
 /* ── Hauptmenü ───────────────────────────────────────────────────────────── */
 /* Menühintergrund: dieselben ruhigen Zweiton-Fliesen wie der Verlies-Boden im Spiel (render/flat/world.js) */
 .av-floor {

@@ -64,12 +64,12 @@ module.exports = function({ requireAuth, discordClient }) {
 
     router.post("/:guildId/reaction-roles", requireAuth, express.json(), async (req, res) => {
         const { channelId, messageText, mode, roleMapping, title, color, embedTitle, embedFooter } = req.body;
-        if (!channelId || !roleMapping) return res.status(400).json({ error: "Fehlende Daten." });
+        if (!channelId || !roleMapping) return res.status(400).json({ error: "Fehlende Daten.", code: "missing_data" });
 
         try {
             const guild = discordClient.guilds.cache.get(req.params.guildId);
             const channel = guild.channels.cache.get(channelId);
-            if (!channel) return res.status(400).json({ error: "Kanal existiert nicht." });
+            if (!channel) return res.status(400).json({ error: "Kanal existiert nicht.", code: "channel_not_found" });
 
             const embed = new EmbedBuilder().setColor(color || '#06b6d4');
             if (messageText) embed.setDescription(messageText);
@@ -83,7 +83,7 @@ module.exports = function({ requireAuth, discordClient }) {
             res.json({ success: true, id: newId });
         } catch (e) {
             console.error(e);
-            res.status(500).json({ error: "Bot hat keine Berechtigung." });
+            res.status(500).json({ error: "Bot hat keine Berechtigung.", code: "bot_no_permission" });
         }
     });
 
@@ -94,7 +94,7 @@ module.exports = function({ requireAuth, discordClient }) {
         try {
             const existingRoles = getReactionRoles(req.params.guildId);
             const config = existingRoles.find(r => r.id == roleId);
-            if (!config) return res.status(404).json({ error: "Nicht gefunden" });
+            if (!config) return res.status(404).json({ error: "Nicht gefunden", code: "not_found" });
 
             const guild = discordClient.guilds.cache.get(req.params.guildId);
             const channel = guild.channels.cache.get(config.channelId);
@@ -115,7 +115,7 @@ module.exports = function({ requireAuth, discordClient }) {
 
         } catch (e) {
             console.error(e);
-            res.status(500).json({ error: "Fehler beim Bearbeiten." });
+            res.status(500).json({ error: "Fehler beim Bearbeiten.", code: "update_failed" });
         }
     });
 

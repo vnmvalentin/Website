@@ -11,7 +11,7 @@ module.exports = function ({ requireAuth, discordClient }) {
 
     router.post('/:guildId/image-only', requireAuth, express.json(), async (req, res) => {
         const { channelId, slowmode, enabled } = req.body;
-        if (!channelId) return res.status(400).json({ error: 'Fehlende Daten.' });
+        if (!channelId) return res.status(400).json({ error: 'Fehlende Daten.', code: "missing_data" });
 
         const slowmodeSecs = Number(slowmode) || 0;
         saveImageOnlyChannel(req.params.guildId, channelId, slowmodeSecs, enabled !== false ? 1 : 0);

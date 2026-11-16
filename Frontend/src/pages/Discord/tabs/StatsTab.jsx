@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { DcTabs } from '../ui';
+import { useDiscordText } from '../discordI18n.js';
 
 const DAY_OPTIONS = [7, 14, 30, 90];
 
@@ -10,11 +11,12 @@ function formatDuration(totalSeconds) {
     return `${m}m`;
 }
 
-const count = (n) => (Number(n) || 0).toLocaleString('de');
+const count = (n, locale) => (Number(n) || 0).toLocaleString(locale);
 
 /** Rangliste mit Balken. rows: [{ key, name, value, text, muted }] */
 function Ranking({ rows, loading, empty }) {
-    if (loading) return <p className="text-white/40 text-sm">Lade…</p>;
+    const t = useDiscordText();
+    if (loading) return <p className="text-white/40 text-sm">{t.common.loading}</p>;
     if (!rows.length) return <p className="text-white/40 text-sm">{empty}</p>;
     const max = Math.max(...rows.map(r => r.value), 1);
     return (
@@ -36,6 +38,10 @@ function Ranking({ rows, loading, empty }) {
 }
 
 export default function StatsTab({ selectedServer }) {
+    const t = useDiscordText();
+    const num = (n) => count(n, t.locale);
+    // Wer den Server verlassen hat, heißt in der eigenen Sprache „Ehemaliges Mitglied“ (der Server meldet former)
+    const memberName = (r) => (r.former ? t.common.formerMember : r.displayName);
     const [days, setDays] = useState(30);
     const [view, setView] = useState('chat');
     const [data, setData] = useState({ messageStats: [], voiceStats: [], userMessageStats: [], totals: null });
@@ -63,23 +69,23 @@ export default function StatsTab({ selectedServer }) {
     const totalVoiceSecs = voiceStats.reduce((s, r) => s + (r.totalSeconds || 0), 0);
 
     const cards = [
-        { label: 'Nachrichten', value: count(totalMessages) },
-        { label: 'Schreibende Nutzer', value: totals ? count(totals.chatters) : '–' },
-        { label: 'Voice-Zeit', value: formatDuration(totalVoiceSecs) },
-        { label: 'Nutzer im Voice', value: voiceStats.length },
+        { key: 'messages', value: num(totalMessages) },
+        { key: 'chatters', value: totals ? num(totals.chatters) : '–' },
+        { key: 'voiceTime', value: formatDuration(totalVoiceSecs) },
+        { key: 'voiceUsers', value: voiceStats.length },
     ];
 
     return (
         <div className="dc-page">
             <div className="flex items-start justify-between flex-wrap gap-4">
                 <div>
-                    <h2 className="dc-h2">Server-Statistiken</h2>
-                    <p>Aktivität im gewählten Zeitraum.</p>
+                    <h2 className="dc-h2">{t.stats.title}</h2>
+                    <p>{t.stats.intro}</p>
                 </div>
-                <div className="dc-seg" role="group" aria-label="Zeitraum">
+                <div className="dc-seg" role="group" aria-label={t.stats.period}>
                     {DAY_OPTIONS.map(d => (
                         <button key={d} type="button" onClick={() => setDays(d)} className={days === d ? 'is-active' : ''}>
-                            {d} Tage
+                            {t.common.days(d)}
                         </button>
                     ))}
                 </div>
@@ -87,8 +93,8 @@ export default function StatsTab({ selectedServer }) {
 
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
                 {cards.map(card => (
-                    <div key={card.label} className="dc-card p-4">
-                        <div className="text-white/45 text-xs font-semibold">{card.label}</div>
+                    <div key={card.key} className="dc-card p-4">
+                        <div className="text-white/45 text-xs font-semibold">{t.stats.cards[card.key]}</div>
                         <div className="text-2xl font-bold text-white tabular-nums mt-1.5">{loading ? '–' : card.value}</div>
                     </div>
                 ))}
@@ -97,31 +103,31 @@ export default function StatsTab({ selectedServer }) {
             <div className="dc-card">
                 <div className="px-4">
                     <DcTabs value={view} onChange={setView} tabs={[
-                        ['chat', 'Nachrichten je Nutzer'],
-                        ['channels', 'Nachrichten je Kanal'],
-                        ['voice', 'Voice-Zeit je Nutzer'],
+                        ['chat', t.stats.views.chat],
+                        ['channels', t.stats.views.channels],
+                        ['voice', t.stats.views.voice],
                     ]} />
                 </div>
                 <div className="p-4">
                     {view === 'chat' && (
                         <>
                             <Ranking loading={loading}
-                                empty="Noch keine Nachrichten je Nutzer erfasst."
-                                rows={userMessageStats.map(r => ({ key: r.userId, name: r.displayName, value: r.total, text: count(r.total), muted: r.displayName === 'Ehemaliges Mitglied' }))} />
+                                empty={t.stats.emptyChat}
+                                rows={userMessageStats.map(r => ({ key: r.userId, name: memberName(r), value: r.total, text: num(r.total), muted: !!r.former }))} />
                             <p className="text-[11.5px] text-white/35 mt-4">
-                                Gezählt wird je Nutzer erst seit Einführung dieser Ansicht — ältere Nachrichten sind nur je Kanal erfasst. Bots zählen nicht.
+                                {t.stats.chatNote}
                             </p>
                         </>
                     )}
                     {view === 'channels' && (
                         <Ranking loading={loading}
-                            empty="Keine Daten im gewählten Zeitraum."
-                            rows={messageStats.map(r => ({ key: r.channelId, name: r.deleted ? r.channelName : `#${r.channelName}`, value: r.total, text: count(r.total), muted: r.deleted }))} />
+                            empty={t.stats.emptyPeriod}
+                            rows={messageStats.map(r => ({ key: r.channelId, name: r.deleted ? t.stats.deletedChannels : `#${r.channelName}`, value: r.total, text: num(r.total), muted: r.deleted }))} />
                     )}
                     {view === 'voice' && (
                         <Ranking loading={loading}
-                            empty="Keine Daten im gewählten Zeitraum."
-                            rows={voiceStats.map(r => ({ key: r.userId, name: r.displayName, value: r.totalSeconds, text: formatDuration(r.totalSeconds), muted: r.displayName === 'Ehemaliges Mitglied' }))} />
+                            empty={t.stats.emptyPeriod}
+                            rows={voiceStats.map(r => ({ key: r.userId, name: memberName(r), value: r.totalSeconds, text: formatDuration(r.totalSeconds), muted: !!r.former }))} />
                     )}
                 </div>
             </div>

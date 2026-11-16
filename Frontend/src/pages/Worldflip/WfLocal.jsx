@@ -6,7 +6,7 @@ import { Home, RotateCcw } from "lucide-react";
 import SEO from "../../components/SEO";
 import GameTable from "./components/GameTable.jsx";
 import EndPanel from "./components/EndPanel.jsx";
-import { apply, botAction, createGame, eventsFor, viewFor } from "./engine/index.js";
+import { actorOf, apply, botAction, createGame, eventsFor, viewFor } from "./engine/index.js";
 import { randomSkin } from "./skins.js";
 import { useWfShell } from "./ui/shellContext.js";
 
@@ -46,16 +46,17 @@ export default function WfLocal() {
     if (r.ok) push(r);
   }, [push]);
 
-  // Alles abgespielt: ist ein Bot dran, zieht er nach kurzer Bedenkzeit
+  // Alles abgespielt: Darf ein Bot handeln (am Zug oder Antwort auf einen Angriff), tut er es nach kurzer Bedenkzeit
   const onIdle = useCallback(() => {
     const s = stateRef.current;
-    if (!s || s.winner !== null || s.turn === ME) return;
+    if (!s || s.winner !== null || actorOf(s) === ME) return;
     clearTimeout(botTimer.current);
     botTimer.current = setTimeout(() => {
       const cur = stateRef.current;
-      if (!cur || cur.winner !== null || cur.turn === ME) return;
-      let r = apply(cur, cur.turn, botAction(cur, cur.turn));
-      if (!r.ok) r = apply(cur, cur.turn, cur.drawn.length || cur.combo !== null ? { t: "pass" } : { t: "draw" });
+      if (!cur || cur.winner !== null || actorOf(cur) === ME) return;
+      const seat = actorOf(cur);
+      let r = apply(cur, seat, botAction(cur, seat));
+      if (!r.ok) r = apply(cur, seat, cur.react ? { t: "take" } : cur.drawn.length || cur.combo !== null ? { t: "pass" } : { t: "draw" });
       if (r.ok) push(r);
     }, 1300 + Math.random() * 700);
   }, [push]);

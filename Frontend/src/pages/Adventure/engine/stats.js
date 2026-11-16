@@ -2,7 +2,7 @@
 // Items oder Stufe ändern (recalcStats); kurzzeitige Buffs (Overdrive, Hyperfeuer …) rechnen die Getter unten drauf.
 
 import { ITEMS } from "../data/items.js";
-import { TALENTS } from "../data/weapons.js";
+import { TALENTS, BOONS } from "../data/weapons.js";
 
 // Stufenkurve im Lauf: anfangs alle ~15–30 s eine Wahl (die eigentliche Belohnung fürs Aufsteigen), später seltener
 export const xpToNext = (level) => Math.round(20 + 12 * Math.pow(level - 1, 1.7));
@@ -19,7 +19,7 @@ function addStats(sum, s) {
   }
 }
 
-function sumStats(items, talents) {
+function sumStats(items, talents, boons) {
   const sum = {};
   for (const [id, n] of Object.entries(items)) {
     const def = ITEMS[id];
@@ -31,11 +31,14 @@ function sumStats(items, talents) {
     if (!def || n <= 0) continue;
     addStats(sum, def.stats(n));
   }
+  for (const [id, n] of Object.entries(boons || {})) {
+    if (BOONS[id] && n > 0) addStats(sum, BOONS[id].stats(n));
+  }
   return sum;
 }
 
 export function recalcStats(player, kit) {
-  const s = sumStats(player.items, player.talents);
+  const s = sumStats(player.items, player.talents, player.boons);
   const L = player.level;
   const g = (k, d = 0) => s[k] ?? d;
   const soul = (player.soulStacks || 0) * 0.01;

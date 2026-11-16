@@ -131,6 +131,9 @@ const socketIndex = new Map(); // socket.id -> { code, role, slot }
 // Zählt jede (Wieder-)Verbindung eines Sitzplatzes hoch. Der Host einer Beach-Partie sieht
 // daran, dass ein Mitspieler neu verbunden ist und die direkte Leitung neu aufbauen muss.
 let connCounter = 0;
+// Begonnene Partien seit Prozessstart (auch Revanchen). Der Hauptprozess liest den Stand über /healthz
+// (blobby/statistikBruecke.js) und zählt den Zuwachs für den Admin-Reiter „Spiele“.
+let partienGesamt = 0;
 
 function generateCode() {
   let code;
@@ -1012,6 +1015,7 @@ function startIfReady(game, io) {
   if (!slotsFor(game.settings).every((s) => game.players[s])) return;
   game.status = "playing";
   game.matchId += 1;
+  partienGesamt += 1;
   resetForServe(game.world, game.settings, game.world.serveTeam);
   ensureLoop(io);
 }
@@ -1024,7 +1028,10 @@ function resetForRematch(game, io) {
   game.lastSentScore = { 1: 0, 2: 0 };
   game.matchId += 1;
   game.status = slotsFor(game.settings).every((s) => game.players[s]) ? "playing" : "waiting";
-  if (game.status === "playing") ensureLoop(io);
+  if (game.status === "playing") {
+    partienGesamt += 1;
+    ensureLoop(io);
+  }
 }
 
 // Zurück in den Wartezustand: alles außer Sitzplätzen und Einstellungen auf Anfang
@@ -1361,10 +1368,16 @@ setInterval(() => {
 // jemand mitspielen muss.
 function blobbyStats() {
   let live = 0;
-  for (const game of games.values()) if (isLive(game)) live += 1;
+  let spieler = 0;
+  for (const game of games.values()) {
+    if (isLive(game)) live += 1;
+    for (const slot of [1, 2, 3, 4]) if (game.players[slot]?.connected) spieler += 1;
+  }
   return {
     rooms: games.size,
     live,
+    spieler,
+    partien: partienGesamt,
     looping: !!loopHandle,
     // hz ist nur aussagekräftig, solange die Schleife läuft — steht sie, ist der letzte
     // gemessene Wert alt und würde als Ausfall missverstanden.

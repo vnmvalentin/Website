@@ -21,12 +21,13 @@ import { getOverlayData } from "./winTrackerApi";
 import { usePagedTransition, SLIDE_MS } from "./usePagedTransition";
 import { dictForWt, challengeLabel } from "./wtI18n";
 import FitText from "./FitText";
-import ChallengeValue, { ChallengeBadge } from "./ChallengeValue";
+import ChallengeValue, { ChallengeBadge, ChallengeTrack } from "./ChallengeValue";
+import { challengeStats } from "./challengeStats";
 import { overlayLook } from "./overlayTheme";
 import { useMeasuredSize, hasCustomFormat, hasFixedBox, pickLayout, last5Emphasis } from "./overlayFit";
 import trophyIcon from "../../../assets/clashRoyale/ui/trophy.png";
 import trophy2v2Icon from "../../../assets/clashRoyale/ui/trophy2v2.webp";
-import league2v2Badge from "../../../assets/clashRoyale/ui/league2v2.png";
+import league2v2Badge from "../../../assets/clashRoyale/badges/league2v2.png";
 
 // Dieselbe feste Breite wie das echte Overlay (Pixel-Parität).
 const CARD_WIDTH = 310;
@@ -332,8 +333,9 @@ export default function OverlayPreview({ settings, overlayKey, moduleVisibility,
 
   // Session-Werte als gleich breite Spalten — 1:1 wie in WinTrackerOverlayPage.jsx.
   const stats = [];
-  if (sessionFlags.profit && isChallenge) {
-    stats.push({ key: "profit", label: t.statBestRun, value: challenge.bestWins });
+  if (isChallenge) {
+    // Challenges: Stand des laufenden Runs statt Profit/Bilanz/Winrate der Session (challengeStats).
+    stats.push(...challengeStats(challenge, { profit: sessionFlags.profit, numbers: sessionFlags.numbers, percent: sessionFlags.percent }, t, styles));
   } else if (sessionFlags.profit) {
     stats.push({
       key: "profit",
@@ -341,14 +343,14 @@ export default function OverlayPreview({ settings, overlayKey, moduleVisibility,
       value: <span style={{ color: profitPositive ? "#4ade80" : "#f87171" }}>{profitPositive ? "+" : ""}{fmt(dailyValue, lang)}</span>,
     });
   }
-  if (sessionFlags.numbers) {
+  if (!isChallenge && sessionFlags.numbers) {
     stats.push({
       key: "record",
       label: t.statRecord,
       value: <><span style={{ color: "#4ade80" }}>{daily.wins}</span><span style={styles.statDash}>–</span><span style={{ color: "#f87171" }}>{daily.losses}</span></>,
     });
   }
-  if (sessionFlags.percent) {
+  if (!isChallenge && sessionFlags.percent) {
     stats.push({ key: "pct", label: t.statWinRate, value: `${daily.winPct}%` });
   }
   const statColumns = `repeat(${Math.max(1, stats.length)}, minmax(0, 1fr))`;
@@ -366,7 +368,10 @@ export default function OverlayPreview({ settings, overlayKey, moduleVisibility,
           <div style={{ ...styles.statsRow, gridTemplateColumns: statColumns }}>{statsInner}</div>
         )}
         {sessionFlags.last5 && (
-          last5Style === "dot" ? (
+          // Challenge mit Siegziel: Fortschritts-Leiste des Runs — 1:1 wie WinTrackerOverlayPage.jsx.
+          isChallenge && (challenge.maxWins > 0 || challenge.maxGames > 0) ? (
+            <ChallengeTrack challenge={challenge} styles={styles} dots={last5Style === "dot"} />
+          ) : last5Style === "dot" ? (
             // Immer 5 Punkte, fehlende Spiele als leerer Ring; Reihenfolge per Ring ums neueste
             // Spiel und blassere ältere — siehe WinTrackerOverlayPage.jsx (Pixel-Parität).
             <div style={styles.dotRow}>

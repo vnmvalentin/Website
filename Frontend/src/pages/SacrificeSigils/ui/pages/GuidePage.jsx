@@ -1,9 +1,16 @@
 // ui/pages/GuidePage.jsx — Anleitung: die Regeln in Ruhe.
-import React from "react";
+// Am Tisch im Kerzenlicht (Standard) steht sie als Kapitel „Regeln“ im Buch des Zeichners (table/TableBook.jsx);
+// diese Seite ist der Ausweichweg. Der Text steht nur einmal: GuideContent, gerahmt von Section und mit Verweisen, die
+// jede Ansicht selbst setzt (Seite: Links, Buch: Kapitel wechseln).
+import React, { Suspense, lazy } from "react";
 import { Link } from "react-router-dom";
 import SEO from "../../../../components/SEO";
+import { useAtTable } from "../table/useAtTable.js";
 import { BloodDrop, Bone, CandleStub } from "../icons/GameIcons.jsx";
 import { SCALE_WIN, HAND_LIMIT, WAX_MAX, STALEMATE_TURN } from "../../engine/battle.js";
+
+const TableBook = lazy(() => import("../table/TableBook.jsx"));
+const SEO_PROPS = { title: "Sacrifice & Sigils – Anleitung", description: "Regeln von Sacrifice & Sigils: Draft, Opfer, Knochen, Wachs, die Waage, Hinterreihe, Sigils, Totems und der Pfad durchs Aschemoor.", path: "/sacrifice-and-sigils/anleitung" };
 
 const Section = ({ title, children }) => (
   <section className="ss-paper p-5 md:p-6">
@@ -11,17 +18,40 @@ const Section = ({ title, children }) => (
     <div className="space-y-2 text-[1.02rem]">{children}</div>
   </section>
 );
+/** Verweis auf der Seite: ein Link (to = "tutorial" | "kartenbuch"). */
+const PageRef = ({ to, children }) => <Link className="underline" to={`/sacrifice-and-sigils/${to}`}>{children}</Link>;
 
 export default function GuidePage() {
+  const [atTable, fallback] = useAtTable();
+  if (atTable) {
+    return (
+      <>
+        <SEO {...SEO_PROPS} />
+        <Suspense fallback={null}><TableBook start="regeln" onFallback={fallback} /></Suspense>
+      </>
+    );
+  }
   return (
     <div className="max-w-[860px] mx-auto px-4 py-8 space-y-5">
-      <SEO title="Sacrifice & Sigils – Anleitung" description="Regeln von Sacrifice & Sigils: Draft, Opfer, Knochen, Wachs, die Waage, Hinterreihe, Sigils, Totems und der Pfad durchs Aschemoor." path="/sacrifice-and-sigils/anleitung" />
+      <SEO {...SEO_PROPS} />
       <h1 className="ss-title text-4xl">Anleitung</h1>
       <p className="ss-dim">Lieber ausprobieren? Das <Link className="underline" to="/sacrifice-and-sigils/tutorial">Tutorial</Link> führt durch einen Übungskampf.</p>
+      <GuideContent Section={Section} Ref={PageRef} />
+    </div>
+  );
+}
+
+/**
+ * Die Regeln. Section rahmt einen Abschnitt ({ title, children }), Ref setzt einen Verweis ({ to, children }).
+ * @param {{ Section: React.ComponentType<any>, Ref: React.ComponentType<any> }} props
+ */
+export function GuideContent({ Section, Ref }) {
+  return (
+    <>
 
       <Section title="Das Match">
         <p>Lobby → <b>Draft</b> → <b>Pfad</b> → <b>Kampf</b> → [<b>Pfad</b> → <b>Kampf</b>] … → Ende. Wer zuerst die eingestellte Zahl an Kämpfen gewinnt (1, 2 oder 3), gewinnt das Match. Aufgeben kostet das ganze Match.</p>
-        <p>Im Draft entsteht aus dem Seed ein Pool aus 24 Karten (14 gewöhnlich, 6 ungewöhnlich, 3 selten, 1 legendär), aufgeteilt in <b>6 Runden à 4 Karten</b>. 3 bis 5 gewöhnliche oder ungewöhnliche Karten kommen doppelt vor – nie in derselben Runde; zwei gleiche lassen sich später verschmelzen. Beim <b>gemeinsamen Pool</b> wird pro Runde abwechselnd gewählt (A, B, A, B), der erste Zugriff wechselt jede Runde. Danach wählt ihr nacheinander Totem-Kopf und Nebendeck-Totem – was einer nimmt, ist für den anderen weg, und auch hier wechselt der Erstzugriff. Bei <b>getrennten Pools</b> sieht jeder eigene 4 Karten pro Runde, nimmt 2 davon, beide gleichzeitig. Legendäre Karten gibt es nur einmal pro Match.</p>
+        <p>Im Draft entsteht aus dem Seed ein Pool aus 24 Karten (14 gewöhnlich, 6 ungewöhnlich, 3 selten, 1 legendär), aufgeteilt in <b>6 Runden à 4 Karten</b>. 3 bis 5 gewöhnliche oder ungewöhnliche Karten kommen doppelt vor – nie in derselben Runde; zwei gleiche lassen sich später verschmelzen. Beim <b>gemeinsamen Pool</b> wird pro Runde abwechselnd gewählt (A, B, A, B), der erste Zugriff wechselt jede Runde. Bei <b>getrennten Pools</b> sieht jeder eigene 4 Karten pro Runde, nimmt 2 davon, beide gleichzeitig. Legendäre Karten gibt es nur einmal pro Match.</p>
       </Section>
 
       <Section title="Die Waage">
@@ -30,7 +60,7 @@ export default function GuidePage() {
       </Section>
 
       <Section title="Totems">
-        <p>Ein <b>Stammkopf</b> gibt allen Karten eines Stamms ein Sigil, ein <b>Lanenkopf</b> wirkt auf eine Lane. Der <b>Nebendeck-Kopf</b> gibt jedem deiner Moorlinge ein Sigil – hier gibt es auch Opfer-Sigils wie Dreifachblut oder Wachsgabe, die auf einem ganzen Stamm zu stark wären. Köpfe und Körper tauschst du im Totem-Schrein auf dem Pfad.</p>
+        <p>Totems gibt es nicht geschenkt: Nach dem Draft hat niemand eins. Auf der ersten Ebene jeder Pfadkarte steht ein <b>Totem-Schrein</b> – wer noch keins hat, wählt dort eins von drei fertigen. Ein <b>Stammkopf</b> gibt allen Karten eines Stamms ein Sigil, ein <b>Lanenkopf</b> wirkt auf eine Lane. Der <b>Nebendeck-Kopf</b> liegt erst ab dem zweiten Besuch am Schrein bereit und gibt jedem deiner Moorlinge ein Sigil – hier gibt es auch Opfer-Sigils wie Dreifachblut oder Wachsgabe, die auf einem ganzen Stamm zu stark wären. Bei späteren Besuchen am Schrein bekommst du neue Köpfe oder Körper und baust deine Totems um.</p>
       </Section>
 
       <Section title="Drei Ressourcen">
@@ -52,7 +82,7 @@ export default function GuidePage() {
       </Section>
 
       <Section title="Sigils und Totems">
-        <p>Sigils sind die Fähigkeiten der Karten – alle stehen im <Link className="underline" to="/sacrifice-and-sigils/kartenbuch">Kartenbuch</Link>. Eine Karte trägt höchstens 4.</p>
+        <p>Sigils sind die Fähigkeiten der Karten – alle stehen im <Ref to="kartenbuch">Kartenbuch</Ref>. Eine Karte trägt höchstens 4.</p>
         <p>Ein <b>Totem</b> besteht aus Kopf und Körper: Der <b>Kopf</b> bestimmt, wer es bekommt, der <b>Körper</b>, was sie bekommen. Ein Stammkopf gibt allen Karten eines Stamms das Sigil des Körpers, ein Lanenkopf jeder eigenen Karte in seiner Lane – oder, mit einer Lanen-Eigenschaft, einen besonderen Effekt.</p>
       </Section>
 
@@ -69,14 +99,16 @@ export default function GuidePage() {
       </Section>
 
       <Section title="Der Pfad">
-        <p>Direkt nach dem Draft und zwischen den Kämpfen wandern beide gleichzeitig über dieselbe Karte (Moor oder Küste) und wählen pro Ebene einen erreichbaren Knoten: Kartenwahl, Verschmelzung, Sigil-Transfer, Lagerfeuer, Karte entfernen, Händler, Totem-Schrein, Kopist oder ein seltenes Ereignis. Was der andere gewählt hat, siehst du erst danach – und auch dann nur die Orte, nicht die Karten.</p>
+        <p>Direkt nach dem Draft und zwischen den Kämpfen wandern beide gleichzeitig über dieselbe Karte (Moor oder Küste) und wählen pro Ebene einen erreichbaren Knoten: Kartenwahl, Verschmelzung, Sigil-Transfer, Lagerfeuer, Karte entfernen, Händler, Totem-Schrein, Kopist oder ein seltenes Ereignis. Auf der ersten Ebene steht immer ein Totem-Schrein. Was der andere gewählt hat, siehst du erst danach – und auch dann nur die Orte, nicht die Karten.</p>
         <p>Beide starten mit <b>3 Splittern</b>. Weitere gibt es für Überschuss auf der Waage (1 pro Punkt über 5), 3 für einen Sieg und 2 für eine Niederlage. Du trägst höchstens 3 Items.</p>
       </Section>
 
       <Section title="Bedienung">
-        <p>Karte antippen, dann einen Slot antippen. Blutkarten: erst die Opfer nacheinander antippen, dann den Zielslot, dann bestätigen. Auf dem Desktop geht auch Drag & Drop. Lange drücken oder Rechtsklick öffnet die Detailansicht, auf dem Desktop reicht kurzes Verweilen mit der Maus. Ein Klick während einer Animation überspringt sie.</p>
+        <p><b>Am Tisch:</b> Karte in der Hand anklicken, dann ein Feld. Blutkarten: danach erst die Opfer anklicken (je Blutstropfen eine eigene Kreatur), dann ein freies Feld oder das Feld eines Opfers; Rechtsklick oder Esc legt die Karte zurück. Ziehen: den Stapel anklicken. Zug beenden: Siegelstempel oder Leertaste. Hammer: anklicken, dann eine eigene Karte. Rechtsklick (oder lange drücken) auf eine Karte legt ihr Blatt daneben. Klickst du, während noch etwas läuft, spult der Rest im Zeitraffer durch.</p>
+        <p>Rechtsklick auf den Tisch oder Taste G: Gesten. Esc oder „Menü“ oben rechts: Pausenmenü (Ton, Tempo, Aufgeben).</p>
+        <p><b>Am bisherigen Tisch</b> (Einstellungen): Karte antippen, dann einen Slot antippen. Blutkarten: erst die Opfer nacheinander antippen, dann den Zielslot, dann bestätigen. Auf dem Desktop geht auch Drag & Drop. Lange drücken oder Rechtsklick öffnet die Detailansicht, auf dem Desktop reicht kurzes Verweilen mit der Maus. Ein Klick während einer Animation überspringt sie.</p>
         <p>Tastatur: Mit Tab durch Hand, Slots und Knöpfe, Enter wählt aus bzw. spielt, <kbd>i</kbd> zeigt die Details einer Karte, Escape schließt sie.</p>
       </Section>
-    </div>
+    </>
   );
 }

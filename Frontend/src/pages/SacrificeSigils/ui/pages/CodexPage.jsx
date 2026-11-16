@@ -1,64 +1,57 @@
 // ui/pages/CodexPage.jsx — Kartenbuch: alle Karten filterbar (Stamm, Kosten, Seltenheit, Sigil) und ein Sigil-Lexikon.
-import React, { useMemo, useState } from "react";
+// Am Tisch im Kerzenlicht (Standard) steht es im Buch des Zeichners (table/TableBook.jsx, Kapitel Karten/Sigils/
+// Allerlei); diese Seite ist der Ausweichweg. Inhalt und Filter teilen sich beide (codexParts.jsx, codexData.js).
+import React, { Suspense, lazy, useState } from "react";
 import SEO from "../../../../components/SEO";
 import Card from "../card/Card.jsx";
 import CardDetail from "../card/CardDetail.jsx";
-import SigilIcon from "../icons/SigilIcon.jsx";
-import { ALL_CARDS } from "../../data/cards/index.js";
 import { resolveCard } from "../../engine/cards.js";
-import { SIGILS, parseSigil } from "../../engine/sigils/index.js";
-import { tribeIdsOf } from "../../data/tribes.js";
-import { ITEMS } from "../../data/items.js";
-import { LANE_PROPS } from "../../data/totems.js";
-import { ZIRKEL, getZirkel } from "../../engine/zirkel/index.js";
+import { ZIRKEL } from "../../engine/zirkel/index.js";
 import { de } from "../../i18n/de.js";
+import { useCodexCards } from "./codexData.js";
+import { SigilLexicon, CodexMore } from "./codexParts.jsx";
+import { useAtTable } from "../table/useAtTable.js";
 
-const CATEGORIES = ["bewegung", "angriff", "verteidigung", "ressourcen", "feld"];
+const TableBook = lazy(() => import("../table/TableBook.jsx"));
+const SEO_PROPS = { title: "Sacrifice & Sigils – Kartenbuch", description: "Alle Karten, Sigils, Items und Ereignisse von Sacrifice & Sigils: filterbar nach Stamm, Kosten, Seltenheit und Sigil.", path: "/sacrifice-and-sigils/kartenbuch" };
+
+/** Abschnitt der Seite: Pergament mit Überschrift. */
+const Box = ({ title, wide, children }) => (
+  <section className={`ss-paper p-4 md:p-5 ${wide ? "md:col-span-2" : ""}`}>
+    <h2 className="ss-title !text-[var(--ink)] text-xl mb-3">{title}</h2>
+    {children}
+  </section>
+);
 
 export default function CodexPage() {
-  const [zirkelId, setZirkelId] = useState("moor");
-  const z = getZirkel(zirkelId);
-  const TRIBE_IDS = tribeIdsOf(zirkelId);
-  const EVENTS = z.events;
-  const TOTEM_BASE_SIGILS = z.totemBaseSigils;
+  const [atTable, fallback] = useAtTable();
+  if (atTable) {
+    return (
+      <>
+        <SEO {...SEO_PROPS} />
+        <Suspense fallback={null}><TableBook start="karten" onFallback={fallback} /></Suspense>
+      </>
+    );
+  }
+  return <FlatCodex />;
+}
+
+/** Das bisherige Kartenbuch als Seite. */
+function FlatCodex() {
+  const cx = useCodexCards();
+  const { zirkelId, z } = cx;
   const [tab, setTab] = useState("cards");
-  const [tribe, setTribe] = useState("");
-  const [cost, setCost] = useState("");
-  const [rarity, setRarity] = useState("");
-  const [sigil, setSigil] = useState("");
-  const [q, setQ] = useState("");
-  const [showTokens, setShowTokens] = useState(false);
   const [detail, setDetail] = useState(null);
-
-  const cards = useMemo(() => ALL_CARDS.filter((c) => {
-    if (c.zirkel !== zirkelId) return false;
-    if (!showTokens && (c.token || c.cursed)) return false;
-    if (tribe && c.tribe !== tribe) return false;
-    if (cost && c.cost.type !== cost) return false;
-    if (rarity && c.rarity !== rarity) return false;
-    if (sigil && !c.sigils.some((s) => parseSigil(s).id === sigil)) return false;
-    if (q && !c.name.toLowerCase().includes(q.toLowerCase())) return false;
-    return true;
-  }).sort((a, b) => a.tribe.localeCompare(b.tribe) || a.cost.type.localeCompare(b.cost.type) || a.cost.amount - b.cost.amount), [zirkelId, tribe, cost, rarity, sigil, q, showTokens]);
-
-  // Grund-Sigils gelten in allen Zirkeln, zirkeleigene (Wachs, Salz, Gezeiten) nur in ihrem
-  const publicSigils = Object.values(SIGILS).filter((s) => !s.hidden && (!s.zirkel || s.zirkel === zirkelId));
-  const switchZirkel = (/** @type {string} */ id) => {
-    setZirkelId(id);
-    setTribe("");
-    setCost("");
-    setSigil("");
-  };
 
   return (
     <div className="max-w-[1350px] mx-auto px-4 py-6 space-y-5">
-      <SEO title="Sacrifice & Sigils – Kartenbuch" description="Alle Karten, Sigils, Items und Ereignisse von Sacrifice & Sigils: filterbar nach Stamm, Kosten, Seltenheit und Sigil." path="/sacrifice-and-sigils/kartenbuch" />
+      <SEO {...SEO_PROPS} />
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div className="space-y-2">
           <h1 className="ss-title text-3xl">{de.ui.codex}</h1>
           <div className="flex gap-2" role="tablist" aria-label="Zirkel">
             {Object.values(ZIRKEL).map((x) => (
-              <button key={x.id} type="button" role="tab" aria-selected={zirkelId === x.id} className={`ss-btn ss-btn-sm ${zirkelId === x.id ? "!text-[var(--candle)] !border-[var(--candle)]" : ""}`} onClick={() => switchZirkel(x.id)}>{x.name}</button>
+              <button key={x.id} type="button" role="tab" aria-selected={zirkelId === x.id} className={`ss-btn ss-btn-sm ${zirkelId === x.id ? "!text-[var(--candle)] !border-[var(--candle)]" : ""}`} onClick={() => cx.switchZirkel(x.id)}>{x.name}</button>
             ))}
           </div>
         </div>
@@ -72,32 +65,32 @@ export default function CodexPage() {
       {tab === "cards" && (
         <>
           <div className="ss-paper p-3 grid grid-cols-2 md:grid-cols-6 gap-3 items-end">
-            <label className="col-span-2"><span className="text-xs opacity-70">Name</span><input className="ss-input mt-0.5" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Suchen …" /></label>
+            <label className="col-span-2"><span className="text-xs opacity-70">Name</span><input className="ss-input mt-0.5" value={cx.q} onChange={(e) => cx.setQ(e.target.value)} placeholder="Suchen …" /></label>
             <label><span className="text-xs opacity-70">Stamm</span>
-              <select className="ss-select w-full mt-0.5" value={tribe} onChange={(e) => setTribe(e.target.value)}>
-                <option value="">alle</option>{TRIBE_IDS.map((t) => <option key={t} value={t}>{de.tribes[t].name}</option>)}
+              <select className="ss-select w-full mt-0.5" value={cx.tribe} onChange={(e) => cx.setTribe(e.target.value)}>
+                <option value="">alle</option>{cx.tribeIds.map((t) => <option key={t} value={t}>{de.tribes[t].name}</option>)}
               </select>
             </label>
             <label><span className="text-xs opacity-70">Kosten</span>
-              <select className="ss-select w-full mt-0.5" value={cost} onChange={(e) => setCost(e.target.value)}>
+              <select className="ss-select w-full mt-0.5" value={cx.cost} onChange={(e) => cx.setCost(e.target.value)}>
                 <option value="">alle</option>{z.resources.map((r) => r.id).map((t) => <option key={t} value={t}>{de.costs[t].name}</option>)}
               </select>
             </label>
             <label><span className="text-xs opacity-70">Seltenheit</span>
-              <select className="ss-select w-full mt-0.5" value={rarity} onChange={(e) => setRarity(e.target.value)}>
+              <select className="ss-select w-full mt-0.5" value={cx.rarity} onChange={(e) => cx.setRarity(e.target.value)}>
                 <option value="">alle</option>{Object.entries(de.rarities).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
               </select>
             </label>
             <label><span className="text-xs opacity-70">Sigil</span>
-              <select className="ss-select w-full mt-0.5" value={sigil} onChange={(e) => setSigil(e.target.value)}>
-                <option value="">alle</option>{publicSigils.map((s) => <option key={s.id} value={s.id}>{de.sigils[s.id].name}</option>)}
+              <select className="ss-select w-full mt-0.5" value={cx.sigil} onChange={(e) => cx.setSigil(e.target.value)}>
+                <option value="">alle</option>{cx.publicSigils.map((s) => <option key={s.id} value={s.id}>{de.sigils[s.id].name}</option>)}
               </select>
             </label>
-            <label className="col-span-2 md:col-span-6 flex items-center gap-2 text-sm"><input type="checkbox" checked={showTokens} onChange={(e) => setShowTokens(e.target.checked)} /> auch Tokens, Folgeformen und verfluchte Karten zeigen</label>
+            <label className="col-span-2 md:col-span-6 flex items-center gap-2 text-sm"><input type="checkbox" checked={cx.showTokens} onChange={(e) => cx.setShowTokens(e.target.checked)} /> auch Tokens, Folgeformen und verfluchte Karten zeigen</label>
           </div>
-          <p className="ss-dim text-sm">{cards.length} Karten</p>
+          <p className="ss-dim text-sm">{cx.cards.length} Karten</p>
           <div className="grid gap-4" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))" }}>
-            {cards.map((c) => (
+            {cx.cards.map((c) => (
               <div key={c.id} className="flex justify-center">
                 <Card card={resolveCard(c.id, [], c.id)} width={150} onClick={() => setDetail(resolveCard(c.id, [], c.id))} tabIndex={0} />
               </div>
@@ -108,64 +101,13 @@ export default function CodexPage() {
 
       {tab === "sigils" && (
         <div className="space-y-5">
-          {CATEGORIES.map((cat) => (
-            <section key={cat} className="ss-paper p-4 md:p-5">
-              <h2 className="ss-title !text-[var(--ink)] text-xl mb-3">{de.sigilCategories[cat]}</h2>
-              <div className="grid md:grid-cols-2 gap-x-6 gap-y-3">
-                {publicSigils.filter((s) => s.category === cat).map((s) => (
-                  <div key={s.id} className="flex gap-3 items-start">
-                    <SigilIcon sigil={s.id === "kerzendocht" ? "kerzendocht:3" : s.id} size={40} />
-                    <div>
-                      <p className="ss-title !text-[var(--ink)]">{de.sigils[s.id].name}{TOTEM_BASE_SIGILS.includes(s.id) ? <span className="text-xs opacity-60"> · Totem-Körper</span> : null}</p>
-                      <p className="text-[0.95rem]">{de.sigils[s.id].desc}</p>
-                      {de.sigils[s.id].example && <p className="text-sm italic opacity-70">{de.sigils[s.id].example}</p>}
-                      <button type="button" className="text-xs underline opacity-70" onClick={() => { setSigil(s.id); setTab("cards"); }}>Karten mit diesem Sigil</button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </section>
-          ))}
-          <section className="ss-paper p-4 md:p-5">
-            <h2 className="ss-title !text-[var(--ink)] text-xl mb-3">Besondere Angriffswerte</h2>
-            <ul className="space-y-1">{Object.values(de.specials).map((s) => <li key={s.name}><b>{s.name}:</b> {s.desc}</li>)}</ul>
-          </section>
+          <SigilLexicon zirkelId={zirkelId} Box={Box} onShowCards={(id) => { cx.setSigil(id); setTab("cards"); }} />
         </div>
       )}
 
       {tab === "more" && (
         <div className="grid md:grid-cols-2 gap-5">
-          {z.tide && (
-            <section className="ss-paper p-4 md:col-span-2">
-              <h2 className="ss-title !text-[var(--ink)] text-xl mb-2">Gezeiten</h2>
-              <p className="mb-2">Beide Zeichner teilen einen Wasserstand: Ebbe → steigendes Wasser → Flut → fallendes Wasser, je eine Runde. Der Kampf beginnt bei Ebbe.</p>
-              <ul className="space-y-1.5">{de.tide.effects.map((t) => <li key={t}>{t}</li>)}</ul>
-              <p className="mt-2">{de.costs.salt.desc}</p>
-            </section>
-          )}
-          <section className="ss-paper p-4">
-            <h2 className="ss-title !text-[var(--ink)] text-xl mb-2">Items ({ITEMS.length})</h2>
-            <ul className="space-y-1.5">{ITEMS.map((i) => <li key={i.id}><b>{de.items[i.id].name}</b> <span className="opacity-60">({i.price} Splitter)</span>: {de.items[i.id].desc}</li>)}</ul>
-          </section>
-          <section className="ss-paper p-4">
-            <h2 className="ss-title !text-[var(--ink)] text-xl mb-2">Seltene Ereignisse ({EVENTS.length})</h2>
-            <ul className="space-y-1.5">{EVENTS.map((e) => <li key={e}><b>{de.events[e].name}:</b> {de.events[e].intro}</li>)}</ul>
-          </section>
-          <section className="ss-paper p-4">
-            <h2 className="ss-title !text-[var(--ink)] text-xl mb-2">Totem-Körper ({TOTEM_BASE_SIGILS.length})</h2>
-            <div className="flex flex-wrap gap-2">{TOTEM_BASE_SIGILS.map((s) => <span key={s} className="flex items-center gap-1 text-sm"><SigilIcon sigil={s} size={20} />{de.sigils[s].name}</span>)}</div>
-            <p className="text-sm mt-2 opacity-75">Mit einem Stammkopf gilt der Körper für alle Karten des Stamms, mit einem Lanenkopf für jede eigene Karte in der Lane.</p>
-          </section>
-          <section className="ss-paper p-4">
-            <h2 className="ss-title !text-[var(--ink)] text-xl mb-2">Lanen-Eigenschaften ({LANE_PROPS.length})</h2>
-            <ul className="space-y-1.5">{LANE_PROPS.map((p) => <li key={p}><b>{de.totems.props[p].name}:</b> {de.totems.props[p].desc}</li>)}</ul>
-          </section>
-          <section className="ss-paper p-4 md:col-span-2">
-            <h2 className="ss-title !text-[var(--ink)] text-xl mb-2">Stämme</h2>
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-2">
-              {TRIBE_IDS.map((t) => <p key={t}><b>{de.tribes[t].name}:</b> {de.tribes[t].identity} <span className="opacity-60">({ALL_CARDS.filter((c) => c.tribe === t && !c.token && !c.cursed).length})</span></p>)}
-            </div>
-          </section>
+          <CodexMore zirkelId={zirkelId} Box={Box} />
         </div>
       )}
       {detail && <CardDetail card={detail} onClose={() => setDetail(null)} />}

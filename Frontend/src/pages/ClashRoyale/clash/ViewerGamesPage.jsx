@@ -16,6 +16,8 @@ import { useClashLang } from './clashI18n';
 import tvImg from '../../../assets/clashRoyale/ui/tv.webp';
 import searchImg from '../../../assets/clashRoyale/ui/search.webp';
 import eyeImg from '../../../assets/clashRoyale/ui/eye.webp';
+import swordImg from '../../../assets/clashRoyale/ui/sword.webp';
+import scrollImg from '../../../assets/clashRoyale/ui/icon_daily_task_scroll_opened.png';
 
 const API = '/api/cr-viewer-games';
 
@@ -113,13 +115,27 @@ export default function ViewerGamesPage() {
             <span className="font-cr text-lg">{t.vgModes}</span>
             {modeCard('pixel', eyeImg, t.pixelTitle, t.vgPixelText)}
             {modeCard('zoom', searchImg, t.zoomTitle, t.vgZoomText)}
+            {modeCard('stat', swordImg, t.vgStatTitle, t.vgStatText)}
+            {modeCard('wordle', scrollImg, t.vgWordleTitle, t.vgWordleText)}
             {settings.modes.length > 1 && <p className="text-xs text-white/55">{t.vgBothModes}</p>}
           </section>
 
           {/* Ablauf */}
           <section className="cr-arcade-panel p-4 flex flex-col gap-4">
             <span className="font-cr text-lg">{t.vgFlow}</span>
-            <SettingRow label={t.vgAdvance} note={settings.advance === 'time' ? t.vgAdvanceTime : t.vgAdvanceGuesses}>
+            {settings.modes.includes('stat') && (
+              <SettingRow label={t.vgEstimateSeconds}>
+                <Slider value={settings.estimateSeconds} min={10} max={120} step={5} onChange={(v) => update({ estimateSeconds: v })} format={(v) => `${v} s`} aria-label={t.vgEstimateSeconds} />
+              </SettingRow>
+            )}
+            {settings.modes.includes('wordle') && (
+              <SettingRow label={t.vgWordleSeconds}>
+                <Slider value={settings.wordleSeconds} min={30} max={600} step={15} onChange={(v) => update({ wordleSeconds: v })} format={(v) => `${v} s`} aria-label={t.vgWordleSeconds} />
+              </SettingRow>
+            )}
+            {(settings.modes.includes('pixel') || settings.modes.includes('zoom')) && (
+            <>
+            <SettingRow label={t.vgAdvance} note={`${settings.advance === 'time' ? t.vgAdvanceTime : t.vgAdvanceGuesses} ${settings.modes.length > 1 ? t.vgImageOnly : ''}`}>
               <SegmentedControl value={settings.advance} onChange={(v) => update({ advance: v })}
                 options={[{ id: 'time', label: t.vgByTime }, { id: 'guesses', label: t.vgByGuesses }]} />
             </SettingRow>
@@ -135,6 +151,8 @@ export default function ViewerGamesPage() {
             <SettingRow label={t.vgFinalSeconds} note={t.vgFinalNote}>
               <Slider value={settings.finalSeconds} min={5} max={60} onChange={(v) => update({ finalSeconds: v })} format={(v) => `${v} s`} aria-label={t.vgFinalSeconds} />
             </SettingRow>
+            </>
+            )}
             <SettingRow label={t.vgPause}>
               <Slider value={settings.pauseSeconds} min={3} max={30} onChange={(v) => update({ pauseSeconds: v })} format={(v) => `${v} s`} aria-label={t.vgPause} />
             </SettingRow>
@@ -149,6 +167,12 @@ export default function ViewerGamesPage() {
             <SettingRow inline label={t.vgLeaderboard}>
               <Toggle checked={settings.showLeaderboard} onChange={(v) => update({ showLeaderboard: v })} aria-label={t.vgLeaderboard} />
             </SettingRow>
+            {settings.showLeaderboard && (
+              <SettingRow label={t.vgScope} note={t.vgScopeNote}>
+                <SegmentedControl value={settings.leaderboardScope} onChange={(v) => update({ leaderboardScope: v })}
+                  options={[{ id: 'season', label: t.vgScopeSeason }, { id: 'all', label: t.vgScopeAll }]} />
+              </SettingRow>
+            )}
             <SettingRow label={t.vgLanguage}>
               <SegmentedControl value={settings.language} onChange={(v) => update({ language: v })}
                 options={[{ id: 'de', label: 'Deutsch' }, { id: 'en', label: 'English' }]} />

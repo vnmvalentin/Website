@@ -5,6 +5,7 @@ import { ALL_CARDS } from '../data/cards';
 import { CARD_ATTRS } from '../data/bingoAttributes';
 import { elixirOf } from '../data/cardElixir';
 import STATS_FILE from '../data/cardStats.json';
+import { DAILY_GAMES, syncDaily } from './dailyRound';
 
 export const POOL = ALL_CARDS.filter((c) => CARD_ATTRS[c.id]);
 export const STATS = STATS_FILE.cards || {};
@@ -153,4 +154,8 @@ export function readStore(key, fallback) {
 }
 export function writeStore(key, value) {
   try { localStorage.setItem(key, JSON.stringify(value)); } catch { /* privater Modus */ }
+  // Tagesrunden der Ratespiele: fertige Ergebnisse gleich in den Verlauf der gemeinsamen Tagesrunde (/clash/heute) —
+  // so zählt ein Tag für Serie und Ergebnis auch, wenn jemand nur das Spiel selbst geöffnet hat
+  if (DAILY_STORES.has(key)) syncDaily();
 }
+const DAILY_STORES = new Set(DAILY_GAMES.map((g) => g.store));

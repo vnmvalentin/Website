@@ -55,17 +55,20 @@ function endBloodMoon(g) {
   g.events.push({ type: "message", text: "Der Blutmond weicht — eine Belohnung liegt bereit" });
 }
 
-// Nahkämpfer der Welt (die laufen von selbst nach innen); ohne passende Art der häufigste Gegner
+// Für den Ring: am liebsten Futter, das von selbst nach innen läuft; sonst Nahkämpfer, sonst der häufigste Gegner
 function meleePool(g) {
   const pool = enemyPoolFor(g.biome, g.loop);
+  const fodder = pool.filter(([id]) => ENEMIES[id].tier === "futter" && ENEMIES[id].ai === "chase");
+  if (fodder.length) return fodder;
   const melee = pool.filter(([id]) => ["chase", "exploder"].includes(ENEMIES[id].ai));
   return melee.length ? melee : pool;
 }
 
 function encircle(g) {
   const p = g.player;
-  const n = Math.min(34, 18 + 2 * g.stagesCleared + 4 * g.loop);
   const id = g.rng.weighted(meleePool(g));
+  // Futter kommt in großer Zahl (in späten Welten Schulter an Schulter), stärkere Gegner lockerer
+  const n = ENEMIES[id].tier === "futter" ? Math.min(120, 30 + 14 * g.stagesCleared + 12 * g.loop) : Math.min(34, 18 + 2 * g.stagesCleared + 4 * g.loop);
   const R = 640;
   for (let i = 0; i < n; i++) {
     const a = (Math.PI * 2 * i) / n;

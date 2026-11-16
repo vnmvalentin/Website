@@ -2,9 +2,9 @@
 // Talent). Solange die Wahl offen ist, steht das Spiel (stepGame tut nichts). Die UI ruft chooseUpgrade/rerollOffer.
 //
 // Die allererste Wahl bietet nur Waffen an, damit jeder Lauf mit einer automatischen Waffe beginnt. Ist alles
-// ausgebaut, gibt es Gold oder Heilung als Trostpreis.
+// ausgebaut, gibt es Segen: kleine Boni ohne Obergrenze.
 
-import { WEAPONS, WEAPON_IDS, TALENTS, TALENT_IDS, MAX_WEAPONS, MAX_TALENTS, EVOLUTION_OF } from "../data/weapons.js";
+import { WEAPONS, WEAPON_IDS, TALENTS, TALENT_IDS, MAX_WEAPONS, MAX_TALENTS, EVOLUTION_OF, EVOLVE_AT, BOONS, BOON_IDS } from "../data/weapons.js";
 import { recalcStats } from "./stats.js";
 import { healPlayer } from "./combat.js";
 import { giveItem } from "./loot.js";
@@ -25,13 +25,17 @@ function candidates(g) {
   // Evolution: Waffe ausgebaut + passendes Talent vorhanden → sehr wahrscheinlich im Angebot
   for (const id of ownedW) {
     const evo = EVOLUTION_OF[id];
-    if (evo && p.weapons[id] >= WEAPONS[id].levels.length && p.talents[WEAPONS[evo].talent]) list.push({ kind: "evolution", id: evo, from: id, level: 1, w: 12 });
+    // Stufen über EVOLVE_AT gehen in die Evolution über (Grundwaffe Stufe 7 → Evolution Stufe 3)
+    if (evo && p.weapons[id] >= EVOLVE_AT && p.talents[WEAPONS[evo].talent]) list.push({ kind: "evolution", id: evo, from: id, level: Math.min(WEAPONS[evo].levels.length, p.weapons[id] - EVOLVE_AT + 1), w: 12 });
   }
   for (const id of ownedW) {
     if (p.weapons[id] < WEAPONS[id].levels.length) list.push({ kind: "weapon", id, level: p.weapons[id] + 1, w: 3 });
   }
   if (ownedW.length < MAX_WEAPONS) {
-    for (const id of WEAPON_IDS) if (!p.weapons[id] && !p.weapons[EVOLUTION_OF[id]]) list.push({ kind: "weapon", id, level: 1, w: ownedW.length < 2 ? 2.5 : 1.4 });
+    // Die ersten Waffen kommen schnell; ab der vierten werden neue selten angeboten — sonst hat man am Ende sechs
+    // halb ausgebaute Waffen und keine Evolution (so scheiterte der Test-Bot im November 2026 am Endboss)
+    const w = ownedW.length < 2 ? 2.5 : ownedW.length < 4 ? 1.2 : 0.45;
+    for (const id of WEAPON_IDS) if (!p.weapons[id] && !p.weapons[EVOLUTION_OF[id]]) list.push({ kind: "weapon", id, level: 1, w });
   }
   if (ownedW.length === 0) return list; // erste Wahl: nur Waffen
   for (const id of ownedT) {
@@ -44,6 +48,7 @@ function candidates(g) {
 }
 
 function rollChoices(g) {
+  const p0 = g.player;
   const pool = candidates(g);
   const out = [];
   while (out.length < OFFER_SIZE && pool.length) {
@@ -54,7 +59,8 @@ function rollChoices(g) {
     const { w: _w, ...choice } = pool.splice(idx, 1)[0];
     out.push(choice);
   }
-  if (!out.length) out.push({ kind: "gold", amount: Math.round(chestPrice(25, g.coeff)) }, { kind: "heal", amount: 0.35 });
+  // Nichts oder zu wenig mehr auszubauen: mit Segen auffüllen (data/weapons.js BOONS)
+  if (p0.weaponOrder.length) for (const id of BOON_IDS) { if (out.length >= OFFER_SIZE) break; out.push({ kind: "boon", id, level: (p0.boons[id] || 0) + 1 }); }
   return out;
 }
 
@@ -94,13 +100,15 @@ export function chooseUpgrade(g, index) {
     p.weaponOrder = p.weaponOrder.map((id) => (id === c.from ? c.id : id));
     delete p.weapons[c.from];
     delete p.weaponState[c.from];
-    p.weapons[c.id] = 1;
+    p.weapons[c.id] = c.level || 1;
     p.weaponState[c.id] = { t: 0 };
     g.stats.evolutions = (g.stats.evolutions || 0) + 1;
     shake(g, 6);
   } else if (c.kind === "talent") {
     if (!p.talents[c.id]) p.talentOrder.push(c.id);
     p.talents[c.id] = c.level;
+  } else if (c.kind === "boon") {
+    p.boons[c.id] = (p.boons[c.id] || 0) + 1;
   } else if (c.kind === "item") {
     giveItem(g, c.id);
   } else if (c.kind === "gold") {
@@ -112,6 +120,7 @@ export function chooseUpgrade(g, index) {
   if (!lu.shrine) p.pendingLevels = Math.max(0, p.pendingLevels - 1);
   g.levelUp = null;
   ring(g, p.x, p.y, 140, "#f0a33c", 0.5);
+  if (c.kind === "boon") floatText(g, p.x, p.y - 60, BOONS[c.id].name, BOONS[c.id].color, { size: 18, life: 1.2, jitter: false });
   if (c.kind === "weapon" || c.kind === "talent" || c.kind === "evolution") {
     const def = c.kind === "talent" ? TALENTS[c.id] : WEAPONS[c.id];
     floatText(g, p.x, p.y - 60, c.level > 1 ? `${def.name} ${c.level}` : def.name, def.color, { size: 18, life: 1.2, jitter: false });

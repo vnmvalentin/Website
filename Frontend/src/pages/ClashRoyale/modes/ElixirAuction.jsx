@@ -33,6 +33,7 @@ import { avatarUrl } from '../components/avatars';
 import { playSound } from '../ui/sound';
 import { flyParticles } from '../ui/flyParticles';
 import { revealSchedule } from './auction/revealTiming';
+import { useRevealClock } from './auction/useRevealClock';
 import { sparkBurst } from '../ui/juice';
 
 // 3D-Auktionssaal (three.js) — erst geladen, wenn die Auktion läuft. Fällt WebGL aus,
@@ -267,6 +268,19 @@ export default function ElixirAuction(props) {
   // 3D nur, wenn gewünscht (Einstellung / Umschalter in der Kopfzeile) UND WebGL läuft
   const { prefs } = useCrPrefs();
   const show3d = prefs.scene3d && !webglFailed;
+  // Bewegung in der 2D-Auflösung: immer, außer man hat Animationen selbst abgeschaltet. Ohne
+  // Hardwarebeschleunigung sind sie nur automatisch aus (autoLowGfx) — die Auflösung läuft dort trotzdem
+  // bewegt, sie besteht aus wenigen kleinen Elementen. Der ABLAUF (was wann erscheint) gilt in jedem Fall.
+  const revealMotion = prefs.animations || !!prefs.autoLowGfx;
+
+  // Zeitplan der Auflösung ab ihrem Beginn (bei vertauschten Karten inklusive der Enttarnungszeit): steuert,
+  // wann gewonnene Karten in der Seitenleiste und die Bonuskarten erscheinen — vorher verrieten sie das Ergebnis.
+  const revealBidCounts = v.ready && v.isReveal ? v.currentCards.map((card, idx) => v.revealFor(card, idx).bids.length) : null;
+  const deckSched = revealBidCounts ? revealSchedule(revealBidCounts, swapAffectsMe ? 0.95 : 0.25) : null;
+  const revealNow = useRevealClock(
+    deckSched ? `r${state?.round}` : null,
+    deckSched ? [...deckSched.cards.map((c) => c.slam + 0.25), deckSched.finale + 0.3] : [],
+  );
 
   useEffect(() => {
     if (!swapAffectsMe) { setSwapRevealed(true); return; }
@@ -333,20 +347,22 @@ export default function ElixirAuction(props) {
     : [];
 
   // In der Auflösung erscheinen die gewonnenen Karten im Deck erst, wenn auf ihrer Karte der
-  // Stempel gefallen ist — sonst verrät die Seitenleiste das Ergebnis vorab.
+  // Stempel gefallen ist — sonst verrät die Seitenleiste das Ergebnis vorab. Bonuskarten (für alle,
+  // die leer ausgingen) kommen erst im Finale. Ob eine Karte schon dran ist, sagt die Uhr (revealNow).
   // Bei vertauschten Karten (Mutterhexe) starten die echten Karten erst nach der Enttarnung.
   // Zeitplan der Auflösung: einmal für die Karten (nach einer Enttarnung kürzerer Vorlauf) und
-  // einmal fürs Deck (ab Beginn der Auflösung, also inklusive der Enttarnungszeit)
-  const bidCounts = v.isReveal ? v.currentCards.map((card, idx) => v.revealFor(card, idx).bids.length) : [];
-  const cardSched = v.isReveal ? revealSchedule(bidCounts, swapAffectsMe ? 0.05 : 0.25) : null;
+  // einmal fürs Deck (deckSched: ab Beginn der Auflösung, also inklusive der Enttarnungszeit)
+  const cardSched = v.isReveal ? revealSchedule(revealBidCounts, swapAffectsMe ? 0.05 : 0.25) : null;
   const deckAppearAt = {};
   if (v.isReveal) {
-    const deckSched = revealSchedule(bidCounts, swapAffectsMe ? 0.95 : 0.25);
     v.currentCards.forEach((card, idx) => {
       const r = v.revealFor(card, idx);
       if (r.winner || r.consolation) deckAppearAt[card.id] = deckSched.cards[idx].slam + 0.25;
     });
+    for (const [, r] of bonusResults) deckAppearAt[r.got.id] = deckSched.finale + 0.3;
   }
+  const bonusShown = v.isReveal && revealNow >= deckSched.finale + 0.3;
+  const deckCardShown = (c) => deckAppearAt[c.id] === undefined || revealNow >= deckAppearAt[c.id];
 
   // Auflösung für den 3D-Saal: je Karte Empfänger, Stempel und alle Gebote fertig aufbereitet
   // (dieselben Angaben wie AuctionRevealCard — Gewinner, Trostpreis, jedes einzelne Gebot)
@@ -412,7 +428,8 @@ export default function ElixirAuction(props) {
             <div className="flex items-center gap-2.5 min-w-0">
               <Avatar id={p.avatar} color={p.color} size={28} />
               <span className="text-white text-[13px] font-semibold truncate flex-1">{p.name}</span>
-              <span className="text-white/25 text-[11px] tabular-nums shrink-0">{p.deck?.length || 0}/8</span>
+              {/* Zählt nur, was schon im Deck zu sehen ist — sonst verrät die Zahl die Auflösung vorab */}
+              <span className="text-white/25 text-[11px] tabular-nums shrink-0">{(p.deck || []).filter(deckCardShown).length}/8</span>
             </div>
           }>
           {/* Bezugsgröße ist das Startguthaben der Runde: Voller Vorrat = voller Balken */}
@@ -425,9 +442,9 @@ export default function ElixirAuction(props) {
               return (
                 <div key={ci} className="aspect-[4/5] rounded-md overflow-hidden bg-black/25"
                   style={{ border: '1.5px solid rgba(0,0,0,0.5)' }}>
-                  {c && (deckAppearAt[c.id] !== undefined
-                    ? <div className="cr-card-pop w-full h-full" style={{ animationDelay: `${deckAppearAt[c.id]}s` }}><CardArt card={c} className="w-full h-full" /></div>
-                    : <CardArt card={c} className="w-full h-full" />)}
+                  {c && (deckAppearAt[c.id] === undefined
+                    ? <CardArt card={c} className="w-full h-full" />
+                    : deckCardShown(c) && <div className="cr-card-pop w-full h-full"><CardArt card={c} className="w-full h-full" /></div>)}
                 </div>
               );
             })}
@@ -522,6 +539,7 @@ export default function ElixirAuction(props) {
                   // Element und dreht sich mit Zauber-Effekt um
                   <AuctionRevealCard key={`${idx}-${showFakeCards ? 'f' : 'r'}`}
                     timing={cardSched.cards[idx]}
+                    motion={revealMotion}
                     unmask={swapAffectsMe && !showFakeCards}
                     card={shown}
                     winner={showFakeCards ? null : r.winner}
@@ -616,8 +634,8 @@ export default function ElixirAuction(props) {
           </div>
 
           {/* ── Bonuskarten: wer leer ausging, bekommt Ersatz von außerhalb ──── */}
-          {bonusResults.length > 0 && (
-            <div className="mt-10">
+          {bonusResults.length > 0 && bonusShown && (
+            <div className="mt-10 cr-drop-in">
               {bonusBlock}
             </div>
           )}

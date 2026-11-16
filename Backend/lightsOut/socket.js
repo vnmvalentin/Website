@@ -20,10 +20,13 @@
 //     lo:host   { hostSeat }  ·   lo:left  { seat }
 
 const { createLightsOutRooms } = require('./rooms');
+const { meldeSpielAn } = require('../lib/spielStatistik');
 
 const LIMITS = { 'lo:state': 25, 'lo:world': 25, 'lo:event': 40, other: 6 };
 
 let rooms = null;
+// Admin-Reiter „Spiele“: die Räume entstehen erst mit dem ersten Besucher
+meldeSpielAn('lights-out', () => (rooms ? rooms.stats() : { raeume: 0, spieler: 0 }));
 function getRooms(io) {
   if (!rooms) {
     rooms = createLightsOutRooms({

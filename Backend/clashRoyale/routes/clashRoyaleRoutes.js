@@ -27,6 +27,8 @@ const lobbyPersistence = require('../core/lobbyPersistence');
 const { registerFriendsSocket } = require('../core/friends');
 const twitchChat = require('../core/twitchChat');
 const lobbyTournament = require('../core/lobbyTournament');
+// Partien für den Admin-Reiter „Spiele“ (Andockstelle von Spur A): jeder Minigame-Start zählt eine
+const { zaehlePartie } = require('../../lib/spielStatistik');
 // Turnier-Match-Räume (lazy, weil tournament/matchRoom selbst createTournamentLobby von hier braucht)
 const tournamentRoom = () => require('../tournament/matchRoom');
 
@@ -200,6 +202,7 @@ function registerClashRoyaleSocket(socket, io, { isAdmin = false, twitchId = nul
       if (!mode) return;
       lobby.started = true;
       mode.start(lobby, io);
+      zaehlePartie('cr-minigames');
       emitStreamerEvent(lobby, io, 'gameStart');
       if (lobby.isPublic) emitPublicLobbies(io);
     }, TOURNAMENT_AUTOSTART_MS);
@@ -861,6 +864,7 @@ function registerClashRoyaleSocket(socket, io, { isAdmin = false, twitchId = nul
     }
     lobby.lastRandomMode = lobby.mode;
     mode.start(lobby, io);
+    zaehlePartie('cr-minigames');
     emitStreamerEvent(lobby, io, 'gameStart');
   };
 
@@ -885,6 +889,7 @@ function registerClashRoyaleSocket(socket, io, { isAdmin = false, twitchId = nul
     }
     lobby.started = true;
     mode.start(lobby, io);
+    zaehlePartie('cr-minigames');
     // Streamer-Automatik: z. B. OBS auf die Minigame-Szene schalten
     emitStreamerEvent(lobby, io, 'gameStart');
     // War die Lobby öffentlich gelistet, verschwindet sie jetzt aus dem Lobby-Browser —

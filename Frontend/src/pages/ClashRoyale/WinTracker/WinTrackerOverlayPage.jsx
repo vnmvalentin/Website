@@ -23,12 +23,13 @@ import { getOverlayData } from "./winTrackerApi";
 import { usePagedTransition, SLIDE_MS } from "./usePagedTransition";
 import { dictForWt, challengeLabel } from "./wtI18n";
 import FitText from "./FitText";
-import ChallengeValue, { ChallengeBadge } from "./ChallengeValue";
+import ChallengeValue, { ChallengeBadge, ChallengeTrack } from "./ChallengeValue";
+import { challengeStats } from "./challengeStats";
 import { overlayLook, CR_FONT_HREF } from "./overlayTheme";
 import { useMeasuredSize, hasCustomFormat, hasFixedBox, pickLayout, last5Emphasis } from "./overlayFit";
 import trophyIcon from "../../../assets/clashRoyale/ui/trophy.png";
 import trophy2v2Icon from "../../../assets/clashRoyale/ui/trophy2v2.webp";
-import league2v2Badge from "../../../assets/clashRoyale/ui/league2v2.png";
+import league2v2Badge from "../../../assets/clashRoyale/badges/league2v2.png";
 import { useFontLink } from "../../../components/shell/useFontLink";
 
 // Der Server fragt Supercell höchstens alle 15 s neu (MIN_SYNC_INTERVAL_MS) — 8 s hier zeigt ein
@@ -286,9 +287,9 @@ export default function WinTrackerOverlayPage() {
   // Session-Werte als gleich breite Spalten (Beschriftung klein darüber, Wert groß darunter),
   // durch Trennlinien voneinander abgesetzt — keine eigenen Pillen, kein Trend-Pfeil mehr.
   const stats = [];
-  if (settings.showDailyProfit && isChallenge) {
-    // Challenges haben keinen Punkte-Profit — an seiner Stelle steht der beste Run der Session.
-    stats.push({ key: "profit", label: t.statBestRun, value: challenge.bestWins });
+  if (isChallenge) {
+    // Challenges: Stand des laufenden Runs statt Profit/Bilanz/Winrate der Session (challengeStats).
+    stats.push(...challengeStats(challenge, { profit: settings.showDailyProfit, numbers: settings.showWinLossNumbers, percent: settings.showWinLossPercent }, t, styles));
   } else if (settings.showDailyProfit) {
     stats.push({
       key: "profit",
@@ -296,14 +297,14 @@ export default function WinTrackerOverlayPage() {
       value: <span style={{ color: profitPositive ? "#4ade80" : "#f87171" }}>{profitPositive ? "+" : ""}{fmt(dailyValue, lang)}</span>,
     });
   }
-  if (settings.showWinLossNumbers) {
+  if (!isChallenge && settings.showWinLossNumbers) {
     stats.push({
       key: "record",
       label: t.statRecord,
       value: <><span style={{ color: "#4ade80" }}>{daily.wins}</span><span style={styles.statDash}>–</span><span style={{ color: "#f87171" }}>{daily.losses}</span></>,
     });
   }
-  if (settings.showWinLossPercent) {
+  if (!isChallenge && settings.showWinLossPercent) {
     stats.push({ key: "pct", label: t.statWinRate, value: `${daily.winPct}%` });
   }
   const statColumns = `repeat(${Math.max(1, stats.length)}, minmax(0, 1fr))`;
@@ -321,7 +322,11 @@ export default function WinTrackerOverlayPage() {
         <div style={{ ...styles.statsRow, gridTemplateColumns: statColumns }}>{statsInner}</div>
       )}
       {showLast5 && (
-        last5Style === "dot" ? (
+        // Challenge mit Siegziel: Fortschritts-Leiste des Runs an der Stelle der letzten 5 Spiele
+        // (gleich hoch, damit die Karte ihre Größe behält) — siehe ChallengeTrack.
+        isChallenge && (challenge.maxWins > 0 || challenge.maxGames > 0) ? (
+          <ChallengeTrack challenge={challenge} styles={styles} dots={last5Style === "dot"} />
+        ) : last5Style === "dot" ? (
           // Immer 5 Punkte statt nur so viele wie es Spiele gibt — sonst schrumpft die zentrierte
           // Gruppe mit einer jungen Session sichtbar zusammen. Fehlende Spiele als leerer Ring.
           // Reihenfolge ohne Textzeile darunter (die machte die Karte höher): Ring ums neueste

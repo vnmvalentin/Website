@@ -70,7 +70,14 @@ export const THEME_DEFAULTS = {
  * Karten, die dem gemeinsamen Design folgen. Die Murmelbahn fehlt bewusst: sie
  * ist eine große Zeichenfläche mit eigener, höherer Deckkraft.
  */
-export const THEMED_IDS = ['poll', 'prediction', 'followerGoal', 'subGoal', 'streamStats', 'raidClip'];
+export const THEMED_IDS = ['poll', 'prediction', 'followerGoal', 'subGoal', 'streamStats', 'raidClip', 'alerts'];
+
+/** Arten von Alerts — Reihenfolge wie im Editor. Gleiche Liste wie KINDS in Backend/streamTool/lib/alertsCore.js. */
+export const ALERT_KINDS = ['follow', 'sub', 'resub', 'gift', 'bits', 'raid'];
+/** Feld mit dem Text je Art (Platzhalter: siehe fillAlertText). */
+export const ALERT_TEXT_FIELD = {
+  follow: 'textFollow', sub: 'textSub', resub: 'textResub', gift: 'textGift', bits: 'textBits', raid: 'textRaid',
+};
 
 const LOOK_KEYS = ['accent', 'opacity', 'glass'];
 
@@ -217,6 +224,37 @@ export const MODULE_DEFAULTS = {
     // Vorlauf, damit der Clip nicht in den Raid-Alert hineinredet
     delaySeconds: 5,
   },
+  // Kurze Hinweise im Stream. Kommen mehrere kurz hintereinander, laufen sie nacheinander (Warteschlange).
+  alerts: {
+    ...BASE_MODULE,
+    enabled: false,
+    // 600 px breit -> waagerecht mittig auf der 1920er Bühne
+    x: 660,
+    y: 120,
+    timer: false,
+    // Farbe des Namens im Text
+    colors: [CATEGORICAL[3]],
+    kinds: { follow: true, sub: true, resub: true, gift: true, bits: true, raid: true },
+    // Kleinere Cheers und Raids bekommen keinen Alert
+    minBits: 1,
+    minRaidViewers: 1,
+    // Wie lange ein Alert stehen bleibt
+    seconds: 6,
+    // Nachricht zu Verlängerung und Bits mit anzeigen
+    showMessage: true,
+    // Kurzer Ton aus dem Browser (kein Audio-Paket nötig). Wirkt in OBS; im Dashboard nur beim Testen.
+    sound: true,
+    volume: 60,
+    // Text vorlesen (Sprachausgabe des Rechners) — ob OBS Stimmen hat, hängt vom PC ab
+    tts: false,
+    // Texte je Art. Platzhalter: {name} {amount} {months} {subs} {bits} {viewers} {tier}
+    textFollow: '{name} folgt jetzt!',
+    textSub: '{name} hat abonniert!',
+    textResub: '{name} ist seit {months} Monaten dabei!',
+    textGift: '{name} verschenkt {subs}!',
+    textBits: '{name} schickt {bits}!',
+    textRaid: '{name} raidet mit {viewers}!',
+  },
 
   /* ── Szenen ──────────────────────────────────────────────────────────────
      Sie spielen quer über das ganze Bild statt als Karte an einer Stelle. Von
@@ -357,7 +395,61 @@ export const MODULE_IDS = Object.keys(MODULE_DEFAULTS);
 export const CONFIG_VERSION = 2;
 
 export function defaultConfig() {
-  return { v: CONFIG_VERSION, theme: { ...THEME_DEFAULTS }, modules: JSON.parse(JSON.stringify(MODULE_DEFAULTS)) };
+  return { v: CONFIG_VERSION, language: 'de', theme: { ...THEME_DEFAULTS }, modules: JSON.parse(JSON.stringify(MODULE_DEFAULTS)) };
+}
+
+/** Sprachen, in denen die Overlays im Stream erscheinen können (config.language). */
+export const OVERLAY_LANGS = ['de', 'en'];
+
+/**
+ * Standardtexte, die der Streamer ändern kann. Wechselt die Sprache der Overlays, werden nur die mitübersetzt, die
+ * noch genau dem Standard einer Sprache entsprechen — eigene Texte bleiben, wie sie sind. Der Befehl der Murmelbahn
+ * gehört bewusst nicht dazu: den kennt die Community, er soll sich nicht still ändern.
+ */
+export const DEFAULT_TEXTS = {
+  de: {
+    followerGoal: { label: 'Follower-Ziel' },
+    subGoal: { label: 'Abo-Ziel' },
+    streamStats: { label: 'Dieser Stream' },
+    planeBanner: { messages: 'Schön, dass du da bist!' },
+    alerts: {
+      textFollow: '{name} folgt jetzt!',
+      textSub: '{name} hat abonniert!',
+      textResub: '{name} ist seit {months} Monaten dabei!',
+      textGift: '{name} verschenkt {subs}!',
+      textBits: '{name} schickt {bits}!',
+      textRaid: '{name} raidet mit {viewers}!',
+    },
+  },
+  en: {
+    followerGoal: { label: 'Follower goal' },
+    subGoal: { label: 'Sub goal' },
+    streamStats: { label: 'This stream' },
+    planeBanner: { messages: 'Great to have you here!' },
+    alerts: {
+      textFollow: '{name} just followed!',
+      textSub: '{name} just subscribed!',
+      textResub: '{name} has been subscribed for {months} months!',
+      textGift: '{name} gifted {subs}!',
+      textBits: '{name} cheered {bits}!',
+      textRaid: '{name} is raiding with {viewers}!',
+    },
+  },
+};
+
+/** Konfiguration mit neuer Overlay-Sprache; unveränderte Standardtexte wechseln mit (siehe DEFAULT_TEXTS). */
+export function withLanguage(config, lang) {
+  if (!OVERLAY_LANGS.includes(lang)) return config;
+  const modules = { ...config.modules };
+  for (const [id, fields] of Object.entries(DEFAULT_TEXTS[lang])) {
+    if (!modules[id]) continue;
+    for (const [field, text] of Object.entries(fields)) {
+      const current = modules[id][field];
+      const isDefault = OVERLAY_LANGS.some((l) => DEFAULT_TEXTS[l][id]?.[field] === current);
+      if (isDefault && current !== text) modules[id] = { ...modules[id], [field]: text };
+    }
+  }
+  return { ...config, language: lang, modules };
 }
 
 /** Nur gültige Werte aus einem gespeicherten Design übernehmen. */
@@ -391,6 +483,9 @@ export function mergeConfig(saved) {
     if (def.show) {
       merged.show = { ...def.show, ...(got?.show && typeof got.show === 'object' ? got.show : {}) };
     }
+    if (def.kinds) {
+      merged.kinds = { ...def.kinds, ...(got?.kinds && typeof got.kinds === 'object' ? got.kinds : {}) };
+    }
     modules[id] = merged;
   }
 
@@ -417,7 +512,10 @@ export function mergeConfig(saved) {
     }
   }
 
-  return { v: CONFIG_VERSION, theme, modules };
+  const language = OVERLAY_LANGS.includes(saved.language) ? saved.language : 'de';
+  // Fehlende Felder kommen aus MODULE_DEFAULTS und sind deutsch — bei einer englischen Konfiguration (etwa ein
+  // später hinzugekommenes Modul) also die Standardtexte an die Sprache angleichen. Eigene Texte bleiben unberührt.
+  return withLanguage({ v: CONFIG_VERSION, language, theme, modules }, language);
 }
 
 /* ── Twitch-Daten -> Widget-Daten ─────────────────────────────────────────── */
@@ -434,7 +532,6 @@ export function toPollView(poll, module, now) {
     duration: poll.duration,
     remaining: active ? Math.max(0, (poll.endsAt - now) / 1000) : 0,
     totalVotes: poll.totalVotes,
-    hint: 'Im Twitch-Chat abstimmen',
     choices: poll.choices.map((c, i) => ({
       id: c.id,
       title: c.title,
@@ -477,7 +574,7 @@ export function toGoalView(id, goals, module) {
     const g = resolveTwitchGoal(id, goals, module);
     if (!g) return null;
     return {
-      label: module.label || g.description || 'Ziel',
+      label: module.label || g.description || '',
       note: g.description && module.label ? g.description : '',
       reached: g.current,
       target: g.target,
@@ -624,33 +721,58 @@ export function useLinger(value, ms = 600) {
 /* Nur für die Vorschau im Dashboard und zum Ausrichten in OBS (?demo=1).
    Echte Abstimmungen und Vorhersagen startet man in Twitch selbst.            */
 
-const DEMO_POLL = {
-  title: 'Welche Map zocken wir als Nächstes?',
-  duration: 90,
-  choices: ['Rust', 'Dust II', 'Überraschung'],
+const DEMO_POLL = { duration: 90, choiceCount: 3 };
+const DEMO_PREDICTION = { window: 120 };
+
+/** Texte der Demo-Daten; die Vorschau zeigt sie in der Sprache der Overlays. */
+const DEMO_TEXTS = {
+  de: {
+    pollTitle: 'Welche Map zocken wir als Nächstes?',
+    choices: ['Rust', 'Dust II', 'Überraschung'],
+    predTitle: 'Schaffen wir den Run ohne Tod?',
+    outcomes2: ['Ja, easy', 'Auf keinen Fall'],
+    outcomes4: ['Locker', 'Knapp', 'Eher nicht', 'Niemals'],
+    followerGoal: 'Auf zu 1000!',
+    subGoal: 'Abo-Ziel',
+    subCount: 'Abos',
+    raider: 'BeispielKanal',
+    clipTitle: 'Der beste Moment des Streams',
+    names: ['Kieselkönig', 'Rollmops', 'Kugelblitz', 'Glasperle', 'Schusser', 'Flummi', 'Looping', 'Trudel', 'Kreisel', 'Prellbock', 'Wirbelwind'],
+  },
+  en: {
+    pollTitle: 'Which map should we play next?',
+    choices: ['Rust', 'Dust II', 'Surprise me'],
+    predTitle: 'Can we finish the run without dying?',
+    outcomes2: ['Yes, easy', 'No way'],
+    outcomes4: ['Easy', 'Close call', 'Unlikely', 'Never'],
+    followerGoal: 'Road to 1000!',
+    subGoal: 'Sub goal',
+    subCount: 'Subs',
+    raider: 'ExampleChannel',
+    clipTitle: 'Best moment of the stream',
+    names: ['PebbleKing', 'Marbles', 'Zoomer', 'GlassBead', 'Shooter', 'Bouncy', 'Loopy', 'Wobbles', 'Spinner', 'Bumper', 'Whirlwind'],
+  },
 };
-const DEMO_PREDICTION = {
-  title: 'Schaffen wir den Run ohne Tod?',
-  window: 120,
-  outcomes2: ['Ja, easy', 'Auf keinen Fall'],
-  outcomes4: ['Locker', 'Knapp', 'Eher nicht', 'Niemals'],
-};
+const demoText = (lang) => DEMO_TEXTS[lang] || DEMO_TEXTS.de;
 // Zum Ausrichten des Raid-Moduls. endsAt bleibt 0, damit die Karte in der
 // Vorschau stehen bleibt; abgespielt wird in der Demo nichts.
-const DEMO_RAID = {
-  id: 'demo-raid',
-  demo: true,
-  startsAt: 0,
-  endsAt: 0,
-  playSeconds: 24,
-  raider: { login: 'beispielkanal', name: 'BeispielKanal', viewers: 137 },
-  clip: { id: '', title: 'Der beste Moment des Streams', duration: 24, mp4: '', thumbnail: '', creator: 'BeispielKanal' },
-  error: null,
-};
+function demoRaid(lang) {
+  const tx = demoText(lang);
+  return {
+    id: 'demo-raid',
+    demo: true,
+    startsAt: 0,
+    endsAt: 0,
+    playSeconds: 24,
+    raider: { login: tx.raider.toLowerCase(), name: tx.raider, viewers: 137 },
+    clip: { id: '', title: tx.clipTitle, duration: 24, mp4: '', thumbnail: '', creator: tx.raider },
+    error: null,
+  };
+}
 
 function freshSim(outcomeCount) {
   return {
-    votes: DEMO_POLL.choices.map(() => 30 + Math.floor(Math.random() * 140)),
+    votes: Array.from({ length: DEMO_POLL.choiceCount }, () => 30 + Math.floor(Math.random() * 140)),
     // Feste Beispiel-Sendung: der Beginn darf nicht mitwandern, sonst springt
     // die Laufzeit in der Vorschau bei jedem Takt.
     streamStart: Date.now() - (2 * 3600 + 743) * 1000,
@@ -668,8 +790,9 @@ function freshSim(outcomeCount) {
 /**
  * @param {boolean} enabled
  * @param {number}  outcomeCount  2 = Versus-Balken, mehr = Ringdiagramm
+ * @param {string}  [lang]        Sprache der Beispieltexte (config.language)
  */
-export function useDemoSim(enabled, outcomeCount = 2) {
+export function useDemoSim(enabled, outcomeCount = 2, lang = 'de') {
   const sim = useRef(freshSim(outcomeCount));
   const [, force] = useState(0);
 
@@ -687,7 +810,7 @@ export function useDemoSim(enabled, outcomeCount = 2) {
         if (Math.random() < 0.55) s.votes[Math.floor(Math.random() * s.votes.length)] += 1 + Math.floor(Math.random() * 6);
         if ((now - s.pollStart) / 1000 >= DEMO_POLL.duration) s.pollDone = now;
       } else if (now - s.pollDone > 9000) {
-        s.votes = DEMO_POLL.choices.map(() => 30 + Math.floor(Math.random() * 120));
+        s.votes = Array.from({ length: DEMO_POLL.choiceCount }, () => 30 + Math.floor(Math.random() * 120));
         s.pollStart = now;
         s.pollDone = 0;
       }
@@ -718,21 +841,22 @@ export function useDemoSim(enabled, outcomeCount = 2) {
   const now = Date.now();
   // Ziele kriechen langsam hoch, damit man den Balken laufen sieht
   const creep = Math.floor((now - s.pollStart) / 4000);
-  const names = outcomeCount > 2 ? DEMO_PREDICTION.outcomes4 : DEMO_PREDICTION.outcomes2;
+  const tx = demoText(lang);
+  const names = outcomeCount > 2 ? tx.outcomes4 : tx.outcomes2;
   const predStatus = s.predPhase === 'run' ? 'ACTIVE' : (s.predPhase === 'locked' ? 'LOCKED' : 'RESOLVED');
 
   return {
     poll: {
-      title: DEMO_POLL.title,
+      title: tx.pollTitle,
       status: s.pollDone ? 'COMPLETED' : 'ACTIVE',
       duration: DEMO_POLL.duration,
       remaining: Math.max(0, DEMO_POLL.duration - (now - s.pollStart) / 1000),
       totalVotes: s.votes.reduce((sum, v) => sum + v, 0),
-      hint: 'Vorschau — Demo-Daten',
-      choices: DEMO_POLL.choices.map((title, i) => ({ id: `demo-${i}`, title, votes: s.votes[i] || 0 })),
+      demo: true, // Fußzeile „Vorschau — Demo-Daten“ (overlayI18n)
+      choices: tx.choices.map((title, i) => ({ id: `demo-${i}`, title, votes: s.votes[i] || 0 })),
     },
     prediction: {
-      title: DEMO_PREDICTION.title,
+      title: tx.predTitle,
       status: predStatus,
       window: DEMO_PREDICTION.window,
       remaining: Math.max(0, DEMO_PREDICTION.window - (now - s.predStart) / 1000),
@@ -750,9 +874,9 @@ export function useDemoSim(enabled, outcomeCount = 2) {
       subPoints: 81 + Math.floor(creep / 3),
       // So sähen die im Creator-Dashboard gesetzten Ziele aus
       twitch: {
-        follower: { id: 'demo-f', type: 'follower', description: 'Auf zu 1000!', current: 742 + creep, target: 1000 },
-        subscription: { id: 'demo-s', type: 'subscription', description: 'Abo-Ziel', current: 81 + Math.floor(creep / 3), target: 150 },
-        subscription_count: { id: 'demo-sc', type: 'subscription_count', description: 'Abos', current: 63 + Math.floor(creep / 4), target: 100 },
+        follower: { id: 'demo-f', type: 'follower', description: tx.followerGoal, current: 742 + creep, target: 1000 },
+        subscription: { id: 'demo-s', type: 'subscription', description: tx.subGoal, current: 81 + Math.floor(creep / 3), target: 150 },
+        subscription_count: { id: 'demo-sc', type: 'subscription_count', description: tx.subCount, current: 63 + Math.floor(creep / 4), target: 100 },
       },
       at: now,
     },
@@ -766,7 +890,7 @@ export function useDemoSim(enabled, outcomeCount = 2) {
       subs: { new: 4, resub: 3, gift: 5 },
       bits: 4250 + creep * 25,
     },
-    raid: DEMO_RAID,
+    raid: demoRaid(lang),
   };
 }
 
@@ -781,22 +905,28 @@ export function planeMessages(module) {
     .slice(0, 12);
 }
 
-const DEMO_NAMES = ['Kieselkönig', 'Rollmops', 'Kugelblitz', 'Glasperle', 'Schusser', 'Flummi', 'Looping', 'Trudel', 'Kreisel', 'Prellbock', 'Wirbelwind'];
+const demoHypes = {};
 
-/** Stehender Beispielzug zum Ausrichten (Dashboard und ?demo=1). */
-export const DEMO_HYPE = {
-  id: 'demo-train',
-  level: 3,
-  total: 4200,
-  progress: 620,
-  goal: 1000,
-  expiresAt: 0,
-  endedAt: 0,
-  people: DEMO_NAMES.map((name, i) => ({ id: `demo-${i}`, name, avatar: '' })),
-};
+/** Stehender Beispielzug zum Ausrichten (Dashboard und ?demo=1). Je Sprache dasselbe Objekt (sonst stiege der Zug neu ein). */
+export function demoHype(lang = 'de') {
+  const key = DEMO_TEXTS[lang] ? lang : 'de';
+  if (!demoHypes[key]) {
+    demoHypes[key] = {
+      id: `demo-train-${key}`,
+      level: 3,
+      total: 4200,
+      progress: 620,
+      goal: 1000,
+      expiresAt: 0,
+      endedAt: 0,
+      people: DEMO_TEXTS[key].names.map((name, i) => ({ id: `demo-${i}`, name, avatar: '' })),
+    };
+  }
+  return demoHypes[key];
+}
 
 /** Anmeldung der Murmelbahn mit Beispielspielern — zum Ausrichten, wenn nichts läuft. */
-export function demoMarbles(module) {
+export function demoMarbles(module, lang = 'de') {
   return {
     id: 'demo',
     phase: 'join',
@@ -805,7 +935,7 @@ export function demoMarbles(module) {
     seed: 0,
     startsAt: 0,
     winner: null,
-    players: DEMO_NAMES.slice(0, 9).map((name, i) => ({ id: `demo-${i}`, name, avatar: '' })),
+    players: demoText(lang).names.slice(0, 9).map((name, i) => ({ id: `demo-${i}`, name, avatar: '' })),
   };
 }
 
@@ -816,4 +946,56 @@ export function paintDemo(view, module) {
     return { ...view, choices: view.choices.map((c, i) => ({ ...c, color: module.colors[i % module.colors.length] })) };
   }
   return { ...view, outcomes: view.outcomes.map((o, i) => ({ ...o, color: module.colors[i % module.colors.length] })) };
+}
+
+/* ── Alerts ───────────────────────────────────────────────────────────────── */
+
+/** Text eines Alerts: der eingestellte Text, leer = Standard der Sprache. */
+export function alertTemplate(module, kind, lang) {
+  const field = ALERT_TEXT_FIELD[kind];
+  const own = String(module?.[field] ?? '').trim();
+  if (own) return own;
+  return (DEFAULT_TEXTS[lang] || DEFAULT_TEXTS.de).alerts[field] || '';
+}
+
+/**
+ * Alert-Text mit eingesetzten Platzhaltern als Liste von Stücken — isName markiert den Namen, den das Widget
+ * hervorhebt. Platzhalter: {name} {amount} {months} {subs} {bits} {viewers} {tier}; unbekannte bleiben stehen.
+ * @param {object} t    Texte aus overlayI18n (anonymous, subsWord, bitsWord, viewersWord, tierWord)
+ * @param {Function} num Zahlformat der Sprache
+ */
+export function alertTextParts(template, ev, t, num) {
+  const amount = Number(ev?.amount) || 0;
+  const vars = {
+    name: ev?.name || t.anonymous,
+    amount: num(amount),
+    months: num(Number(ev?.months) || 0),
+    subs: t.subsWord(amount, num(amount)),
+    bits: t.bitsWord(amount, num(amount)),
+    viewers: t.viewersWord(amount, num(amount)),
+    tier: ev?.tier ? (t.tierWord[ev.tier] || '') : '',
+  };
+  const parts = [];
+  for (const piece of String(template || '').split(/(\{\w+\})/)) {
+    const m = piece.match(/^\{(\w+)\}$/);
+    if (m && Object.prototype.hasOwnProperty.call(vars, m[1])) parts.push({ text: vars[m[1]], isName: m[1] === 'name' });
+    else if (piece) parts.push({ text: piece, isName: false });
+  }
+  return parts;
+}
+
+/** Beispiel-Alert für die Bühne im Editor (zum Ausrichten). */
+export function demoAlert(kind, t) {
+  const amounts = { gift: 5, bits: 500, raid: 42 };
+  return {
+    id: `demo-${kind}`,
+    kind,
+    name: 'Mika',
+    amount: amounts[kind] || 0,
+    months: 14,
+    tier: '1',
+    message: t.demoAlertMessage[kind] || '',
+    at: 0,
+    test: true,
+  };
 }

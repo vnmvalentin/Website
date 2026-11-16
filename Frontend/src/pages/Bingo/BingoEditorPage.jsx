@@ -16,6 +16,8 @@ import {
   markCell,
 } from "../../utils/bingoApi";
 import { Copy, Users, Palette, Type, Trash2, Link as LinkIcon, Hash } from "lucide-react";
+import { useLanguage } from "../../i18n/language";
+import { BINGO_TEXTS, bingoErrorText } from "./bingoI18n";
 
 // --- HELPERS ---
 function normalizeWordsText(text) {
@@ -57,11 +59,14 @@ export default function BingoEditorPage() {
   const { sessionId } = useParams();
   const navigate = useNavigate();
   const { user } = useContext(TwitchAuthContext);
+  const { lang } = useLanguage({ supported: BINGO_TEXTS.langs });
+  const t = BINGO_TEXTS.dict(lang);
 
   // Layout State
   const [activeTab, setActiveTab] = useState("words");
 
-  const [error, setError] = useState("");
+  // Fehler vom Server als { err }, übersetzt erst beim Anzeigen
+  const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
   const [session, setSession] = useState(null);
   const [me, setMe] = useState(null);
@@ -98,8 +103,9 @@ export default function BingoEditorPage() {
 
   const overlayUrl = useMemo(() => {
     if (!me?.overlayKey) return "";
-    return `${window.location.origin}/bingo/overlay/${me.overlayKey}`;
-  }, [me?.overlayKey]);
+    // ?lang nur für die Meldung „Overlay nicht gefunden“ im OBS-Fenster
+    return `${window.location.origin}/bingo/overlay/${me.overlayKey}${lang === "de" ? "" : `?lang=${lang}`}`;
+  }, [me?.overlayKey, lang]);
 
   const markActive = useMemo(() => {
     if (!session) return false;
@@ -129,14 +135,14 @@ export default function BingoEditorPage() {
     setCustomName(themeName);
     let words = Array.isArray(sess.theme?.words) ? sess.theme.words : null;
     if (!words) {
-      const t = (themesRef.current || []).find((x) => String(x.id) === String(themeId));
-      words = Array.isArray(t?.words) ? t.words : [];
+      const th = (themesRef.current || []).find((x) => String(x.id) === String(themeId));
+      words = Array.isArray(th?.words) ? th.words : [];
     }
     setWordsText((words || []).join("\n"));
   };
 
   const load = async (forceInitWords = false) => {
-    setError("");
+    setError(null);
     try {
       if (!user) { setLoading(false); return; }
       const json = await getSession(sessionId);
@@ -151,7 +157,7 @@ export default function BingoEditorPage() {
       setLoading(false);
       if (forceInitWords) initWordEditorFromSession(json.session);
     } catch (e) {
-      setError(e.message || "Fehler");
+      setError({ err: e });
       setLoading(false);
     }
   };
@@ -165,7 +171,7 @@ export default function BingoEditorPage() {
   useEffect(() => {
     if (!user) return;
     let alive = true;
-    const t = setInterval(async () => {
+    const timer = setInterval(async () => {
       try {
         if (document.hidden) return; 
         
@@ -184,7 +190,7 @@ export default function BingoEditorPage() {
 
       } catch { /* ignore */ }
     }, 3000); 
-    return () => { alive = false; clearInterval(t); };
+    return () => { alive = false; clearInterval(timer); };
   }, [sessionId, user, activeTab]);
 
   // Sync Style
@@ -208,25 +214,25 @@ export default function BingoEditorPage() {
   };
 
   const doKick = async (twitchId) => {
-    try { await kick(sessionId, twitchId); await load(false); } catch (e) { setError(e.message); }
+    try { await kick(sessionId, twitchId); await load(false); } catch (e) { setError({ err: e }); }
   };
 
   const doRandomize = async () => {
     setBusy(b => ({ ...b, randomize: true }));
     try { await randomize(sessionId); await load(true); } 
-    catch (e) { setError(e.message); } finally { setBusy(b => ({ ...b, randomize: false })); }
+    catch (e) { setError({ err: e }); } finally { setBusy(b => ({ ...b, randomize: false })); }
   };
 
   const doStart = async () => {
     setBusy(b => ({ ...b, start: true }));
     try { await startSession(sessionId); await load(false); } 
-    catch (e) { setError(e.message); } finally { setBusy(b => ({ ...b, start: false })); }
+    catch (e) { setError({ err: e }); } finally { setBusy(b => ({ ...b, start: false })); }
   };
 
   const doStop = async () => {
     setBusy(b => ({ ...b, stop: true }));
     try { await stopSession(sessionId); await load(false); } 
-    catch (e) { setError(e.message); } finally { setBusy(b => ({ ...b, stop: false })); }
+    catch (e) { setError({ err: e }); } finally { setBusy(b => ({ ...b, stop: false })); }
   };
 
   const doMark = async (idx) => {
@@ -248,7 +254,7 @@ export default function BingoEditorPage() {
     setMe({ ...me, card: newCard });
 
     try { await markCell(sessionId, idx, nextMark, nextColor); }
-    catch (e) { setError(e.message); setMe({ ...me, card: currentCard }); }
+    catch (e) { setError({ err: e }); setMe({ ...me, card: currentCard }); }
   };
 
   const updateLocalStyle = (patch) => setLocalStyle(prev => ({ ...prev, ...patch }));
@@ -272,7 +278,7 @@ export default function BingoEditorPage() {
         await setSettings(sessionId, { gridSize: newSize });
         await load(false);
     } catch (e) {
-        setError(e.message);
+        setError({ err: e });
         setSession(prev => ({ ...prev, gridSize: oldSize }));
         setMe(prev => ({ ...prev, card: oldCard }));
     } finally {
@@ -286,26 +292,26 @@ export default function BingoEditorPage() {
       const words = normalizeWordsText(wordsText);
       await setWords(sessionId, { customName: customName?.trim() || "Custom Bingo", words });
       await load(true);
-    } catch (e) { setError(e.message); } finally { setBusy(b => ({ ...b, words: false })); }
+    } catch (e) { setError({ err: e }); } finally { setBusy(b => ({ ...b, words: false })); }
   };
 
-  if (!user) return <div className="p-10 text-white/50">Bitte einloggen.</div>;
-  if (loading || !session || !me) return <div className="p-10 text-white/40 animate-pulse">Lade...</div>;
+  if (!user) return <div className="p-10 text-white/50">{t.loginNeeded}</div>;
+  if (loading || !session || !me) return <div className="p-10 text-white/40 animate-pulse">{t.loading}</div>;
 
-  const joinLink = session.joinKey ? `${window.location.origin}/Bingo/join/${session.joinKey}` : "";
+  const joinLink = session.joinKey ? `${window.location.origin}/Bingo/join/${session.joinKey}${lang === "de" ? "" : `?lang=${lang}`}` : "";
   const joinCode = session.joinKey || "";
 
   return (
     <div className="page-fade max-w-7xl mx-auto px-4 py-8 text-white">
-        <SEO title = "Bingo Edit"/>
+        <SEO title={t.seoEditTitle} />
       {/* Top Header */}
       <div className="flex flex-wrap items-center justify-between gap-4 mb-8 pb-6 border-b border-white/10">
         <div>
           <h1 className="font-display text-3xl font-bold tracking-tight">{session.theme?.name || "Bingo"}</h1>
           <div className="flex gap-2 text-sm mt-1 text-white/50">
-             <span className="uppercase tracking-wider font-semibold text-white/70">{session.mode}</span>
+             <span className="uppercase tracking-wider font-semibold text-white/70">{t.modes[session.mode] || session.mode}</span>
              <span>•</span>
-             <span>{session.locked ? "LÄUFT" : "SETUP"}</span>
+             <span className="uppercase">{session.locked ? t.statusRunning : t.statusSetup}</span>
           </div>
         </div>
         <div className="flex gap-3">
@@ -314,14 +320,14 @@ export default function BingoEditorPage() {
                   onClick={() => doCopy(overlayUrl, "overlay")}
                   className="px-4 py-2 bg-accent/10 hover:bg-accent/20 text-accent-soft border border-accent/30 rounded-lg text-sm font-medium transition-colors flex items-center gap-2"
                 >
-                  <Copy size={16} /> {copied === "overlay" ? "Kopiert!" : "Browser Source"}
+                  <Copy size={16} /> {copied === "overlay" ? t.copied : t.browserSource}
                 </button>
              )}
-             <button onClick={() => navigate("/Bingo")} className="px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-sm font-medium">Zurück</button>
+             <button onClick={() => navigate("/Bingo")} className="px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-sm font-medium">{t.back}</button>
         </div>
       </div>
 
-      {error && <div className="rounded-lg bg-red-500/10 border border-red-500/20 p-4 text-red-200 mb-6">{error}</div>}
+      {error && <div className="rounded-lg bg-red-500/10 border border-red-500/20 p-4 text-red-200 mb-6">{bingoErrorText(error.err, lang)}</div>}
 
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-8">
         
@@ -329,13 +335,13 @@ export default function BingoEditorPage() {
         <div className="xl:col-span-5 flex flex-col h-full min-h-[500px]">
             {/* Tab Headers */}
             <div className="flex border-b border-white/10 mb-4">
-                <button onClick={() => setActiveTab("words")} className={`flex items-center justify-center gap-2 py-3 px-4 text-sm font-medium transition-colors border-b-2 -mb-px ${activeTab === "words" ? "border-accent text-white" : "border-transparent text-white/50 hover:text-white"}`}><Type size={16} /> Wörter
+                <button onClick={() => setActiveTab("words")} className={`flex items-center justify-center gap-2 py-3 px-4 text-sm font-medium transition-colors border-b-2 -mb-px ${activeTab === "words" ? "border-accent text-white" : "border-transparent text-white/50 hover:text-white"}`}><Type size={16} /> {t.tabWords}
                 </button>
-                <button onClick={() => setActiveTab("design")} className={`flex items-center justify-center gap-2 py-3 px-4 text-sm font-medium transition-colors border-b-2 -mb-px ${activeTab === "design" ? "border-accent text-white" : "border-transparent text-white/50 hover:text-white"}`}><Palette size={16} /> Design
+                <button onClick={() => setActiveTab("design")} className={`flex items-center justify-center gap-2 py-3 px-4 text-sm font-medium transition-colors border-b-2 -mb-px ${activeTab === "design" ? "border-accent text-white" : "border-transparent text-white/50 hover:text-white"}`}><Palette size={16} /> {t.tabDesign}
                 </button>
                 
                 {session.mode === "group" && (
-                  <button onClick={() => setActiveTab("participants")} className={`flex items-center justify-center gap-2 py-3 px-4 text-sm font-medium transition-colors border-b-2 -mb-px ${activeTab === "participants" ? "border-accent text-white" : "border-transparent text-white/50 hover:text-white"}`}><Users size={16} /> Teilnehmer
+                  <button onClick={() => setActiveTab("participants")} className={`flex items-center justify-center gap-2 py-3 px-4 text-sm font-medium transition-colors border-b-2 -mb-px ${activeTab === "participants" ? "border-accent text-white" : "border-transparent text-white/50 hover:text-white"}`}><Users size={16} /> {t.tabParticipants}
                   </button>
                 )}
             </div>
@@ -346,26 +352,26 @@ export default function BingoEditorPage() {
                 {activeTab === "words" && (
                     <div className="h-full flex flex-col gap-4">
                         <div>
-                            <label className="text-xs text-white/50 uppercase tracking-wider font-bold mb-1.5 block">Titel</label>
+                            <label className="text-xs text-white/50 uppercase tracking-wider font-bold mb-1.5 block">{t.titleLabel}</label>
                             <input 
                                 value={customName} 
                                 onChange={e => setCustomName(e.target.value)} 
                                 disabled={!canEditWords || lockWordsAndRandomize}
                                 className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 focus:border-white/30 outline-none" 
-                                placeholder="Name des Themas"
+                                placeholder={t.titlePlaceholder}
                             />
                         </div>
                         <div className="flex-1 flex flex-col">
                             <label className="text-xs text-white/50 uppercase tracking-wider font-bold mb-1.5 flex justify-between">
-                                <span>Wörterliste (1 pro Zeile)</span>
-                                <span>{normalizeWordsText(wordsText).length} Wörter</span>
+                                <span>{t.wordListLabel}</span>
+                                <span>{t.wordCount(normalizeWordsText(wordsText).length)}</span>
                             </label>
                             <textarea 
                                 className="flex-1 w-full bg-white/5 border border-white/10 rounded-lg p-4 focus:border-white/30 outline-none resize-none text-sm leading-relaxed" 
                                 disabled={!canEditWords || lockWordsAndRandomize} 
                                 value={wordsText} 
                                 onChange={e => setWordsText(e.target.value)}
-                                placeholder="Schreibe hier deine Bingo-Begriffe..." 
+                                placeholder={t.wordsPlaceholder} 
                             />
                         </div>
                         <button 
@@ -373,9 +379,9 @@ export default function BingoEditorPage() {
                             className="w-full py-3 rounded-lg bg-accent text-white font-bold hover:bg-accent-hover disabled:opacity-50 disabled:cursor-not-allowed transition-colors" 
                             onClick={applyWords}
                         >
-                            {busy.words ? "Speichern..." : "Liste Speichern"}
+                            {busy.words ? t.saving : t.saveList}
                         </button>
-                        {lockWordsAndRandomize && <div className="text-center text-xs text-white/40">Gesperrt während das Spiel läuft.</div>}
+                        {lockWordsAndRandomize && <div className="text-center text-xs text-white/40">{t.lockedWhileRunning}</div>}
                     </div>
                 )}
 
@@ -385,7 +391,7 @@ export default function BingoEditorPage() {
                          
                          {/* Grid Size */}
                          <div>
-                             <label className="text-xs text-white/50 uppercase tracking-wider font-bold mb-2 block">Grid Größe</label>
+                             <label className="text-xs text-white/50 uppercase tracking-wider font-bold mb-2 block">{t.gridSize}</label>
                              <div className="grid grid-cols-3 gap-2">
                                  {[3, 4, 5].map(n => (
                                      <button 
@@ -402,24 +408,24 @@ export default function BingoEditorPage() {
 
                          {/* Colors */}
                          <div className="space-y-4">
-                             <label className="text-xs text-white/50 uppercase tracking-wider font-bold block border-b border-white/5 pb-2">Farben</label>
+                             <label className="text-xs text-white/50 uppercase tracking-wider font-bold block border-b border-white/5 pb-2">{t.colors}</label>
                              <div className="grid grid-cols-2 gap-4">
                                 <div>
-                                    <label className="text-xs text-white/70 block mb-1">Text</label>
+                                    <label className="text-xs text-white/70 block mb-1">{t.colorText}</label>
                                     <div className="flex items-center gap-2">
                                         <input type="color" disabled={!canEditDesign} value={localStyle.textColor || "#ffffff"} onChange={e => updateLocalStyle({ textColor: e.target.value })} className="h-8 w-8 rounded overflow-hidden border-none bg-transparent cursor-pointer" />
                                         <span className="text-xs text-white/40 font-mono">{localStyle.textColor}</span>
                                     </div>
                                 </div>
                                 <div>
-                                    <label className="text-xs text-white/70 block mb-1">Karte</label>
+                                    <label className="text-xs text-white/70 block mb-1">{t.colorCard}</label>
                                     <div className="flex items-center gap-2">
                                         <input type="color" disabled={!canEditDesign} value={localStyle.cardBg || "#000000"} onChange={e => updateLocalStyle({ cardBg: e.target.value })} className="h-8 w-8 rounded overflow-hidden border-none bg-transparent cursor-pointer" />
                                         <span className="text-xs text-white/40 font-mono">{localStyle.cardBg}</span>
                                     </div>
                                 </div>
                                 <div>
-                                    <label className="text-xs text-white/70 block mb-1">Linien</label>
+                                    <label className="text-xs text-white/70 block mb-1">{t.colorLines}</label>
                                     <div className="flex items-center gap-2">
                                         <input type="color" disabled={!canEditDesign} value={localStyle.lineColor || "#ffffff"} onChange={e => updateLocalStyle({ lineColor: e.target.value })} className="h-8 w-8 rounded overflow-hidden border-none bg-transparent cursor-pointer" />
                                         <span className="text-xs text-white/40 font-mono">{localStyle.lineColor}</span>
@@ -430,11 +436,11 @@ export default function BingoEditorPage() {
 
                          {/* Sliders */}
                          <div className="space-y-4">
-                             <label className="text-xs text-white/50 uppercase tracking-wider font-bold block border-b border-white/5 pb-2">Anpassung</label>
+                             <label className="text-xs text-white/50 uppercase tracking-wider font-bold block border-b border-white/5 pb-2">{t.adjust}</label>
                              
                              <div>
                                 <div className="flex justify-between text-xs mb-1">
-                                    <span className="text-white/70">Schriftgröße</span>
+                                    <span className="text-white/70">{t.fontSize}</span>
                                     <span className="text-white/40">{Math.round(localStyle.textScale * 100)}%</span>
                                 </div>
                                 <input type="range" min="0.7" max="1.8" step="0.1" disabled={!canEditDesign} value={localStyle.textScale ?? 0.8} onChange={e => updateLocalStyle({ textScale: Number(e.target.value) })} className="w-full accent-white" />
@@ -442,7 +448,7 @@ export default function BingoEditorPage() {
 
                              <div>
                                 <div className="flex justify-between text-xs mb-1">
-                                    <span className="text-white/70">Deckkraft (Hintergrund)</span>
+                                    <span className="text-white/70">{t.opacity}</span>
                                     <span className="text-white/40">{Math.round(localStyle.cardOpacity * 100)}%</span>
                                 </div>
                                 <input type="range" min="0" max="1" step="0.05" disabled={!canEditDesign} value={localStyle.cardOpacity ?? 0.6} onChange={e => updateLocalStyle({ cardOpacity: Number(e.target.value) })} className="w-full accent-white" />
@@ -450,7 +456,7 @@ export default function BingoEditorPage() {
 
                              <div>
                                 <div className="flex justify-between text-xs mb-1">
-                                    <span className="text-white/70">Linienstärke</span>
+                                    <span className="text-white/70">{t.lineWidth}</span>
                                     <span className="text-white/40">{localStyle.lineWidth}px</span>
                                 </div>
                                 <input type="range" min="0" max="10" step="1" disabled={!canEditDesign} value={localStyle.lineWidth ?? 2} onChange={e => updateLocalStyle({ lineWidth: Number(e.target.value) })} className="w-full accent-white" />
@@ -466,11 +472,11 @@ export default function BingoEditorPage() {
                         {/* INVITE AREA (CODE & LINK) */}
                         {isHost && (
                              <div className="space-y-3 bg-white/5 border border-white/10 rounded-lg p-4">
-                                <h3 className="text-sm font-bold text-white/80 uppercase tracking-wide">Spieler einladen</h3>
+                                <h3 className="text-sm font-bold text-white/80 uppercase tracking-wide">{t.invite}</h3>
                                 
                                 {/* Lobby Code */}
                                 <div>
-                                    <div className="text-xs text-white/50 mb-1">Lobby Code</div>
+                                    <div className="text-xs text-white/50 mb-1">{t.lobbyCode}</div>
                                     <div className="flex gap-2">
                                         <div className="flex-1 bg-black/40 border border-white/10 rounded-lg px-3 py-2 font-mono text-center tracking-widest text-lg select-all">
                                             {joinCode}
@@ -478,7 +484,7 @@ export default function BingoEditorPage() {
                                         <button 
                                             onClick={() => doCopy(joinCode, "code")}
                                             className="px-3 bg-white/10 hover:bg-white/20 rounded-lg border border-white/5 transition-colors"
-                                            title="Code kopieren"
+                                            title={t.copyCode}
                                         >
                                             {copied === "code" ? <CheckIcon /> : <Copy size={18} />}
                                         </button>
@@ -487,7 +493,7 @@ export default function BingoEditorPage() {
 
                                 {/* Link */}
                                 <div>
-                                    <div className="text-xs text-white/50 mb-1">Direktlink</div>
+                                    <div className="text-xs text-white/50 mb-1">{t.directLink}</div>
                                     <div className="flex gap-2">
                                         <input 
                                             readOnly 
@@ -497,7 +503,7 @@ export default function BingoEditorPage() {
                                         <button 
                                             onClick={() => doCopy(joinLink, "join")}
                                             className="px-3 bg-white/5 hover:bg-white/10 rounded-lg border border-white/5 transition-colors"
-                                            title="Link kopieren"
+                                            title={t.copyLink}
                                         >
                                             {copied === "join" ? <CheckIcon /> : <LinkIcon size={16} />}
                                         </button>
@@ -505,24 +511,24 @@ export default function BingoEditorPage() {
                                 </div>
 
                                 <div className="text-[10px] text-white/40 text-center pt-1">
-                                    Spieler können den Code auf der Startseite eingeben.
+                                    {t.codeHint}
                                 </div>
                              </div>
                         )}
 
                         <div className="flex-1 overflow-y-auto pr-1 space-y-2 custom-scrollbar">
-                            <h3 className="text-xs font-bold text-white/40 uppercase tracking-wide mt-2">Dabei ({session.participants?.length || 0})</h3>
+                            <h3 className="text-xs font-bold text-white/40 uppercase tracking-wide mt-2">{t.joined(session.participants?.length || 0)}</h3>
                             {(session.participants || []).map(p => (
                                 <div key={p.twitchId} className="flex items-center justify-between p-3 rounded-lg bg-white/5 border border-white/5">
                                     <div className="flex items-center gap-3">
                                         <div className={`w-2 h-2 rounded-full ${p.role === 'host' ? "bg-accent-soft" : "bg-emerald-500"}`} />
                                         <div className="flex flex-col">
                                             <span className="font-semibold text-sm">{p.twitchLogin}</span>
-                                            <span className="text-[10px] text-white/40 uppercase tracking-wider">{p.role}</span>
+                                            <span className="text-[10px] text-white/40 uppercase tracking-wider">{t.roles[p.role] || p.role}</span>
                                         </div>
                                     </div>
                                     {isHost && p.role !== 'host' && (
-                                        <button onClick={() => doKick(p.twitchId)} className="p-2 text-white/30 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"><Trash2 size={16} /></button>
+                                        <button onClick={() => doKick(p.twitchId)} title={t.kick} aria-label={t.kick} className="p-2 text-white/30 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"><Trash2 size={16} /></button>
                                     )}
                                 </div>
                             ))}
@@ -538,17 +544,17 @@ export default function BingoEditorPage() {
             {/* Toolbar */}
             <div className="flex items-center justify-between p-2 bg-black/30 border border-white/10 rounded-lg">
                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-white/40 uppercase font-bold px-2 hidden sm:block">Werkzeug:</span>
-                    <button onClick={() => setMarkMode("none")} className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${markMode === "none" ? "bg-accent text-white" : "text-white/60 hover:bg-white/5"}`}>Maus</button>
+                    <span className="text-xs text-white/40 uppercase font-bold px-2 hidden sm:block">{t.tool}</span>
+                    <button onClick={() => setMarkMode("none")} className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${markMode === "none" ? "bg-accent text-white" : "text-white/60 hover:bg-white/5"}`}>{t.toolMouse}</button>
                     <button onClick={() => setMarkMode("x")} className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${markMode === "x" ? "bg-red-500 text-white shadow-lg shadow-red-500/20" : "text-white/60 hover:bg-white/5"}`}>X</button>
                     <button onClick={() => setMarkMode("color")} className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${markMode === "color" ? "bg-emerald-600 text-white shadow-lg shadow-emerald-500/20" : "text-white/60 hover:bg-white/5"}`}>
-                        <span>Farbe</span>
+                        <span>{t.toolColor}</span>
                         {markMode === "color" && <input type="color" value={markColor} onChange={e => setMarkColor(e.target.value)} className="w-4 h-4 rounded overflow-hidden border-none bg-transparent cursor-pointer" />}
                     </button>
                  </div>
                  
                  <button disabled={!canRandomize || lockWordsAndRandomize || busy.randomize} onClick={doRandomize} className="px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-xs font-medium hover:bg-white/10 text-white/70">
-                    {busy.randomize ? "..." : "Board mischen"}
+                    {busy.randomize ? "..." : t.shuffle}
                  </button>
             </div>
 
@@ -569,8 +575,8 @@ export default function BingoEditorPage() {
 
                 {!markActive && (
                     <div className="bg-white/5 border border-line rounded-lg p-4 text-center animate-pulse">
-                        <h3 className="font-bold text-white text-lg">Warten auf Host</h3>
-                        <p className="text-white/50 text-sm">Die Session wurde noch nicht gestartet. Du kannst noch keine Felder markieren.</p>
+                        <h3 className="font-bold text-white text-lg">{t.waitingTitle}</h3>
+                        <p className="text-white/50 text-sm">{t.waitingText}</p>
                     </div>
                 )}
             </div>
@@ -581,13 +587,13 @@ export default function BingoEditorPage() {
                     <button 
                         onClick={session.locked ? doStop : doStart} 
                         disabled={busy.start || busy.stop}
-                        className={`w-full py-4 rounded-lg border text-lg font-bold transition-colors ${
+                        className={`w-full py-4 rounded-lg border text-lg font-bold uppercase transition-colors ${
                             session.locked 
                             ? "bg-red-500/10 border-red-500/30 text-red-400 hover:bg-red-500/20 hover:text-red-200" 
                             : "bg-emerald-500 text-black hover:bg-emerald-400 border-emerald-400"
                         }`}
                     >
-                        {session.locked ? "SESSION STOPPEN (BEARBEITEN)" : "SPIEL STARTEN (SPERREN)"}
+                        {session.locked ? t.stopSession : t.startGame}
                     </button>
                 </div>
             )}

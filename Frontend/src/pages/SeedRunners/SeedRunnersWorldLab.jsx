@@ -42,6 +42,9 @@ export default function SeedRunnersWorldLab() {
   const speedClass = "super";
   const [biome, setBiome] = useState("random");
   const [difficulty, setDifficulty] = useState(3);
+  // Generator: der Pfad (Lobby, Tagesrennen) oder der Prototyp „Lauflinie“ (gen/world/typen/lauf.js) — Strecken mit
+  // vollem Schwung statt einzelner Züge aus dem Stand. Nur hier wählbar, bis er abgenommen ist.
+  const [worldType, setWorldType] = useState("pfad");
   const [showReach, setShowReach] = useState(true);
   const [playing, setPlaying] = useState(false);
   const [galerie, setGalerie] = useState(false);
@@ -57,11 +60,11 @@ export default function SeedRunnersWorldLab() {
   useEffect(() => {
     const meiner = ++auftrag.current;
     setFehler(null);
-    // Nur noch Pfad (alte Welttypen und Kernideen seit 26.09.2026 stillgelegt)
-    generateWorldAsync({ seed, length, speedClass, biome, difficulty, worldType: "pfad" })
+    // Pfad oder Lauflinie (alte Welttypen und Kernideen seit 26.09.2026 stillgelegt)
+    generateWorldAsync({ seed, length, speedClass, biome, difficulty, worldType })
       .then((r) => { if (auftrag.current === meiner) setWorld(r); })
       .catch((e) => { if (auftrag.current === meiner) setFehler(e.message); });
-  }, [seed, length, speedClass, biome, difficulty]);
+  }, [seed, length, speedClass, biome, difficulty, worldType]);
 
   useEffect(() => () => { dropPendingWorlds(); }, []);
 
@@ -102,6 +105,13 @@ export default function SeedRunnersWorldLab() {
         <button type="button" className={btn} onClick={() => setSeed(`welt-${Math.floor(Math.random() * 100000)}`)}>
           <Dice5 size={14} />Neu würfeln
         </button>
+        <label className="block">
+          <span className="block text-[11px] uppercase tracking-wider text-white/35 mb-1">Generator</span>
+          <select className={field} value={worldType} onChange={(e) => setWorldType(e.target.value)}>
+            <option value="pfad">Pfad</option>
+            <option value="lauf">Lauflinie (Prototyp)</option>
+          </select>
+        </label>
         <label className="block">
           <span className="block text-[11px] uppercase tracking-wider text-white/35 mb-1">Länge</span>
           <div className={`${field} text-white/60`}>Lang</div>

@@ -12,6 +12,7 @@
 import { checkLevel } from '../gen/world/reichweite/graph.js';
 import { erzeugeWelt } from './generatorArchiv.js';
 import { weltParams } from '../gen/index.js';
+import { hashText } from '../sim/rng.js';
 
 const MAX_WORKER = 4;
 const poolGroesse = () => {
@@ -111,13 +112,44 @@ export function dropPendingWorlds() {
 const LEVEL_CACHE = new Map();
 const LEVEL_CACHE_MAX = 6;
 
+// Level-Vorrat des Servers (Backend/seedRunners/levelVorrat.js, 14.11.2026): Zufallsrunden und das Tagesrennen liegen dort
+// meist schon fertig gebaut — dann wird das Level geladen statt Sekunden lang erzeugt. Fehlt es (selbst gewählter Seed,
+// leerer Vorrat, Server nicht erreichbar), baut der Browser wie bisher selbst; beides ergibt dasselbe Level.
+const VORRAT_FRIST_MS = 4000;
+
+/** Passt das geladene Dokument zu den Parametern, und stimmt seine Prüfsumme? (Schutz vor einer beschädigten Antwort) */
+export function vorratPasst(level, w) {
+  if (!level || typeof level !== 'object' || !Array.isArray(level.rows) || !level.rows.length || !Array.isArray(level.entities)) return false;
+  if (!level.params || level.params.seed !== w.seed || level.params.length !== w.length || level.params.speedClass !== w.speedClass) return false;
+  if (!level.meta || level.meta.worldType !== w.worldType || !level.meta.start || !Array.isArray(level.meta.finish)) return false;
+  return level.hash === hashText(`${level.version}|${level.meta.worldType}|${level.rows.join('\n')}`);
+}
+
+/** Das Level aus dem Vorrat des Servers — oder null (nicht vorhanden, Zeitüberschreitung, keine Verbindung) */
+async function ausVorrat(w) {
+  if (typeof fetch !== 'function' || typeof window === 'undefined' || !Number.isInteger(w.gv)) return null;
+  const abbruch = typeof AbortController === 'function' ? new AbortController() : null;
+  const frist = setTimeout(() => abbruch?.abort(), VORRAT_FRIST_MS);
+  try {
+    const url = `/api/seed-runners/vorrat/level?seed=${encodeURIComponent(w.seed)}&biome=${encodeURIComponent(w.biome)}&gv=${w.gv}`;
+    const res = await fetch(url, { signal: abbruch?.signal });
+    if (!res.ok) return null;
+    const level = await res.json();
+    return vorratPasst(level, w) ? level : null;
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(frist);
+  }
+}
+
 /** Das Pfad-Level zu Runden-Parametern (Promise); null, wenn die Parameter keine Pfad-Runde sind */
 export function pfadLevel(params) {
   const w = weltParams(params);
   if (!w) return null;
   const key = JSON.stringify(w);
   if (!LEVEL_CACHE.has(key)) {
-    const p = generateWorldAsync(w, { check: false }).then((r) => r.level);
+    const p = ausVorrat(w).then((fertig) => fertig || generateWorldAsync(w, { check: false }).then((r) => r.level));
     p.catch(() => LEVEL_CACHE.delete(key));                // gescheitert oder verworfen: beim nächsten Mal neu
     if (LEVEL_CACHE.size >= LEVEL_CACHE_MAX) LEVEL_CACHE.delete(LEVEL_CACHE.keys().next().value);
     LEVEL_CACHE.set(key, p);

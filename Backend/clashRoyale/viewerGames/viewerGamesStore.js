@@ -27,6 +27,18 @@ db.exec(`CREATE TABLE IF NOT EXISTS vg_scores (
   updated_at INTEGER NOT NULL,
   PRIMARY KEY (user_id, viewer)
 )`);
+// Dieselben Punkte noch einmal je Clash-Royale-Saison ("2026-11", lib/winTrackerRecap.js seasonKeyAt) — für die
+// Bestenliste „diese Saison“ im Overlay; vg_scores bleibt die Wertung über alle Zeiten
+db.exec(`CREATE TABLE IF NOT EXISTS vg_season_scores (
+  user_id TEXT NOT NULL,
+  season TEXT NOT NULL,
+  viewer TEXT NOT NULL,
+  display TEXT NOT NULL DEFAULT '',
+  points INTEGER NOT NULL DEFAULT 0,
+  wins INTEGER NOT NULL DEFAULT 0,
+  updated_at INTEGER NOT NULL,
+  PRIMARY KEY (user_id, season, viewer)
+)`);
 
 const q = {
   byUser: db.prepare("SELECT * FROM vg_settings WHERE user_id = ?"),
@@ -38,7 +50,15 @@ const q = {
     ON CONFLICT(user_id, viewer) DO UPDATE SET points = points + excluded.points, wins = wins + 1, display = excluded.display, updated_at = excluded.updated_at`),
   top: db.prepare("SELECT viewer, display, points, wins FROM vg_scores WHERE user_id = ? ORDER BY points DESC, updated_at ASC LIMIT ?"),
   reset: db.prepare("DELETE FROM vg_scores WHERE user_id = ?"),
+  addSeason: db.prepare(`INSERT INTO vg_season_scores (user_id, season, viewer, display, points, wins, updated_at) VALUES (?, ?, ?, ?, ?, 1, ?)
+    ON CONFLICT(user_id, season, viewer) DO UPDATE SET points = points + excluded.points, wins = wins + 1, display = excluded.display, updated_at = excluded.updated_at`),
+  topSeason: db.prepare("SELECT viewer, display, points, wins FROM vg_season_scores WHERE user_id = ? AND season = ? ORDER BY points DESC, updated_at ASC LIMIT ?"),
+  resetSeason: db.prepare("DELETE FROM vg_season_scores WHERE user_id = ?"),
 };
+const addBoth = db.transaction((userId, viewer, display, points, season, now) => {
+  q.addScore.run(userId, viewer, display, points, now);
+  if (season) q.addSeason.run(userId, season, viewer, display, points, now);
+});
 
 const parse = (row) => (row ? { ...row, settings: safeJson(row.settings) } : null);
 function safeJson(s) { try { return JSON.parse(s) || {}; } catch { return {}; } }
@@ -62,7 +82,12 @@ module.exports = {
   byKey: (key) => parse(q.byKey.get(String(key))),
   saveSettings: (userId, login, settings) => q.update.run(JSON.stringify(settings), String(login || "").toLowerCase(), Date.now(), String(userId)),
   regenerateKey: (userId) => { const k = nanoid(16); q.newKey.run(k, Date.now(), String(userId)); return k; },
-  addScore: (userId, viewer, display, points) => q.addScore.run(String(userId), viewer, display, points, Date.now()),
+  /** Punkte gutschreiben — insgesamt und, mit `season`, für diese Saison */
+  addScore: (userId, viewer, display, points, season = null) => addBoth(String(userId), viewer, display, points, season, Date.now()),
   top: (userId, n = 5) => q.top.all(String(userId), n),
-  resetScores: (userId) => q.reset.run(String(userId)),
+  topSeason: (userId, season, n = 5) => q.topSeason.all(String(userId), String(season), n),
+  // „Bestenliste leeren“ im Editor leert beide Wertungen
+  resetScores: (userId) => { q.reset.run(String(userId)); q.resetSeason.run(String(userId)); },
+  /** Nur für Tests: Datei freigeben (Windows lässt eine offene Datenbank nicht löschen) */
+  close: () => db.close(),
 };

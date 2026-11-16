@@ -21,6 +21,7 @@ export function createPlayer(kit, snap) {
     equipment: snap?.equipment ?? null, equipCd: 0,
     // Waffen und Talente aus dem Stufenaufstieg: id → Stufe (1–5), Reihenfolge = Reihenfolge der Wahl
     weapons: { ...(snap?.weapons || {}) }, weaponOrder: [...(snap?.weaponOrder || Object.keys(snap?.weapons || {}))], weaponState: {},
+    boons: { ...(snap?.boons || {}) }, // Segen nach dem letzten Ausbau (data/weapons.js BOONS)
     talents: { ...(snap?.talents || {}) }, talentOrder: [...(snap?.talentOrder || Object.keys(snap?.talents || {}))],
     pendingLevels: snap?.pendingLevels ?? 0,
     soulStacks: snap?.soulStacks ?? 0,
@@ -86,6 +87,8 @@ export function updatePlayer(g, dt, input) {
   const h = input.held;
   let mx = (h.right ? 1 : 0) - (h.left ? 1 : 0);
   let my = (h.down ? 1 : 0) - (h.up ? 1 : 0);
+  // Stick am Handy (hud/TouchControls.jsx): stufenlose Richtung statt acht Tastenrichtungen, Tempo bleibt voll
+  if (input.move && (input.move.x || input.move.y)) { mx = input.move.x; my = input.move.y; }
   const len = Math.hypot(mx, my);
   if (len > 0) { mx /= len; my /= len; p.moveAngle = Math.atan2(my, mx); }
   const locked = st.freezeT > 0 || st.stunT > 0;

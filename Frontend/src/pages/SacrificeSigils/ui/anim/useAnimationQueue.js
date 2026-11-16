@@ -36,9 +36,16 @@ export function withAttackReturns(events) {
   return out;
 }
 
+/** Faktor des Zeitraffers (rush). */
+const RUSH = 4;
+
 /**
  * @param {any[]} batches
- * @param {{ speed: number, reduced: boolean, onEvent?: (ev: any, stage: "pre"|"post", display: any) => void }} opts
+ * @param {{ speed: number, reduced: boolean, onEvent?: (ev: any, stage: "pre"|"post", display: any) => void,
+ *   timing?: Record<string, { ms: number, when?: "pre"|"post" }>, noReturns?: boolean,
+ *   extraMs?: (ev: any) => number }} opts
+ *   timing: eigene Takt-Tabelle (neuer Tisch: TABLE_TIMING) · noReturns: keine eigenen Rückweg-Ereignisse nach
+ *   Angriffen einfügen (am neuen Tisch läuft der Rückweg von selbst) · extraMs: Zuschlag je Ereignis (bei Tempo 1×)
  */
 export function useAnimationQueue(batches, opts) {
   const optsRef = useRef(opts);
@@ -57,6 +64,8 @@ export function useAnimationQueue(batches, opts) {
   /** Laufendes „pre“-Ereignis, das beim Überspringen noch angewandt werden muss. */
   const pendingPre = useRef(/** @type {any} */ (null));
   const holdRef = useRef(/** @type {any} */ (null));
+  /** Zeitraffer bis zum Ende der Warteschlange (siehe rush). */
+  const rushRef = useRef(false);
 
   if (displayRef.current === null && view?.battle && queue.current.length === 0) {
     displayRef.current = displayFromView(view);
@@ -75,6 +84,7 @@ export function useAnimationQueue(batches, opts) {
     const item = queue.current.shift();
     if (!item) {
       running.current = false;
+      rushRef.current = false;
       setBusy(false);
       setAnim(null);
       holdRef.current = null;
@@ -111,8 +121,12 @@ export function useAnimationQueue(batches, opts) {
     else if (ev.type === "attackReturn") holdRef.current = holdRef.current ? { ...holdRef.current, returning: true } : null;
     else if (holdRef.current?.returning) holdRef.current = null;
     setHold(holdRef.current);
-    const t = EVENT_TIMING[ev.type];
-    const dur = durationFor(ev.type, speed, reduced);
+    const table = optsRef.current.timing || EVENT_TIMING;
+    const t = table[ev.type];
+    const pace = speed * (rushRef.current ? RUSH : 1);
+    // extraMs: zusätzliche Zeit für einzelne Ereignisse (am neuen Tisch: die Hände des Gegenübers brauchen einen Moment)
+    const extra = reduced ? 0 : (optsRef.current.extraMs?.(ev) || 0) / (pace || 1);
+    const dur = durationFor(ev.type, pace, reduced, table) + extra;
     const key = ++animKey.current;
     if (t?.when === "pre") {
       pendingPre.current = ev;
@@ -139,7 +153,8 @@ export function useAnimationQueue(batches, opts) {
     for (const b of batches) {
       if (b.id <= seen.current) continue;
       seen.current = b.id;
-      for (const ev of withAttackReturns(b.events)) queue.current.push({ batchId: b.id, ev, view: b.view });
+      const events = optsRef.current.noReturns ? b.events : withAttackReturns(b.events);
+      for (const ev of events) queue.current.push({ batchId: b.id, ev, view: b.view });
       queue.current.push({ batchId: b.id, sync: true, view: b.view });
       added = true;
     }
@@ -183,5 +198,13 @@ export function useAnimationQueue(batches, opts) {
     else rerender();
   }, [sync]);
 
-  return { view, display: displayRef.current, anim, hold, busy, skip, skipAll };
+  // Vorspulen: der Rest der Warteschlange läuft im Zeitraffer durch (der Spieler hat schon weitergeklickt).
+  // Anders als skipAll bleibt die Reihenfolge sichtbar — nur eben schnell.
+  const rush = useCallback(() => {
+    if (!running.current) return;
+    rushRef.current = true;
+    skip();
+  }, [skip]);
+
+  return { view, display: displayRef.current, anim, hold, busy, skip, skipAll, rush };
 }

@@ -196,7 +196,7 @@ export function castAbility(g, slot) {
       break;
     }
 
-    // Cyber-Söldner
+    // Tüftler
     case "turret":
       spawnAlly(g, "turret", p.x, p.y, { mult: ab.mult });
       break;
@@ -214,7 +214,7 @@ export function castAbility(g, slot) {
       }
       break;
 
-    // Baumeister
+    // Steinbrecher
     case "wall": {
       const q = aimPoint(g, 420);
       const perp = p.aim + Math.PI / 2;

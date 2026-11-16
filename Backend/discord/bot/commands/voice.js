@@ -5,6 +5,7 @@ const {
 } = require('discord.js');
 const { getActiveVoiceChannelByText, updateVoiceOwner } = require('../../database/db');
 const { updateVoicePinOwner } = require('../events/voiceStateUpdate');
+const { botText } = require('../botText');
 
 // Ergebnis einer Aktion: Erfolg wird öffentlich im Kanal gezeigt, Fehler nur dem Auslöser
 const ok = (content) => ({ content, error: false });
@@ -13,54 +14,54 @@ const fail = (content) => ({ content, error: true });
 /**
  * Prüft, ob der Auslöser den Voice Channel dieses Text-Kanals verwalten darf.
  * Gilt für Slash Commands, Knöpfe, Modals und Auswahlmenüs gleichermaßen.
- * @returns {{ vcRecord: object, voiceChannel: object, guild: object, userId: string } | { error: string }}
+ * t: Texte in der Sprache des Servers (botTexts.js, voice).
+ * @returns {{ vcRecord: object, voiceChannel: object, guild: object, userId: string, t: object } | { error: string }}
  */
 function resolveVoiceContext(interaction) {
+    const t = botText(interaction).voice;
     const vcRecord = getActiveVoiceChannelByText(interaction.channelId);
-    if (!vcRecord) return { error: '❌ Dieser Command funktioniert nur im dedizierten Voice-Text-Kanal!' };
+    if (!vcRecord) return { error: t.onlyTextChannel };
 
     const voiceChannel = interaction.guild.channels.cache.get(vcRecord.voice_channel_id);
-    if (!voiceChannel) return { error: '❌ Der Voice Channel existiert nicht mehr.' };
+    if (!voiceChannel) return { error: t.channelGone };
 
     if (!voiceChannel.members.has(interaction.user.id)) {
-        return { error: '❌ Du musst im Voice Channel sein um diesen Command zu nutzen!' };
+        return { error: t.mustBeInVoice };
     }
 
     // Nur der Channel-Besitzer (oder der Server-Owner) darf den Channel verwalten
     const isChannelOwner = vcRecord.owner_id === interaction.user.id;
     const isGuildOwner = interaction.guild.ownerId === interaction.user.id;
-    if (!isChannelOwner && !isGuildOwner) return { error: '❌ Nur der Channel-Besitzer kann diesen Command nutzen!' };
+    if (!isChannelOwner && !isGuildOwner) return { error: t.onlyOwner };
 
-    return { vcRecord, voiceChannel, guild: interaction.guild, userId: interaction.user.id };
+    return { vcRecord, voiceChannel, guild: interaction.guild, userId: interaction.user.id, t };
 }
 
 // ── Aktionen ──────────────────────────────────────────────────────────────────
 
-async function setLimit({ voiceChannel }, limit) {
-    if (!Number.isInteger(limit) || limit < 0 || limit > 99) return fail('❌ Das Limit muss eine Zahl von 0 bis 99 sein (0 = unbegrenzt).');
+async function setLimit({ voiceChannel, t }, limit) {
+    if (!Number.isInteger(limit) || limit < 0 || limit > 99) return fail(t.badLimit);
     await voiceChannel.setUserLimit(limit);
-    return ok(limit === 0
-        ? '♾️ Userlimit entfernt — der Channel ist jetzt unbegrenzt.'
-        : `👥 Userlimit auf **${limit}** gesetzt.`);
+    return ok(limit === 0 ? t.limitRemoved : t.limitSet(limit));
 }
 
-async function toggleLock({ voiceChannel, guild, vcRecord }) {
+async function toggleLock({ voiceChannel, guild, vcRecord, t }) {
     const everyoneOverwrite = voiceChannel.permissionOverwrites.cache.get(guild.id);
     const isLocked = everyoneOverwrite?.deny.has(PermissionFlagsBits.Connect) ?? false;
 
     if (isLocked) {
         await voiceChannel.permissionOverwrites.edit(guild.id, { Connect: null });
-        return ok('🔓 Voice Channel entsperrt! Alle können wieder joinen.');
+        return ok(t.unlocked);
     }
     await voiceChannel.permissionOverwrites.edit(guild.id, { Connect: false });
     // Owner kann trotzdem joinen
     await voiceChannel.permissionOverwrites.edit(vcRecord.owner_id, { Connect: true, ViewChannel: true });
-    return ok('🔒 Voice Channel gesperrt! Nur noch du kannst joinen.');
+    return ok(t.locked);
 }
 
-async function rename({ voiceChannel, guild, vcRecord }, rawName) {
+async function rename({ voiceChannel, guild, vcRecord, t }, rawName) {
     const name = String(rawName ?? '').trim();
-    if (!name || name.length > 100) return fail('❌ Name ungültig (max. 100 Zeichen).');
+    if (!name || name.length > 100) return fail(t.badName);
     await voiceChannel.setName(name);
 
     // Zugehörigen Text-Kanal mitbenennen (gleiches "voice-"-Schema wie beim Erstellen)
@@ -71,17 +72,17 @@ async function rename({ voiceChannel, guild, vcRecord }, rawName) {
         // ein Rate-Limit hier darf die Antwort nicht blockieren
         textChannel.setName(`voice-${slug}`).catch(e => console.error('[Voice] Text-Kanal umbenennen fehlgeschlagen:', e.message));
     }
-    return ok(`✏️ Voice Channel umbenannt zu **${name}**.`);
+    return ok(t.renamed(name));
 }
 
 function isHidden({ voiceChannel, guild }) {
     return voiceChannel.permissionOverwrites.cache.get(guild.id)?.deny.has(PermissionFlagsBits.ViewChannel) ?? false;
 }
 
-async function setHidden({ voiceChannel, guild, vcRecord }, hidden) {
+async function setHidden({ voiceChannel, guild, vcRecord, t }, hidden) {
     if (!hidden) {
         await voiceChannel.permissionOverwrites.edit(guild.id, { ViewChannel: null });
-        return ok('👁️ Voice Channel ist wieder für alle sichtbar.');
+        return ok(t.visible);
     }
     await voiceChannel.permissionOverwrites.edit(guild.id, { ViewChannel: false });
     // Besitzer + alle aktuellen Mitglieder dürfen den Channel weiterhin sehen
@@ -90,27 +91,27 @@ async function setHidden({ voiceChannel, guild, vcRecord }, hidden) {
         if (m.user.bot || m.id === vcRecord.owner_id) continue;
         await voiceChannel.permissionOverwrites.edit(m.id, { ViewChannel: true }).catch(() => {});
     }
-    return ok('🙈 Voice Channel versteckt! Nur die aktuellen Mitglieder sehen ihn noch.');
+    return ok(t.hidden);
 }
 
-async function transfer({ voiceChannel, guild, vcRecord }, targetId) {
+async function transfer({ voiceChannel, guild, vcRecord, t }, targetId) {
     const targetMember = voiceChannel.members.get(targetId);
-    if (targetMember?.user.bot) return fail('❌ Ungültiger Nutzer.');
-    if (targetId === vcRecord.owner_id) return fail('❌ Der Nutzer ist bereits der Besitzer.');
-    if (!targetMember) return fail('❌ Der Nutzer muss dafür im Voice Channel sein!');
+    if (targetMember?.user.bot) return fail(t.badUser);
+    if (targetId === vcRecord.owner_id) return fail(t.alreadyOwner);
+    if (!targetMember) return fail(t.targetMustBeInVoice);
 
     updateVoiceOwner(voiceChannel.id, targetId);
     // Neuer Besitzer bekommt garantierten Zugang (relevant bei gesperrtem/verstecktem Channel)
     await voiceChannel.permissionOverwrites.edit(targetId, { ViewChannel: true, Connect: true }).catch(() => {});
     // Besitzer-Zeile in der angepinnten Nachricht aktualisieren
     await updateVoicePinOwner(guild, vcRecord, targetId);
-    return ok(`👑 **${targetMember.displayName}** ist jetzt der Channel-Besitzer.`);
+    return ok(t.newOwner(targetMember.displayName));
 }
 
 // Sich selbst und den Server-Owner kann niemand kicken oder bannen
-function protectedTargetError({ guild, userId }, targetId) {
-    if (targetId === userId) return '❌ Das geht nicht bei dir selbst.';
-    if (targetId === guild.ownerId) return '❌ Der Server-Owner kann nicht gekickt oder gebannt werden.';
+function protectedTargetError({ guild, userId, t }, targetId) {
+    if (targetId === userId) return t.notYourself;
+    if (targetId === guild.ownerId) return t.notServerOwner;
     return null;
 }
 
@@ -118,32 +119,32 @@ async function kick(ctx, targetId) {
     const blocked = protectedTargetError(ctx, targetId);
     if (blocked) return fail(blocked);
     const targetMember = ctx.voiceChannel.members.get(targetId);
-    if (!targetMember) return fail('❌ Der Nutzer ist nicht im Voice Channel.');
+    if (!targetMember) return fail(ctx.t.targetNotInVoice);
 
     await targetMember.voice.disconnect();
-    return ok(`👢 **${targetMember.displayName}** wurde aus dem Voice Channel gekickt.`);
+    return ok(ctx.t.kicked(targetMember.displayName));
 }
 
 async function ban(ctx, targetId) {
     const blocked = protectedTargetError(ctx, targetId);
     if (blocked) return fail(blocked);
-    const { voiceChannel, guild } = ctx;
+    const { voiceChannel, guild, t } = ctx;
     const targetMember = guild.members.cache.get(targetId) || await guild.members.fetch(targetId).catch(() => null);
-    if (!targetMember) return fail('❌ Der Nutzer ist nicht auf diesem Server.');
+    if (!targetMember) return fail(t.targetNotOnServer);
 
     // Der Bann ist eine Kanal-Berechtigung: Er endet von selbst, wenn der Channel gelöscht wird
     await voiceChannel.permissionOverwrites.edit(targetId, { Connect: false });
     if (voiceChannel.members.has(targetId)) await targetMember.voice.disconnect().catch(() => {});
-    return ok(`🚫 **${targetMember.displayName}** wurde aus dem Voice Channel gebannt.`);
+    return ok(t.banned(targetMember.displayName));
 }
 
-async function unban({ voiceChannel, guild }, targetId) {
+async function unban({ voiceChannel, guild, t }, targetId) {
     const overwrite = voiceChannel.permissionOverwrites.cache.get(targetId);
-    if (!overwrite?.deny.has(PermissionFlagsBits.Connect)) return fail('❌ Der Nutzer ist in diesem Channel nicht gebannt.');
+    if (!overwrite?.deny.has(PermissionFlagsBits.Connect)) return fail(t.notBanned);
 
     await voiceChannel.permissionOverwrites.edit(targetId, { Connect: null });
-    const name = guild.members.cache.get(targetId)?.displayName || 'Der Nutzer';
-    return ok(`✅ **${name}** darf dem Voice Channel wieder beitreten.`);
+    const name = guild.members.cache.get(targetId)?.displayName || t.theUser;
+    return ok(t.unbanned(name));
 }
 
 // ── Antworten ─────────────────────────────────────────────────────────────────
@@ -156,7 +157,7 @@ function respond(interaction, result) {
 
 async function replyFailure(interaction, e) {
     console.error('[Voice] Aktion fehlgeschlagen:', e);
-    const payload = { content: '❌ Das hat nicht geklappt. Fehlen dem Bot Rechte für diesen Channel?', flags: MessageFlags.Ephemeral };
+    const payload = { content: botText(interaction).voice.failed, flags: MessageFlags.Ephemeral };
     if (interaction.replied || interaction.deferred) await interaction.followUp(payload).catch(() => {});
     else await interaction.reply(payload).catch(() => {});
 }
@@ -187,12 +188,12 @@ async function handleVoiceCommand(interaction) {
 
 // ── Knöpfe, Modals und Auswahlmenüs der angepinnten Nachricht ─────────────────
 
-// Knopf → Auswahlmenü: welcher Nutzer ist gemeint?
+// Knopf → Auswahlmenü: welcher Nutzer ist gemeint? prompt: Schlüssel in botTexts.js (voice)
 const USER_PICKS = {
-    vc_kick: { selectId: 'vc_sel_kick', prompt: 'Wen möchtest du kicken?', run: kick },
-    vc_ban: { selectId: 'vc_sel_ban', prompt: 'Wen möchtest du bannen?', run: ban },
-    vc_unban: { selectId: 'vc_sel_unban', prompt: 'Wen möchtest du entbannen?', run: unban },
-    vc_transfer: { selectId: 'vc_sel_transfer', prompt: 'Wer soll der neue Besitzer werden?', run: transfer },
+    vc_kick: { selectId: 'vc_sel_kick', prompt: 'promptKick', run: kick },
+    vc_ban: { selectId: 'vc_sel_ban', prompt: 'promptBan', run: ban },
+    vc_unban: { selectId: 'vc_sel_unban', prompt: 'promptUnban', run: unban },
+    vc_transfer: { selectId: 'vc_sel_transfer', prompt: 'promptTransfer', run: transfer },
 };
 const PICK_BY_SELECT = Object.fromEntries(Object.values(USER_PICKS).map(p => [p.selectId, p]));
 
@@ -212,22 +213,23 @@ async function handleVoiceComponent(interaction) {
     if (ctx.error) return interaction.reply({ content: ctx.error, flags: MessageFlags.Ephemeral });
 
     const id = interaction.customId;
+    const { t } = ctx;
 
     try {
         if (interaction.isButton()) {
             if (id === 'vc_lock') return await respond(interaction, await toggleLock(ctx));
             if (id === 'vc_hide') return await respond(interaction, await setHidden(ctx, !isHidden(ctx)));
             if (id === 'vc_limit') {
-                return await interaction.showModal(textModal('vc_modal_limit', 'Userlimit setzen', 'Limit (0 = unbegrenzt)', { maxLength: 2, placeholder: '0 bis 99' }));
+                return await interaction.showModal(textModal('vc_modal_limit', t.limitModalTitle, t.limitModalLabel, { maxLength: 2, placeholder: t.limitModalPlaceholder }));
             }
             if (id === 'vc_rename') {
-                return await interaction.showModal(textModal('vc_modal_rename', 'Channel umbenennen', 'Neuer Name', { maxLength: 100, placeholder: 'Name des Voice Channels' }));
+                return await interaction.showModal(textModal('vc_modal_rename', t.renameModalTitle, t.renameModalLabel, { maxLength: 100, placeholder: t.renameModalPlaceholder }));
             }
             const pick = USER_PICKS[id];
             if (pick) {
-                const select = new UserSelectMenuBuilder().setCustomId(pick.selectId).setPlaceholder('Nutzer auswählen').setMinValues(1).setMaxValues(1);
+                const select = new UserSelectMenuBuilder().setCustomId(pick.selectId).setPlaceholder(t.pickUser).setMinValues(1).setMaxValues(1);
                 return await interaction.reply({
-                    content: pick.prompt,
+                    content: t[pick.prompt],
                     components: [new ActionRowBuilder().addComponents(select)],
                     flags: MessageFlags.Ephemeral,
                 });
@@ -250,7 +252,7 @@ async function handleVoiceComponent(interaction) {
             const result = await pick.run(ctx, interaction.values[0]);
             // Das Auswahlmenü war nur für den Auslöser sichtbar: Fehler bleiben dort, Erfolg geht öffentlich in den Kanal
             if (result.error) return await interaction.update({ content: result.content, components: [] });
-            await interaction.update({ content: 'Erledigt.', components: [] });
+            await interaction.update({ content: t.done, components: [] });
             return await interaction.followUp({ content: result.content });
         }
     } catch (e) {

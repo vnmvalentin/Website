@@ -1,84 +1,30 @@
 import React from 'react';
 import { Grid3x3, Sparkles, Ruler, Heart, Coins, Eye, Brain, PersonStanding, Scale, BarChart3, Zap, MessageCircleQuestion } from 'lucide-react';
+import { isErrorStatus, useDiscordText } from '../discordI18n.js';
 
+// name = Befehlsname im Bot (bleibt in jeder Sprache gleich). Beschreibung, Aufruf und Details: discordI18n.js (fun.commands)
 const COMMANDS = [
-    {
-        icon: <Grid3x3 size={28} />, name: 'connect3', displayName: '/connect3', tag: 'Spiel',
-        desc: 'Starte ein Connect 3 Duell auf einem 5×5 Spielfeld.',
-        usage: '/connect3 @gegner  |  !connect3 @gegner',
-        details: ['5×5 Buttons (Schwerkraft wie Connect 4)', 'Zufälliger Startspieler', '3 in Reihe gewinnt', 'Nur der aktive Spieler kann klicken'],
-    },
-    {
-        icon: <Sparkles size={28} />, name: 'magische_miesmuschel', displayName: '/magische_miesmuschel', tag: 'Spaß',
-        desc: 'Frag die magische Miesmuschel eine Ja/Nein-Frage.',
-        usage: '/magische_miesmuschel [frage]  |  !miesmuschel [frage]',
-        details: ['18 mögliche Antworten', 'Zeigt Frage + mystische Antwort'],
-    },
-    {
-        icon: <Ruler size={28} />, name: 'pp', displayName: '/pp', tag: 'Spaß',
-        desc: 'Misst den PP eines Nutzers.',
-        usage: '/pp  |  !pp',
-        details: ['1–25 cm zufällig', 'Jedes Mal neu gewürfelt', 'Zeigt Nutzernamen in der Antwort'],
-    },
-    {
-        icon: <Eye size={28} />, name: 'aussehen', displayName: '/aussehen', tag: 'Spaß',
-        desc: 'Bewertet das Aussehen eines Nutzers.',
-        usage: '/aussehen',
-        details: ['1–10 zufällig', 'Jedes Mal neu gewürfelt', 'Zeigt Nutzernamen in der Antwort'],
-    },
-    {
-        icon: <Brain size={28} />, name: 'iq', displayName: '/iq', tag: 'Spaß',
-        desc: 'Misst den IQ eines Nutzers.',
-        usage: '/iq',
-        details: ['40–180 zufällig', 'Jedes Mal neu gewürfelt', 'Zeigt Nutzernamen in der Antwort'],
-    },
-    {
-        icon: <PersonStanding size={28} />, name: 'größe', displayName: '/größe', tag: 'Spaß',
-        desc: 'Misst die Größe eines Nutzers in cm.',
-        usage: '/größe  |  !größe',
-        details: ['120–220 cm zufällig', 'Jedes Mal neu gewürfelt'],
-    },
-    {
-        icon: <Scale size={28} />, name: 'gewicht', displayName: '/gewicht', tag: 'Spaß',
-        desc: 'Misst das Gewicht eines Nutzers in kg.',
-        usage: '/gewicht  |  !gewicht',
-        details: ['30–200 kg zufällig', 'Jedes Mal neu gewürfelt'],
-    },
-    {
-        icon: <Heart size={28} />, name: 'ship', displayName: '/ship', tag: 'Spaß',
-        desc: 'Berechnet den Liebeswert zwischen zwei Nutzern.',
-        usage: '/ship @user1 @user2  |  !ship @user1 @user2',
-        details: ['0–100% Liebeswert', 'Deterministisch (gleiche Paare = gleiches Ergebnis)', 'Generiert einen Ship-Namen', 'Emoji-Balken als Visualisierung'],
-    },
-    {
-        icon: <Coins size={28} />, name: 'coinflip', displayName: '/coinflip', tag: 'Zufall',
-        desc: 'Wirf eine Münze — Kopf oder Zahl?',
-        usage: '/coinflip  |  !coinflip',
-        details: ['50/50 Chance', 'Kopf oder Zahl'],
-    },
-    {
-        icon: <BarChart3 size={28} />, name: 'allstats', displayName: '/allstats', tag: 'Spaß',
-        desc: 'Zeigt IQ, Größe, Gewicht, PP und Aussehen eines Nutzers gesammelt untereinander an.',
-        usage: '/allstats  |  !allstats',
-        details: ['Fasst alle 5 Fun-Stats in einer Antwort zusammen', 'Nutzt dieselben Zufallsbereiche wie die Einzel-Commands'],
-    },
-    {
-        icon: <Zap size={28} />, name: 'superkraft', displayName: '/superkraft', tag: '18+',
-        desc: 'Verleiht eine zufällige Superkraft — meistens komplett nutzlos, selten richtig gut. Enthält auch derbere Sprüche.',
-        usage: '/superkraft  |  !superkraft',
-        details: ['190 mögliche Superkräfte', 'Überwiegend nutzlos/witzig, ein kleinerer Teil wirklich stark', 'Teilweise deftiger Humor (18+)'],
-    },
-    {
-        icon: <MessageCircleQuestion size={28} />, name: 'ausrede', displayName: '/ausrede', tag: '18+',
-        desc: 'Liefert eine zufällige Ausrede für jede Gelegenheit. Enthält auch derbere Sprüche.',
-        usage: '/ausrede  |  !ausrede',
-        details: ['179 mögliche Ausreden', 'Meist absurd, ein Teil deftiger Humor (18+)'],
-    },
+    { icon: <Grid3x3 size={28} />, name: 'connect3', tag: 'game' },
+    { icon: <Sparkles size={28} />, name: 'magische_miesmuschel', tag: 'fun' },
+    { icon: <Ruler size={28} />, name: 'pp', tag: 'fun' },
+    { icon: <Eye size={28} />, name: 'aussehen', tag: 'fun' },
+    { icon: <Brain size={28} />, name: 'iq', tag: 'fun' },
+    { icon: <PersonStanding size={28} />, name: 'größe', tag: 'fun' },
+    { icon: <Scale size={28} />, name: 'gewicht', tag: 'fun' },
+    { icon: <Heart size={28} />, name: 'ship', tag: 'fun' },
+    { icon: <Coins size={28} />, name: 'coinflip', tag: 'chance' },
+    { icon: <BarChart3 size={28} />, name: 'allstats', tag: 'fun' },
+    { icon: <Zap size={28} />, name: 'superkraft', tag: 'adult' },
+    { icon: <MessageCircleQuestion size={28} />, name: 'ausrede', tag: 'adult' },
 ];
 
-function Toggle({ enabled, onToggle }) {
+function Toggle({ enabled, onToggle, label }) {
     return (
         <button
+            type="button"
+            role="switch"
+            aria-checked={enabled}
+            aria-label={label}
             onClick={onToggle}
             className={`relative w-11 h-6 rounded-full transition-colors duration-200 shrink-0 ${enabled ? 'bg-indigo-500' : 'bg-[#2a2a32]'}`}
         >
@@ -88,6 +34,7 @@ function Toggle({ enabled, onToggle }) {
 }
 
 export default function FunCommandsTab({ funChannel, setFunChannel, channels, isSaving, saveStatus, handleSaveSettings, disabledCommands, setDisabledCommands, dirty }) {
+    const t = useDiscordText();
     const isEnabled = (name) => !disabledCommands.includes(name);
 
     const toggleCommand = (name) => {
@@ -96,44 +43,48 @@ export default function FunCommandsTab({ funChannel, setFunChannel, channels, is
         );
     };
 
+    const statusLine = saveStatus
+        ? <span className={`text-sm font-medium ${isErrorStatus(saveStatus) ? 'text-red-400' : 'text-white'}`}>{saveStatus}</span>
+        : dirty && <span className="dc-unsaved">{t.common.unsaved}</span>;
+
     return (
         <div className="dc-page">
             <div>
-                <h2 className="dc-h2">Fun Commands</h2>
-                <p className="text-white/50 text-sm">Slash Commands und Prefix-Commands für alle Mitglieder. Optional auf einen Kanal beschränken.</p>
+                <h2 className="dc-h2">{t.fun.title}</h2>
+                <p className="text-white/50 text-sm">{t.fun.intro}</p>
             </div>
 
             <div className="dc-card p-6 space-y-4 max-w-lg">
-                <h3 className="text-white font-semibold flex items-center gap-2">Kanal-Einschränkung</h3>
+                <h3 className="text-white font-semibold flex items-center gap-2">{t.fun.restriction}</h3>
                 <div>
-                    <label className="dc-label">Fun Commands Kanal</label>
+                    <label className="dc-label">{t.fun.channelLabel}</label>
                     <select value={funChannel} onChange={e => setFunChannel(e.target.value)}
                         className="dc-input w-full">
-                        <option value="">-- Überall erlaubt --</option>
+                        <option value="">{t.common.everywhere}</option>
                         {channels.map(c => <option key={c.id} value={c.id}># {c.name}</option>)}
                     </select>
                     <p className="text-white/40 text-xs mt-2">
                         {funChannel
-                            ? `Commands außerhalb von #${channels.find(c => c.id === funChannel)?.name || '?'} geben eine Fehlermeldung.`
-                            : 'Commands funktionieren in jedem Kanal.'}
+                            ? t.fun.restrictedTo(channels.find(c => c.id === funChannel)?.name || '?')
+                            : t.fun.everywhereNote}
                     </p>
                 </div>
                 <div className="pt-2 flex items-center gap-4">
                     <button onClick={handleSaveSettings} disabled={isSaving}
                         className="dc-btn">
-                        {isSaving ? 'Speichere...' : 'Speichern'}
+                        {isSaving ? t.common.saving : t.common.save}
                     </button>
-                    {saveStatus
-                    ? <span className="text-sm font-medium text-white">{saveStatus}</span>
-                    : dirty && <span className="dc-unsaved">Ungespeicherte Änderungen</span>}
+                    {statusLine}
                 </div>
             </div>
 
             <div>
-                <h3 className="text-white font-semibold text-lg mb-4">Verfügbare Commands</h3>
+                <h3 className="text-white font-semibold text-lg mb-1">{t.fun.available}</h3>
+                <p className="text-white/40 text-xs mb-4">{t.fun.germanOnly}</p>
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
                     {COMMANDS.map(cmd => {
                         const enabled = isEnabled(cmd.name);
+                        const text = t.fun.commands[cmd.name];
                         return (
                             <div key={cmd.name} className={`dc-card p-5 flex flex-col gap-3 transition-colors ${
                                 enabled ? 'border-white/5 hover:border-indigo-500/20' : 'border-white/5 opacity-60'
@@ -141,18 +92,18 @@ export default function FunCommandsTab({ funChannel, setFunChannel, channels, is
                                 <div className="flex items-center gap-3">
                                     <span className="text-white/60 shrink-0">{cmd.icon}</span>
                                     <div className="flex-1 min-w-0">
-                                        <div className="text-white font-bold text-sm">{cmd.displayName}</div>
-                                        <div className="text-white/40 text-xs">{cmd.tag}</div>
+                                        <div className="text-white font-bold text-sm">/{cmd.name}</div>
+                                        <div className="text-white/40 text-xs">{t.fun.tags[cmd.tag]}</div>
                                     </div>
-                                    <Toggle enabled={enabled} onToggle={() => toggleCommand(cmd.name)} />
+                                    <Toggle enabled={enabled} onToggle={() => toggleCommand(cmd.name)} label={t.fun.toggle(`/${cmd.name}`)} />
                                 </div>
-                                <p className="text-white/50 text-sm flex-1">{cmd.desc}</p>
-                                <div className="dc-inset p-3 text-xs text-indigo-400 leading-relaxed">{cmd.usage}</div>
+                                <p className="text-white/50 text-sm flex-1">{text.desc}</p>
+                                <div className="dc-inset p-3 text-xs text-indigo-400 leading-relaxed">{text.usage}</div>
                                 <ul className="text-white/40 text-xs space-y-1">
-                                    {cmd.details.map((d, i) => <li key={i}>• {d}</li>)}
+                                    {text.details.map((d, i) => <li key={i}>• {d}</li>)}
                                 </ul>
                                 {!enabled && (
-                                    <div className="text-xs text-red-400 font-medium">Deaktiviert</div>
+                                    <div className="text-xs text-red-400 font-medium">{t.fun.disabled}</div>
                                 )}
                             </div>
                         );
@@ -161,14 +112,11 @@ export default function FunCommandsTab({ funChannel, setFunChannel, channels, is
                 <div className="mt-4 flex items-center gap-4">
                     <button onClick={handleSaveSettings} disabled={isSaving}
                         className="dc-btn">
-                        {isSaving ? 'Speichere...' : 'Änderungen speichern'}
+                        {isSaving ? t.common.saving : t.common.saveChanges}
                     </button>
-                    {saveStatus
-                    ? <span className="text-sm font-medium text-white">{saveStatus}</span>
-                    : dirty && <span className="dc-unsaved">Ungespeicherte Änderungen</span>}
+                    {statusLine}
                 </div>
             </div>
         </div>
     );
 }
-

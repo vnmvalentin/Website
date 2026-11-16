@@ -1,0 +1,630 @@
+/* scout.css — Stats-Seiten unter /clash (Spieler, Clans, Ranglisten, Karten, Meta, Vergleich).
+   Baut auf dem Arcade-Look der Clash-Royale-Seiten in index.css auf (.cr-arcade-panel, .cr-chip, .cr-seg, Farben
+   --cr-arcade-*). Hier steht nur, was es dort nicht gibt. Regeln des Bereichs: kein Leuchten, kein Verlaufstext;
+   alles Bewegte steht unten in der Liste für den Animations-Schalter (html[data-cr-anim="off"]). */
+
+.crs { --crs-win: #3d8bff; --crs-loss: #ff5557; --crs-draw: #7f8da6; --crs-well: #081426; --crs-soft: rgba(225, 238, 255, 0.72); }
+.crs a { color: inherit; }
+.crs-num { font-variant-numeric: tabular-nums; }
+.crs-title { font-family: var(--font-cr); font-weight: 400; line-height: 1.1; color: #fff; text-shadow: var(--cr-text-outline); }
+
+/* ── Kopfleiste: Bereiche als Reiter-Spur, daneben die Suche ───────────────────────────────────────────────── */
+.crs-nav {
+  display: flex; gap: 4px; padding: 4px; border-radius: 16px; background: var(--crs-well);
+  border: 1px solid rgba(2, 8, 20, 0.8); box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.45), 0 1px 0 rgba(255, 255, 255, 0.06);
+  overflow-x: auto; scrollbar-width: none;
+}
+.crs-nav::-webkit-scrollbar { display: none; }
+.crs-nav > a {
+  flex: 1 0 auto; display: flex; align-items: center; justify-content: center; gap: 0.45rem; padding: 0.5rem 0.9rem;
+  border-radius: 12px; border: 2px solid transparent; font-family: var(--font-cr); font-size: 1rem; white-space: nowrap;
+  color: rgba(255, 255, 255, 0.6); transition: color 0.15s ease, background 0.15s ease;
+}
+.crs-nav > a:hover { color: #fff; background: rgba(255, 255, 255, 0.06); }
+.crs-nav > a[aria-current="page"] {
+  color: #fff; background: linear-gradient(to bottom, #3160a0, #22477a); border-color: var(--cr-arcade-gold);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 3px 0 #0a1a31; text-shadow: var(--cr-text-outline);
+}
+.crs-nav > a:focus-visible, .crs-link:focus-visible, .crs-cardlink:focus-visible { outline: 3px solid #ffc93c; outline-offset: 2px; }
+@media (max-width: 639px) { .crs-nav > a { padding: 0.5rem 0.7rem; font-size: 0.95rem; } }
+
+/* ── Suche ─────────────────────────────────────────────────────────────────────────────────────────────────── */
+.crs-search { position: relative; }
+.crs-search-input {
+  width: 100%; height: 48px; padding: 0 14px 0 44px; border-radius: 14px; font-size: 16px; color: #fff; outline: none;
+  background: var(--crs-well); border: 2px solid var(--cr-panel-edge); box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.45), 0 1px 0 rgba(255, 255, 255, 0.07);
+  transition: border-color 0.15s ease;
+}
+.crs-search--big .crs-search-input { height: 60px; font-size: 18px; padding-left: 54px; border-radius: 18px; border-width: 3px; }
+.crs-search-input::placeholder { color: rgba(255, 255, 255, 0.35); }
+.crs-search-input:focus { border-color: #ffc93c; }
+/* Große Suche der Startseite: immer goldener Rand, damit sie zwischen Banner und Kacheln nicht untergeht;
+   im Fokus etwas heller */
+.crs-search--big .crs-search-input { border-color: #ffc93c; }
+.crs-search--big .crs-search-input:focus { border-color: #ffe08a; }
+.crs-search-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); pointer-events: none; }
+.crs-search--big .crs-search-icon { left: 16px; }
+.crs-suggest {
+  position: absolute; left: 0; right: 0; top: calc(100% + 6px); z-index: 40; max-height: min(60vh, 440px); overflow-y: auto;
+  border-radius: 14px; border: 3px solid var(--cr-panel-edge); background: #10223f; box-shadow: 0 6px 0 rgba(2, 8, 20, 0.55), 0 18px 30px rgba(2, 8, 20, 0.5);
+}
+.crs-suggest-head { padding: 8px 12px 4px; font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(190, 215, 255, 0.55); }
+.crs-suggest-item { display: flex; align-items: center; gap: 10px; width: 100%; padding: 8px 12px; text-align: left; }
+.crs-suggest-item[aria-selected="true"], .crs-suggest-item:hover { background: rgba(255, 201, 60, 0.12); }
+.crs-suggest-item b { font-family: var(--font-cr); font-weight: 400; font-size: 1.02rem; color: #fff; }
+.crs-suggest-item small { display: block; font-size: 12px; color: var(--crs-soft); }
+
+/* ── Flächen ───────────────────────────────────────────────────────────────────────────────────────────────── */
+.crs-panel { padding: 16px; }
+@media (min-width: 768px) { .crs-panel { padding: 20px; } }
+.crs-panel-head { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+.crs-panel-head h2, .crs-panel-head h3 { font-family: var(--font-cr); font-weight: 400; font-size: 1.25rem; line-height: 1.1; color: #fff; text-shadow: var(--cr-text-outline); }
+.crs-panel-sub { font-size: 12.5px; color: var(--crs-soft); }
+.crs-well { border-radius: 14px; background: var(--crs-well); border: 1px solid rgba(2, 8, 20, 0.8); box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.45), 0 1px 0 rgba(255, 255, 255, 0.06); }
+.crs-link { border-radius: 6px; text-decoration: none; }
+.crs-link:hover { text-decoration: underline; text-decoration-color: #ffc93c; text-underline-offset: 3px; }
+.crs-muted { color: var(--crs-soft); }
+.crs-empty { padding: 22px 16px; text-align: center; font-size: 14px; color: var(--crs-soft); }
+
+/* ── Kopf einer Spieler-/Clan-Seite ────────────────────────────────────────────────────────────────────────── */
+.crs-hero { position: relative; overflow: hidden; }
+.crs-hero-top {
+  position: relative; display: flex; align-items: center; gap: 14px; padding: 16px 16px 14px;
+  background: linear-gradient(to bottom, #2b5a9c, #1c3f72); border-bottom: 3px solid var(--cr-panel-edge);
+  box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.2), inset 0 -4px 0 rgba(0, 0, 0, 0.16);
+}
+@media (min-width: 768px) { .crs-hero-top { padding: 20px 22px 18px; gap: 18px; } }
+.crs-hero-art { flex-shrink: 0; width: 84px; height: 84px; object-fit: contain; filter: drop-shadow(0 5px 0 rgba(2, 8, 20, 0.4)); }
+@media (min-width: 768px) { .crs-hero-art { width: 112px; height: 112px; } }
+.crs-hero-name { font-family: var(--font-cr); font-weight: 400; font-size: clamp(1.7rem, 5vw, 2.7rem); line-height: 1.02; color: #fff; text-shadow: var(--cr-text-outline-thick); overflow-wrap: anywhere; }
+.crs-tagchip {
+  display: inline-flex; align-items: center; gap: 6px; padding: 3px 9px; border-radius: 8px; font-size: 13px; font-weight: 700;
+  background: rgba(4, 14, 34, 0.55); border: 1px solid rgba(2, 8, 20, 0.7); color: #dbe9ff; font-variant-numeric: tabular-nums;
+  transition: background 0.15s ease;
+}
+button.crs-tagchip:hover, a.crs-tagchip:hover { background: rgba(4, 14, 34, 0.85); }
+/* Frühere Namen (aufklappbar) und Daumen hoch/runter im Kopf der Spielerseite */
+.crs-names { position: relative; }
+.crs-names > summary { cursor: pointer; list-style: none; user-select: none; }
+.crs-names > summary::-webkit-details-marker { display: none; }
+.crs-names > summary:hover, .crs-names[open] > summary { background: rgba(4, 14, 34, 0.85); }
+.crs-names-list {
+  position: absolute; z-index: 20; top: calc(100% + 6px); left: 0; min-width: 220px; max-width: min(320px, 80vw); max-height: 220px; overflow-y: auto;
+  padding: 6px; border-radius: 10px; background: #0b1a33; border: 1px solid rgba(2, 8, 20, 0.9); box-shadow: 0 6px 0 rgba(2, 8, 20, 0.45);
+}
+.crs-names-list li { display: flex; justify-content: space-between; gap: 12px; padding: 6px 8px; border-radius: 6px; font-size: 14px; color: #fff; }
+.crs-names-list li:nth-child(odd) { background: rgba(255, 255, 255, 0.04); }
+.crs-names-list li .crs-muted { font-size: 12px; }
+.crs-vote { cursor: pointer; }
+.crs-vote:disabled { opacity: 0.6; cursor: default; }
+.crs-vote.is-up { background: #2f8f3a; border-color: #1c5e24; color: #fff; }
+.crs-vote.is-down { background: #b23a3a; border-color: #742222; color: #fff; }
+button.crs-vote.is-up:hover { background: #2a8034; }
+button.crs-vote.is-down:hover { background: #a03434; }
+.crs-plaques { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; padding: 14px 16px 16px; }
+@media (min-width: 900px) { .crs-plaques { grid-template-columns: repeat(4, minmax(0, 1fr)); padding: 16px 22px 20px; } }
+.crs-plaque { display: flex; align-items: center; gap: 10px; min-width: 0; padding: 10px 12px; }
+.crs-plaque > img { flex-shrink: 0; width: 42px; height: 42px; object-fit: contain; }
+.crs-plaque-value { font-family: var(--font-cr); font-size: 1.45rem; line-height: 1; color: #fff; text-shadow: var(--cr-text-outline); white-space: nowrap; }
+.crs-plaque-label { margin-top: 3px; font-size: 11px; font-weight: 700; line-height: 1.3; letter-spacing: 0.06em; text-transform: uppercase; color: rgba(190, 215, 255, 0.6); }
+
+/* ── Karten ────────────────────────────────────────────────────────────────────────────────────────────────── */
+.crs-card { position: relative; display: block; min-width: 0; }
+.crs-card-art { position: relative; aspect-ratio: 4 / 5; }
+.crs-card-art > span { position: absolute; top: 0; bottom: 0; left: 50%; transform: translateX(-50%); max-width: 100%; overflow: hidden; }
+.crs-card-art img { position: absolute; max-width: none; user-select: none; }
+.crs-card-lvl {
+  display: block; margin: -7px auto 0; position: relative; width: fit-content; min-width: 70%; padding: 1px 6px 2px; border-radius: 6px; text-align: center;
+  font-family: var(--font-cr); font-size: 12px; line-height: 1.2; color: #fff; background: #0a1930; border: 1px solid var(--cr-panel-edge);
+  box-shadow: 0 2px 0 rgba(2, 8, 20, 0.5); white-space: nowrap;
+}
+.crs-card-lvl.is-max { color: #ffd65c; }
+.crs-card--sm .crs-card-lvl { font-size: 10px; margin-top: -5px; padding: 0 3px 1px; border-radius: 5px; }
+.crs-card--missing .crs-card-art { filter: grayscale(1) brightness(0.45); }
+.crs-cardlink { display: block; border-radius: 8px; transition: transform 0.12s ease; }
+.crs-cardlink:hover { transform: translateY(-3px); }
+.crs-card-mark { position: absolute; top: -4px; right: -4px; z-index: 1; display: flex; gap: 1px; filter: drop-shadow(0 2px 0 rgba(2, 8, 20, 0.6)); }
+/* Sternlevel einer Karte: Abzeichen aus dem Spiel mit der Zahl darauf, links oben */
+.crs-card-star { position: absolute; top: -5px; left: -5px; z-index: 1; display: flex; align-items: center; justify-content: center; filter: drop-shadow(0 2px 0 rgba(2, 8, 20, 0.6)); }
+.crs-card-star > b { position: absolute; font-family: var(--font-cr); font-weight: 400; font-size: 11px; line-height: 1; color: #fff; text-shadow: var(--cr-text-outline); }
+
+.crs-deck { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px 6px; padding: 12px 10px; }
+@media (min-width: 640px) { .crs-deck { grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 6px; } }
+.crs-deck--mini { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 3px; padding: 0; }
+.crs-deck--grid4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.crs-deck--bare { padding: 0; }
+.crs-deckmeta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; font-size: 13px; color: var(--crs-soft); }
+.crs-deckmeta b { font-family: var(--font-cr); font-weight: 400; font-size: 1.1rem; color: #fff; }
+.crs-deckmeta > span { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+
+/* ── Kennzahlen ────────────────────────────────────────────────────────────────────────────────────────────── */
+.crs-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+@media (min-width: 640px) { .crs-stats--3 { grid-template-columns: repeat(3, minmax(0, 1fr)); } .crs-stats--4 { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.crs-stat { min-width: 0; padding: 9px 12px 10px; }
+.crs-stat-label { font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: rgba(190, 215, 255, 0.6); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.crs-stat-value { display: flex; align-items: center; gap: 6px; margin-top: 2px; font-family: var(--font-cr); font-size: 1.3rem; line-height: 1.15; color: #fff; white-space: nowrap; }
+.crs-stat-sub { font-size: 12px; color: var(--crs-soft); }
+
+
+/* ── Verlaufslinie ─────────────────────────────────────────────────────────────────────────────────── */
+.crs-spark { display: block; width: 100%; height: 72px; overflow: visible; }
+.crs-spark-line { fill: none; stroke: #ffc93c; stroke-width: 2.5; stroke-linejoin: round; stroke-linecap: round; vector-effect: non-scaling-stroke; }
+.crs-spark-area { fill: rgba(255, 201, 60, 0.12); }
+
+/* ── Balken ────────────────────────────────────────────────────────────────────────────────────────────────── */
+.crs-bar { position: relative; height: 10px; border-radius: 5px; background: var(--crs-well); box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.5); overflow: hidden; }
+.crs-bar > i { position: absolute; inset: 0 auto 0 0; border-radius: 5px; background: var(--crs-fill, #3d8bff); box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.25); transform-origin: left; animation: crsGrow 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) backwards; }
+.crs-bar--split > i { background: var(--crs-win); }
+.crs-bar--split { background: rgba(255, 85, 87, 0.55); }
+@keyframes crsGrow { from { transform: scaleX(0); } to { transform: none; } }
+
+/* ── Kampf-Zeile ───────────────────────────────────────────────────────────────────────────────────────────── */
+.crs-battle { position: relative; border-left: 6px solid var(--crs-res, var(--crs-draw)); border-radius: 14px; background: linear-gradient(to bottom, #1c3860, #132a4a); border-top: 1px solid rgba(2, 8, 20, 0.6); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1), 0 3px 0 rgba(2, 8, 20, 0.5); }
+.crs-battle.is-win { --crs-res: var(--crs-win); }
+.crs-battle.is-loss { --crs-res: var(--crs-loss); }
+.crs-battle-head { display: flex; align-items: center; gap: 10px; min-width: 0; padding: 6px 8px 6px 14px; border-bottom: 1px solid rgba(2, 8, 20, 0.55); box-shadow: 0 1px 0 rgba(255, 255, 255, 0.05); }
+.crs-battle-main { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; padding: 12px 14px 14px; align-items: center; }
+@media (min-width: 820px) { .crs-battle-main { grid-template-columns: minmax(0, 1fr) 132px minmax(0, 1fr); gap: 12px; } }
+.crs-battle-res { font-family: var(--font-cr); font-size: 1.3rem; line-height: 1.1; color: var(--crs-res, #c8d4e8); text-shadow: var(--cr-text-outline); }
+.crs-battle-mid { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.crs-battle-score { display: flex; align-items: center; justify-content: center; gap: 6px; font-family: var(--font-cr); font-size: 2rem; line-height: 1; color: #fff; text-shadow: var(--cr-text-outline-thick); white-space: nowrap; }
+.crs-battle-side { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.crs-battle-side > div { width: 100%; max-width: 350px; }
+@media (min-width: 820px) { .crs-battle-side.is-theirs { align-items: flex-end; } }
+@media (max-width: 819px) { .crs-battle-side > div { margin: 0 auto; } }
+.crs-battle-who { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; margin-bottom: 6px; font-size: 14px; font-weight: 600; color: #fff; min-width: 0; }
+.crs-battle-who > a, .crs-battle-who > span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.crs-battle-who > .crs-battle-clan { font-size: 12px; font-weight: 600; color: #b9cbe6; }
+.crs-battle-who.is-theirs { align-items: flex-end; }
+/* Stand vor dem Kampf (Medaillen, Trophäen oder Siege) unter Name und Clan */
+.crs-battle-who > .crs-battle-stand { display: inline-flex; align-items: center; gap: 4px; margin-top: 1px; font-family: var(--font-cr); font-weight: 400; font-size: 14px; line-height: 1; color: #fff; text-shadow: var(--cr-text-outline); font-variant-numeric: tabular-nums; }
+.crs-battle-stand img { height: 16px; width: auto; }
+.crs-battle-stand small { margin-left: 3px; font-family: var(--font-sans, inherit); font-size: 11px; font-weight: 700; color: #ffd65c; text-shadow: none; }
+@media (min-width: 820px) { .crs-battle-side.is-theirs .crs-battle-who { align-items: flex-end; } }
+.crs-delta { display: inline-flex; align-items: center; gap: 3px; padding: 1px 7px; border-radius: 7px; font-family: var(--font-cr); font-size: 13px; background: rgba(4, 14, 34, 0.6); color: #c8d4e8; white-space: nowrap; }
+.crs-delta.is-up { color: #7ee79a; }
+.crs-delta.is-down { color: #ff8f91; }
+.crs-battle-more { border-top: 1px solid rgba(2, 8, 20, 0.55); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05); padding: 10px 12px 12px; }
+.crs-vsrow { display: grid; grid-template-columns: minmax(0, 1fr) clamp(120px, 24vw, 190px) minmax(0, 1fr); gap: 10px; align-items: center; padding: 5px 0; font-size: 13.5px; }
+.crs-vsrow > :first-child { text-align: right; }
+.crs-vsrow > :nth-child(2) { text-align: center; font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: rgba(190, 215, 255, 0.6); }
+.crs-vsrow b { font-family: var(--font-cr); font-weight: 400; font-size: 1.1rem; color: #fff; }
+.crs-vsrow .is-better { color: #7ee79a; }
+.crs-iconbtn { display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; border-radius: 10px; color: rgba(255, 255, 255, 0.75); transition: background 0.15s ease, color 0.15s ease; }
+.crs-iconbtn:hover { background: rgba(255, 255, 255, 0.08); color: #fff; }
+.crs-iconbtn svg { transition: transform 0.15s ease; }
+.crs-iconbtn[aria-expanded="true"] svg { transform: rotate(180deg); }
+
+/* ── Tabellen (Mitglieder, Ranglisten) ─────────────────────────────────────────────────────────────────────── */
+.crs-table { width: 100%; border-collapse: separate; border-spacing: 0 4px; font-size: 14px; }
+.crs-table th { padding: 4px 10px; text-align: left; font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: rgba(190, 215, 255, 0.6); white-space: nowrap; }
+.crs-table th > button { display: inline-flex; align-items: center; gap: 4px; font: inherit; letter-spacing: inherit; text-transform: inherit; color: inherit; }
+.crs-table th > button:hover, .crs-table th[aria-sort] > button { color: #fff; }
+.crs-table td { padding: 8px 10px; background: rgba(6, 16, 32, 0.5); border-top: 1px solid rgba(2, 8, 20, 0.6); border-bottom: 1px solid rgba(2, 8, 20, 0.6); vertical-align: middle; }
+.crs-table td:first-child { border-left: 1px solid rgba(2, 8, 20, 0.6); border-radius: 12px 0 0 12px; }
+.crs-table td:last-child { border-right: 1px solid rgba(2, 8, 20, 0.6); border-radius: 0 12px 12px 0; }
+.crs-table tr.is-me td { background: rgba(255, 201, 60, 0.08); border-color: rgba(255, 201, 60, 0.4); }
+.crs-table .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.crs-table .name { font-weight: 600; color: #fff; }
+.crs-rank { display: inline-flex; align-items: center; justify-content: center; min-width: 34px; height: 26px; padding: 0 6px; border-radius: 8px; font-family: var(--font-cr); font-size: 14px; color: #fff; background: rgba(4, 14, 34, 0.7); border: 1px solid rgba(2, 8, 20, 0.8); }
+.crs-rank--1 { background: linear-gradient(to bottom, #ffd65c, #e5a51a); color: #4a2e00; }
+.crs-rank--2 { background: linear-gradient(to bottom, #dfe7f2, #a9b6c9); color: #24303f; }
+.crs-rank--3 { background: linear-gradient(to bottom, #e6a56f, #b8713a); color: #3d2109; }
+.crs-dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: #7f8da6; }
+.crs-dot.is-fresh { background: #4fd36d; }
+.crs-dot.is-stale { background: #ffc93c; }
+.crs-dot.is-cold { background: #ff6b6d; }
+.crs-role { display: inline-block; padding: 1px 7px; border-radius: 6px; font-size: 12px; font-weight: 700; background: rgba(4, 14, 34, 0.6); color: #c8d4e8; white-space: nowrap; }
+.crs-role--leader { color: #ffd65c; }
+.crs-role--coLeader { color: #b9a4ff; }
+.crs-role--elder { color: #8fc0ff; }
+.crs-scroll-x { overflow-x: auto; }
+
+/* ── Kleines ───────────────────────────────────────────────────────────────────────────────────────────────── */
+.crs-select { height: 40px; padding: 0 34px 0 12px; border-radius: 12px; font-size: 14px; font-weight: 600; color: #fff; background: var(--crs-well); border: 2px solid var(--cr-panel-edge); outline: none; }
+.crs-select:focus { border-color: #ffc93c; }
+.crs-savedchip { display: flex; align-items: center; gap: 8px; min-width: 0; padding: 7px 12px 8px; border-radius: 12px; }
+.crs-savedchip b { display: block; font-family: var(--font-cr); font-weight: 400; font-size: 1rem; line-height: 1.15; color: #fff; text-shadow: var(--cr-text-outline); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.crs-savedchip small { display: block; font-size: 11.5px; color: var(--crs-soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.crs-badge { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 10px 6px 8px; text-align: center; }
+.crs-badge > img { width: 64px; height: 64px; object-fit: contain; }
+.crs-badge-name { font-size: 12px; font-weight: 600; line-height: 1.2; color: #fff; overflow-wrap: anywhere; }
+.crs-skel { border-radius: 14px; background: linear-gradient(to bottom, #1a3458, #132a4a); border: 2px solid var(--cr-panel-edge); animation: crsSkel 1.1s ease-in-out infinite alternate; }
+@keyframes crsSkel { from { opacity: 0.55; } to { opacity: 0.9; } }
+.crs-spin { animation: crsSpin 0.8s linear infinite; }
+@keyframes crsSpin { to { transform: rotate(360deg); } }
+.crs-details > summary { cursor: pointer; list-style: none; }
+.crs-details > summary::-webkit-details-marker { display: none; }
+
+/* Vergleich: zwei Werte mit Balken zur Mitte */
+.crs-cmp { display: grid; grid-template-columns: minmax(0, 1fr) clamp(92px, 22vw, 200px) minmax(0, 1fr); gap: 10px; align-items: center; padding: 7px 0; }
+.crs-cmp-val { font-family: var(--font-cr); font-size: 1.2rem; color: #c8d4e8; white-space: nowrap; }
+.crs-cmp-val.is-better { color: #fff; text-shadow: var(--cr-text-outline); }
+.crs-cmp-label { text-align: center; font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: rgba(190, 215, 255, 0.6); }
+.crs-cmp-side { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.crs-cmp-side:first-child { flex-direction: row-reverse; }
+.crs-cmp-side .crs-bar { flex: 1; }
+.crs-cmp-side:first-child .crs-bar > i { inset: 0 0 0 auto; transform-origin: right; }
+
+/* ── Animations-Schalter der CR-Einstellungen und „Bewegung reduzieren" ────────────────────────────────────── */
+html[data-cr-anim="off"] .crs-bar > i,
+html[data-cr-anim="off"] .crs-skel,
+html[data-cr-anim="off"] .crs-spin { animation: none; }
+html[data-cr-anim="off"] .crs-cardlink:hover { transform: none; }
+@media (prefers-reduced-motion: reduce) {
+  .crs-bar > i, .crs-skel { animation: none; }
+}
+
+/* ══ Runde 2 (Nov. 2026): ruhigere Flächen, neue Form-Anzeige, Deck-Zeilen, Sammlung mit Aufwert-Fortschritt ══ */
+
+/* Zeilen-Liste statt vieler Kästen: Symbol, Bezeichnung, Wert rechts — getrennt durch eine eingeprägte Fuge */
+.crs-rows > * { display: flex; align-items: center; gap: 10px; min-width: 0; padding: 9px 2px; }
+.crs-rows > * + * { border-top: 1px solid rgba(2, 8, 20, 0.55); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05); }
+.crs-rows > :first-child { padding-top: 2px; }
+.crs-rows > :last-child { padding-bottom: 2px; }
+.crs-row-label { min-width: 0; font-size: 14px; color: var(--crs-soft); }
+.crs-row-label b { display: block; font-size: 15px; font-weight: 600; color: #fff; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.crs-row-value { margin-left: auto; text-align: right; font-family: var(--font-cr); font-size: 1.12rem; line-height: 1.15; color: #fff; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.crs-row-value small { display: block; font-family: Inter, system-ui, sans-serif; font-size: 12px; color: var(--crs-soft); }
+
+/* Kennzahlen nebeneinander, ohne Kästen: große Zahl, kleine Bezeichnung, Fuge dazwischen */
+.crs-figs { display: flex; flex-wrap: wrap; gap: 12px 0; }
+.crs-fig { flex: 1 1 110px; min-width: 0; padding: 0 14px; }
+.crs-fig:first-child { padding-left: 0; }
+.crs-fig + .crs-fig { border-left: 1px solid rgba(2, 8, 20, 0.6); box-shadow: inset 1px 0 0 rgba(255, 255, 255, 0.05); }
+.crs-fig-value { display: flex; align-items: center; gap: 6px; font-family: var(--font-cr); font-size: 1.45rem; line-height: 1.1; color: #fff; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.crs-fig-value small { font-family: Inter, system-ui, sans-serif; font-size: 13px; font-weight: 600; color: var(--crs-soft); }
+.crs-fig-label { margin-top: 2px; font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: rgba(190, 215, 255, 0.6); }
+@media (max-width: 480px) { .crs-fig { flex-basis: 50%; padding: 0 10px 0 0; } .crs-fig + .crs-fig { border-left: 0; box-shadow: none; } }
+
+/* Deck als eine Zeile: Karten links, Kennzahlen und Knöpfe rechts */
+.crs-deckline { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px 20px; align-items: center; padding: 12px 14px; border-radius: 14px; background: linear-gradient(to bottom, #1c3860, #132a4a); border: 1px solid rgba(2, 8, 20, 0.6); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1), 0 3px 0 rgba(2, 8, 20, 0.5); }
+@media (min-width: 860px) { .crs-deckline { grid-template-columns: minmax(0, 510px) minmax(0, 1fr); } .crs-deckline--ranked { grid-template-columns: 38px minmax(0, 480px) minmax(0, 1fr); } }
+.crs-deckline-info { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.crs-deckline-top { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 16px; }
+.crs-deckline-big { font-family: var(--font-cr); font-size: 1.55rem; line-height: 1; color: #fff; text-shadow: var(--cr-text-outline); font-variant-numeric: tabular-nums; }
+.crs-deckline-big small { margin-left: 5px; font-family: Inter, system-ui, sans-serif; font-size: 12px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: rgba(190, 215, 255, 0.65); text-shadow: none; }
+.crs-deckline-sub { font-size: 13px; color: var(--crs-soft); }
+.crs-deckline-foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 14px; }
+.crs-squarebtn { display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; border-radius: 10px; color: #fff; }
+
+/* In einer Deck-Zeile stehen die acht Karten immer nebeneinander — am Handy kleiner und nur mit der Level-Zahl */
+.crs-deckline .crs-deck { grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 4px; }
+@media (max-width: 639px) {
+  .crs-deckline { padding: 10px; }
+  .crs-deckline .crs-lvl-pre { display: none; }
+  .crs-deckline .crs-card-lvl { font-size: 10px; margin-top: -5px; padding: 0 3px 1px; border-radius: 5px; }
+}
+
+/* Sammlung: Vorrat für das nächste Level als schmaler Balken unter dem Level */
+.crs-card-prog { display: block; height: 5px; margin: 3px 8% 0; border-radius: 3px; background: var(--crs-well); box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.5); overflow: hidden; }
+.crs-card-prog > i { display: block; height: 100%; border-radius: 3px; background: #6aa3ff; }
+.crs-card-prog.is-ready > i { background: #4fd36d; }
+.crs-card-count { display: block; margin-top: 1px; text-align: center; font-size: 10.5px; line-height: 1.2; color: var(--crs-soft); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.crs-card-count.is-ready { color: #7ee79a; font-weight: 700; }
+
+/* Sortierrichtung neben einer Auswahl */
+.crs-sort { display: inline-flex; align-items: stretch; }
+.crs-sort > .crs-select { border-radius: 12px 0 0 12px; border-right-width: 0; }
+.crs-sort > button { display: inline-flex; align-items: center; justify-content: center; width: 40px; border-radius: 0 12px 12px 0; color: #fff; background: linear-gradient(to bottom, #22467a, #173257); border: 2px solid var(--cr-panel-edge); }
+.crs-sort > button:hover { background: linear-gradient(to bottom, #2a5591, #1c3d69); }
+.crs-sort > button:focus-visible { outline: 3px solid #ffc93c; outline-offset: 2px; }
+
+/* Kartenwahl (Deck-Filter) */
+.crs-pick { position: relative; }
+.crs-pick-panel { position: absolute; left: 0; top: calc(100% + 6px); z-index: 40; width: min(92vw, 520px); max-height: min(60vh, 460px); overflow-y: auto; padding: 10px; border-radius: 14px; border: 3px solid var(--cr-panel-edge); background: #10223f; box-shadow: 0 6px 0 rgba(2, 8, 20, 0.55), 0 18px 30px rgba(2, 8, 20, 0.5); }
+.crs-pick-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(52px, 1fr)); gap: 6px; }
+.crs-pick-grid > button { border-radius: 6px; }
+.crs-pick-grid > button[aria-pressed="true"] { outline: 3px solid #ffc93c; outline-offset: 1px; }
+.crs-pick-grid > button:hover { filter: brightness(1.12); }
+
+/* Deck-Baukasten (BuilderPage.jsx): Deck 4 × 2 wie im Spiel, leere Plätze gestrichelt; Pool mit Elixier-Tropfen */
+.crs-build-slots { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px 7px; max-width: 380px; }
+.crs-build-slot { display: block; padding: 0; border: 0; background: none; border-radius: 8px; cursor: pointer; }
+.crs-build-slot:not(.is-empty):hover { filter: brightness(1.12); }
+.crs-build-slot.is-empty { aspect-ratio: 4 / 5; border: 2px dashed rgba(225, 238, 255, 0.2); background: rgba(4, 14, 34, 0.45); cursor: default; }
+.crs-build-pool { display: grid; grid-template-columns: repeat(auto-fill, minmax(62px, 1fr)); gap: 10px 7px; }
+.crs-build-pool > button { position: relative; padding: 0; border: 0; background: none; border-radius: 6px; cursor: pointer; }
+.crs-build-pool > button[aria-pressed="true"] { outline: 3px solid #ffc93c; outline-offset: 1px; }
+.crs-build-pool > button:disabled { opacity: 0.35; cursor: not-allowed; }
+.crs-build-pool > button:not(:disabled):hover { filter: brightness(1.12); }
+.crs-build-cost { position: absolute; top: -6px; left: -6px; z-index: 1; display: flex; align-items: center; justify-content: center; filter: drop-shadow(0 2px 0 rgba(2, 8, 20, 0.6)); }
+.crs-build-cost > b { position: absolute; font-family: var(--font-cr); font-weight: 400; font-size: 12px; line-height: 1; color: #fff; text-shadow: var(--cr-text-outline); }
+
+
+/* ══ Runde 3 (Nov. 2026): Decks wie im Spiel (4 × 2, Turmtruppe daneben), Bilanz als Ring, Kopfbanner mit Motiv aus
+   dem Spiel, Ranglisten mit großen Decks, Deck-Seite, alle Evolutionen und Helden ══ */
+
+/* Deck 4 × 2; die Turmtruppe steht rechts daneben, durch eine eingeprägte Fuge abgesetzt */
+.crs-deck4 { display: flex; align-items: center; gap: 10px; min-width: 0; width: 100%; }
+.crs-deck4-cards { flex: 4 1 0; min-width: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 7px 5px; }
+.crs-deck4-cards.is-wait > span { aspect-ratio: 4 / 5; border-radius: 6px; background: rgba(4, 14, 34, 0.5); }
+/* Turmtruppe ohne Trennstrich, etwas kleiner als eine Karte direkt daneben — so ist sie als Zusatz erkennbar */
+.crs-deck4-tower { flex: 0.78 1 0; min-width: 0; }
+.crs-deck4--lg { gap: 12px; max-width: 560px; }
+.crs-deck4--lg .crs-deck4-cards { gap: 12px 9px; }
+.crs-deck4--sm { gap: 6px; max-width: 216px; }
+.crs-deck4--sm .crs-deck4-cards { gap: 3px; }
+@media (max-width: 479px) { .crs-deck4--lg { gap: 10px; } .crs-deck4--lg .crs-deck4-cards { gap: 8px 5px; } .crs-deck4--lg .crs-lvl-pre { display: none; } }
+
+/* Kopfbanner einer Übersichtsseite: Motiv aus dem Spiel, davor Abzeichen und Titel in der Spielschrift */
+.crs-banner { overflow: hidden; }
+.crs-banner-art { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: center 28%; border-radius: 17px; }
+.crs-banner-body {
+  position: relative; display: flex; align-items: center; gap: 16px; min-height: 148px; padding: 20px 18px; border-radius: 17px;
+  background: linear-gradient(to right, rgba(9, 20, 40, 0.94) 0%, rgba(9, 20, 40, 0.7) 42%, rgba(9, 20, 40, 0.12) 100%);
+}
+@media (min-width: 768px) { .crs-banner-body { min-height: 176px; padding: 24px 28px; gap: 20px; } }
+.crs-banner-badge { flex-shrink: 0; }
+.crs-banner-badge img { display: block; width: 68px; height: 68px; object-fit: contain; filter: drop-shadow(0 5px 0 rgba(2, 8, 20, 0.45)); }
+@media (min-width: 768px) { .crs-banner-badge img { width: 92px; height: 92px; } }
+.crs-banner-title { font-family: var(--font-cr); font-weight: 400; font-size: clamp(2rem, 6.5vw, 3.4rem); line-height: 1; color: #fff; text-shadow: var(--cr-text-outline-thick); }
+.crs-banner-sub { margin-top: 8px; max-width: 58ch; font-size: 14px; line-height: 1.45; color: #dbe9ff; text-shadow: 0 1px 2px rgba(2, 8, 20, 0.9); }
+
+/* Podest der drei Besten im Banner der Startseite (ScoutHomePage.jsx). Schmal: unter dem Titel auf dunkler Leiste;
+   ab 900px BANNER-Breite rechts im Banner, die Stufen stehen auf der Unterkante. Bewusst eine Container-Abfrage statt
+   Fensterbreite: zwischen 1280 und ~1530px Fenster stehen die Seitenspalten daneben und der Banner ist schmal —
+   „Clash Royale Stats“ bräche sonst dreizeilig um und liefe ins Podest. */
+.crs-banner--podium { container-type: inline-size; }
+.crs-podium { position: relative; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 10px 12px 0; background: rgba(9, 20, 40, 0.86); border-radius: 0 0 17px 17px; }
+.crs-podium-row { display: flex; align-items: flex-end; gap: 6px; width: 100%; max-width: 380px; margin: 0; padding: 0; list-style: none; }
+.crs-podium-col { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; align-items: center; }
+.crs-podium-name { display: block; max-width: 100%; padding: 0 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 700; font-size: 13px; color: #fff; text-shadow: var(--cr-text-outline); }
+.crs-podium-score { display: flex; align-items: center; gap: 4px; margin: 2px 0 5px; font-family: var(--font-cr); font-size: 14px; line-height: 1; color: #fff; text-shadow: var(--cr-text-outline); font-variant-numeric: tabular-nums; }
+.crs-podium-score img { height: 16px; width: auto; }
+.crs-podium-step {
+  display: flex; align-items: flex-start; justify-content: center; width: 100%; padding-top: 4px;
+  font-family: var(--font-cr); font-size: 1.6rem; line-height: 1;
+  border: 3px solid rgba(2, 8, 20, 0.8); border-bottom: 0; border-radius: 10px 10px 0 0;
+  box-shadow: inset 0 4px 0 rgba(255, 255, 255, 0.35);
+}
+.crs-podium-col--1 .crs-podium-step { height: 60px; background: #f2bd3a; color: #4a2e00; }
+.crs-podium-col--2 .crs-podium-step { height: 44px; background: #c3cedc; color: #24303f; }
+.crs-podium-col--3 .crs-podium-step { height: 32px; background: #cf8a52; color: #3d2109; }
+.crs-podium-col--1 .crs-podium-name { font-size: 14px; }
+@container (min-width: 900px) {
+  /* Rechts hinter dem Podest wieder abdunkeln, damit Namen und Zahlen auf jedem Motiv lesbar bleiben */
+  .crs-banner--podium .crs-banner-body {
+    padding-right: 420px;
+    background: linear-gradient(to right, rgba(9, 20, 40, 0.94) 0%, rgba(9, 20, 40, 0.7) 40%, rgba(9, 20, 40, 0.22) 58%, rgba(9, 20, 40, 0.6) 76%, rgba(9, 20, 40, 0.72) 100%);
+  }
+  .crs-podium { position: absolute; right: 22px; bottom: 0; width: 380px; padding: 0; background: none; border-radius: 0; }
+}
+
+/* Wechselnder Hintergrund der Stats-Seiten (StatsBackdrop.jsx): zwei Bildebenen blenden ineinander, darüber dieselbe
+   Lichtschicht und Abdunklung wie beim fest gewählten Hintergrund (index.css, .cr-root[data-crbg="custom"]). */
+.crs-rotbg { position: absolute; inset: 0; overflow: hidden; pointer-events: none; background: #0b1a30; }
+.crs-rotbg__img { position: absolute; inset: 0; background-size: cover; background-position: center; background-repeat: no-repeat; transition-property: opacity; transition-timing-function: ease; }
+.crs-rotbg__shade {
+  position: absolute; inset: 0;
+  background-image:
+    radial-gradient(120% 65% at 50% -8%, rgba(140, 205, 255, 0.16) 0%, rgba(140, 205, 255, 0) 62%),
+    linear-gradient(to bottom, rgba(5, 12, 28, 0.42), rgba(5, 12, 28, 0.62));
+}
+
+/* Kopf der Spielerseite: dasselbe Motiv liegt gedämpft hinter Name und Arena */
+.crs-hero-top.has-art { background: linear-gradient(to right, rgba(20, 44, 84, 0.96) 0%, rgba(20, 44, 84, 0.8) 48%, rgba(20, 44, 84, 0.35) 100%), var(--crs-hero-art) center 24% / cover no-repeat; }
+
+/* Deck-Seite: Kopf mit dem Deck links und den Zahlen rechts, darunter die Gegner-Decks als Kacheln */
+.crs-deckhero { display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px; padding: 18px; align-items: center; }
+@media (min-width: 860px) { .crs-deckhero { grid-template-columns: minmax(0, 460px) minmax(0, 1fr); gap: 32px; padding: 26px; } }
+.crs-deckhero-info { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.crs-deckhero-nums { display: flex; flex-wrap: wrap; gap: 10px 28px; }
+.crs-deckhero-nums b { display: block; font-family: var(--font-cr); font-weight: 400; font-size: 2.1rem; line-height: 1; color: #fff; text-shadow: var(--cr-text-outline); }
+.crs-deckhero-nums span { display: block; margin-top: 4px; font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: rgba(190, 215, 255, 0.6); }
+.crs-vslist { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; }
+@media (min-width: 900px) { .crs-vslist { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.crs-vsdeck {
+  display: flex; align-items: center; gap: 16px; min-width: 0; padding: 12px 14px; border-radius: 14px; text-decoration: none;
+  background: linear-gradient(to bottom, #1c3860, #132a4a); border: 1px solid rgba(2, 8, 20, 0.6); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1), 0 3px 0 rgba(2, 8, 20, 0.5);
+  transition: transform 0.12s ease;
+}
+.crs-vsdeck:hover { transform: translateY(-2px); }
+.crs-vsdeck:focus-visible { outline: 3px solid #ffc93c; outline-offset: 2px; }
+.crs-vsdeck > .crs-deck4 { flex: 0 0 auto; width: 46%; max-width: 216px; }
+.crs-cardrecs { display: grid; grid-template-columns: repeat(auto-fill, minmax(58px, 1fr)); gap: 10px 8px; }
+.crs-cardrecs > span { min-width: 0; text-align: center; }
+.crs-cardrecs b { display: block; margin-top: 3px; font-family: var(--font-cr); font-weight: 400; font-size: 1.05rem; line-height: 1.1; }
+.crs-cardrecs small { display: block; font-size: 11px; color: var(--crs-soft); }
+
+/* Matchups (matchupParts.jsx): Bilanz gegen Deck-Typen — Karte, Name + Balken, Quote; zwei Spalten, wenn Platz ist */
+.crs-murows { display: grid; grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr)); gap: 12px 28px; }
+.crs-murow { display: grid; grid-template-columns: 2.4rem minmax(0, 1fr) 3.2rem; align-items: center; gap: 12px; }
+/* Karte gegen Karte: sechs Karten je Liste — auf dem Handy 3 × 2 statt 5 + 1, ab Tablet eine Reihe */
+.crs-cardrecs--six { grid-template-columns: repeat(3, minmax(0, 76px)); }
+@media (min-width: 768px) { .crs-cardrecs--six { grid-template-columns: repeat(6, minmax(0, 1fr)); } }
+
+/* Sammlung: Raster für Evolutionen, Helden und Turmtruppen; Zähler rechts im Flächenkopf */
+.crs-formgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(76px, 1fr)); gap: 12px 8px; }
+.crs-formgrid .crs-card-count { white-space: normal; overflow-wrap: anywhere; }
+.crs-card--missing .crs-card-count { opacity: 0.6; }
+.crs-count { font-family: var(--font-cr); font-size: 1.1rem; color: var(--crs-soft); white-space: nowrap; }
+.crs-count b { font-weight: 400; font-size: 1.5rem; color: #fff; }
+
+html[data-cr-anim="off"] .crs-vsdeck:hover { transform: none; }
+
+/* ══ Runde 4 (Nov. 2026): Formkurve, Rangliste einspaltig mit Deck in einer Reihe, Startseite mit Seitenspalten,
+   Modus-Abzeichen im Kampf, Duell-Sets (Crown Series) ══ */
+
+/* Deck in einer Reihe (Rangliste): acht Karten nebeneinander, die Turmtruppe dahinter */
+.crs-deck4--row { gap: 12px; max-width: 760px; }
+.crs-deck4--row .crs-deck4-cards { flex: 8 1 0; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 6px; }
+.crs-deck4--row .crs-deck4-tower { flex: 0.62 1 0; } /* in der Reihe noch etwas kleiner als im 4×2-Deck */
+
+/* Rangliste der Spieler: eine Zeile je Spieler — Platz, Name mit Clan und Medaillen, das Deck groß daneben */
+.crs-ranklist { display: flex; flex-direction: column; gap: 8px; }
+.crs-rankrow {
+  display: grid; grid-template-columns: 44px minmax(0, 1fr); align-items: center; gap: 10px 14px; padding: 12px 14px; border-radius: 14px;
+  background: linear-gradient(to bottom, #1c3860, #132a4a); border: 1px solid rgba(2, 8, 20, 0.6); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1), 0 3px 0 rgba(2, 8, 20, 0.5);
+}
+.crs-rankrow > .crs-rank { justify-self: start; }
+.crs-rankrow-who { min-width: 0; }
+.crs-rankrow-score { display: flex; align-items: center; gap: 6px; margin-top: 8px; font-family: var(--font-cr); font-size: 1.35rem; line-height: 1; color: #fff; text-shadow: var(--cr-text-outline); font-variant-numeric: tabular-nums; }
+.crs-rankrow-deck { min-width: 0; grid-column: 1 / -1; }
+.crs-rankrow-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-top: 6px; }
+@media (min-width: 900px) {
+  .crs-rankrow { grid-template-columns: 44px minmax(160px, 210px) minmax(0, 1fr); }
+  .crs-rankrow-deck { grid-column: auto; }
+}
+
+/* Startseite: Mitte breit, links Favoriten, rechts zuletzt Angesehenes */
+.crs-homegrid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; align-items: start; }
+@media (min-width: 1280px) {
+  .crs-homegrid { grid-template-columns: minmax(200px, 250px) minmax(0, 1104px) minmax(200px, 250px); justify-content: center; }
+  .crs-homegrid-left { grid-column: 1; grid-row: 1; }
+  .crs-homegrid-main { grid-column: 2; grid-row: 1; }
+  .crs-homegrid-right { grid-column: 3; grid-row: 1; }
+  .crs-homegrid-foot { grid-column: 2; grid-row: 2; }
+}
+.crs-savedlist { display: flex; flex-direction: column; }
+.crs-savedlist > a { display: flex; align-items: center; gap: 10px; min-width: 0; padding: 8px 4px; border-radius: 8px; text-decoration: none; transition: background 0.15s ease; }
+.crs-savedlist > a + a { border-top: 1px solid rgba(2, 8, 20, 0.55); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05); }
+.crs-savedlist > a:hover { background: rgba(255, 255, 255, 0.05); }
+.crs-savedlist > a:focus-visible { outline: 3px solid #ffc93c; outline-offset: 1px; }
+.crs-savedlist b { display: block; font-family: var(--font-cr); font-weight: 400; font-size: 1rem; line-height: 1.15; color: #fff; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.crs-savedlist small { display: block; font-size: 12px; color: var(--crs-soft); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Übrige Stats-Seiten (ScoutFrame): Favoriten links, zuletzt Angesehenes rechts in den Rändern; beide laufen beim
+   Scrollen mit (lange Ranglisten). Erst ab 1536 px — dort wird der Inhalt dafür kaum schmaler (≥ 1056 statt 1104 px);
+   darunter stehen beide nur auf der Startseite. Die Mitte ist so breit wie die Navigationszeile darüber. */
+.crs-sidegrid-left, .crs-sidegrid-right { display: none; }
+@media (min-width: 1536px) {
+  .crs-main--side { max-width: 1720px; }
+  /* Die Mitte hat Vorrang (bis 1104 px, Rest minus 2 × 200 px Rand und 2 × 16 px Abstand); die Ränder bekommen, was übrig bleibt */
+  .crs-sidegrid { display: grid; grid-template-columns: minmax(200px, 250px) min(1104px, calc(100% - 432px)) minmax(200px, 250px); gap: 16px; justify-content: center; align-items: start; }
+  .crs-sidegrid-main { grid-column: 2; grid-row: 1; }
+  .crs-sidegrid-left, .crs-sidegrid-right { display: block; grid-row: 1; min-width: 0; position: sticky; top: 16px; }
+  .crs-sidegrid-left { grid-column: 1; }
+  .crs-sidegrid-right { grid-column: 3; }
+  /* Lange Favoritenlisten scrollen in sich, damit die Fläche ganz im Bild bleibt (Polster: Fokusrahmen nicht abschneiden) */
+  .crs-sidegrid .crs-savedlist { max-height: calc(100dvh - 140px); overflow-y: auto; padding: 4px; margin: -4px; scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, 0.16) transparent; }
+}
+
+/* Letzte Kämpfe: Kopfzeile mit Siegquote und Bilanz */
+.crs-formhead { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 26px; margin-bottom: 14px; }
+.crs-formhead-rate b { display: block; font-family: var(--font-cr); font-weight: 400; font-size: 2.5rem; line-height: 1; color: #fff; text-shadow: var(--cr-text-outline-thick); }
+.crs-formhead-rate span { display: block; margin-top: 3px; font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: rgba(190, 215, 255, 0.6); }
+.crs-formhead-rec { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--crs-soft); }
+.crs-formhead-rec > span { display: inline-flex; align-items: center; gap: 7px; }
+.crs-formhead-rec b { font-family: var(--font-cr); font-weight: 400; font-size: 1.3rem; line-height: 1; }
+.crs-formhead-rec .is-win b { color: #8fc0ff; }
+.crs-formhead-rec .is-loss b { color: #ff8f91; }
+.crs-streak { display: inline-flex; align-items: center; gap: 7px; margin-left: auto; padding: 5px 12px 5px 6px; border-radius: 999px; font-family: var(--font-cr); font-size: 1rem; color: #fff; background: rgba(4, 14, 34, 0.6); border: 1px solid rgba(2, 8, 20, 0.8); }
+.crs-streak img { width: 26px; height: 26px; object-fit: contain; }
+.crs-streak.is-win { color: #8fc0ff; }
+.crs-streak.is-loss { color: #ff8f91; }
+
+/* Formkurve: Linie der Netto-Bilanz, Punkte je Kampf, Tagesgrenzen; darunter die Tage */
+.crs-trail { position: relative; margin: 0 12px; }
+.crs-trail-plot { position: relative; height: 150px; }
+.crs-trail-plot > svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.crs-trail-area.is-up { fill: rgba(61, 139, 255, 0.2); }
+.crs-trail-area.is-down { fill: rgba(255, 85, 87, 0.2); }
+.crs-trail-zero { stroke: rgba(225, 238, 255, 0.28); stroke-width: 1.5; stroke-dasharray: 4 4; vector-effect: non-scaling-stroke; }
+.crs-trail-line { fill: none; stroke: #e1eeff; stroke-width: 2.5; stroke-linejoin: round; stroke-linecap: round; vector-effect: non-scaling-stroke; }
+.crs-trail-sep { position: absolute; top: 0; bottom: 0; width: 0; border-left: 1px dashed rgba(225, 238, 255, 0.18); }
+.crs-trail-dot { position: absolute; width: 12px; height: 12px; margin: -6px 0 0 -6px; border-radius: 50%; border: 2px solid #0b1a30; background: var(--crs-draw); transition: transform 0.12s ease; }
+.crs-trail-dot.is-win { background: var(--crs-win); }
+.crs-trail-dot.is-loss { background: var(--crs-loss); }
+.crs-trail-dot:hover { transform: scale(1.5); z-index: 1; }
+.crs-trail-end { position: absolute; right: -8px; transform: translate(100%, -50%); font-family: var(--font-cr); font-size: 1rem; line-height: 1; text-shadow: var(--cr-text-outline); }
+.crs-trail-end.is-up { color: #8fc0ff; }
+.crs-trail-end.is-down { color: #ff8f91; }
+.crs-trail-days { position: relative; height: 38px; margin-top: 6px; }
+.crs-trail-days > span { position: absolute; top: 0; display: flex; flex-direction: column; align-items: center; text-align: center; overflow: hidden; }
+.crs-trail-days small { max-width: 100%; font-size: 11px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: rgba(190, 215, 255, 0.6); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.crs-trail-days b { font-family: var(--font-cr); font-weight: 400; font-size: 1rem; line-height: 1.2; color: rgba(225, 238, 255, 0.55); white-space: nowrap; }
+.crs-trail-days > span.is-narrow small { display: none; }
+.crs-trail-days > span.is-narrow b { font-size: 0.85rem; }
+.crs-trail-days i, .crs-modepills i { font-style: normal; }
+.crs-trail-days .is-win, .crs-modepills .is-win { color: #8fc0ff; }
+.crs-trail-days .is-loss, .crs-modepills .is-loss { color: #ff8f91; }
+@media (max-width: 479px) { .crs-trail-plot { height: 120px; } .crs-trail { margin-right: 26px; } }
+
+/* Bilanz je Modus als Plaketten (mit Modus-Abzeichen) */
+.crs-modepills { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+.crs-modepills > span { display: inline-flex; align-items: center; gap: 7px; padding: 5px 11px 5px 7px; border-radius: 10px; background: var(--crs-well); border: 1px solid rgba(2, 8, 20, 0.8); box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.35); font-size: 13px; color: var(--crs-soft); }
+.crs-modepills b { font-family: var(--font-cr); font-weight: 400; font-size: 1.05rem; color: #fff; }
+.crs-modepill-name { white-space: nowrap; }
+
+/* Kampf: Trophäen-/Medaillen-Änderung unter dem Ergebnis, Runden im Duell */
+.crs-change { display: inline-flex; align-items: center; gap: 5px; padding: 3px 11px 3px 7px; border-radius: 10px; font-family: var(--font-cr); font-size: 1.25rem; line-height: 1; background: rgba(4, 14, 34, 0.6); text-shadow: var(--cr-text-outline); }
+.crs-change img { width: 22px; height: 22px; object-fit: contain; }
+.crs-change small { margin-left: 2px; font-size: 0.8rem; color: var(--crs-soft); }
+.crs-change.is-up { color: #7ee79a; }
+.crs-change.is-down { color: #ff8f91; }
+.crs-round { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: rgba(190, 215, 255, 0.6); }
+.crs-round b { font-family: var(--font-cr); font-weight: 400; font-size: 0.95rem; letter-spacing: 0; color: #fff; }
+.crs-round.is-win b { color: #8fc0ff; }
+.crs-round.is-loss b { color: #ff8f91; }
+
+/* Duell-Set: bis zu vier Decks im Raster (Profil, Crown-Series-Seite) */
+.crs-duelset { display: grid; grid-template-columns: minmax(0, 1fr); gap: 18px 22px; }
+@media (min-width: 720px) { .crs-duelset { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.crs-duelset-card { padding: 16px; }
+@media (min-width: 768px) { .crs-duelset-card { padding: 20px; } }
+.crs-duelset-head { display: flex; align-items: center; gap: 12px; min-width: 0; margin-bottom: 14px; }
+.crs-setdeck { min-width: 0; padding: 12px; border-radius: 14px; background: rgba(4, 14, 34, 0.35); border: 1px solid rgba(2, 8, 20, 0.6); }
+.crs-setdeck-head { display: flex; align-items: center; gap: 10px; min-width: 0; margin: -12px -12px 12px; padding: 8px 12px; border-radius: 14px 14px 0 0; background: rgba(4, 14, 34, 0.55); border-bottom: 1px solid rgba(2, 8, 20, 0.7); }
+/* Deck-Seite: „Gespielt von" als Raster mit Platz, Name und Clan */
+.crs-playedby { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 6px 10px; }
+.crs-playedby-item { display: grid; grid-template-columns: minmax(44px, auto) minmax(0, 1fr); column-gap: 8px; align-items: center; padding: 7px 10px; border-radius: 12px; background: var(--crs-well); border: 1px solid rgba(2, 8, 20, 0.8); text-decoration: none !important; }
+.crs-playedby-item:hover { background: #0d1d36; }
+.crs-playedby--plain .crs-playedby-item { grid-template-columns: minmax(0, 1fr); }
+.crs-playedby--plain .crs-playedby-item small { grid-column: 1; }
+.crs-playedby-item b { min-width: 0; font-family: var(--font-cr); font-weight: 400; font-size: 1rem; color: #fff; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.crs-playedby-item small { grid-column: 2; min-width: 0; font-size: 12px; color: var(--crs-soft); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.crs-playedby-n { grid-row: span 2; display: flex; align-items: center; justify-content: center; height: 26px; padding: 0 6px; border-radius: 8px; font-family: var(--font-cr); font-size: 13px; color: #fff; background: rgba(4, 14, 34, 0.7); }
+/* Platz 1–3 wie in den Ranglisten in Gold, Silber, Bronze */
+.crs-playedby-n.crs-rank--1 { background: linear-gradient(to bottom, #ffd65c, #e5a51a); color: #4a2e00; }
+.crs-playedby-n.crs-rank--2 { background: linear-gradient(to bottom, #dfe7f2, #a9b6c9); color: #24303f; }
+.crs-playedby-n.crs-rank--3 { background: linear-gradient(to bottom, #e6a56f, #b8713a); color: #3d2109; }
+
+html[data-cr-anim="off"] .crs-trail-dot:hover { transform: none; }
+
+/* ══ Duell Runde für Runde (Crown Series, Clankriegs-Duell) ══ */
+.crs-duel { padding: 12px 14px 14px; }
+.crs-duel-top { display: grid; grid-template-columns: minmax(0, 1fr) 150px minmax(0, 1fr); align-items: center; gap: 12px; padding-bottom: 12px; }
+.crs-duel-round {
+  display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; align-items: center; padding: 12px 0;
+  border-top: 1px solid rgba(2, 8, 20, 0.6); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+.crs-duel-round > .crs-deck4, .crs-duel-theirs > .crs-deck4 { max-width: 350px; }
+.crs-duel-theirs { display: flex; justify-content: flex-start; min-width: 0; }
+.crs-duel-mid { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 6px; border-radius: 12px; background: var(--crs-well); border: 1px solid rgba(2, 8, 20, 0.8); box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.35); }
+.crs-duel-mid > b { font-family: var(--font-cr); font-weight: 400; font-size: 1.6rem; line-height: 1; color: #fff; text-shadow: var(--cr-text-outline); }
+.crs-duel-mid > b > i { font-style: normal; margin: 0 4px; color: rgba(225, 238, 255, 0.5); }
+.crs-duel-label { font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: rgba(190, 215, 255, 0.6); }
+.crs-duel-res { font-family: var(--font-cr); font-size: 0.95rem; line-height: 1.1; color: #c8d4e8; }
+.crs-duel-round.is-win .crs-duel-mid { border-color: rgba(61, 139, 255, 0.7); }
+.crs-duel-round.is-win .crs-duel-res { color: #8fc0ff; }
+.crs-duel-round.is-loss .crs-duel-mid { border-color: rgba(255, 85, 87, 0.7); }
+.crs-duel-round.is-loss .crs-duel-res { color: #ff8f91; }
+@media (min-width: 820px) {
+  .crs-duel-round { grid-template-columns: minmax(0, 1fr) 150px minmax(0, 1fr); gap: 12px; }
+  .crs-duel-theirs { justify-content: flex-end; }
+}
+@media (max-width: 819px) {
+  .crs-duel-top { grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); }
+  .crs-duel-round > .crs-deck4, .crs-duel-theirs > .crs-deck4 { margin: 0 auto; }
+  .crs-duel-theirs { justify-content: center; }
+  .crs-duel-mid { flex-direction: row; justify-content: center; gap: 12px; }
+}
+
+/* Siegesserie als Flamme mit Zahl */
+.crs-flame { position: relative; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; filter: drop-shadow(0 3px 0 rgba(2, 8, 20, 0.45)); }
+.crs-flame > svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.crs-flame > b { position: relative; margin-top: 30%; font-family: var(--font-cr); font-weight: 400; font-size: 0.95rem; line-height: 1; color: #fff; text-shadow: var(--cr-text-outline-thick); }
+.crs-plaque > .crs-flame { width: 42px; }
+
+/* Kopieren-Knopf mit Menü (parts.jsx DeckShare): Im Spiel öffnen, Link kopieren, QR-Code */
+.crs-share { position: relative; display: inline-flex; }
+.crs-share-menu {
+  position: absolute; z-index: 40; right: 0; top: calc(100% + 6px); display: flex; flex-direction: column; min-width: 190px; padding: 5px;
+  border-radius: 12px; background: #0d1b31; border: 2px solid var(--cr-panel-edge); box-shadow: 0 12px 28px rgba(2, 8, 20, 0.6);
+}
+.crs-share-menu > a, .crs-share-menu > button {
+  display: flex; align-items: center; gap: 9px; width: 100%; padding: 8px 10px; border-radius: 8px; text-align: left;
+  font-size: 14px; font-weight: 600; color: #fff; text-decoration: none; white-space: nowrap;
+}
+.crs-share-menu > a:hover, .crs-share-menu > button:hover, .crs-share-menu > a:focus-visible, .crs-share-menu > button:focus-visible { background: rgba(255, 255, 255, 0.1); outline: none; }

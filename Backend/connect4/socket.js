@@ -13,6 +13,14 @@ const STALE_AFTER_MS = 30 * 60 * 1000; // Partie ohne verbundene Spieler/Zuschau
 const games = new Map(); // code -> game
 const socketIndex = new Map(); // socket.id -> { code, role: "player" | "spectator", slot }
 
+// Admin-Reiter „Spiele“ (lib/spielStatistik.js): offene Partien, verbundene Spieler, begonnene Partien
+const { meldeSpielAn, zaehlePartie } = require("../lib/spielStatistik");
+meldeSpielAn("connect4", () => {
+  let spieler = 0;
+  for (const game of games.values()) for (const slot of [1, 2]) if (game.players[slot]?.connected) spieler += 1;
+  return { raeume: games.size, spieler };
+});
+
 function generateCode() {
   let code;
   do {
@@ -126,6 +134,7 @@ function clearDisconnectTimer(player) {
 function startIfReady(game) {
   if (game.status === "waiting" && game.players[1] && game.players[2]) {
     game.status = "playing";
+    zaehlePartie("connect4");
   }
 }
 
@@ -137,6 +146,7 @@ function resetForRematch(game) {
   game.startingSlot = otherSlot(game.startingSlot);
   game.turn = game.startingSlot;
   game.status = game.players[1] && game.players[2] ? "playing" : "waiting";
+  if (game.status === "playing") zaehlePartie("connect4"); // Revanche = neue Partie
 }
 
 // Ein Sitzplatz wird frei (verlassen oder Reconnect-Timeout abgelaufen) — Partie

@@ -50,6 +50,9 @@ function antiCheatDeps() {
       // Custom-Level für eine Serien-Runde auflösen (Phase 4): ohne Datenbank/Level-Dienst werden Custom-Runden
       // im Plan einfach zu Zufallsrunden (roomManager.js) — die Räume laufen also auch ohne das weiter.
       resolveCustomLevel: (code) => rt.levelService.roundLevel(code),
+      // Zufallsrunden bekommen ihren Seed aus dem Level-Vorrat (levelVorrat.js): Das Level ist dann schon gebaut und hat
+      // die Güte-Schwelle bestanden. Ist der Vorrat leer, wird wie bisher gewürfelt und im Browser gebaut.
+      randomSeed: (biome) => rt.vorrat.nimm(biome) || crypto.randomBytes(4).toString('hex'),
     };
   } catch (e) {
     console.error('[seed-runners] Anti-Cheat nicht verfügbar, Räume laufen ohne Prüfung:', e);
@@ -60,6 +63,8 @@ function antiCheatDeps() {
 function getManager(io) {
   if (manager) return manager;
   manager = createRoomManager({
+    // (ohne Datenbank: gewürfelter Seed; mit ihr überschreibt antiCheatDeps das mit dem Level-Vorrat)
+    randomSeed: () => crypto.randomBytes(4).toString('hex'),
     ...antiCheatDeps(),
     // Räume heißen "sr:CODE": Connect4 nutzt seine Codes ungeprefixt als Raumnamen, ein gleicher
     // Code dort dürfte hier nicht mithören.
@@ -69,7 +74,6 @@ function getManager(io) {
     emitRoomVolatile: (code, event, payload) => io.to(`sr:${code}`).volatile.emit(event, payload),
     joinRoom: (socketId, code) => io.in(socketId).socketsJoin(`sr:${code}`),
     leaveRoom: (socketId, code) => io.in(socketId).socketsLeave(`sr:${code}`),
-    randomSeed: () => crypto.randomBytes(4).toString('hex'),
     // Berliner Kalendertag wie bei den Daily Games: alle Besucher bekommen am Tag denselben Seed
     todayKey: todayDateKey,
   });

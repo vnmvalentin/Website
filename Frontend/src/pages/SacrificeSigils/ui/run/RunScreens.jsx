@@ -9,21 +9,11 @@ import { opponentName, statusText } from "./names.js";
 import { resolveCard, CARDS } from "../../engine/cards.js";
 import { de } from "../../i18n/de.js";
 import { RUN_SCENES } from "./sceneRegistry.js";
+import { pathView } from "./pathView.js";
 import TotemBench from "./TotemBench.jsx";
 import { Podium } from "./RunFx.jsx";
 
 // ───────── Pfad ─────────
-
-/** Run-Sicht → Sicht des Pfadbildschirms (eigener Fortschritt als Platz 0). @param {any} rv @param {number} you */
-function pathView(rv, you) {
-  const me = rv.players[you];
-  return {
-    ...rv,
-    path: { map: rv.path.map, biome: rv.path.biome, cycle: rv.path.cycle, players: [rv.path.me, { level: 0, done: false, chosen: [] }] },
-    players: [me, { name: "" }],
-    others: rv.players.map((P, q) => ({ q, name: P.name, alive: P.alive, seals: P.seals, deckSize: P.deckSize })).filter((x) => x.q !== you),
-  };
-}
 
 /** @param {{ game: any }} props */
 export function RunPath({ game }) {

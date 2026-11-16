@@ -13,6 +13,8 @@ const L = {
   de: {
     title: 'Einstellungen', background: 'Hintergrund', defaultBg: 'Standard (Karo)',
     backgroundNote: 'Gilt nur für dich — Mitspieler sehen ihren eigenen Hintergrund.',
+    statsBgRotate: 'Wechselnd auf den Stats-Seiten', statsBgRotateNote: 'Auf den Stats-Seiten wechselt der Hintergrund von selbst durch alle Motive. Aus = dein gewählter Hintergrund.',
+    noBgChoice: 'Noch nichts gewählt: Die Stats-Seiten zeigen „The Heist“, die Minigames das Karo.',
     sound: 'Lautstärke', mute: 'Stumm', test: 'Testen',
     animations: 'Animationen', animationsNote: 'Übergänge, aufploppende Karten und die Einblendung beim Spielstart.',
     scene3d: '3D-Ansicht', scene3dNote: 'Elixier Auktion, Pyramidendraft, Angel Royale und Blindes Karussell in 3D. Aus = klassische 2D-Ansicht. Lässt sich auch im Spiel umschalten.',
@@ -21,6 +23,8 @@ const L = {
   en: {
     title: 'Settings', background: 'Background', defaultBg: 'Default (diamonds)',
     backgroundNote: 'Only for you — other players keep their own background.',
+    statsBgRotate: 'Rotate on the stats pages', statsBgRotateNote: 'On the stats pages the background cycles through all artworks by itself. Off = your chosen background.',
+    noBgChoice: 'Nothing chosen yet: the stats pages show “The Heist”, the minigames the diamonds.',
     sound: 'Volume', mute: 'Muted', test: 'Test',
     animations: 'Animations', animationsNote: 'Transitions, popping cards and the game-start splash.',
     scene3d: '3D view', scene3dNote: 'Elixir Auction, Pyramid Draft, Angel Royale and Shadow Carousel in 3D. Off = classic 2D view. Can also be switched in-game.',
@@ -29,6 +33,8 @@ const L = {
   es: {
     title: 'Ajustes', background: 'Fondo', defaultBg: 'Estándar (rombos)',
     backgroundNote: 'Solo para ti — los demás jugadores ven su propio fondo.',
+    statsBgRotate: 'Rotar en las páginas de estadísticas', statsBgRotateNote: 'En las páginas de estadísticas el fondo cambia solo entre todas las ilustraciones. Desactivado = tu fondo elegido.',
+    noBgChoice: 'Aún no has elegido: las páginas de estadísticas muestran “The Heist”, los minijuegos los rombos.',
     sound: 'Volumen', mute: 'Silencio', test: 'Probar',
     animations: 'Animaciones', animationsNote: 'Transiciones, cartas que aparecen y la pantalla de inicio de partida.',
     scene3d: 'Vista 3D', scene3dNote: 'Elixir Auction, Draft de Pirámide, Pesca Royale y Carrusel de Sombras en 3D. Desactivado = vista 2D clásica. También se puede cambiar en la partida.',
@@ -63,18 +69,27 @@ export default function CrSettingsModal({ onClose }) {
         <div className="cr-section">
           <p className="cr-section-title mb-1">{t.background}</p>
           <p className="text-white/50 text-xs mb-3">{t.backgroundNote}</p>
+          {!prefs.bgChoice && <p className="text-white/70 text-xs mb-3">{t.noBgChoice}</p>}
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-            <BgTile active={prefs.background === DEFAULT_BACKGROUND} label={t.defaultBg}
+            <BgTile active={prefs.bgChoice && prefs.background === DEFAULT_BACKGROUND} label={t.defaultBg}
               onClick={() => setPref('background', DEFAULT_BACKGROUND)}>
               <span className="absolute inset-0 cr-arcade-bg" />
             </BgTile>
             {BACKGROUNDS.map(bg => (
-              <BgTile key={bg.id} active={prefs.background === bg.id} label={bg.name}
+              <BgTile key={bg.id} active={prefs.bgChoice && prefs.background === bg.id} label={bg.name}
                 onClick={() => setPref('background', bg.id)}>
                 <img src={bg.thumb} alt="" loading="lazy" decoding="async"
                   className="absolute inset-0 w-full h-full object-cover" />
               </BgTile>
             ))}
+          </div>
+          <div className="flex items-center justify-between gap-4 mt-4">
+            <div className="min-w-0">
+              <p className="font-cr text-[15px] text-white">{t.statsBgRotate}</p>
+              <p className="text-white/50 text-xs mt-1">{t.statsBgRotateNote}</p>
+            </div>
+            <Toggle checked={prefs.statsBgRotate} onChange={(v) => setPref('statsBgRotate', v)}
+              accent="bg-green-500" aria-label={t.statsBgRotate} />
           </div>
         </div>
 

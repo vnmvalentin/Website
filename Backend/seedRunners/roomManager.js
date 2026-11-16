@@ -72,6 +72,7 @@ const crypto = require('crypto');
 const { normalizeCode } = require('./shareCode');
 const { dailyParams } = require('./daily');
 const { PFAD_GEN_VERSION, cleanGv } = require('./genVersion');
+const { zaehlePartie } = require('../lib/spielStatistik');
 
 const MAX_PLAYERS = 8;
 const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // ohne I/O/0/1 (Verwechslungsgefahr)
@@ -672,7 +673,8 @@ function createRoomManager(deps) {
       // Der Tages-Seed legt alles fest, damit alle Besucher dasselbe Level bekommen
       return dailyParams(todayKey());
     }
-    const seed = mode !== 'new' && s.seedMode === 'custom' && s.seed ? s.seed : randomSeed();
+    // (das Biom geht mit: Der Level-Vorrat hält nur Level mit „Biom aus dem Seed“ bereit, levelVorrat.js)
+    const seed = mode !== 'new' && s.seedMode === 'custom' && s.seed ? s.seed : randomSeed(s.biome);
     // Phase D (27.09.2026): Zufallsrunden bauen mit Pfad — immer lang und „super“ (Länge/Tempo der Einstellungen gelten
     // nur noch für alte Räume ohne Pfad)
     return { seed, length: 'long', speedClass: 'super', biome: s.biome, gen: 'pfad', gv: PFAD_GEN_VERSION };
@@ -811,6 +813,7 @@ function createRoomManager(deps) {
 
     room.round.startAt = now() + cfg.COUNTDOWN_MS;
     room.phase = 'countdown';
+    zaehlePartie('seed-runners'); // Admin-Reiter „Spiele“: eine Runde, die wirklich losgeht, ist eine Partie
     setRoomTimer(room, 'go', cfg.COUNTDOWN_MS, () => go(room));
     emitState(room);
   }

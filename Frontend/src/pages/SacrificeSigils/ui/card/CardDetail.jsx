@@ -31,7 +31,7 @@ export function SigilTexts({ sigils, auras = [] }) {
           <li key={`${s}${aura}`} className="flex gap-2 items-start">
             <SigilIcon sigil={s} size={30} aura={aura} />
             <div className="text-[0.95rem] leading-snug">
-              <b className="ss-title font-normal">{t?.name}{id === "kerzendocht" || n > 1 ? ` ${n}` : ""}{aura ? " (Totem)" : ""}</b>
+              <b className="ss-title font-normal !text-[var(--ink)]">{t?.name}{id === "kerzendocht" || n > 1 ? ` ${n}` : ""}{aura ? " (Totem)" : ""}</b>
               <div>{id === "kerzendocht" ? t.desc.replace("X", String(n)) : t?.desc}</div>
               {t?.example && <div className="text-sm italic opacity-70">{t.example}</div>}
             </div>
@@ -73,7 +73,7 @@ export default function CardDetail({ card, unit, auras = [], attack, onClose }) 
           <SigilTexts sigils={sigils || []} auras={auras} />
           {!!card.mods?.length && (
             <div className="mt-3 text-sm">
-              <p className="ss-title font-normal">Veränderungen</p>
+              <p className="ss-title font-normal !text-[var(--ink)]">Veränderungen</p>
               <ul className="list-disc pl-5">
                 {card.mods.map((m, i) => <li key={i}>{MOD_TEXT[m.kind]?.(m) || m.kind}</li>)}
               </ul>

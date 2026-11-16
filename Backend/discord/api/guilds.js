@@ -54,7 +54,7 @@ module.exports = function({ requireAuth, discordClient, sessions, saveSessionsTo
         if (links.migrateFromSessions(req.twitchId, sessions) && saveSessionsToFile) saveSessionsToFile(sessions);
         let link = links.getLink(req.twitchId);
         // 401 heißt hier und NUR hier: nicht verknüpft. Das Dashboard zeigt dann die Discord-Anmeldung.
-        if (!link || !link.accessToken) return res.status(401).json({ error: "Discord not linked" });
+        if (!link || !link.accessToken) return res.status(401).json({ error: "Discord not linked", code: "not_linked" });
 
         const discordUserId = link.userId;
         const now = Date.now();
@@ -67,13 +67,13 @@ module.exports = function({ requireAuth, discordClient, sessions, saveSessionsTo
         // Fehler — und auf keinen Fall „abgemeldet“.
         const unavailable = () => (cachedData
             ? res.json(fromCache())
-            : res.status(503).json({ error: "Discord antwortet gerade nicht. Bitte gleich noch einmal versuchen." }));
+            : res.status(503).json({ error: "Discord antwortet gerade nicht. Bitte gleich noch einmal versuchen.", code: "discord_down" }));
 
         try {
             // Läuft das Zugriffstoken ab (oder ist es schon abgelaufen), vorher erneuern
             if (link.expiresAt && link.expiresAt < now + 60 * 1000) {
                 const r = await refreshTokens(req.twitchId, link);
-                if (r === "invalid") { links.removeLink(req.twitchId); return res.status(401).json({ error: "Discord not linked" }); }
+                if (r === "invalid") { links.removeLink(req.twitchId); return res.status(401).json({ error: "Discord not linked", code: "not_linked" }); }
                 if (r === "ok") link = links.getLink(req.twitchId);
             }
             const load = (token) => fetch("https://discord.com/api/users/@me/guilds", { headers: { Authorization: `Bearer ${token}` } });
@@ -81,11 +81,11 @@ module.exports = function({ requireAuth, discordClient, sessions, saveSessionsTo
             if (response.status === 401) {
                 // Token abgelehnt: einmal erneuern und noch einmal versuchen
                 const r = await refreshTokens(req.twitchId, link);
-                if (r === "invalid") { links.removeLink(req.twitchId); return res.status(401).json({ error: "Discord not linked" }); }
+                if (r === "invalid") { links.removeLink(req.twitchId); return res.status(401).json({ error: "Discord not linked", code: "not_linked" }); }
                 if (r === "error") return unavailable();
                 link = links.getLink(req.twitchId);
                 response = await load(link.accessToken);
-                if (response.status === 401) { links.removeLink(req.twitchId); return res.status(401).json({ error: "Discord not linked" }); }
+                if (response.status === 401) { links.removeLink(req.twitchId); return res.status(401).json({ error: "Discord not linked", code: "not_linked" }); }
             }
             if (!response.ok) return unavailable();
 
@@ -109,7 +109,7 @@ module.exports = function({ requireAuth, discordClient, sessions, saveSessionsTo
     // 2. Kanäle — type=0 (Text, default), type=2 (Voice), type=4 (Kategorie)
     router.get("/:guildId/channels", requireAuth, (req, res) => {
         const guild = discordClient.guilds.cache.get(req.params.guildId);
-        if (!guild) return res.status(404).json({ error: "Bot ist nicht auf diesem Server." });
+        if (!guild) return res.status(404).json({ error: "Bot ist nicht auf diesem Server.", code: "bot_not_in_guild" });
 
         const type = req.query.type !== undefined ? parseInt(req.query.type) : 0;
         const channels = guild.channels.cache
@@ -122,7 +122,7 @@ module.exports = function({ requireAuth, discordClient, sessions, saveSessionsTo
     // 3. Rollen
     router.get("/:guildId/roles", requireAuth, (req, res) => {
         const guild = discordClient.guilds.cache.get(req.params.guildId);
-        if (!guild) return res.status(404).json({ error: "Bot ist nicht auf diesem Server." });
+        if (!guild) return res.status(404).json({ error: "Bot ist nicht auf diesem Server.", code: "bot_not_in_guild" });
 
         const roles = guild.roles.cache
             .filter(r => r.name !== '@everyone' && !r.managed)
@@ -134,7 +134,7 @@ module.exports = function({ requireAuth, discordClient, sessions, saveSessionsTo
     // 4. Emojis
     router.get("/:guildId/emojis", requireAuth, (req, res) => {
         const guild = discordClient.guilds.cache.get(req.params.guildId);
-        if (!guild) return res.status(404).json({ error: "Bot ist nicht auf dem Server." });
+        if (!guild) return res.status(404).json({ error: "Bot ist nicht auf dem Server.", code: "bot_not_in_guild" });
 
         const emojis = guild.emojis.cache.map(e => ({
             id: e.id,
@@ -148,7 +148,7 @@ module.exports = function({ requireAuth, discordClient, sessions, saveSessionsTo
     // 5. Mitglieder — mit 2-Minuten-Cooldown gegen Opcode-8-Rate-Limit
     router.get("/:guildId/members", requireAuth, async (req, res) => {
         const guild = discordClient.guilds.cache.get(req.params.guildId);
-        if (!guild) return res.status(404).json({ error: "Bot ist nicht auf dem Server." });
+        if (!guild) return res.status(404).json({ error: "Bot ist nicht auf dem Server.", code: "bot_not_in_guild" });
 
         try {
             const now = Date.now();
@@ -176,7 +176,7 @@ module.exports = function({ requireAuth, discordClient, sessions, saveSessionsTo
             res.json({ members });
         } catch (e) {
             console.error("Fehler beim Laden der Mitglieder:", e);
-            res.status(500).json({ error: "Konnte Mitglieder nicht laden." });
+            res.status(500).json({ error: "Konnte Mitglieder nicht laden.", code: "members_failed" });
         }
     });
 

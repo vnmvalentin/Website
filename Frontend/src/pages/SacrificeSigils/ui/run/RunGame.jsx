@@ -14,6 +14,12 @@ import { BIOMES } from "../../data/modes/moorwanderung/biomes.js";
 import { sound } from "../../audio/sound.js";
 import { useShell } from "../shellContext.js";
 import { TableStage } from "../battle/table3d/tableStage.js";
+import { useAtTable } from "../table/useAtTable.js";
+import RunTablePath from "./RunTablePath.jsx";
+import TableStarter from "./TableStarter.jsx";
+import TableCamp from "./TableCamp.jsx";
+import { TableDuelAnnounce, TableSealBreak } from "./TableRunFx.jsx";
+import TableRunResult from "./TableRunResult.jsx";
 import "./run.css";
 
 /** @param {{ game: any, onExit: () => void }} props */
@@ -21,6 +27,9 @@ export default function RunGame({ game, onExit }) {
   const view = game.view;
   const you = game.you;
   const { setTension } = useShell();
+  // Am Tisch im Kerzenlicht (Phase 6): alles läuft am Tisch — Startdeck, Pfad, Kämpfe, Lager mit Blick auf die
+  // Nachbartische, Duell-Ankündigung, Siegelbruch, Ende mit Podest. Ausweichweg: die bisherigen Bildschirme.
+  const [atTable, tableFallback] = useAtTable();
   const [battleBusy, setBattleBusy] = useState(false);
   const phaseRef = useRef(/** @type {HTMLDivElement|null} */ (null));
   const [shownKey, setShownKey] = useState(/** @type {string|null} */ (null));
@@ -78,22 +87,32 @@ export default function RunGame({ game, onExit }) {
   let content;
   // Ansicht des 3D-Tischs: Kampf und Pfad melden sich selbst, alles andere hier
   let kind = "camp";
-  if (shownKey) {
+  if (atTable && announce) {
+    // Am Tisch: erst werden die Paarungen auf den Tisch gelegt, dann setzt sich das Gegenüber zum eigenen Duell
+    content = <TableDuelAnnounce view={view} pairs={announce.pairs} round={announce.round} you={you} onDone={endAnnounce} onFallback={tableFallback} />;
+    kind = "announce";
+  } else if (shownKey) {
     content = <RunBattle game={game} battleKey={shownKey} onBusy={onBusy} onSurrender={surrender} />;
     kind = "battle";
   } else if (view.phase === "over") {
-    content = <RunResult game={game} onExit={onExit} />;
+    content = atTable ? <TableRunResult game={game} onExit={onExit} onFallback={tableFallback} /> : <RunResult game={game} onExit={onExit} />;
     kind = "over";
   } else if (view.phase === "starter") {
-    content = <StarterScreen view={view} you={you} send={game.send} timers={game.timers} clockOffset={game.clockOffset} />;
+    content = atTable ? <TableStarter game={game} onFallback={tableFallback} />
+      : <StarterScreen view={view} you={you} send={game.send} timers={game.timers} clockOffset={game.clockOffset} />;
     kind = "starter";
   } else if (!me) {
-    content = view.phase === "duels" ? <DuelBoard game={game} /> : <CampScreen game={game} spectator />;
+    content = atTable ? <TableCamp game={game} how="spectator" onFallback={tableFallback} />
+      : view.phase === "duels" ? <DuelBoard game={game} /> : <CampScreen game={game} spectator />;
   } else if (me && !me.alive) {
-    content = view.phase === "duels" ? <DuelBoard game={game} /> : <CampScreen game={game} eliminated />;
+    content = atTable ? <TableCamp game={game} how="eliminated" onFallback={tableFallback} />
+      : view.phase === "duels" ? <DuelBoard game={game} /> : <CampScreen game={game} eliminated />;
   } else if (view.phase === "path" && view.path?.me && !view.path.me.done) {
-    content = <RunPath game={game} />;
+    content = atTable ? <RunTablePath game={game} onFallback={tableFallback} /> : <RunPath game={game} />;
     kind = "path";
+  } else if (atTable) {
+    // Lager (Pfad beendet) und Duellrunde ohne eigenes Duell: allein am Tisch, Zettel für die Nachbartische
+    content = <TableCamp game={game} how="camp" onFallback={tableFallback} />;
   } else if (view.phase === "duels") {
     content = <DuelBoard game={game} />;
   } else {
@@ -103,14 +122,16 @@ export default function RunGame({ game, onExit }) {
   return (
     <div className="relative">
       {game.notice && <div className="ss-toast ss-paper" role="status">{game.notice}</div>}
-      {!shownKey && <RunProgressBar view={view} you={you} timers={game.timers} clockOffset={game.clockOffset} onShowPlayer={setShowPlayer} />}
+      {!shownKey && !atTable && <RunProgressBar view={view} you={you} timers={game.timers} clockOffset={game.clockOffset} onShowPlayer={setShowPlayer} />}
       <div key={kind} ref={phaseRef} className="ss-phase">{content}</div>
-      {kind !== "battle" && kind !== "path" && <TableStage stage={kind === "starter" ? "draft" : "rest"} zirkel={zirkel} anchor={phaseRef} />}
+      {kind !== "battle" && kind !== "path" && !atTable && <TableStage stage={kind === "starter" ? "draft" : "rest"} zirkel={zirkel} anchor={phaseRef} />}
       {view.phase === "path" && (
         <BudgetWarning timer={game.timers?.path} pathNo={view.pathNo} active={!!me?.alive && !!view.path?.me && !view.path.me.done} clockOffset={game.clockOffset} />
       )}
-      {announce && <DuelAnnounce view={view} pairs={announce.pairs} round={announce.round} you={you} onDone={endAnnounce} />}
-      {sealFx && !shownKey && !announce && <SealBreak left={sealFx.left} total={view.settings.seals} reason={sealFx.reason} onDone={endSealFx} />}
+      {announce && !atTable && <DuelAnnounce view={view} pairs={announce.pairs} round={announce.round} you={you} onDone={endAnnounce} />}
+      {sealFx && !shownKey && !announce && (atTable
+        ? <TableSealBreak left={sealFx.left} total={view.settings.seals} reason={sealFx.reason} onDone={endSealFx} />
+        : <SealBreak left={sealFx.left} total={view.settings.seals} reason={sealFx.reason} onDone={endSealFx} />)}
       {showPlayer !== null && <PublicCards view={view} q={showPlayer} onClose={() => setShowPlayer(null)} />}
     </div>
   );

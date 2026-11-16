@@ -6,6 +6,7 @@
 //   GET  /daily/:dateKey      Rangliste eines vergangenen Tages: die letzten 30 Tage und jeder Archiv-Tag (ab ARCHIV_AB,
 //                             dem ersten Pfad-Tagesrennen) + eigener Platz (Kopfzeile X-Player-Key, optional)
 //   POST /daily/submit        { playerKey, name, dateKey, ticks, deaths, log, fp } → wird nachgespielt
+//   GET  /vorrat/level        ?seed=&biome=&gv= → das vorgebaute Level (levelVorrat.js) oder 404; der Browser baut dann selbst
 //   POST /levels/check        { doc, forPublish? } → prüft ein Level-Dokument (Schema, Grenzen, Rauchtest) und
 //                             liefert den Inhalts-Hash, Warnungen und Kennzahlen; 422 mit Fehlerliste, wenn ungültig
 //   POST /levels/verify       (Login) { doc, log, ticks, fp, hash? } → Verifizierungslauf eines eigenen Levels: wird
@@ -18,6 +19,7 @@
 'use strict';
 
 const express = require('express');
+const zlib = require('zlib');
 const { previousDay, ARCHIV_AB } = require('./daily');
 const { checkLevel } = require('./levelCheck');
 const { HASH_RE } = require('./levelVerify');
@@ -29,6 +31,8 @@ const VERIFIES_PER_MINUTE = 6;
 // Je Adresse doppelt so viele wie je Konto: Konten sind billig, und die Validierung des Dokuments (bis rund 45 ms) läuft im
 // Hauptprozess — ohne Grenze je Adresse ließe sie sich mit vielen Konten fluten
 const VERIFIES_PER_IP_PER_MINUTE = 12;
+// Level aus dem Vorrat: eine Runde mit Vorbau der nächsten braucht zwei, ein Verlauf-Besuch ein paar mehr
+const VORRAT_PER_MINUTE = 60;
 const HISTORY_DAYS = 30;
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -41,7 +45,7 @@ function clientIp(req) {
 }
 
 /**
- * @param {{ daily: object, todayKey: () => string, now?: () => number, checkLevel?: Function,
+ * @param {{ daily: object, todayKey: () => string, now?: () => number, checkLevel?: Function, vorrat?: object,
  *           levelVerify?: object, levelService?: object, requireAuth?: Function, optionalAuth?: Function, isAdmin?: Function }} deps
  *   requireAuth  Express-Middleware, die `req.twitchId` (und `req.twitchLogin`) setzt; ohne sie sind die Login-Wege gesperrt
  *   optionalAuth wie requireAuth, lässt Gäste aber durch (dann bleibt req.twitchId leer)
@@ -73,6 +77,26 @@ function createSeedRunnersRouter(deps) {
   const checkLimited = makeLimiter(CHECKS_PER_MINUTE);
   const verifyLimited = makeLimiter(VERIFIES_PER_MINUTE);
   const verifyIpLimited = makeLimiter(VERIFIES_PER_IP_PER_MINUTE);
+  const vorratLimited = makeLimiter(VORRAT_PER_MINUTE);
+
+  // Vorgebautes Level (levelVorrat.js). Liefert nur, was schon gebaut ist — hier wird nie gebaut. Ein Level ist durch
+  // Seed, Biom und Generator-Version für immer festgelegt, die Antwort darf also lange im Cache liegen; ein 404 nicht
+  // (das Tages-Level kommt vielleicht eine Minute später).
+  router.get('/vorrat/level', (req, res) => {
+    res.set('Cache-Control', 'no-store');
+    if (!deps.vorrat) return res.status(404).json({ error: 'Kein Vorrat.' });
+    if (vorratLimited(clientIp(req))) return res.status(429).json({ error: 'Zu viele Anfragen. Warte kurz.' });
+    const z = deps.vorrat.hole({ seed: String(req.query.seed ?? ''), biome: String(req.query.biome ?? ''), gv: Number(req.query.gv) });
+    if (!z) return res.status(404).json({ error: 'Nicht im Vorrat.' });
+    res.set('Cache-Control', 'public, max-age=604800, immutable');
+    res.set('Content-Type', 'application/json; charset=utf-8');
+    res.set('Vary', 'Accept-Encoding');
+    if (String(req.headers['accept-encoding'] || '').includes('gzip')) {
+      res.set('Content-Encoding', 'gzip');
+      return res.end(z);
+    }
+    return res.end(zlib.gunzipSync(z));
+  });
 
   router.get('/daily', (req, res) => {
     const today = todayKey();

@@ -4,7 +4,7 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import { Dices } from "lucide-react";
-import { WEAPONS, TALENTS } from "../data/weapons.js";
+import { WEAPONS, TALENTS, BOONS } from "../data/weapons.js";
 import { ITEMS, RARITY } from "../data/items.js";
 import { UpgradeIcon, ItemIcon } from "../ui/icons.jsx";
 
@@ -13,7 +13,7 @@ const LOCK_MS = 400;
 function cardText(c) {
   if (c.kind === "evolution") {
     const def = WEAPONS[c.id];
-    return { name: def.name, color: "#f5cf4a", tag: `Evolution · ${WEAPONS[c.from].name} + ${TALENTS[def.talent].name}`, desc: `${def.blurb} ${def.desc(def.levels[0])}.` };
+    return { name: def.name, color: "#f5cf4a", tag: `Evolution${c.level > 1 ? ` · Stufe ${c.level}` : ""} · ${WEAPONS[c.from].name} + ${TALENTS[def.talent].name}`, desc: `${def.blurb} ${def.desc(def.levels[(c.level || 1) - 1])}.`, max: def.levels.length };
   }
   if (c.kind === "item") {
     const def = ITEMS[c.id];
@@ -28,11 +28,16 @@ function cardText(c) {
     const def = TALENTS[c.id];
     return { name: def.name, color: def.color, tag: c.level === 1 ? "Neues Talent" : `Talent · Stufe ${c.level}`, desc: `${def.desc(c.level)}${c.level > 1 ? " insgesamt" : ""}.`, max: def.max };
   }
+  if (c.kind === "boon") {
+    const def = BOONS[c.id];
+    return { name: def.name, color: def.color, tag: c.level > 1 ? `Segen · zum ${c.level}. Mal` : "Segen · alles ausgebaut", desc: `${def.desc}. Lässt sich beliebig oft wählen.` };
+  }
   if (c.kind === "gold") return { name: "Goldbeutel", color: "#f5cf4a", tag: "Alles ausgebaut", desc: `+${c.amount} Gold.` };
   return { name: "Heilquelle", color: "#7be06b", tag: "Alles ausgebaut", desc: `Heilt ${Math.round(c.amount * 100)} % deines Lebens.` };
 }
 
-export default function LevelUp({ offer, gold, onChoose, onReroll }) {
+// compact: kleiner Bildschirm (Handy) — kleinere Überschrift, scrollbar; touch: Hinweis zum Antippen statt zu den Tasten
+export default function LevelUp({ offer, gold, onChoose, onReroll, compact = false, touch = false }) {
   const [ready, setReady] = useState(false);
   const openedRef = useRef(0);
 
@@ -57,13 +62,13 @@ export default function LevelUp({ offer, gold, onChoose, onReroll }) {
 
   return (
     <div className="av-overlay z-30 bg-[rgb(10_9_13/0.6)]">
-      <div className="w-full max-w-[860px] flex flex-col items-center">
+      <div className={`w-full max-w-[860px] flex flex-col items-center${compact ? " av-levelup-compact max-h-full overflow-y-auto av-scroll" : ""}`}>
         <div className="av-banner">
           <div className="av-label av-torch">{offer.shrine ? "Schicksalsschrein" : `Stufe ${offer.level}`}</div>
-          <h2 className="av-title text-[34px] mt-1">{offer.shrine ? "Wähle ein Item" : "Wähle eine Verbesserung"}</h2>
+          <h2 className={`av-title mt-1 ${compact ? "text-[22px]" : "text-[34px]"}`}>{offer.shrine ? "Wähle ein Item" : "Wähle eine Verbesserung"}</h2>
           {offer.more > 0 && <div className="mt-1 text-[14px] av-dim">noch {offer.more} weitere Wahl{offer.more > 1 ? "en" : ""} danach</div>}
         </div>
-        <div className="mt-6 grid gap-4 w-full sm:grid-cols-3">
+        <div className={`grid w-full sm:grid-cols-3 ${compact ? "mt-3 gap-3" : "mt-6 gap-4"}`}>
           {offer.choices.map((c, i) => {
             const t = cardText(c);
             return (
@@ -73,7 +78,7 @@ export default function LevelUp({ offer, gold, onChoose, onReroll }) {
                   {c.kind === "item" ? <ItemIcon id={c.id} size={56} />
                     : c.kind === "weapon" || c.kind === "talent" || c.kind === "evolution"
                     ? <UpgradeIcon kind={c.kind === "talent" ? "talent" : "weapon"} id={c.id} size={56} />
-                    : <span className="av-item-icon text-[22px]" style={{ width: 56, height: 56, "--rar": t.color }}>{c.kind === "gold" ? "G" : "+"}</span>}
+                    : <span className="av-item-icon text-[22px]" style={{ width: 56, height: 56, "--rar": t.color }}>{c.kind === "gold" ? "G" : c.kind === "boon" ? "S" : "+"}</span>}
                   <span className="min-w-0 text-left">
                     <span className="block text-[12px] uppercase tracking-[0.12em]" style={{ color: t.color }}>{t.tag}</span>
                     <span className="block av-title text-[19px] mt-1 leading-tight">{t.name}</span>
@@ -96,7 +101,7 @@ export default function LevelUp({ offer, gold, onChoose, onReroll }) {
             <Dices size={15} /> Neu würfeln · <span className={gold >= offer.rerollPrice ? "av-gold" : "av-blood"}>{offer.rerollPrice} Gold</span>
           </button>
         )}
-        <p className="mt-3 text-[13px] av-faint">Tasten 1–3 wählen · das Spiel steht, bis du dich entscheidest</p>
+        <p className="mt-3 text-[13px] av-faint text-center">{touch ? "Tippe eine Karte an" : "Tasten 1–3 wählen"} · das Spiel steht, bis du dich entscheidest</p>
       </div>
     </div>
   );

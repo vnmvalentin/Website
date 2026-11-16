@@ -5,13 +5,15 @@
 // ticken. friendly = trifft Gegner statt Spieler.
 
 import { dist, dist2, distToSegment, clamp } from "./util.js";
-import { floatText, burst, ring, shake } from "./fx.js";
+import { floatText, burst, ring, shake, death } from "./fx.js";
 import { onHitProcs, onKillProcs, onPlayerHurtProcs } from "./procs.js";
-import { grantXp, dropGold } from "./loot.js";
+import { dropXp, dropGold, vacuumXp } from "./loot.js";
 import { onBossKilled } from "./stage.js";
 import { spawnEnemy, hasAffix } from "./enemies.js";
 import { spawnItem, rollItem } from "./loot.js";
 import { ENEMIES, ELITE_AFFIXES } from "../data/enemies.js";
+import { collectEnemies, nearestInGrid } from "./grid.js";
+import { noteKill } from "./timeline.js";
 
 // Wer hat getroffen? Für "Getötet von …" auf dem Endbildschirm
 export function describeAttacker(e) {
@@ -24,6 +26,51 @@ export function describeAttacker(e) {
 }
 
 const ARMOR_K = 100;
+
+// ── Kill-Serie ──────────────────────────────────────────────────────────────
+// Jeder Kill innerhalb von STREAK_WINDOW Sekunden nach dem letzten verlängert die Serie. Bei runden Zahlen gibt es
+// eine Meldung, und alle Erfahrungskristalle in der Welt fliegen zum Spieler ("Sog").
+// 1,0 s statt 2,5 s seit 16.11.2026 (Rückmeldung: Serie riss nie). Am Test-Bot gemessen (7 Kits × 3 Seeds): beste Serie
+// je Lauf ~600–4.700 statt 3.900–8.000, Serien ab 25 reißen 50–290-mal statt 2–36-mal. Erfolge in Backend/adventure/meta.js.
+export const STREAK_WINDOW = 1.0;
+export const STREAK_MILESTONES = [25, 50, 100, 200, 400, 800, 1600];
+
+function bumpStreak(g) {
+  const s = g.streak;
+  s.n++;
+  s.t = STREAK_WINDOW;
+  if (s.n > (g.stats.bestStreak || 0)) g.stats.bestStreak = s.n;
+  // nach dem letzten festen Meilenstein geht es alle 800 Kills weiter
+  const last = STREAK_MILESTONES[STREAK_MILESTONES.length - 1];
+  if (STREAK_MILESTONES.includes(s.n) || (s.n > last && s.n % 800 === 0)) {
+    g.events.push({ type: "streak", n: s.n });
+    vacuumXp(g);
+    ring(g, g.player.x, g.player.y, 240, "#5ec8ff", 0.5);
+  }
+}
+
+// Die Spezialfähigkeit (R) lädt durch Kills schneller: jeder Kill schenkt ein Stück Abklingzeit, Große viel mehr
+const KILL_CHARGE = 0.12;
+function chargeSpecial(g, e) {
+  const cd = g.player.cds?.special;
+  if (cd) cd.t += KILL_CHARGE * (e.giant || e.champion ? 12 : e.elite ? 4 : e.tier === "futter" ? 1 : 2);
+}
+
+export function updateStreak(g, dt) {
+  const s = g.streak;
+  if (s.n > 0 && (s.t -= dt) <= 0) s.n = 0;
+}
+
+// Woran ein Gegner gestorben ist — bestimmt, wie er abgeht (engine/fx.js death)
+function deathKind(e, opts) {
+  if (e.freezeT > 0) return "shatter";
+  if (opts.kind) return opts.kind;
+  if (opts.color === "#ff9a3c" || e.burnT > 0) return "burn";
+  if (opts.color === "#9be05a" || opts.color === "#b7f06b") return "poison";
+  if ((opts.knockback || 0) >= 200) return "blast";
+  return "hit";
+}
+const DEATH_COLOR = { burn: "#ff9a3c", shatter: "#bfe8ff", poison: "#8be04e", shock: "#fff3a0" };
 
 // ── Spieler → Gegner ────────────────────────────────────────────────────────
 export function damageEnemy(g, e, amount, opts = {}) {
@@ -48,10 +95,12 @@ export function damageEnemy(g, e, amount, opts = {}) {
 
   if (!opts.silent) {
     const color = opts.color || (crit ? "#ffd84a" : "#ffffff");
-    floatText(g, e.x, e.y - e.r - 6, Math.round(dmg), color, { size: crit ? 19 : opts.small ? 12 : 15, dmg: true });
+    // Der tödliche Treffer auf Futter bekommt keine Zahl — der Abgang selbst ist die Rückmeldung, und eine Horde
+    // würde sonst unter Zahlen verschwinden
+    if (!(e.tier === "futter" && e.hp <= 0 && !crit)) floatText(g, e.x, e.y - e.r - 6, Math.round(dmg), color, { size: crit ? 19 : opts.small ? 12 : 15, dmg: true });
     if (proc > 0) g.fx.sfx[crit ? "crit" : "hit"]++;
   }
-  if (opts.knockback && !e.isBoss && e.ai !== "turret") {
+  if (opts.knockback && !e.isBoss && !e.giant && e.ai !== "turret") {
     const a = Math.atan2(e.y - (opts.fromY ?? p.y), e.x - (opts.fromX ?? p.x));
     e.kbx += Math.cos(a) * opts.knockback;
     e.kby += Math.sin(a) * opts.knockback;
@@ -62,7 +111,11 @@ export function damageEnemy(g, e, amount, opts = {}) {
     if (crit && p.items.blutpakt) healPlayer(g, p.stats.maxHp * 0.02 * p.items.blutpakt * proc, true);
     onHitProcs(g, e, proc, opts);
   }
-  if (e.hp <= 0) killEnemy(g, e);
+  if (e.hp <= 0) {
+    e.deathKind = deathKind(e, opts);
+    e.deathFrom = { x: opts.fromX ?? p.x, y: opts.fromY ?? p.y };
+    killEnemy(g, e);
+  }
   return dmg;
 }
 
@@ -71,18 +124,22 @@ export function killEnemy(g, e) {
   e.dead = true;
   e.hp = 0;
   g.fx.sfx.kill++;
-  burst(g, e.x, e.y, e.elite ? "#ffd84a" : "#b8b0a0", e.isBoss ? 40 : 10, e.isBoss ? 320 : 170);
+  const kind = e.deathKind || "hit";
+  burst(g, e.x, e.y, DEATH_COLOR[kind] || (e.elite ? "#ffd84a" : "#b8b0a0"), e.isBoss ? 40 : 10, e.isBoss ? 320 : 170);
+  if (!e.isEgg) death(g, e, kind, e.deathFrom?.x ?? g.player.x, e.deathFrom?.y ?? g.player.y);
   if (e.isBoss) {
     onBossKilled(g, e);
     return;
   }
-  if (!e.isMinion) g.stats.kills++;
+  if (!e.isMinion) { g.stats.kills++; noteKill(g); if (!e.isEgg) { bumpStreak(g); chargeSpecial(g, e); } }
   if (e.isEgg) return;
   // Fluch: +50 % Beute; Blutmond: viele Gegner, dafür nur 60 % Gold/Erfahrung pro Kill
   const reward = (e.reward ?? 0) * (g.curse ? 1.5 : 1) * (g.horde?.blood > 0 ? 0.6 : 1);
   if (reward > 0) {
-    grantXp(g, reward * 0.35 * g.coeff);
-    dropGold(g, e.x, e.y, reward * 0.18 * g.coeff);
+    dropXp(g, e.x, e.y, reward * 0.35 * g.coeff); // als Kristall — gutgeschrieben wird beim Einsammeln (loot.js)
+    // Kleinbeträge (Futter) werden gewürfelt statt auf 1 aufgerundet: sonst gäbe jede Horde ein Vermögen
+    const gold = reward * 0.18 * g.coeff * g.player.stats.gold;
+    if (gold >= 1 || g.rng.chance(gold)) dropGold(g, e.x, e.y, Math.max(1, gold) / g.player.stats.gold);
   }
   if (hasAffix(e, "eis")) {
     addHazard(g, { shape: "circle", x: e.x, y: e.y, r: 130, delay: 0.9, dmg: e.dmg * 1.2, effect: "freeze", color: "#7fd6ff", src: e });
@@ -92,6 +149,14 @@ export function killEnemy(g, e) {
       const c = spawnEnemy(g, e.type, e.x + s * e.r, e.y, { split: true });
       if (c) { c.kbx = s * 300; c.spawnT = 0.25; }
     }
+  }
+  if (e.giant) {
+    g.stats.giants = (g.stats.giants || 0) + 1;
+    g.pickups.push({ type: "heal", x: e.x, y: e.y, value: g.player.stats.maxHp * 0.2, t: 0, vx: 0, vy: 0 });
+    ring(g, e.x, e.y, 180, "#e8e2d4", 0.5);
+    shake(g, 8);
+    burst(g, e.x, e.y, "#d8cdb8", 26, 300, 0.6, 6);
+    g.events.push({ type: "giantDead", name: e.name });
   }
   if (e.champion) {
     g.stats.champions = (g.stats.champions || 0) + 1;
@@ -222,7 +287,8 @@ export function updateHazards(g, dt) {
     if (h.delay > 0) { keep.push(h); continue; }
     // auslösen
     if (h.friendly) {
-      for (const e of g.enemies) {
+      // Kreise fragen das Raumgitter, Linien und Ringe (selten) gehen alle Gegner durch
+      for (const e of h.shape === "circle" ? collectEnemies(g, h.x, h.y, h.r, hazardHits) : g.enemies) {
         if (!e.dead && insideHazard(h, e.x, e.y, e.r)) {
           damageEnemy(g, e, h.dmg, { proc: h.proc ?? 0.5, knockback: h.knockback, fromX: h.x, fromY: h.y });
           if (h.effect === "freeze" && !e.isBoss) e.freezeT = Math.max(e.freezeT, 1.5);
@@ -257,8 +323,8 @@ export function updateZones(g, dt) {
     if (z.tickT > 0) continue;
     z.tickT = z.tick;
     if (z.friendly) {
-      for (const e of g.enemies) {
-        if (e.dead || dist2(e.x, e.y, z.x, z.y) > (z.r + e.r) * (z.r + e.r)) continue;
+      for (const e of collectEnemies(g, z.x, z.y, z.r, zoneHits)) {
+        if (e.dead) continue;
         damageEnemy(g, e, z.dmg, { proc: 0.2, canCrit: false, color: z.textColor || "#b7f06b" });
         if (z.effect === "poison") addPoison(e, z.dmg * 0.5, 2);
         if (z.effect === "slow" && !e.isBoss) { e.slowT = Math.max(e.slowT, 0.6); e.slowPct = Math.max(e.slowPct, 0.4); }
@@ -293,23 +359,17 @@ export function tickEnemyStatus(g, e, dt) {
   if (dot > 0) damageEnemy(g, e, dot, { proc: 0, canCrit: false, color: e.burnT > 0 ? "#ff9a3c" : "#9be05a" });
 }
 
+// Eigene Trefferlisten für Telegraphen und Flächen: der Schaden darin löst Item-Effekte aus, die selbst wieder
+// enemiesNear rufen — die bekommen jedes Mal eine frische Liste
+const hazardHits = [];
+const zoneHits = [];
+
 export function enemiesNear(g, x, y, r) {
-  const out = [];
-  for (const e of g.enemies) {
-    if (!e.dead && dist2(x, y, e.x, e.y) < (r + e.r) * (r + e.r)) out.push(e);
-  }
-  return out;
+  return collectEnemies(g, x, y, r, []);
 }
 
 export function nearestEnemy(g, x, y, maxR = Infinity, exclude = null) {
-  let best = null;
-  let bd = maxR * maxR;
-  for (const e of g.enemies) {
-    if (e.dead || e.invuln || e === exclude || (exclude instanceof Set && exclude.has(e))) continue;
-    const d = dist2(x, y, e.x, e.y);
-    if (d < bd) { bd = d; best = e; }
-  }
-  return best;
+  return nearestInGrid(g, x, y, maxR, exclude);
 }
 
 export const armorReduction = (armor) => clamp(armor / (ARMOR_K + Math.max(0, armor)), 0, 0.95);

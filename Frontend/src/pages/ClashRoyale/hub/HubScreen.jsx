@@ -225,7 +225,7 @@ export default function HubScreen({
 
         {/* ── Obere Zeile: zurück zur Website | Profil + Sprache ─────────────────── */}
         <div className="shrink-0 flex items-center gap-2 px-3 md:px-6 pt-3 md:pt-5 relative z-20">
-          <Link to="/clash" className={`${chipClass} px-3.5`} title={t.backToWebsite}>
+          <Link to="/clash?reiter=minigames" className={`${chipClass} px-3.5`} title={t.backToWebsite}>
             <ArrowLeftToLine size={16} />
             <span className="hidden sm:inline">{t.backToWebsite}</span>
           </Link>

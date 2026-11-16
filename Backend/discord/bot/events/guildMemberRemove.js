@@ -19,7 +19,7 @@ module.exports = {
             .replace(/\[MEMBER\]/g, member.guild.memberCount);
 
         try {
-            if (settings.leaveStyle === 'image') await channel.send({ content: finalMessage, files: [await memberImageFile(member, 'leave', settings.leaveImageLayout)] });
+            if (settings.leaveStyle === 'image') await channel.send({ content: finalMessage, files: [await memberImageFile(member, 'leave', settings.leaveImageLayout, settings.language)] });
             else if (settings.leaveStyle === 'card') await channel.send({ embeds: [memberCard(member, finalMessage, 'leave')] });
             else await channel.send(finalMessage);
         } catch (err) {

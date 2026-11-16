@@ -1,4 +1,4 @@
-// engine/allies.js — Helfer des Spielers: Geschütztürme (Cyber-Söldner), Köder (Ninja, Ausrüstung) und erweckte Skelette
+// engine/allies.js — Helfer des Spielers: Geschütztürme (Tüftler), Köder (Ninja, Ausrüstung) und erweckte Skelette
 // (Knochenkrone). Köder ziehen alle Gegner an, solange sie stehen.
 
 import { damageEnemy, nearestEnemy } from "./combat.js";

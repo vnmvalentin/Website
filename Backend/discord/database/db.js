@@ -7,7 +7,8 @@ const { step } = require('../../lib/startupLog');
 const dataDir = path.join(__dirname, '../../data');
 if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
 
-const db = new Database(path.join(dataDir, 'discord_data.db'));
+// DISCORD_DATA_DB: andere Datei (oder ':memory:') für Prüfstände — nie gegen die Live-Daten testen
+const db = new Database(process.env.DISCORD_DATA_DB || path.join(dataDir, 'discord_data.db'));
 
 // ── Basis-Tabellen ─────────────────────────────────────────────────────────────
 db.exec(`CREATE TABLE IF NOT EXISTS guild_settings (
@@ -171,6 +172,8 @@ try { db.exec("ALTER TABLE guild_settings ADD COLUMN leave_style TEXT DEFAULT 't
 // Layout des gezeichneten Bilds (bot/memberImage.js, IMAGE_LAYOUTS)
 try { db.exec("ALTER TABLE guild_settings ADD COLUMN welcome_image_layout TEXT DEFAULT 'classic'"); } catch (e) {}
 try { db.exec("ALTER TABLE guild_settings ADD COLUMN leave_image_layout TEXT DEFAULT 'classic'"); } catch (e) {}
+// Sprache, in der der Bot auf diesem Server schreibt (Knöpfe, Antworten, Bildtexte) — siehe bot/botText.js
+try { db.exec("ALTER TABLE guild_settings ADD COLUMN bot_language TEXT DEFAULT 'de'"); } catch (e) {}
 // Nachrichten je Nutzer und Tag. Eigene Tabelle neben message_stats (je Kanal):
 // beides in einer Tabelle hieße eine Zeile je Nutzer UND Kanal und Tag.
 db.exec(`CREATE TABLE IF NOT EXISTS user_message_stats (
@@ -188,11 +191,15 @@ const messageStyle = (v) => (v === 'card' || v === 'image' ? v : 'text');
 // Layout des gezeichneten Bilds — dieselbe Liste wie IMAGE_LAYOUTS in bot/memberImage.js
 const imageLayout = (v) => (['classic', 'center', 'poster', 'light', 'badge'].includes(v) ? v : 'classic');
 
+/** Sprache des Bots auf einem Server: 'de' (Standard) oder 'en'. */
+const botLanguage = (v) => (v === 'en' ? 'en' : 'de');
+
 // ── GUILD SETTINGS ─────────────────────────────────────────────────────────────
 function getSettings(guildId) {
     const row = db.prepare('SELECT * FROM guild_settings WHERE guild_id = ?').get(guildId);
-    if (!row) return { welcomeChannel: "", welcomeMessage: "", welcomeStyle: "text", welcomeImageLayout: "classic", leaveChannel: "", leaveMessage: "", leaveStyle: "text", leaveImageLayout: "classic", funChannel: "", prefix: "!", botNickname: "", disabledCommands: [] };
+    if (!row) return { welcomeChannel: "", welcomeMessage: "", welcomeStyle: "text", welcomeImageLayout: "classic", leaveChannel: "", leaveMessage: "", leaveStyle: "text", leaveImageLayout: "classic", funChannel: "", prefix: "!", botNickname: "", disabledCommands: [], language: "de" };
     return {
+        language: botLanguage(row.bot_language),
         welcomeChannel: row.welcome_channel || "", welcomeMessage: row.welcome_message || "",
         welcomeStyle: messageStyle(row.welcome_style), welcomeImageLayout: imageLayout(row.welcome_image_layout),
         leaveChannel: row.leave_channel || "", leaveMessage: row.leave_message || "",
@@ -203,21 +210,38 @@ function getSettings(guildId) {
     };
 }
 
-function saveSettings(guildId, { welcomeChannel, welcomeMessage, welcomeStyle, welcomeImageLayout, leaveChannel, leaveMessage, leaveStyle, leaveImageLayout, funChannel, prefix, botNickname, disabledCommands }) {
+function saveSettings(guildId, { welcomeChannel, welcomeMessage, welcomeStyle, welcomeImageLayout, leaveChannel, leaveMessage, leaveStyle, leaveImageLayout, funChannel, prefix, botNickname, disabledCommands, language }) {
     db.prepare(`
-        INSERT INTO guild_settings (guild_id, welcome_channel, welcome_message, leave_channel, leave_message, fun_channel, prefix, bot_nickname, disabled_commands, welcome_style, leave_style, welcome_image_layout, leave_image_layout)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO guild_settings (guild_id, welcome_channel, welcome_message, leave_channel, leave_message, fun_channel, prefix, bot_nickname, disabled_commands, welcome_style, leave_style, welcome_image_layout, leave_image_layout, bot_language)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(guild_id) DO UPDATE SET
         welcome_channel = excluded.welcome_channel, welcome_message = excluded.welcome_message,
         leave_channel = excluded.leave_channel, leave_message = excluded.leave_message,
         fun_channel = excluded.fun_channel, prefix = excluded.prefix,
         bot_nickname = excluded.bot_nickname, disabled_commands = excluded.disabled_commands,
         welcome_style = excluded.welcome_style, leave_style = excluded.leave_style,
-        welcome_image_layout = excluded.welcome_image_layout, leave_image_layout = excluded.leave_image_layout
+        welcome_image_layout = excluded.welcome_image_layout, leave_image_layout = excluded.leave_image_layout,
+        bot_language = excluded.bot_language
     `).run(guildId, welcomeChannel || "", welcomeMessage || "", leaveChannel || "", leaveMessage || "",
         funChannel || "", prefix || "!", botNickname || "", JSON.stringify(disabledCommands || []),
         messageStyle(welcomeStyle), messageStyle(leaveStyle),
-        imageLayout(welcomeImageLayout), imageLayout(leaveImageLayout));
+        imageLayout(welcomeImageLayout), imageLayout(leaveImageLayout), botLanguage(language));
+    languageCache.delete(String(guildId));
+}
+
+// Die Sprache wird bei fast jeder Bot-Antwort gebraucht — kurz zwischengespeichert statt jedes Mal gelesen.
+// saveSettings leert den Eintrag, damit eine Umstellung im Dashboard sofort gilt.
+const languageCache = new Map();
+const LANGUAGE_CACHE_MS = 60 * 1000;
+function getBotLanguage(guildId) {
+    if (!guildId) return 'de';
+    const key = String(guildId);
+    const hit = languageCache.get(key);
+    if (hit && Date.now() - hit.at < LANGUAGE_CACHE_MS) return hit.lang;
+    const row = db.prepare('SELECT bot_language FROM guild_settings WHERE guild_id = ?').get(key);
+    const lang = botLanguage(row && row.bot_language);
+    languageCache.set(key, { lang, at: Date.now() });
+    return lang;
 }
 
 // ── REAKTIONSROLLEN ────────────────────────────────────────────────────────────
@@ -490,7 +514,7 @@ setInterval(runDiscordBackup, 30 * 60 * 1000);
 runDiscordBackup({ silent: true });
 
 module.exports = {
-    getSettings, saveSettings,
+    getSettings, saveSettings, getBotLanguage,
     getReactionRoles, saveReactionRole, updateReactionRole, deleteReactionRole,
     getApprovalConfigs, getApprovalConfig, getApprovalConfigById,
     saveApprovalConfig, updateApprovalConfigMessageId, updateApprovalConfig, deleteApprovalConfig,

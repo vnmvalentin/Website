@@ -1,0 +1,82 @@
+/* Alerts der Twitch-Overlays (OverlayAlerts.jsx). Grundlage ist .stw-card aus overlayWidgets.css: Hintergrund,
+   Deckkraft, Glas und Ecken kommen von dort bzw. aus dem gemeinsamen Design. Bewusst flach: kein Leuchten,
+   keine Verläufe in der Schrift. */
+.stw-alert {
+  display: flex;
+  min-height: 104px;
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.45);
+}
+.stw-alert-edge {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 6px;
+}
+.stw-alert-body {
+  min-width: 0;
+  flex: 1;
+  padding: 20px 28px 24px 32px;
+  animation: stw-alert-pop 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.stw-alert-kicker {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  line-height: 18px;
+}
+.stw-alert-kicker svg { flex: none; }
+.stw-alert-test {
+  margin-left: auto;
+  padding: 2px 8px;
+  border-radius: min(4px, var(--stw-r, 4px));
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+}
+.stw-alert-text {
+  margin: 8px 0 0;
+  font-size: 30px;
+  font-weight: 800;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  overflow-wrap: anywhere;
+}
+.stw-alert-text b { font-weight: 900; }
+.stw-alert-msg {
+  margin: 10px 0 0;
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1.35;
+  color: rgba(255, 255, 255, 0.78);
+  overflow-wrap: anywhere;
+}
+.stw-alert-time {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 4px;
+  opacity: 0.85;
+  transform-origin: left center;
+  animation-name: stw-alert-time;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+}
+@keyframes stw-alert-time {
+  from { transform: scaleX(1); }
+  to { transform: scaleX(0); }
+}
+@keyframes stw-alert-pop {
+  0% { transform: scale(0.96); }
+  60% { transform: scale(1.015); }
+  100% { transform: scale(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .stw-alert-body { animation: none; }
+}

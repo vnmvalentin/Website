@@ -11,6 +11,7 @@ const crypto = require('crypto');
 const path = require('path');
 const fs = require('fs');
 const { dataPath } = require('../lib/dataDir');
+const { SPIELE, spielVonPfad } = require('./spiele');
 
 // ANALYTICS_DB biegt den Pfad für Prüfstände um — nie gegen die echte Datei testen.
 const dbPath = process.env.ANALYTICS_DB || dataPath('analytics.db');
@@ -43,6 +44,20 @@ db.exec(`
   CREATE TABLE IF NOT EXISTS seen (
     day TEXT NOT NULL, hash TEXT NOT NULL, scope TEXT NOT NULL,
     PRIMARY KEY (day, hash, scope)
+  ) WITHOUT ROWID;
+  -- Admin-Reiter „Spiele“ (seit 16.11.2026): Besucher je Spiel und Trichterstufen je Tag, ebenfalls nur Tagessummen
+  CREATE TABLE IF NOT EXISTS game_day (
+    day TEXT NOT NULL, game TEXT NOT NULL, visitors INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (day, game)
+  ) WITHOUT ROWID;
+  CREATE TABLE IF NOT EXISTS funnel_day (
+    day TEXT NOT NULL, step TEXT NOT NULL, visitors INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (day, step)
+  ) WITHOUT ROWID;
+  -- Begonnene Partien je Spiel und Tag, gemeldet von den Spielen selbst (lib/spielStatistik.js zaehlePartie)
+  CREATE TABLE IF NOT EXISTS match_day (
+    day TEXT NOT NULL, game TEXT NOT NULL, matches INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (day, game)
   ) WITHOUT ROWID;
 `);
 
@@ -77,7 +92,24 @@ const stmt = {
     GROUP BY source ORDER BY visitors DESC LIMIT 50`),
   langs: db.prepare(`SELECT lang, SUM(visitors) AS visitors FROM lang_day WHERE day >= ?
     GROUP BY lang ORDER BY visitors DESC LIMIT 20`),
+  hasSeen: db.prepare('SELECT 1 FROM seen WHERE day = ? AND hash = ? AND scope = ?'),
+  addGame: db.prepare(`INSERT INTO game_day (day, game, visitors) VALUES (?, ?, 1)
+    ON CONFLICT(day, game) DO UPDATE SET visitors = visitors + 1`),
+  addStep: db.prepare(`INSERT INTO funnel_day (day, step, visitors) VALUES (?, ?, 1)
+    ON CONFLICT(day, step) DO UPDATE SET visitors = visitors + 1`),
+  games: db.prepare('SELECT day, game, visitors FROM game_day WHERE day >= ?'),
+  steps: db.prepare('SELECT step, SUM(visitors) AS visitors FROM funnel_day WHERE day >= ? GROUP BY step'),
+  firstTracked: db.prepare('SELECT MIN(day) AS day FROM funnel_day'),
+  visitorsSince: db.prepare('SELECT SUM(visitors) AS v FROM day_total WHERE day >= ?'),
+  startSince: db.prepare("SELECT SUM(visitors) AS v FROM page_day WHERE day >= ? AND path = '/'"),
+  addMatch: db.prepare(`INSERT INTO match_day (day, game, matches) VALUES (?, ?, 1)
+    ON CONFLICT(day, game) DO UPDATE SET matches = matches + 1`),
+  matches: db.prepare('SELECT day, game, matches FROM match_day WHERE day >= ?'),
+  matchGames: db.prepare('SELECT game, MIN(day) AS since FROM match_day GROUP BY game'),
+  // ohne LIMIT: die Spielzeit je Spiel darf nicht davon abhängen, ob eine Spielseite unter den 200 meistbesuchten ist
+  pagesAll: db.prepare('SELECT path, SUM(views) AS views, SUM(seconds) AS seconds FROM page_day WHERE day >= ? GROUP BY path'),
 };
+const GAME_IDS = new Set(SPIELE.map((s) => s.id));
 
 const dayFormat = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Europe/Berlin' });
 /** Kalendertag in deutscher Zeit (JJJJ-MM-TT) — der Server läuft in UTC, der Tag soll trotzdem um Mitternacht hier kippen. */
@@ -133,6 +165,20 @@ const recordViewTx = db.transaction(({ day, hash, path: rawPath, source, lang, m
   if (newToday && lang) stmt.addLang.run(day, lang);
   // Herkunft zählt je Besucher und Quelle einmal am Tag — wer zehnmal über denselben Link kommt, ist ein Besucher.
   if (source && stmt.markSeen.run(day, hash, `s:${source}`).changes > 0) stmt.addSource.run(day, source);
+
+  // Spiele und Trichter (Admin-Reiter „Spiele“): je Besucher und Tag einmal, über dieselben Tages-Hashes in `seen` —
+  // also auch nur innerhalb eines Tages. „Startseite → Spiel“ zählt, sobald beides am selben Tag vorkam, egal in
+  // welcher Reihenfolge. Bewusst rawPath: ein Spiel zählt auch dann, wenn die Seitenliste des Tages schon voll ist.
+  const game = spielVonPfad(rawPath);
+  if (game) {
+    if (stmt.markSeen.run(day, hash, `g:${game}`).changes > 0) stmt.addGame.run(day, game);
+    if (stmt.markSeen.run(day, hash, 'g').changes > 0) stmt.addStep.run(day, 'spiel');
+  }
+  if (game || rawPath === '/') {
+    const sahStart = rawPath === '/' || Boolean(stmt.hasSeen.get(day, hash, 'p:/'));
+    const spielte = Boolean(game) || Boolean(stmt.hasSeen.get(day, hash, 'g'));
+    if (sahStart && spielte && stmt.markSeen.run(day, hash, 'fs').changes > 0) stmt.addStep.run(day, 'start_spiel');
+  }
 });
 
 /**
@@ -153,6 +199,13 @@ function recordTime({ ip, userAgent, path: pagePath, seconds, now = Date.now() }
   const day = dayKey(now);
   stmt.addSeconds.run(Math.min(s, MAX_SECONDS_PER_REPORT), day, pagePath);
   touchLive(visitorHash(day, ip, userAgent), now);
+}
+
+/** Zählt eine begonnene Partie (über lib/spielStatistik.js). Unbekannte Spiele werden verworfen → false. */
+function recordMatch(game, now = Date.now()) {
+  if (!GAME_IDS.has(game)) return false;
+  stmt.addMatch.run(dayKey(now), game);
+  return true;
 }
 
 /** Auswertung der letzten `days` Tage (heute eingeschlossen) fürs Admin-Dashboard. */
@@ -190,7 +243,65 @@ function getReport(days, now = Date.now()) {
     pages,
     sources: stmt.sources.all(from),
     langs: stmt.langs.all(from),
+    ...spieleUndTrichter(from, series),
   };
 }
 
-module.exports = { recordView, recordTime, getReport, dayKey };
+/**
+ * Besucher je Spiel (mit Tagesverlauf und Spielzeit) und der Trichter Besucher → Startseite → Spiel. Gezählt wird erst
+ * seit dem 16.11.2026; ältere Tage im Zeitraum würden die Anteile verfälschen, deshalb rechnet der Trichter ab `seit`.
+ */
+function spieleUndTrichter(from, series) {
+  const ersterTag = stmt.firstTracked.get()?.day || null;
+  const ab = ersterTag && ersterTag > from ? ersterTag : from;
+  const pages = stmt.pagesAll.all(from);
+
+  const nachSpielUndTag = (rows, feld) => {
+    const m = new Map();
+    for (const r of rows) {
+      if (!m.has(r.game)) m.set(r.game, new Map());
+      m.get(r.game).set(r.day, r[feld]);
+    }
+    return m;
+  };
+  const besuche = nachSpielUndTag(stmt.games.all(from), 'visitors');
+  const partien = nachSpielUndTag(stmt.matches.all(from), 'matches');
+  // Partien gibt es nur von Spielen, die zaehlePartie aufrufen — alle anderen zeigen „–“ statt einer falschen 0
+  const partienSeit = new Map(stmt.matchGames.all().map((r) => [r.game, r.since]));
+
+  const spiele = SPIELE.map((s) => {
+    const tage = besuche.get(s.id) || new Map();
+    const tagePartien = partien.get(s.id) || new Map();
+    const meldet = partienSeit.has(s.id);
+    const verlauf = series.map((d) => ({
+      day: d.day,
+      visitors: tage.get(d.day) || 0,
+      matches: meldet ? tagePartien.get(d.day) || 0 : null,
+    }));
+    const seiten = pages.filter((p) => spielVonPfad(p.path) === s.id);
+    return {
+      id: s.id,
+      name: s.name,
+      visitors: verlauf.reduce((x, d) => x + d.visitors, 0),
+      views: seiten.reduce((x, p) => x + p.views, 0),
+      seconds: seiten.reduce((x, p) => x + p.seconds, 0),
+      matches: meldet ? verlauf.reduce((x, d) => x + d.matches, 0) : null,
+      matchesSince: partienSeit.get(s.id) || null,
+      series: verlauf,
+    };
+  }).sort((a, b) => b.visitors - a.visitors || b.views - a.views);
+
+  const stufen = Object.fromEntries(stmt.steps.all(ab).map((r) => [r.step, r.visitors]));
+  const trichter = ersterTag
+    ? {
+      seit: ab,
+      visitors: stmt.visitorsSince.get(ab)?.v || 0,
+      start: stmt.startSince.get(ab)?.v || 0,
+      game: stufen.spiel || 0,
+      startToGame: stufen.start_spiel || 0,
+    }
+    : null;
+  return { spiele, trichter, spieleSeit: ersterTag };
+}
+
+module.exports = { recordView, recordTime, recordMatch, getReport, dayKey };

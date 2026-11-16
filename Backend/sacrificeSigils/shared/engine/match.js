@@ -158,8 +158,19 @@ function draftPhase(s, p, a, events) {
   if (res.error) return res.error;
   events.push({ type: "draftPick", player: p, pid: a.pid, baseId: res.baseId, count: d.picks[p].length, hiddenFrom: d.mode === "separate" ? 1 - p : null });
   if (draftDone(d, 0) && draftDone(d, 1)) {
-    s.phase = "extras";
-    events.push({ type: "phase", phase: "extras" });
+    // Seit 15.11.2026 gibt es nach dem Draft keine Totem-Wahl mehr: Totems verdient man am Schrein auf dem Pfad
+    // (der erste Pfad hat auf Ebene 1 immer einen). Die Phase „extras“ bleibt nur für ältere, laufende Spielstände.
+    for (const q of /** @type {const} */ ([0, 1])) {
+      const P = s.players[q];
+      P.deck = [];
+      for (const pid of d.picks[q]) newDeckCard(s, q, poolCard(d, pid).baseId);
+      P.heads = [];
+      P.bases = [];
+      P.totems = { tribe: null, lane: null, side: null };
+      P.sideType = Object.keys(zirkelOf(s).sideDeckTypes)[0];
+    }
+    for (const P of s.players) P.shards += START_SHARDS;
+    startPath(s, events);
   }
   return null;
 }

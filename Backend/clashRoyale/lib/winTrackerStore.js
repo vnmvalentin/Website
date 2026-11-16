@@ -153,6 +153,11 @@ try { db.exec("ALTER TABLE cr_wintracker_settings ADD COLUMN show_profile INTEGE
 try { db.exec("ALTER TABLE cr_wintracker_settings ADD COLUMN chat_channel TEXT NOT NULL DEFAULT ''"); } catch { /* Spalte existiert bereits */ }
 try { db.exec("ALTER TABLE cr_wintracker_settings ADD COLUMN chat_enabled INTEGER NOT NULL DEFAULT 0"); } catch { /* Spalte existiert bereits */ }
 db.exec(`CREATE INDEX IF NOT EXISTS idx_wt_settings_chat_channel ON cr_wintracker_settings(chat_channel)`);
+// Zuschauer-Befehle im Chat (lib/winTrackerViewer.js): eingeschaltete Befehle als "rang,session,deck,rekord" — leer
+// (Standard) = keiner, damit der Bot nach dem Update nicht ungefragt neben vorhandenen Bots antwortet — und die
+// Abklingzeit je Befehl in Sekunden.
+try { db.exec("ALTER TABLE cr_wintracker_settings ADD COLUMN viewer_cmds TEXT NOT NULL DEFAULT ''"); } catch { /* Spalte existiert bereits */ }
+try { db.exec("ALTER TABLE cr_wintracker_settings ADD COLUMN viewer_cooldown_s INTEGER NOT NULL DEFAULT 30"); } catch { /* Spalte existiert bereits */ }
 
 // Layout-Überarbeitung (Session+Letzte-5 zu einem Modul verschmolzen, Deck seitlich
 // andockbar): last5_style ersetzt den alten Boolean last5_as_result um eine dritte
@@ -299,6 +304,9 @@ try { db.exec("ALTER TABLE cr_wintracker_battles ADD COLUMN battle_type TEXT NOT
 try { db.exec("ALTER TABLE cr_wintracker_battles ADD COLUMN challenge_key TEXT NOT NULL DEFAULT ''"); } catch { /* Spalte existiert bereits */ }
 try { db.exec("ALTER TABLE cr_wintracker_battles ADD COLUMN challenge_wins_before INTEGER"); } catch { /* Spalte existiert bereits */ }
 db.exec(`CREATE INDEX IF NOT EXISTS idx_wt_battles_challenge ON cr_wintracker_battles(account_id, challenge_key, battle_time_ms)`);
+// Crown-Series-Liga (1 Dagger … 13 King's League V, 0 = nicht gewählt). Die API liefert sie nicht,
+// der Nutzer wählt sie im Editor — sie bestimmt Abzeichen und Grand-Duel-Regel (lib/challengeModes.js).
+try { db.exec("ALTER TABLE cr_wintracker_accounts ADD COLUMN crown_league INTEGER NOT NULL DEFAULT 0"); } catch { /* Spalte existiert bereits */ }
 // Manueller Session-Reset der Challenges (gilt für alle drei gemeinsam)
 try { db.exec("ALTER TABLE cr_wintracker_accounts ADD COLUMN challenge_session_reset_at INTEGER NOT NULL DEFAULT 0"); } catch { /* Spalte existiert bereits */ }
 // … und der Verlauf von Medaillen/Liga/Platz/Trophäen (eine Zeile je Sync, nur wenn sich etwas geändert hat) für

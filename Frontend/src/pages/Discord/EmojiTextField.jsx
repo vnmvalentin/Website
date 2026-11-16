@@ -10,6 +10,8 @@
 import React, { forwardRef, useCallback, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState } from 'react';
 import { Smile } from 'lucide-react';
 import { tokenize } from './discordText';
+import { useDiscordText } from './discordI18n.js';
+import { Rich } from './ui';
 
 const units = (parts) => parts.reduce((n, p) => n + (p.type === 'text' ? p.value.length : 1), 0);
 
@@ -136,6 +138,7 @@ const EmojiTextField = forwardRef(function EmojiTextField(
     { value, onChange, emojis = [], roles = [], channels = [], rows = 4, placeholder = '', id, ariaLabel },
     ref,
 ) {
+    const t = useDiscordText();
     const box = useRef(null);
     const lastEmitted = useRef(null);
     const lastCaret = useRef(null);
@@ -267,8 +270,8 @@ const EmojiTextField = forwardRef(function EmojiTextField(
                     type="button"
                     onMouseDown={(e) => { e.preventDefault(); remember(); }}
                     onClick={() => setPickerOpen((o) => !o)}
-                    title="Server-Emoji einfügen"
-                    aria-label="Server-Emoji einfügen"
+                    title={t.emoji.insert}
+                    aria-label={t.emoji.insert}
                     aria-expanded={pickerOpen}
                     className={`absolute right-1.5 top-1.5 p-1.5 rounded transition-colors ${pickerOpen ? 'text-white bg-white/10' : 'text-white/45 hover:text-white hover:bg-white/10'}`}
                 >
@@ -291,7 +294,7 @@ const EmojiTextField = forwardRef(function EmojiTextField(
                             </button>
                         ))}
                     </div>
-                    <p className="px-1 pt-2 text-[11px] text-white/40">Tipp: <b className="text-white/60">:name:</b> tippen wird auch zum Emoji.</p>
+                    <p className="px-1 pt-2 text-[11px] text-white/40"><Rich text={t.emoji.tip} className="font-bold text-white/60" /></p>
                 </div>
             )}
         </div>

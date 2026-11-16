@@ -13,7 +13,11 @@ import { DRAWINGS } from "../../path/mapDrawings.js";
 
 const TW = 1600;
 const PAPER_Y = 0.25;
-const WALK_S = 0.9;
+/** Weg der Figur: Ducken (Anlauf), Weg mit vier Hüpfern, Nachfedern am Ziel — in Sekunden. */
+const WALK_ANTIC = 0.16;
+const WALK_S = 1.0;
+const WALK_LAND = 0.34;
+const HOPS = 4;
 const INK = "#1a1612";
 const ease = (x) => { const t = Math.min(1, Math.max(0, x)); return t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2; };
 
@@ -150,6 +154,11 @@ export function createPathMap(scene, { iconPaths, maxAniso }) {
     pawn.add(body, head, collar);
   }
   root.add(pawn);
+  let pawnScale = 1;
+  // Ankunft: ein heller Ring breitet sich auf dem Pergament um die Figur aus
+  const landRing = new THREE.Mesh(ringGeo, keep(glowMat.clone()));
+  landRing.visible = false;
+  root.add(landRing);
 
   /** @type {Array<{ group: THREE.Group, base: THREE.Mesh, top: THREE.Mesh, ring: THREE.Mesh, seal: THREE.Mesh, lv: number, st: number, r: number, uv: {u:number,v:number}, fog: boolean, revealAt: number, lift: number }>} */
   let tokens = [];
@@ -158,7 +167,7 @@ export function createPathMap(scene, { iconPaths, maxAniso }) {
   let mapKey = "";
   let appearAt = -10;
   let hover = null;
-  const walk = { from: { ...START }, to: { ...START }, t0: -10, key: "" };
+  const walk = { from: { ...START }, to: { ...START }, t0: -10, key: "", fromH: 0 };
 
   const world = (uv, out = new THREE.Vector3()) => out.set(area.cx + (uv.u - 0.5) * area.W, 0, area.cz + (0.5 - uv.v) * area.D);
   const TH = () => Math.round(TW * Math.min(1.8, Math.max(0.6, area.D / area.W)));
@@ -402,6 +411,7 @@ export function createPathMap(scene, { iconPaths, maxAniso }) {
       root.add(group);
       tokens.push({ group, base, top, ring, seal, lv, st, r, node, uv: nodeUV(L, map.pathNo, lv, st), fog: true, revealAt: -10, lift: 0 });
     }));
+    pawnScale = scale;
     pawn.scale.setScalar(scale);
     placeTokens();
   };
@@ -467,6 +477,7 @@ export function createPathMap(scene, { iconPaths, maxAniso }) {
       refreshTokens(t);
       const pt = pawnTarget();
       if (pt.key !== walk.key) {
+        walk.fromH = walk.key && walk.key !== "start" ? 1.36 : 0;
         walk.from = walk.to;
         walk.to = pt.uv;
         walk.key = pt.key;
@@ -520,28 +531,63 @@ export function createPathMap(scene, { iconPaths, maxAniso }) {
           moving = true;
         }
       }
-      // Figur: läuft den Weg entlang (kleine Hüpfer pro Schritt), sonst steht sie auf ihrem Ort
-      const wk = reduced ? 1 : Math.min(1, (t - walk.t0) / WALK_S);
+      // Figur: duckt sich kurz, hüpft den Weg entlang (staucht sich bei jeder Landung), federt am Ziel nach;
+      // dort breitet sich ein heller Ring aus. Ohne Bewegung (reduziert) steht sie gleich am Ziel.
+      const T = reduced ? 99 : t - walk.t0;
+      const wk = T < WALK_ANTIC ? 0 : Math.min(1, (T - WALK_ANTIC) / WALK_S);
       bezier(walk.from, walk.to, ease(wk), tmpUV);
       world(tmpUV, pawn.position);
       const onTokenH = walk.key === "start" ? 0 : 1.36;
       const standing = tokens.find((tk) => walk.key === `${tk.lv}-${tk.st}`);
-      pawn.position.y = PAPER_Y + (wk < 1 ? 0.6 + Math.abs(Math.sin(wk * Math.PI * 4)) * 1.4 : onTokenH * (standing ? standing.group.scale.y : 1) + (standing?.lift || 0));
-      if (wk < 1) {
+      const restY = PAPER_Y + onTokenH * (standing ? standing.group.scale.y : 1) + (standing?.lift || 0);
+      let squash = 1;
+      if (T < WALK_ANTIC) {
+        // Anlauf: in die Knie, leicht zurückgelehnt
+        const a = Math.sin((T / WALK_ANTIC) * Math.PI);
+        squash = 1 - 0.18 * a;
+        pawn.position.y = PAPER_Y + (walk.fromH ?? 0);
+        pawn.rotation.x = -0.12 * a;
+        moving = true;
+      } else if (wk < 1) {
+        const hop = (wk * HOPS) % 1;
+        const up = Math.sin(hop * Math.PI);
+        pawn.position.y = PAPER_Y + 0.5 + up * 2.2;
+        // am Boden gestaucht, in der Luft gestreckt
+        squash = 1 + 0.12 * up - 0.16 * (1 - up) ** 6;
+        pawn.rotation.x = 0.1 * up;
         moving = true;
         bezier(walk.from, walk.to, Math.min(1, ease(wk) + 0.02), tmpUV);
         world(tmpUV, tmpV);
         const dx = tmpV.x - pawn.position.x, dz = tmpV.z - pawn.position.z;
         if (Math.hypot(dx, dz) > 1e-3) pawn.rotation.y = Math.atan2(dx, dz);
-        pawn.rotation.z = Math.sin(wk * Math.PI * 8) * 0.08;
+        pawn.rotation.z = Math.sin(wk * Math.PI * HOPS * 2) * 0.1;
       } else {
+        const L = (T - WALK_ANTIC - WALK_S) / WALK_LAND;
+        if (L < 1) {
+          // Landung: stauchen, einmal nachfedern
+          const b = Math.sin(L * Math.PI * 2) * (1 - L);
+          squash = 1 - 0.2 * b;
+          pawn.position.y = restY + Math.max(0, b) * 0.5;
+          moving = true;
+        } else pawn.position.y = restY;
+        pawn.rotation.x = 0;
         pawn.rotation.y += (0 - pawn.rotation.y) * 0.1;
         pawn.rotation.z = 0;
+      }
+      pawn.scale.set(pawnScale / Math.sqrt(squash), pawnScale * squash, pawnScale / Math.sqrt(squash));
+      // Ring am Ziel
+      const R = reduced ? 1 : (T - WALK_ANTIC - WALK_S) / 0.7;
+      landRing.visible = R >= 0 && R < 1 && walk.key !== "start";
+      if (landRing.visible) {
+        landRing.position.set(pawn.position.x, restY - 0.9, pawn.position.z);
+        landRing.scale.setScalar(pawnScale * (1.4 + 3.2 * ease(R)));
+        landRing.material.opacity = 0.75 * (1 - R);
+        moving = true;
       }
       return moving;
     },
     /** Läuft die Figur gerade? (für die Schrittgeräusche) */
-    walking(t) { return t - walk.t0 < WALK_S; },
+    walking(t) { return t - walk.t0 < WALK_ANTIC + WALK_S; },
     dispose() {
       for (const tk of tokens) tk.top.material.dispose();
       if (paper) paper.geometry.dispose();

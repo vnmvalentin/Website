@@ -2,16 +2,14 @@
 // Englisch. Das Overlay selbst zeigt nur, was der Streamer eintippt, und braucht keine Übersetzung.
 // Die Texte der öffentlichen Beschreibung (Funktionen, Einrichtung, Fragen) stehen in seoData.js,
 // die Chat-Befehle in chatCommands.js; die Antworten des Bots im Chat in Backend/lib/winchallengeIrc.js.
+// Die Texte der Tool-Leiste (Zurück, Anmelden, Menü) stehen in components/toolShell/toolShellText.js.
 
-export const WC_LANGS = ["de", "en"];
+import { defineMessages } from "../../i18n/core.js";
 
 const de = {
   // Hülle
   brand: "Win Challenge",
-  backToSite: "Zur Website",
   language: "Sprache",
-  login: "Mit Twitch anmelden",
-  logout: "Abmelden",
 
   // Öffentliche Seite
   loginCta: "Mit Twitch anmelden und Challenge erstellen",
@@ -216,10 +214,7 @@ const de = {
 
 const en = {
   brand: "Win Challenge",
-  backToSite: "Back to website",
   language: "Language",
-  login: "Log in with Twitch",
-  logout: "Log out",
 
   loginCta: "Log in with Twitch and create a challenge",
   loginHint: "Free · Twitch login is all you need",
@@ -412,5 +407,9 @@ const en = {
   noPerms: "No editing permissions are enabled for this control link right now. The streamer can turn them on in the editor under “Setup”.",
 };
 
+const WC_TEXTS = defineMessages({ de, en });
+
+/** Rohfassung je Sprache (für den Vollständigkeits-Test); die Seiten nehmen dictForWc */
 export const WC_I18N = { de, en };
-export const dictForWc = (lang) => WC_I18N[lang] || de;
+export const WC_LANGS = WC_TEXTS.langs;
+export const dictForWc = WC_TEXTS.dict;

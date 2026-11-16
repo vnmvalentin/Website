@@ -44,7 +44,7 @@ import tripleDraftSrc from '../../../assets/clashRoyale/ui/icon_triple_draft.png
 import telescopeSrc from '../../../assets/clashRoyale/ui/equip_icons_thrower_telescope.png';
 import goblinSrc from '../../../assets/clashRoyale/ui/highres_goblin_icon.png';
 import xpSrc from '../../../assets/clashRoyale/ui/experience_icon.png';
-import crystalSrc from '../../../assets/clashRoyale/ui/crystal.png';
+import crystalSrc from '../../../assets/clashRoyale/ui/crystal.webp';
 import scrollSrc from '../../../assets/clashRoyale/ui/icon_daily_task_scroll_opened.png';
 import lockSrc from '../../../assets/clashRoyale/ui/lock.webp';
 import settingsSrc from '../../../assets/clashRoyale/ui/settings.webp';

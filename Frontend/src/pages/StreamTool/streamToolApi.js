@@ -9,6 +9,9 @@ async function apiFetch(path, opts = {}) {
   if (!res.ok) {
     const err = new Error(json?.error || json?.message || `HTTP ${res.status}`);
     err.status = res.status;
+    // code/detail: für die Übersetzung im Editor (editorI18n.js, apiErrorText)
+    err.code = json?.code;
+    err.detail = json?.detail;
     err.missingScopes = json?.missingScopes;
     throw err;
   }
@@ -78,6 +81,10 @@ export const MARBLE_REWARD_SCOPE = "channel:manage:redemptions";
 
 /** Bestenliste der Murmelbahn leeren. */
 export const resetMarbleTop = () => scenePost("marbles/top/reset");
+
+/** Test-Alert: 'follow' | 'sub' | 'resub' | 'gift' | 'bits' | 'raid' — erscheint in Vorschau und OBS-Quelle. */
+export const testAlert = (kind) =>
+  apiFetch("/api/stream-tool/alerts/test", { method: "POST", body: JSON.stringify({ kind }) });
 
 /** Laufende Szene beenden: 'hype' | 'storm' | 'plane' | 'marbles'. */
 export const stopScene = (key) => apiFetch(`/api/stream-tool/scenes/${key}`, { method: "DELETE" });

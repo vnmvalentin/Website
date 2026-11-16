@@ -3,12 +3,14 @@
 //
 // Tasten hier (alles andere in render/runner.js): Esc = Pause, Tab = Werte ein/aus.
 
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Play, Save, Flag, BarChart3, Trophy, RotateCw } from "lucide-react";
 import { createGame, snapshotGame } from "../engine/game.js";
 import { statSheet } from "../engine/stats.js";
 import GameRunner from "../render/runner.js";
-import Hud from "../hud/Hud.jsx";
+import Hud, { HudLoadout } from "../hud/Hud.jsx";
+import TouchControls from "../hud/TouchControls.jsx";
+import { useTouchDevice } from "../ui/touchDevice.js";
 import LevelUp from "../hud/LevelUp.jsx";
 import ItemReveal from "../hud/ItemReveal.jsx";
 import FlatSprite from "../ui/FlatSprite.jsx";
@@ -34,6 +36,7 @@ function eventSound(ev, game) {
     case "bossStart": playSound("boss"); break;
     case "bossDead": playSound("bossDead"); break;
     case "championDead": playSound("item_legendary"); break;
+    case "streak": playSound("streak"); break;
     case "hordeEvent": playSound(ev.kind === "blood" ? "blood" : ev.kind === "ring" ? "ring" : "champion"); break;
     case "gameOver": playSound("death"); break;
     case "victory": playSound("victory"); break;
@@ -46,7 +49,8 @@ function SettingsPanel() {
   const [s, setS] = useState(getSettings);
   useEffect(() => subscribeSettings(setS), []);
   const toggle = (key, label) => (
-    <button className="av-seg-btn text-[15px]" aria-pressed={s[key]} onClick={() => updateSettings({ [key]: !s[key] })}>{label}</button>
+    // Am Handy kleiner und mit Silbentrennung — „Schadenszahlen“ passt sonst nicht in ein Drittel der Breite
+    <button className="av-seg-btn text-[13px] sm:text-[15px] [hyphens:auto] min-w-0" aria-pressed={s[key]} onClick={() => updateSettings({ [key]: !s[key] })}>{label}</button>
   );
   return (
     <div className="mt-6">
@@ -62,6 +66,24 @@ function SettingsPanel() {
         {toggle("shake", "Wackeln")}
         {toggle("hitstop", "Item-Pause")}
       </div>
+      <div className="av-seg grid-cols-2 mt-2">
+        <button className="av-seg-btn text-[15px]" aria-pressed={s.view === "3d"} onClick={() => updateSettings({ view: "3d" })}>3D-Ansicht</button>
+        <button className="av-seg-btn text-[15px]" aria-pressed={s.view === "2d"} onClick={() => updateSettings({ view: "2d" })}>2D-Ansicht</button>
+      </div>
+      {s.view === "3d" && (
+        <>
+          <div className="mt-3 mb-1.5 text-[14px] av-dim">Bildqualität</div>
+          <div className="av-seg grid-cols-3">
+            {[["auto", "Automatisch"], ["hoch", "Schön"], ["fluessig", "Flüssig"]].map(([v, label]) => (
+              <button key={v} className="av-seg-btn text-[13px] sm:text-[15px] min-w-0" aria-pressed={(s.gfx || "auto") === v} onClick={() => updateSettings({ gfx: v })}>{label}</button>
+            ))}
+          </div>
+        </>
+      )}
+      <p className="mt-2 text-[13px] av-faint leading-relaxed">
+        Ruckelt es, nimm „Flüssig“ (etwas weniger scharf, ohne Konturen). Automatisch heißt: am Handy flüssig, am Rechner
+        schön. Die 2D-Ansicht hilft nur, wenn 3D auf dem Gerät gar nicht läuft — sie rechnet alles per Prozessor.
+      </p>
     </div>
   );
 }
@@ -69,6 +91,7 @@ function SettingsPanel() {
 export default function RunScreen({ run, onFinished, onQuit }) {
   const wrapRef = useRef(null);
   const canvasRef = useRef(null);
+  const canvas3dRef = useRef(null);
   const runnerRef = useRef(null);
   const gameRef = useRef(null);
   const finishingRef = useRef(false);
@@ -78,10 +101,13 @@ export default function RunScreen({ run, onFinished, onQuit }) {
   const [banner, setBanner] = useState(null);
   const [paused, setPaused] = useState(false);
   const [showStats, setShowStats] = useState(false);
+  // Kleiner Bildschirm (Handy): kompaktes HUD, Minikarte oben rechts, Waffen und Items im Pausenmenü
+  const [layout, setLayout] = useState({ compact: false, portrait: false });
   const [victory, setVictory] = useState(false);
   const [saveError, setSaveError] = useState(null);
   const [busy, setBusy] = useState(false);
   const kit = KITS[run.kitId] || KITS.default;
+  const touch = useTouchDevice(); // Handy/Tablet: Touch-Steuerung statt Maus und Tasten
 
   const showBanner = useCallback((title, sub, color, ms = 2600) => {
     const key = Date.now() + Math.random();
@@ -136,6 +162,7 @@ export default function RunScreen({ run, onFinished, onQuit }) {
       timeSec: Math.floor(g.time), won: !!won || g.won, items,
       // nur für Verlauf und Erfolge (der Server deckelt die Werte)
       evolutions: g.stats.evolutions || 0, champions: g.stats.champions || 0, loop: g.loop,
+      bestStreak: g.stats.bestStreak || 0, giants: g.stats.giants || 0, boons: Object.values(p.boons || {}).reduce((a, n) => a + n, 0),
       itemCount: Object.values(p.items).reduce((a, n) => a + n, 0),
       weapons: p.weaponOrder.filter((id) => p.weapons[id]).map((id) => ({ id, level: p.weapons[id] })),
       itemStacks: p.itemOrder.filter((id) => p.items[id]).map((id) => ({ id, n: p.items[id] })),
@@ -167,7 +194,7 @@ export default function RunScreen({ run, onFinished, onQuit }) {
     requestAnimationFrame(() => {
       if (cancelled) return;
       const runner = new GameRunner({
-        canvas: canvasRef.current, game, skin: run.skin || "",
+        canvas: canvasRef.current, canvas3d: canvas3dRef.current, game, skin: run.skin || "",
         onHud: setHud,
         onEvents: (evs) => {
           for (const ev of evs) {
@@ -177,15 +204,19 @@ export default function RunScreen({ run, onFinished, onQuit }) {
             else if (ev.type === "equipment") { game.seenEquipment.add(ev.id); runner.hitstop(stop); pushReveal({ kind: "equipment", id: ev.id }); }
             else if (ev.type === "levelChoice") runner.pushHud();
             else if (ev.type === "hordeEvent") {
-              if (ev.kind === "blood") showBanner("Blutmond", "30 Sekunden lang kommen dreimal so viele Gegner", "#ff5a4a", 3000);
+              if (ev.kind === "blood") showBanner("Blutmond", "30 Sekunden lang bricht die Horde über dich herein", "#ff5a4a", 3000);
+              else if (ev.kind === "rush") showBanner("Ansturm", "Halte aus, bis der Teleporter geladen ist", "#ff7a5a", 2600);
+              else if (ev.kind === "giant") showBanner("Ein Koloss naht", ev.name.replace("Koloss: ", ""), "#e8e2d4", 2600);
               else if (ev.kind === "ring") showBanner("Eingekreist!", "Schlag dir eine Lücke frei", "#ff7a5a", 2600);
               else if (ev.kind === "champion") showBanner("Ein Champion erscheint", ev.name.replace("Champion: ", ""), "var(--av-gold)", 2800);
             }
+            else if (ev.type === "streak") showBanner(`${ev.n}er Serie`, "Alle Kristalle fliegen dir zu", "#5ec8ff", 1800);
+            else if (ev.type === "giantDead") runner.hitstop(stop * 0.3);
             else if (ev.type === "championDead") showBanner("Champion besiegt", "Beute liegt bereit", "var(--av-gold)", 2200);
             else if (ev.type === "stageStart") showBanner(ev.final ? "Gewitterhort" : ev.name, ev.final ? "Das Finale" : `${ev.loop > 0 ? `Zyklus ${ev.loop + 1} · ` : ""}Welt ${ev.index + 1}`, "var(--av-torch)");
             else if (ev.type === "stageChanged") save();
             else if (ev.type === "bossStart") showBanner(ev.name, ev.title, "#ff5a4a", 3200);
-            else if (ev.type === "bossDead") showBanner(`${ev.name} besiegt`, "Beute liegt bereit", "var(--av-gold)");
+            else if (ev.type === "bossDead") { runner.hitstop(stop * 0.6); showBanner(`${ev.name} besiegt`, "Beute liegt bereit", "var(--av-gold)"); }
             else if (ev.type === "teleReady" && !ev.final) showBanner("Teleporter bereit", "Mit E zur nächsten Welt", "var(--av-moss)");
             else if (ev.type === "message") showBanner(ev.text, null, "var(--av-dim)", 2400);
             else if (ev.type === "victory") { setVictory(true); runner.setPaused(true); }
@@ -194,11 +225,16 @@ export default function RunScreen({ run, onFinished, onQuit }) {
         },
       });
       runnerRef.current = runner;
+      if (import.meta.env.DEV) window.__avRunner = runner; // nur im Dev-Server: Leistungsmessung (Dreiecke, Auflösung)
       const r = wrapRef.current.getBoundingClientRect();
       runner.resize(r.width, r.height);
-      runner.start();
-      runner.pushHud();
-      setReady(true);
+      // "Welt wird geladen" bleibt stehen, bis der Zeichner bereit ist (3D lädt erst seine Figuren)
+      runner.whenReady().then(() => {
+        if (cancelled) return;
+        runner.start();
+        runner.pushHud();
+        setReady(true);
+      });
       if (!run.snapshot) save();
     });
     return () => {
@@ -216,10 +252,33 @@ export default function RunScreen({ run, onFinished, onQuit }) {
     const ro = new ResizeObserver(([entry]) => {
       const { width, height } = entry.contentRect;
       runnerRef.current?.resize(width, height);
+      const next = { compact: width < 760 || height < 520, portrait: height > width };
+      setLayout((l) => (l.compact === next.compact && l.portrait === next.portrait ? l : next));
     });
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
+
+  // Kompakt: Minikarte rechts unter die HUD-Leiste legen und die Mitte (Boss, Teleporter, Meldungen) darunter bzw.
+  // daneben beginnen lassen. Die Leiste hat je nach Gerät einen Abstand für die Notch — deshalb messen statt rechnen.
+  const hasHud = !!hud;
+  useLayoutEffect(() => {
+    const wrap = wrapRef.current;
+    const runner = runnerRef.current;
+    if (!wrap || !runner) return;
+    if (!layout.compact) {
+      runner.setMinimap(null);
+      wrap.style.removeProperty("--av-center-top");
+      wrap.style.removeProperty("--av-center-side");
+      return;
+    }
+    const bar = wrap.querySelector(".av-hud-compact");
+    const barBottom = bar ? bar.offsetTop + bar.offsetHeight : 64;
+    const size = layout.portrait ? 96 : 84;
+    runner.setMinimap({ top: barBottom + 8, size });
+    wrap.style.setProperty("--av-center-top", `${layout.portrait ? barBottom + size + 20 : barBottom + 8}px`);
+    wrap.style.setProperty("--av-center-side", `${layout.portrait ? 8 : size + 24}px`);
+  }, [layout, ready, hasHud]);
 
   const setPause = useCallback((p) => {
     if (victory || finishingRef.current) return;
@@ -258,11 +317,16 @@ export default function RunScreen({ run, onFinished, onQuit }) {
   const g = gameRef.current;
   return (
     <div ref={wrapRef} className="relative w-full h-full overflow-hidden bg-[#0a090d] select-none cursor-crosshair">
-      <canvas ref={canvasRef} className="block w-full h-full" />
-      {ready && <Hud hud={hud} kit={kit} skin={run.skin || ""} banner={banner} />}
+      {/* unten die 3D-Ansicht (unsichtbar, solange sie lädt oder die 2D-Ansicht gewählt ist), darüber die 2D-Fläche */}
+      <canvas ref={canvas3dRef} className="absolute inset-0 w-full h-full" style={{ visibility: "hidden" }} />
+      <canvas ref={canvasRef} className="relative block w-full h-full" />
+      {ready && <Hud hud={hud} kit={kit} skin={run.skin || ""} banner={banner} touch={touch} compact={layout.compact} onPause={() => setPause(true)} />}
+      {ready && touch && !paused && !victory && !hud?.levelUp && (
+        <TouchControls runnerRef={runnerRef} hud={hud} kit={kit} onPause={layout.compact ? null : () => setPause(true)} />
+      )}
       {ready && <ItemReveal reveal={currentReveal} />}
       {ready && hud?.levelUp && !paused && !victory && (
-        <LevelUp offer={hud.levelUp} gold={hud.gold} onChoose={chooseUp} onReroll={reroll} />
+        <LevelUp offer={hud.levelUp} gold={hud.gold} onChoose={chooseUp} onReroll={reroll} compact={layout.compact} touch={touch} />
       )}
 
       {!ready && (
@@ -276,8 +340,8 @@ export default function RunScreen({ run, onFinished, onQuit }) {
         <div className="absolute bottom-24 left-4 av-hud-panel px-3 py-2 text-[14px] av-blood max-w-[320px]">Spielstand nicht gespeichert: {saveError}</div>
       )}
 
-      {/* Werte (Tab) */}
-      {showStats && g && !victory && (
+      {/* Werte (Tab) — kompakt stehen sie im Pausenmenü selbst */}
+      {showStats && g && !victory && !layout.compact && (
         <div className="absolute z-30 top-1/2 right-6 -translate-y-1/2 av-block p-5 w-[340px] max-h-[80%] av-scroll">
           <h2 className="av-title text-[20px] mb-3 flex items-center gap-2"><BarChart3 size={18} className="av-torch" /> Werte</h2>
           <dl className="grid grid-cols-[1fr_auto] gap-x-4 gap-y-1.5 text-[15px]">
@@ -292,7 +356,7 @@ export default function RunScreen({ run, onFinished, onQuit }) {
       {/* Pause */}
       {paused && !victory && (
         <div className="av-overlay">
-          <div className="av-block p-6 md:p-8 w-full max-w-[460px]">
+          <div className="av-block p-6 md:p-8 w-full max-w-[460px] max-h-full overflow-y-auto av-scroll">
             <h2 className="av-title text-[30px]">Pause</h2>
             {g && (
               <p className="mt-2 av-dim">
@@ -305,6 +369,19 @@ export default function RunScreen({ run, onFinished, onQuit }) {
               <button className="av-btn av-btn-stone" disabled={busy} onClick={saveAndQuit}><Save size={17} /> Speichern und beenden</button>
               <button className="av-btn av-btn-danger" disabled={busy} onClick={() => finish(false)}><Flag size={17} /> Lauf aufgeben und werten</button>
             </div>
+            {layout.compact && showStats && g && (
+              <dl className="mt-5 grid grid-cols-[1fr_auto] gap-x-4 gap-y-1.5 text-[15px]">
+                {statSheet(g.player).map(([k, v]) => (
+                  <React.Fragment key={k}><dt className="av-dim">{k}</dt><dd className="text-right av-num">{v}</dd></React.Fragment>
+                ))}
+              </dl>
+            )}
+            {layout.compact && hud && (
+              <div className="mt-6">
+                <h3 className="av-label mb-2">Ausrüstung</h3>
+                <HudLoadout hud={hud} />
+              </div>
+            )}
             <SettingsPanel />
             <p className="mt-5 text-[14px] av-faint leading-relaxed">
               Gespeichert wird beim Betreten jeder Welt. Beim Fortsetzen beginnt die aktuelle Welt von vorn — mit allen Items, die du da hattest.

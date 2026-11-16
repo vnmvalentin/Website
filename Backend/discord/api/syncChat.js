@@ -11,10 +11,10 @@ module.exports = function ({ requireAuth, discordClient }) {
 
     router.post('/:guildId/sync-chat', requireAuth, express.json(), async (req, res) => {
         const { channelId } = req.body;
-        if (!channelId) return res.status(400).json({ error: 'Fehlende Daten.' });
+        if (!channelId) return res.status(400).json({ error: 'Fehlende Daten.', code: "missing_data" });
 
         const guild = discordClient.guilds.cache.get(req.params.guildId);
-        if (!guild) return res.status(404).json({ error: 'Server nicht gefunden.' });
+        if (!guild) return res.status(404).json({ error: 'Server nicht gefunden.', code: "guild_not_found" });
 
         // Remove any existing taverne for this guild first
         const existing = getSyncChannels(req.params.guildId);
@@ -34,13 +34,13 @@ module.exports = function ({ requireAuth, discordClient }) {
         let webhookToken = null;
         try {
             const channel = guild.channels.cache.get(channelId);
-            if (!channel) return res.status(400).json({ error: 'Kanal nicht gefunden.' });
+            if (!channel) return res.status(400).json({ error: 'Kanal nicht gefunden.', code: "channel_not_found" });
             const webhook = await channel.createWebhook({ name: 'Taverne', reason: 'Global Taverne Webhook' });
             webhookId = webhook.id;
             webhookToken = webhook.token;
         } catch (e) {
             console.error('[Taverne] Webhook-Erstellung fehlgeschlagen:', e.message);
-            return res.status(500).json({ error: 'Konnte Webhook nicht erstellen. Hat der Bot die Berechtigung?' });
+            return res.status(500).json({ error: 'Konnte Webhook nicht erstellen. Hat der Bot die Berechtigung?', code: "webhook_failed" });
         }
 
         const id = saveSyncChannel(req.params.guildId, channelId, webhookId, webhookToken);

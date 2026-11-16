@@ -18,6 +18,8 @@ const SPIEGEL = {
   flick: 'flickSoccer/tools/spiegel.js',
   worldflip: 'worldflip/tools/spiegel.js',
   garden: 'garden/tools/katalogSpiegel.js',
+  // Kartenwerte, Art und Jahr für die Viewer Games (Werte schätzen, Chat-Wordle)
+  clash: 'clashRoyale/tools/kartenSpiegel.js',
 };
 
 const args = process.argv.slice(2);

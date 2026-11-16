@@ -1,6 +1,6 @@
 // ui/pages/PracticePage.jsx — Übung gegen die KI (leicht/normal/schwer) oder Hotseat zu zweit an einem Gerät.
 import React, { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import SEO from "../../../../components/SEO";
 import { useLocalGame } from "../../net/useLocalGame.js";
 import { DEFAULT_SETTINGS, normalizeSettings } from "../../engine/match.js";
@@ -38,20 +38,32 @@ function LocalMatch({ config, onExit }) {
   );
 }
 
-/** Nur Dev-Build: fester Spielstand für Screenshots (?fixture=…), KI steht still. */
+/**
+ * Nur Dev-Build: fester Spielstand für Screenshots (?fixture=…), die KI steht still.
+ * Mit &ki=1 spielt die KI von diesem Stand aus weiter (zum Durchspielen eines Kampfs am neuen Tisch: &tisch=neu),
+ * mit &hotseat=1 spielen zwei an einem Gerät.
+ */
 function FixtureMatch({ name }) {
+  const navigate = useNavigate();
   const [state, setState] = useState(/** @type {any} */ (null));
   useEffect(() => {
     import("../dev/fixtures.js").then((m) => setState(m.buildFixture(name)));
   }, [name]);
   if (!state) return <p className="text-center ss-dim py-20">Fixture wird gebaut …</p>;
-  return <LocalMatch config={{ seed: state.seed, settings: state.settings, names: state.players.map((P) => P.name), initialState: state, aiEnabled: false }} onExit={() => {}} />;
+  const query = new URLSearchParams(window.location.search);
+  const aiEnabled = query.get("ki") === "1";
+  // &hotseat=1: derselbe Stand zu zweit an einem Gerät (Übergabe-Vorhang nach jedem Zug)
+  const hotseat = query.get("hotseat") === "1";
+  return <LocalMatch config={{ seed: state.seed, settings: state.settings, names: state.players.map((P) => P.name), initialState: state, aiEnabled, hotseat }} onExit={() => navigate("/sacrifice-and-sigils")} />;
 }
 
 export default function PracticePage() {
   const navigate = useNavigate();
+  const location = useLocation();
+  // Vom Hauptmenü am Tisch kommt die fertige Wahl mit (Gegner, Zirkel …): dann gleich an den Tisch
+  const fromMenu = /** @type {any} */ (location.state)?.practice || null;
   const fixture = import.meta.env.DEV && typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("fixture") : null;
-  const [config, setConfig] = useState(/** @type {any} */ (null));
+  const [config, setConfig] = useState(/** @type {any} */ (fromMenu));
   const [level, setLevel] = useState("normal");
   const [hotseat, setHotseat] = useState(false);
   const [settings, setSettings] = useState({ ...DEFAULT_SETTINGS, turnTimer: 0 });
@@ -60,7 +72,7 @@ export default function PracticePage() {
   const myName = getPrefs().name || "Zeichner";
 
   if (fixture) return <FixtureMatch name={fixture} />;
-  if (config) return <LocalMatch key={config.seed} config={config} onExit={() => setConfig(null)} />;
+  if (config) return <LocalMatch key={config.seed} config={config} onExit={() => (fromMenu ? navigate("/sacrifice-and-sigils") : setConfig(null))} />;
 
   const start = () => {
     const s = (seed || randomSeed()).toUpperCase();

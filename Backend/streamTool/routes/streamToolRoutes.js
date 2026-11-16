@@ -17,6 +17,7 @@ const { helix, validateToken } = require("../lib/twitchHelix");
 const raids = require("../lib/streamToolRaids");
 const stats = require("../lib/streamToolStats");
 const scenes = require("../lib/streamToolScenes");
+const alerts = require("../lib/streamToolAlerts");
 const { premiumStatus, isPremium } = require("../../billing/entitlements");
 
 const CLIENT_ID = process.env.TWITCH_CLIENT_ID || "";
@@ -305,8 +306,18 @@ function invalidateGoals(row) {
   updateCache.run(JSON.stringify(cache), 0, row.user_id);
 }
 
-/** Module, die den Chat-Bot brauchen: Raid-Clips (Raids) und Statistik (Cheers, Abos). */
-const CHAT_MODULE_IDS = [raids.MODULE_ID, stats.MODULE_ID, ...scenes.CHAT_IDS];
+/** Module, die den Chat-Bot brauchen: Raid-Clips (Raids), Statistik (Cheers, Abos), Szenen und Alerts. */
+const CHAT_MODULE_IDS = [raids.MODULE_ID, stats.MODULE_ID, ...scenes.CHAT_IDS, alerts.MODULE_ID];
+
+/** Alerts fürs Overlay. Ein Fehler hier darf den Rest der Antwort nicht kosten. */
+async function collectAlerts(row) {
+  try {
+    return await alerts.collect(row);
+  } catch (e) {
+    console.warn("[stream-tool] Alerts:", e.message);
+    return null;
+  }
+}
 
 // Der Beitrittsbefehl der Murmelbahn gehört dazu: der Bot führt ihn in einem
 // eigenen Index, der beim Abgleich der Kanäle neu gebaut wird.
@@ -358,6 +369,9 @@ function chatWatchStatus(row) {
     // Je Modul, damit das Dashboard beim richtigen einen Hinweis zeigen kann
     raidEnabled: !!config?.modules?.[raids.MODULE_ID]?.enabled,
     statsEnabled: !!config?.modules?.[stats.MODULE_ID]?.enabled,
+    alertsEnabled: !!config?.modules?.[alerts.MODULE_ID]?.enabled,
+    // Follow-Alerts lesen die Follower-Liste — ältere Verbindungen haben das Recht evtl. noch nicht
+    followScope: String(row.scopes || "").split(" ").includes(alerts.FOLLOW_SCOPE),
     botConfigured: !!irc.configured,
     botConnected: !!irc.connected,
     watching: !!login && irc.joined.includes(login),
@@ -398,10 +412,10 @@ module.exports = function createStreamToolRouter({ requireAuth } = {}) {
 
   router.put("/config", requireAuth, (req, res) => {
     const config = req.body && req.body.config;
-    if (!config || typeof config !== "object") return res.status(400).json({ error: "config fehlt" });
+    if (!config || typeof config !== "object") return res.status(400).json({ error: "config fehlt", code: "bad_config" });
     const raw = JSON.stringify(config);
     if (Buffer.byteLength(raw, "utf8") > MAX_CONFIG_BYTES) {
-      return res.status(413).json({ error: "Konfiguration zu groß" });
+      return res.status(413).json({ error: "Konfiguration zu groß", code: "config_too_big" });
     }
     const userId = String(req.twitchId);
     const before = parseConfig(getOrCreate(userId).config);
@@ -430,21 +444,22 @@ module.exports = function createStreamToolRouter({ requireAuth } = {}) {
   // ── Twitch-Verbindung ─────────────────────────────────────────────────────
   router.post("/token", requireAuth, async (req, res) => {
     const token = req.body && req.body.token;
-    if (!token) return res.status(400).json({ error: "Kein Token übergeben" });
+    if (!token) return res.status(400).json({ error: "Kein Token übergeben", code: "no_token" });
 
     const info = await validateToken(token);
-    if (!info || !info.user_id) return res.status(401).json({ error: "Token ungültig oder abgelaufen" });
+    if (!info || !info.user_id) return res.status(401).json({ error: "Token ungültig oder abgelaufen", code: "token_invalid" });
 
     // Entscheidend: der Token muss dem eingeloggten Account gehören, sonst könnte
     // jemand fremde Kanäle an sein eigenes Overlay hängen.
     if (String(info.user_id) !== String(req.twitchId)) {
-      return res.status(403).json({ error: "Token gehört zu einem anderen Twitch-Account" });
+      return res.status(403).json({ error: "Token gehört zu einem anderen Twitch-Account", code: "token_other_account" });
     }
 
     const missing = missingScopes(info.scopes || []);
     if (missing.length) {
       return res.status(403).json({
         error: "Dem Token fehlen Rechte für Abstimmungen/Vorhersagen. Bitte erneut verbinden.",
+        code: "token_scopes",
         missingScopes: missing,
       });
     }
@@ -468,6 +483,7 @@ module.exports = function createStreamToolRouter({ requireAuth } = {}) {
     clearRaidEvent.run(String(req.twitchId));
     stats.clearStats(String(req.twitchId));
     scenes.clear(String(req.twitchId));
+    alerts.clear(String(req.twitchId));
     res.json({ ok: true });
   });
 
@@ -475,7 +491,8 @@ module.exports = function createStreamToolRouter({ requireAuth } = {}) {
   router.get("/live", requireAuth, async (req, res) => {
     const row = getOrCreate(String(req.twitchId));
     if (!decryptToken(row.token_enc)) {
-      return res.json({ connected: false, poll: null, prediction: null, goals: null, raid: null, stats: null, scenes: null, chatWatch: chatWatchStatus(row), notice: null, serverNow: Date.now() });
+      // Test-Alerts gehen auch ohne Twitch-Verbindung — so lässt sich das Aussehen vorab einrichten
+      return res.json({ connected: false, poll: null, prediction: null, goals: null, raid: null, stats: null, scenes: null, alerts: await collectAlerts(row), chatWatch: chatWatchStatus(row), notice: null, serverNow: Date.now() });
     }
     const data = await syncFromTwitch(row);
     const fresh = getByUser.get(String(req.twitchId));
@@ -487,6 +504,7 @@ module.exports = function createStreamToolRouter({ requireAuth } = {}) {
       raid: raids.activeRaidEvent(fresh),
       stats: stats.statsModuleOf(fresh) ? stats.currentStats(fresh.user_id) : null,
       scenes: await collectScenes(fresh),
+      alerts: await collectAlerts(fresh),
       // Murmelbahn: Bestenliste und Stand der Belohnungs-Erkennung
       marbleSetup: scenes.marbleSetup(fresh),
       // Mitgeschickt, weil der Chat-Bot einen Kanal erst nach ein paar Sekunden
@@ -511,7 +529,7 @@ module.exports = function createStreamToolRouter({ requireAuth } = {}) {
    */
   router.post("/goals/refresh", requireAuth, async (req, res) => {
     const row = getOrCreate(String(req.twitchId));
-    if (!decryptToken(row.token_enc)) return res.status(400).json({ error: "Twitch ist nicht verbunden." });
+    if (!decryptToken(row.token_enc)) return res.status(400).json({ error: "Twitch ist nicht verbunden.", code: "not_connected" });
 
     const data = await syncFromTwitch(row, { force: true, forceGoals: true });
     const granted = (row.scopes || "").split(" ").filter(Boolean);
@@ -532,9 +550,10 @@ module.exports = function createStreamToolRouter({ requireAuth } = {}) {
     try {
       result = await raids.testRaid(String(req.twitchId), login);
     } catch (e) {
-      return res.status(502).json({ error: `Twitch antwortet nicht: ${e.message}` });
+      return res.status(502).json({ error: `Twitch antwortet nicht: ${e.message}`, code: "twitch_down" });
     }
 
+    // Codes übersetzt der Editor (editorI18n.js, apiErrors); der deutsche Text bleibt für die deutsche Fassung
     const MESSAGES = {
       module_off: "Schalte das Modul „Clip des Raiders“ erst ein.",
       not_connected: "Twitch ist nicht verbunden.",
@@ -542,7 +561,13 @@ module.exports = function createStreamToolRouter({ requireAuth } = {}) {
       unknown_channel: "Diesen Twitch-Kanal gibt es nicht.",
       no_settings: "Keine Einstellungen gefunden.",
     };
-    if (result.error) return res.status(400).json({ error: MESSAGES[result.error] || "Probelauf fehlgeschlagen." });
+    if (result.error) {
+      const known = !!MESSAGES[result.error];
+      return res.status(400).json({
+        error: known ? MESSAGES[result.error] : "Probelauf fehlgeschlagen.",
+        code: known ? (result.error === "module_off" ? "raid_module_off" : result.error) : "raid_test_failed",
+      });
+    }
 
     // Ohne Clip zeigt das Overlay nichts an — das gehört ins Dashboard gesagt,
     // sonst sucht man den Fehler in OBS.
@@ -552,7 +577,12 @@ module.exports = function createStreamToolRouter({ requireAuth } = {}) {
       error: "Twitch hat die Clips nicht herausgegeben — das Overlay bleibt aus.",
     };
     if (result.event.error) {
-      return res.json({ event: result.event, warning: WARNINGS[result.event.error] || "Kein Clip gefunden — das Overlay bleibt aus." });
+      const known = !!WARNINGS[result.event.error];
+      return res.json({
+        event: result.event,
+        warning: known ? WARNINGS[result.event.error] : "Kein Clip gefunden — das Overlay bleibt aus.",
+        warningCode: known ? `clip_${result.event.error}` : "clip_missing",
+      });
     }
     res.json({ event: result.event });
   });
@@ -568,7 +598,10 @@ module.exports = function createStreamToolRouter({ requireAuth } = {}) {
   const sceneAction = (fn) => (req, res) => {
     getOrCreate(String(req.twitchId));
     const result = fn(String(req.twitchId), req.body || {});
-    if (result.error) return res.status(400).json({ error: SCENE_MESSAGES[result.error] || "Das hat nicht geklappt." });
+    if (result.error) {
+      const known = !!SCENE_MESSAGES[result.error];
+      return res.status(400).json({ error: known ? SCENE_MESSAGES[result.error] : "Das hat nicht geklappt.", code: known ? result.error : "failed" });
+    }
     res.json({ ok: true });
   };
 
@@ -586,14 +619,30 @@ module.exports = function createStreamToolRouter({ requireAuth } = {}) {
   router.post("/scenes/marbles/reward", requireAuth, async (req, res) => {
     getOrCreate(String(req.twitchId));
     const result = await scenes.createReward(String(req.twitchId), req.body || {});
-    if (result.error) return res.status(400).json({ error: result.error, needsScope: !!result.needsScope });
+    if (result.error) return res.status(400).json({ error: result.error, code: result.code, detail: result.detail, needsScope: !!result.needsScope });
     res.json(result);
   });
 
   /** Die selbst angelegte Belohnung wieder löschen; offene Einlösungen werden erstattet. */
   router.delete("/scenes/marbles/reward/:rewardId", requireAuth, async (req, res) => {
     const result = await scenes.deleteReward(String(req.twitchId), String(req.params.rewardId));
-    if (result.error) return res.status(400).json({ error: result.error });
+    if (result.error) return res.status(400).json({ error: result.error, code: result.code, detail: result.detail });
+    res.json({ ok: true });
+  });
+
+  /** Test-Alert: erscheint in der Vorschau und in der OBS-Quelle. kind: follow | sub | resub | gift | bits | raid */
+  router.post("/alerts/test", requireAuth, (req, res) => {
+    getOrCreate(String(req.twitchId));
+    const result = alerts.testAlert(String(req.twitchId), req.body && req.body.kind);
+    if (result.error) {
+      const ALERT_MESSAGES = {
+        module_off: "Schalte das Modul „Alerts“ erst ein.",
+        no_settings: "Keine Einstellungen gefunden.",
+        bad_kind: "Unbekannte Alert-Art.",
+      };
+      const code = result.error === "module_off" ? "alerts_module_off" : (ALERT_MESSAGES[result.error] ? result.error : "failed");
+      return res.status(400).json({ error: ALERT_MESSAGES[result.error] || "Das hat nicht geklappt.", code });
+    }
     res.json({ ok: true });
   });
 
@@ -601,7 +650,7 @@ module.exports = function createStreamToolRouter({ requireAuth } = {}) {
   router.delete("/scenes/:key", requireAuth, (req, res) => {
     getOrCreate(String(req.twitchId));
     if (!scenes.stop(String(req.twitchId), String(req.params.key))) {
-      return res.status(404).json({ error: "Unbekannte Szene" });
+      return res.status(404).json({ error: "Unbekannte Szene", code: "unknown_scene" });
     }
     res.json({ ok: true });
   });
@@ -612,7 +661,7 @@ module.exports = function createStreamToolRouter({ requireAuth } = {}) {
    */
   router.post("/overlay/:overlayKey/marbles/result", (req, res) => {
     const row = getByOverlayKey.get(String(req.params.overlayKey || ""));
-    if (!row) return res.status(403).json({ error: "Ungültiger Overlay-Link" });
+    if (!row) return res.status(403).json({ error: "Ungültiger Overlay-Link", code: "invalid_overlay" });
     const result = scenes.marblesResult(row, req.body && req.body.raceId, req.body && req.body.winnerId);
     // Abgelehnt heißt fast immer: eine andere Quelle war schneller — kein Fehler
     res.json({ ok: !result.error, winner: result.winner || null });
@@ -621,7 +670,7 @@ module.exports = function createStreamToolRouter({ requireAuth } = {}) {
   // Plätze 1–3 nach dem Sieger (für Preise in Streamer.bot) — auch hier zählt die erste Meldung
   router.post("/overlay/:overlayKey/marbles/placings", (req, res) => {
     const row = getByOverlayKey.get(String(req.params.overlayKey || ""));
-    if (!row) return res.status(403).json({ error: "Ungültiger Overlay-Link" });
+    if (!row) return res.status(403).json({ error: "Ungültiger Overlay-Link", code: "invalid_overlay" });
     const result = scenes.marblesPlacings(row, req.body && req.body.raceId, req.body && req.body.ids);
     res.json({ ok: !result.error, placings: result.placings || null });
   });
@@ -633,7 +682,7 @@ module.exports = function createStreamToolRouter({ requireAuth } = {}) {
     // einem stehengebliebenen Overlay zu unterscheiden.
     res.set("Cache-Control", "no-store, must-revalidate");
     const row = getByOverlayKey.get(String(req.params.overlayKey || ""));
-    if (!row) return res.status(403).json({ error: "Ungültiger Overlay-Link" });
+    if (!row) return res.status(403).json({ error: "Ungültiger Overlay-Link", code: "invalid_overlay" });
 
     const data = await syncFromTwitch(row);
     res.json({
@@ -645,6 +694,7 @@ module.exports = function createStreamToolRouter({ requireAuth } = {}) {
       raid: raids.activeRaidEvent(row),
       stats: stats.statsModuleOf(row) ? stats.currentStats(row.user_id) : null,
       scenes: await collectScenes(row),
+      alerts: await collectAlerts(row),
       serverNow: Date.now(),
     });
   });

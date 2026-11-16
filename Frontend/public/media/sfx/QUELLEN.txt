@@ -1,0 +1,24 @@
+Klang-Aufnahmen für Sacrifice & Sigils (public/media/sfx)
+
+Alle Dateien stammen aus zwei Paketen von Kenney Vleugels (kenney.nl), Lizenz Creative Commons Zero (CC0):
+http://creativecommons.org/publicdomain/zero/1.0/
+
+  Casino Audio (1.1)   https://opengameart.org/content/54-casino-sound-effects-cards-dice-chips
+  RPG Audio            https://opengameart.org/content/50-rpg-sound-effects
+
+Zuordnung (Dateiname hier ← Dateiname im Paket):
+  draw_1–4       card-slide-1–4        Karte ziehen
+  place_1–4      card-place-1–4        Karte legen
+  attack_1–4     card-shove-1–4        Stoß beim Angriff
+  hit_1–3        bookPlace1–3          Treffer
+  death_1–2      cards-pack-open-1–2   Karte zerreißt
+  sacrifice_1–2  knifeSlice, knifeSlice2   Opfer
+  bones_1–3      dice-throw-1–3        Knochen fallen auf den Haufen
+  weight_1–3     metalPot1–3           Gewicht fällt in die Waagschale
+  scale_1        metalLatch            Waage
+  seal_1         bookClose             Siegelstempel
+  creak_1–3      creak1–3              Holz knarrt (Schild, blockierter Zug)
+  coins_1        handleCoins           Splitter
+  hammer_1       chop                  Hammerschlag
+
+Welche Datei zu welchem Ereignis gehört, steht in src/pages/SacrificeSigils/audio/sound.js (SAMPLES).

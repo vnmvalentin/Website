@@ -1,4 +1,4 @@
-// Worldflip-Räume ohne socket.io: send() und die Zeit werden hereingereicht.   npm run test:worldflip
+// Worldflip-Räume ohne socket.io: send() und die Zeit werden hereingereicht.   npm test -- worldflip
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const path = require('path');
@@ -74,6 +74,57 @@ test('Eigener Zug kommt an, fremder wird abgelehnt', async () => {
   assert.equal(theirs.events.find((e) => e.t === 'draw').cards, undefined);
 });
 
+test('Angriff mit Antwort: Das Ziel darf den Spiegel legen; antwortet es nicht, läuft die kurze Antwortzeit ab', async () => {
+  const { engine, m, last, advance } = await setup();
+  const { code } = m.create('a', { name: 'Anna', token: tok('a'), settings: { bots: false, turnSeconds: 40 } });
+  m.join('b', { code, name: 'Ben', token: tok('b') });
+  m.start('a');
+  advance(4000);
+  // Lage stellen: Anna ist dran und hält einen Hagel, Ben einen Spiegel
+  const room = m._rooms.get(code);
+  const s = room.state;
+  const take = (s, seat, want) => {
+    const pool = [s.deck, ...s.hands].find((p) => p !== s.hands[seat] && p.some(want));
+    const card = s.hands[seat].find(want) || pool.splice(pool.findIndex(want), 1)[0];
+    if (!s.hands[seat].includes(card)) s.hands[seat].push(card);
+    return card;
+  };
+  s.turn = 0;
+  s.world = 1;
+  s.drawn = [];
+  const hagel = take(s, 0, (c) => c.k === 'hagel' && c.w === 1);
+  const mirror = take(s, 1, (c) => c.k === 'spiegel');
+  const before = s.hands.map((h) => h.length);
+
+  assert.equal(m.action('a', { action: { t: 'play', id: hagel.id } }).ok, true);
+  const vb = last('b');
+  assert.deepEqual(vb.game.react, { by: 0, seat: 1, k: 'hagel', plus: 2 });
+  assert.ok(vb.turnEndsAt - vb.serverNow <= engine.RULES.REACT_SECONDS * 1000 + 10000, 'kurze Antwortzeit');
+  assert.equal(m.action('a', { action: { t: 'draw' } }).ok, false, 'der Angreifer wartet');
+  assert.equal(m.action('b', { action: { t: 'draw' } }).ok, false, 'nur antworten');
+  assert.equal(m.action('b', { action: { t: 'react', id: mirror.id } }).ok, true);
+  const after = last('a').game;
+  assert.equal(after.react, null);
+  assert.deepEqual(after.counts, [before[0] - 1 + 2, before[1] - 1]);
+  assert.equal(after.turn, 1);
+
+  // zweiter Angriff, diesmal schweigt das Ziel: Nach der Antwortzeit wird für es entschieden
+  const s2 = room.state;
+  s2.turn = 0;
+  s2.out = [false, false];
+  s2.drawn = [];
+  s2.react = null;
+  const sturm = take(s2, 0, (c) => c.k === 'sturm');
+  s2.world = sturm.w;
+  take(s2, 1, (c) => c.k === 'spiegel');
+  const played = m.action('a', { action: { t: 'play', id: sturm.id } });
+  assert.equal(played.ok, true, played.error);
+  assert.equal(last('b').game.react.seat, 1);
+  advance(30_000);
+  m.tick();
+  assert.equal(last('a').game.react, null);
+});
+
 test('Wer im Spiel geht, wird zum Bot; Zuschauer rücken nach dem Ende nach', async () => {
   const { m, last } = await setup();
   const { code } = m.create('a', { name: 'Anna', token: tok('a'), settings: { bots: false } });
@@ -116,4 +167,27 @@ test('2 gegen 2: Teams wählen, Partner sitzen sich gegenüber, Bots füllen auf
   assert.deepEqual(v.players.map((p) => p.bot), [false, true, false, true]);
   assert.equal(v.you, 2);
   assert.deepEqual(v.game.teams, [0, 1, 0, 1]);
+  // Partner sehen die Karten des anderen — die der Gegner bleiben verdeckt
+  assert.equal(v.game.mate.seat, 0);
+  assert.deepEqual(v.game.mate.hand, last('a').game.hand);
+  assert.deepEqual(last('a').game.mate.hand, v.game.hand);
+});
+
+test('Admin-Reiter „Spiele“: Räume und verbundene Menschen, jede gestartete Partie wird gezählt', async () => {
+  const stat = require('../../lib/spielStatistik');
+  const gezaehlt = [];
+  stat.verbindePartienSpeicher((spiel) => { gezaehlt.push(spiel); });
+  try {
+    const { m } = await setup();
+    assert.deepEqual(m.stats(), { raeume: 0, spieler: 0 });
+    const { code } = m.create('a', { name: 'Anna', token: tok('a'), settings: { players: 3 } });
+    m.join('b', { code, name: 'Ben', token: tok('b') });
+    assert.deepEqual(m.stats(), { raeume: 1, spieler: 2 }, 'Bots zählen nicht als Spieler');
+    m.start('a');
+    assert.deepEqual(gezaehlt, ['worldflip']);
+    m.disconnect('b');
+    assert.equal(m.stats().spieler, 1);
+  } finally {
+    stat.verbindePartienSpeicher(null);
+  }
 });

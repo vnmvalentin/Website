@@ -179,6 +179,24 @@ export const ELEMENT_SCHEMA = {
       phase: num('cannon', 'phase', 0, 1, { default: 0, step: 0.05, label: 'Zeitversatz', hint: 'Verschiebt den Takt, falls mehrere Kanonen nicht gleichzeitig schießen sollen.' }),
     },
   },
+  // (14.11.2026, wieder am Ende der Liste — siehe oben)
+  flut: {
+    label: 'Flut', category: 'hazard', anchor: 'any',
+    params: {
+      w: int('flut', 'w', 1, 80, { default: 4, unit: 'Tiles', label: 'Breite' }),
+      h: int('flut', 'h', 1, 80, { default: 6, unit: 'Tiles', label: 'Höhe' }),
+      dir: oneOf(DIRS_4, { default: 'up', label: 'Richtung', hint: 'Wohin die Front läuft: nach oben steigt sie wie Lava, seitwärts jagt sie als Wand. Sie startet an der gegenüberliegenden Kante.' }),
+      speed: num('flut', 'speed', 10, 400, { step: 5, unit: 'px/s', label: 'Tempo', hint: 'Wie schnell die Front läuft. Zum Vergleich: Laufen im Tempo „Normal“ sind 140 px/s.' }),
+      delay: num('flut', 'delay', 0, 5, { step: 0.1, unit: 's', label: 'Verzögerung', hint: 'Die Flut schläft, bis man ihr Rechteck betritt — so lange danach läuft sie los. Nach einem Tod schläft sie wieder.' }),
+    },
+  },
+  boost: {
+    label: 'Boost-Streifen', category: 'movement', anchor: 'air',
+    params: {
+      dir: oneOf(['right', 'left'], { default: 'right', label: 'Richtung', hint: 'Wer darüberläuft, bekommt Tempo in diese Richtung. Mehrere nebeneinander halten es.' }),
+      factor: num('boost', 'factor', 1.2, 3, { step: 0.1, unit: '×', label: 'Tempo', hint: 'Vielfaches des Lauftempos. Das Übertempo baut sich danach von selbst ab — ein Sprung vom Streifen trägt weiter.' }),
+    },
+  },
 };
 
 export const ELEMENT_TYPE_LIST = Object.keys(ELEMENT_SCHEMA);
@@ -316,7 +334,7 @@ export function normalizeParams(type, spec) {
 /** Größe der Fläche, die ein Element ab seiner Ankerkachel nach rechts/unten einnimmt (in Tiles) */
 export function footprintOf(type, params) {
   if (type === 'fallingBlock') return { w: params.width, h: params.height };
-  if (type === 'wind' || type === 'gravityZone') return { w: params.w, h: params.h };
+  if (type === 'wind' || type === 'gravityZone' || type === 'flut') return { w: params.w, h: params.h };
   if (type === 'mover') return { w: params.width, h: 1 };
   return { w: 1, h: 1 };
 }

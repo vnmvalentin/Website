@@ -159,7 +159,7 @@ module.exports = function createBingoRouter({ requireAuth }) {
   // Public: Overlay Data
   router.get("/overlay/:overlayKey", (req, res) => {
     const overlayKey = String(req.params.overlayKey || "").trim();
-    if (!overlayKey) return res.status(400).json({ error: "overlayKey fehlt" });
+    if (!overlayKey) return res.status(400).json({ error: "overlayKey fehlt", code: "missing_key" });
     const since = parseInt(req.query.since || "0", 10) || 0;
     const sessions = loadSessions();
 
@@ -203,13 +203,13 @@ module.exports = function createBingoRouter({ requireAuth }) {
         });
       }
     }
-    res.status(404).json({ error: "Overlay nicht gefunden" });
+    res.status(404).json({ error: "Overlay nicht gefunden", code: "overlay_not_found" });
   });
 
   // NEU: Public Interact via Overlay Key (OBS Browser Source Click)
   router.post("/overlay/:overlayKey/mark", (req, res) => {
     const overlayKey = String(req.params.overlayKey || "").trim();
-    if (!overlayKey) return res.status(400).json({ error: "Key fehlt" });
+    if (!overlayKey) return res.status(400).json({ error: "Key fehlt", code: "missing_key" });
 
     const sessions = loadSessions();
     let foundSess = null;
@@ -233,15 +233,15 @@ module.exports = function createBingoRouter({ requireAuth }) {
       if (foundSess) break;
     }
 
-    if (!foundSess) return res.status(404).json({ error: "Overlay nicht gefunden" });
+    if (!foundSess) return res.status(404).json({ error: "Overlay nicht gefunden", code: "overlay_not_found" });
 
     // Check if allowed
     if (!canMarkNow(foundSess)) {
-      return res.status(400).json({ error: "Session noch nicht gestartet" });
+      return res.status(400).json({ error: "Session noch nicht gestartet", code: "not_started" });
     }
     // Check permission (if participant)
     if (foundPart && !foundPart.permissions?.canMark) {
-        return res.status(403).json({ error: "Keine Mark-Rechte" });
+        return res.status(403).json({ error: "Keine Mark-Rechte", code: "no_mark_rights" });
     }
 
     const idx = clampInt(req.body?.cellIndex, 0, 9999, -1);
@@ -250,7 +250,7 @@ module.exports = function createBingoRouter({ requireAuth }) {
     // Load card
     const card = foundPart ? (foundPart.card || []) : (foundSess.card || []);
     if (!Array.isArray(card) || idx < 0 || idx >= card.length) {
-      return res.status(400).json({ error: "Index error" });
+      return res.status(400).json({ error: "Index error", code: "bad_index" });
     }
 
     // Apply Mark (Toggle logic or set)
@@ -310,7 +310,7 @@ module.exports = function createBingoRouter({ requireAuth }) {
         if (String(s.host?.twitchId) === hostId) hostedCount++;
     }
     if (hostedCount >= 3) {
-        return res.status(400).json({ error: "Limit erreicht (Max 3). Bitte alte Sessions löschen." });
+        return res.status(400).json({ error: "Limit erreicht (Max 3). Bitte alte Sessions löschen.", code: "limit_reached" });
     }
 
     const body = req.body || {};
@@ -324,7 +324,7 @@ module.exports = function createBingoRouter({ requireAuth }) {
 
     if (!isCustom) {
       theme = themes.find((t) => String(t.id) === themeId) || null;
-      if (!theme) return res.status(400).json({ error: "Ungültiges Theme" });
+      if (!theme) return res.status(400).json({ error: "Ungültiges Theme", code: "bad_theme" });
     } else {
       const customName = String(body.customName || "Custom Bingo").trim();
       const words = normalizeWords(body.words || []);
@@ -382,10 +382,10 @@ module.exports = function createBingoRouter({ requireAuth }) {
     const sessionId = String(req.params.sessionId || "");
     const sessions = loadSessions();
     const sess = sessions[sessionId];
-    if (!sess) return res.status(404).json({ error: "Session nicht gefunden" });
+    if (!sess) return res.status(404).json({ error: "Session nicht gefunden", code: "session_not_found" });
 
     const me = getMember(sess, req);
-    if (!me) return res.status(403).json({ error: "Kein Zugriff" });
+    if (!me) return res.status(403).json({ error: "Kein Zugriff", code: "no_access" });
 
     const host = isHost(sess, req);
     const overlayKey = sess.mode === "single" ? sess.overlayKey : me.overlayKey;
@@ -432,7 +432,7 @@ module.exports = function createBingoRouter({ requireAuth }) {
     const joinKey = String(req.params.joinKey || "");
     const sessions = loadSessions();
     const sess = Object.values(sessions).find((s) => s?.joinKey === joinKey);
-    if (!sess) return res.status(404).json({ error: "Join-Link ungültig" });
+    if (!sess) return res.status(404).json({ error: "Join-Link ungültig", code: "bad_join_link" });
     const now = Date.now();
     const myId = String(req.twitchId);
     const myLogin = String(req.twitchLogin);
@@ -443,7 +443,7 @@ module.exports = function createBingoRouter({ requireAuth }) {
     const invite = sess.invites?.[normalizeLogin(myLogin)] || null;
 
     if (sess.mode === "group") {
-      if (!host && !sess.openJoin) return res.status(403).json({ error: "Join geschlossen." });
+      if (!host && !sess.openJoin) return res.status(403).json({ error: "Join geschlossen.", code: "join_closed" });
       sess.participants[myId] = {
         twitchId: myId,
         twitchLogin: myLogin,
@@ -460,7 +460,7 @@ module.exports = function createBingoRouter({ requireAuth }) {
     }
 
     // single
-    if (!host && !invite) return res.status(403).json({ error: "Keine Einladung." });
+    if (!host && !invite) return res.status(403).json({ error: "Keine Einladung.", code: "not_invited" });
     sess.participants[myId] = {
       twitchId: myId,
       twitchLogin: myLogin,
@@ -480,7 +480,7 @@ module.exports = function createBingoRouter({ requireAuth }) {
   router.delete("/session/:sessionId", requireAuth, (req, res) => {
     const sessions = loadSessions();
     const sess = sessions[req.params.sessionId];
-    if (!sess || !isHost(sess, req)) return res.status(403).json({ error: "Nur Host" });
+    if (!sess || !isHost(sess, req)) return res.status(403).json({ error: "Nur Host", code: "host_only" });
     delete sessions[req.params.sessionId];
     saveSessions(sessions);
     res.json({ ok: true });
@@ -489,7 +489,7 @@ module.exports = function createBingoRouter({ requireAuth }) {
   router.post("/session/:sessionId/invite", requireAuth, (req, res) => {
     const sessions = loadSessions();
     const sess = sessions[req.params.sessionId];
-    if (!sess || !isHost(sess, req)) return res.status(403).json({ error: "Nur Host" });
+    if (!sess || !isHost(sess, req)) return res.status(403).json({ error: "Nur Host", code: "host_only" });
     const logins = String(req.body?.twitchLogins || "").split(/[,\s]+/g).filter(Boolean).map(normalizeLogin);
     const perms = normalizePerms(req.body?.permissions || {}, sess.mode === "single" ? DEFAULT_EDITOR_PERMS : DEFAULT_PLAYER_PERMS);
     sess.invites = sess.invites || {};
@@ -503,7 +503,7 @@ module.exports = function createBingoRouter({ requireAuth }) {
   router.post("/session/:sessionId/uninvite", requireAuth, (req, res) => {
     const sessions = loadSessions();
     const sess = sessions[req.params.sessionId];
-    if (!sess || !isHost(sess, req)) return res.status(403).json({ error: "Nur Host" });
+    if (!sess || !isHost(sess, req)) return res.status(403).json({ error: "Nur Host", code: "host_only" });
     const login = normalizeLogin(req.body?.twitchLogin);
     if (sess.invites?.[login]) delete sess.invites[login];
     bump(sess);
@@ -515,7 +515,7 @@ module.exports = function createBingoRouter({ requireAuth }) {
   router.post("/session/:sessionId/kick", requireAuth, (req, res) => {
     const sessions = loadSessions();
     const sess = sessions[req.params.sessionId];
-    if (!sess || !isHost(sess, req)) return res.status(403).json({ error: "Nur Host" });
+    if (!sess || !isHost(sess, req)) return res.status(403).json({ error: "Nur Host", code: "host_only" });
     const tid = String(req.body?.twitchId);
     if (sess.participants?.[tid] && tid !== String(sess.host.twitchId)) {
       delete sess.participants[tid];
@@ -529,7 +529,7 @@ module.exports = function createBingoRouter({ requireAuth }) {
   router.put("/session/:sessionId/permissions", requireAuth, (req, res) => {
       const sessions = loadSessions();
       const sess = sessions[req.params.sessionId];
-      if (!sess || !isHost(sess, req)) return res.status(403).json({ error: "Nur Host" });
+      if (!sess || !isHost(sess, req)) return res.status(403).json({ error: "Nur Host", code: "host_only" });
       const tid = String(req.body?.twitchId);
       if (tid && sess.participants?.[tid]) {
           if (tid !== String(sess.host.twitchId)) sess.participants[tid].permissions = normalizePerms(req.body.permissions);
@@ -544,7 +544,7 @@ module.exports = function createBingoRouter({ requireAuth }) {
     const sessions = loadSessions();
     const sess = sessions[req.params.sessionId];
     const me = getMember(sess, req);
-    if (!sess || !me?.permissions?.canEditDesign) return res.status(403).json({ error: "Keine Rechte" });
+    if (!sess || !me?.permissions?.canEditDesign) return res.status(403).json({ error: "Keine Rechte", code: "no_rights" });
     sess.style = normalizeStyle({ ...sess.style, ...req.body });
     bump(sess);
     sessions[sess.id] = sess;
@@ -556,14 +556,14 @@ module.exports = function createBingoRouter({ requireAuth }) {
     const sessions = loadSessions();
     const sess = sessions[req.params.sessionId];
     const me = getMember(sess, req);
-    if (!sess || !me) return res.status(403).json({ error: "Kein Zugriff" });
+    if (!sess || !me) return res.status(403).json({ error: "Kein Zugriff", code: "no_access" });
 
     if (typeof req.body?.openJoin !== "undefined") {
       if (isHost(sess, req) && sess.mode === "group") sess.openJoin = !!req.body.openJoin;
     }
     if (typeof req.body?.gridSize !== "undefined") {
-        if (!me.permissions?.canEditDesign) return res.status(403).json({ error: "Keine Rechte" });
-        if (sess.mode === "group" && sess.locked) return res.status(400).json({ error: "Gesperrt" });
+        if (!me.permissions?.canEditDesign) return res.status(403).json({ error: "Keine Rechte", code: "no_rights" });
+        if (sess.mode === "group" && sess.locked) return res.status(400).json({ error: "Gesperrt", code: "locked" });
         const g = clampInt(req.body.gridSize, 3, 6, sess.gridSize);
         if (g !== sess.gridSize) {
             sess.gridSize = g;
@@ -581,9 +581,9 @@ module.exports = function createBingoRouter({ requireAuth }) {
     const sessions = loadSessions();
     const sess = sessions[req.params.sessionId];
     const me = getMember(sess, req);
-    if (!sess || !me?.permissions?.canEditWords) return res.status(403).json({ error: "Keine Rechte" });
+    if (!sess || !me?.permissions?.canEditWords) return res.status(403).json({ error: "Keine Rechte", code: "no_rights" });
     const words = normalizeWords(req.body?.words);
-    if (words.length < 1) return res.status(400).json({ error: "Leer" });
+    if (words.length < 1) return res.status(400).json({ error: "Leer", code: "empty_words" });
     sess.theme = { id: "custom", name: String(req.body.customName || "Custom").trim(), words };
     if (sess.mode === "single") sess.card = makeCard(words, sess.gridSize);
     else Object.values(sess.participants).forEach(p => p.card = makeCard(words, sess.gridSize));
@@ -597,7 +597,7 @@ module.exports = function createBingoRouter({ requireAuth }) {
     const sessions = loadSessions();
     const sess = sessions[req.params.sessionId];
     const me = getMember(sess, req);
-    if (!sess || !me?.permissions?.canRandomize) return res.status(403).json({ error: "Keine Rechte" });
+    if (!sess || !me?.permissions?.canRandomize) return res.status(403).json({ error: "Keine Rechte", code: "no_rights" });
     if (sess.mode === "single") sess.card = makeCard(sess.theme.words, sess.gridSize);
     else {
       me.card = makeCard(sess.theme.words, sess.gridSize);
@@ -612,7 +612,7 @@ module.exports = function createBingoRouter({ requireAuth }) {
   router.post("/session/:sessionId/start", requireAuth, (req, res) => {
     const sessions = loadSessions();
     const sess = sessions[req.params.sessionId];
-    if (!sess || !isHost(sess, req)) return res.status(403).json({ error: "Nur Host" });
+    if (!sess || !isHost(sess, req)) return res.status(403).json({ error: "Nur Host", code: "host_only" });
     sess.locked = true;
     sess.startedAt = Date.now();
     bump(sess);
@@ -624,7 +624,7 @@ module.exports = function createBingoRouter({ requireAuth }) {
   router.post("/session/:sessionId/stop", requireAuth, (req, res) => {
     const sessions = loadSessions();
     const sess = sessions[req.params.sessionId];
-    if (!sess || !isHost(sess, req)) return res.status(403).json({ error: "Nur Host" });
+    if (!sess || !isHost(sess, req)) return res.status(403).json({ error: "Nur Host", code: "host_only" });
     sess.locked = false;
     sess.startedAt = 0;
     Object.values(sess.participants).forEach(p => {
@@ -640,15 +640,15 @@ module.exports = function createBingoRouter({ requireAuth }) {
     const sessions = loadSessions();
     const sess = sessions[req.params.sessionId];
     const me = getMember(sess, req);
-    if (!sess || !me) return res.status(403).json({ error: "Kein Zugriff" });
-    if (!canMarkNow(sess)) return res.status(400).json({ error: "Nicht gestartet" });
-    if (!me.permissions?.canMark) return res.status(403).json({ error: "Kein Recht" });
+    if (!sess || !me) return res.status(403).json({ error: "Kein Zugriff", code: "no_access" });
+    if (!canMarkNow(sess)) return res.status(400).json({ error: "Nicht gestartet", code: "not_started" });
+    if (!me.permissions?.canMark) return res.status(403).json({ error: "Kein Recht", code: "no_mark_rights" });
 
     const idx = clampInt(req.body?.cellIndex, 0, 9999, -1);
     const mark = String(req.body?.mark || "none");
     const markColor = String(req.body?.markColor || "");
     const card = sess.mode === "single" ? sess.card : me.card;
-    if (!card || idx < 0 || idx >= card.length) return res.status(400).json({ error: "Index" });
+    if (!card || idx < 0 || idx >= card.length) return res.status(400).json({ error: "Index", code: "bad_index" });
 
     card[idx] = { ...card[idx], mark, markColor: mark === "color" ? (markColor || "#22c55e") : "" };
     if (sess.mode === "single") sess.card = card;

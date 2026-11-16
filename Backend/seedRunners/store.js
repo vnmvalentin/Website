@@ -116,6 +116,9 @@ function createStore(dbPath = defaultPath()) {
     /** Veröffentlichte Level: Tabellen, Bestenlisten, Likes, Meldungen, Sperren (levelStore.js; dieselbe Datenbank) */
     levels: createLevelStore(db),
 
+    /** Die Datenbank selbst — für weitere Speicher in derselben Datei (Level-Vorrat, levelVorrat.js) */
+    db,
+
     /** Lauf auf Platz 1 eines Tages mit Input-Log (für das Replay) oder null — auch null, wenn das Log schon gelöscht ist */
     getTopRun(dateKey) {
       const row = stmt.top.get(dateKey);

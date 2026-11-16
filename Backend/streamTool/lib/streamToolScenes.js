@@ -16,6 +16,7 @@ const { nanoid } = require("nanoid");
 const { db, decryptToken } = require("./streamToolStore");
 const { helix, helixWrite } = require("./twitchHelix");
 const { isPremium } = require("../../billing/entitlements");
+const { chatText } = require("./chatText");
 
 const IDS = { hype: "hypeTrain", storm: "raidStorm", plane: "planeBanner", marbles: "marbleRun" };
 /** Module, für die der Chat-Bot im Kanal sitzen muss. */
@@ -644,20 +645,21 @@ async function syncReward(row, token) {
   }
 }
 
+// code: damit der Editor die Meldung in seiner Sprache zeigen kann (editorI18n.js, apiErrors)
 const REWARD_ERRORS = {
-  403: "Kanalpunkte-Belohnungen gibt es nur für Affiliates und Partner.",
-  401: "Twitch hat die Anmeldung abgelehnt — bitte das Recht erneut erteilen.",
+  403: { error: "Kanalpunkte-Belohnungen gibt es nur für Affiliates und Partner.", code: "reward_affiliate" },
+  401: { error: "Twitch hat die Anmeldung abgelehnt — bitte das Recht erneut erteilen.", code: "reward_auth" },
 };
 
 /** Legt die Belohnung in Twitch an. Die ID speichert das Dashboard in den Einstellungen. */
 async function createReward(userId, { title, cost } = {}) {
   const row = getByUser.get(String(userId));
-  if (!row) return { error: "Keine Einstellungen gefunden." };
+  if (!row) return { error: "Keine Einstellungen gefunden.", code: "no_settings" };
   const token = decryptToken(row.token_enc);
-  if (!token) return { error: "Twitch ist nicht verbunden." };
-  if (!hasScope(row, REWARD_SCOPE)) return { error: "Dafür fehlt noch das Recht, Kanalpunkte-Belohnungen zu verwalten.", needsScope: true };
+  if (!token) return { error: "Twitch ist nicht verbunden.", code: "not_connected" };
+  if (!hasScope(row, REWARD_SCOPE)) return { error: "Dafür fehlt noch das Recht, Kanalpunkte-Belohnungen zu verwalten.", code: "reward_scope", needsScope: true };
 
-  const name = String(title || "").trim().slice(0, 45) || "Murmelrennen starten";
+  const name = String(title || "").trim().slice(0, 45) || chatText(row).rewardTitle;
   try {
     const data = await helixWrite("POST", `channel_points/custom_rewards?broadcaster_id=${row.user_id}`, token, {
       title: name,
@@ -668,14 +670,14 @@ async function createReward(userId, { title, cost } = {}) {
       should_redemptions_skip_request_queue: false,
     });
     const reward = data.data && data.data[0];
-    if (!reward) return { error: "Twitch hat keine Belohnung zurückgegeben." };
+    if (!reward) return { error: "Twitch hat keine Belohnung zurückgegeben.", code: "reward_empty" };
     return { ok: true, reward: { id: reward.id, title: reward.title, cost: reward.cost } };
   } catch (e) {
     // Twitch verlangt eindeutige Titel
     if (e.status === 400 && /DUPLICATE|duplicate|already exists/i.test(e.message)) {
-      return { error: `Eine Belohnung namens „${name}“ gibt es schon — wähle einen anderen Namen.` };
+      return { error: `Eine Belohnung namens „${name}“ gibt es schon — wähle einen anderen Namen.`, code: "reward_duplicate", detail: name };
     }
-    return { error: REWARD_ERRORS[e.status] || `Twitch: ${e.message}` };
+    return REWARD_ERRORS[e.status] || { error: `Twitch: ${e.message}`, code: "twitch_error", detail: e.message };
   }
 }
 
@@ -689,7 +691,7 @@ async function deleteReward(userId, rewardId) {
     const params = new URLSearchParams({ broadcaster_id: row.user_id, id: String(rewardId) });
     await helixWrite("DELETE", `channel_points/custom_rewards?${params.toString()}`, token);
   } catch (e) {
-    if (e.status !== 404) return { error: `Twitch: ${e.message}` };
+    if (e.status !== 404) return { error: `Twitch: ${e.message}`, code: "twitch_error", detail: e.message };
   }
   return { ok: true };
 }
@@ -714,7 +716,7 @@ function tickMarbles(row) {
       settleRedemptions(s, cur, "FULFILLED");
       return;
     }
-    if (cur.phase === "join") note = "Zu wenige Murmeln am Start — das Rennen fällt aus.";
+    if (cur.phase === "join") note = chatText(row).cancelledTooFew;
     settleRedemptions(s, cur, "CANCELED");
     delete s.marbles;
   });
@@ -741,7 +743,7 @@ function marblesOpen(userId) {
     };
   });
   if (mod.announce !== false) {
-    say(row.twitch_login, `Die Murmelbahn ist offen — mit ${joinCommandOf(mod)} bist du dabei.`);
+    say(row.twitch_login, chatText(row).open(joinCommandOf(mod)));
   }
   return { ok: true };
 }
@@ -823,7 +825,7 @@ function marblesResult(row, raceId, winnerId) {
   if (mod.announce !== false) {
     // Der Sieger steht hier fest, sobald ihn die OBS-Quelle sieht — die Zuschauer sehen den Zieleinlauf
     // aber erst mit der Stream-Verzögerung. Ohne Wartezeit verrät der Chat das Ergebnis vorher.
-    const text = `${winner.name} gewinnt das Murmelrennen!${winner.wins > 1 ? ` Das ist Sieg Nr. ${winner.wins}.` : ""}`;
+    const text = chatText(row).winner(winner.name, winner.wins);
     const delay = clamp(Math.round(Number(mod.announceDelay ?? MARBLES_ANNOUNCE_DELAY_S)), 0, 30) * 1000;
     if (delay > 0) setTimeout(() => say(row.twitch_login, text), delay).unref?.();
     else say(row.twitch_login, text);
@@ -869,9 +871,10 @@ function sayTop(row) {
   if (now - (topSaidAt.get(login) || 0) < TOP_COOLDOWN_MS) return;
   topSaidAt.set(login, now);
   const top = marbleTop(row.user_id, 5);
+  const text = chatText(row);
   say(login, top.length
-    ? `Murmel-Bestenliste: ${top.map((e, i) => `${i + 1}. ${e.name} (${e.wins})`).join(" · ")}`
-    : "Noch hat niemand ein Murmelrennen gewonnen.");
+    ? text.top(top.map((e, i) => `${i + 1}. ${e.name} (${e.wins})`).join(" · "))
+    : text.topEmpty);
 }
 
 function resetMarbleTop(userId) {
@@ -981,7 +984,7 @@ function onChatCommand(channel, tags = {}, message = "") {
     if (arg === "open") marblesOpen(row.user_id);
     else if (arg === "start") {
       const r = marblesStart(row.user_id);
-      if (r.error === "too_few") say(login, "Für ein Rennen braucht es mindestens zwei Murmeln.");
+      if (r.error === "too_few") say(login, chatText(row).tooFew);
     } else if (arg === "stop") marblesCancel(row.user_id);
     return;
   }

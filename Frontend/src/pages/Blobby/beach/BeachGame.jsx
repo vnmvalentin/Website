@@ -37,6 +37,7 @@ const IS_COARSE_POINTER = typeof window !== "undefined" && typeof window.matchMe
 const MOUSE_RAD_PER_PX = 0.0022;
 const PITCH_LIMIT = 1.45;
 const SENS_KEY = "blobby_ego_sens";
+const VIEW_KEY = "blobby_ego_view";   // "ego" = aus den Augen, sonst von hinten
 const SEND_MS = 33;          // Blick und Tasten höchstens so oft schicken …
 const REPEAT_MS = 120;       // … und spätestens so oft wiederholen (die Leitung darf verlieren)
 const PRACTICE_MATCH = -1;   // Kennung der Übungspartie im Schnappschuss
@@ -47,6 +48,14 @@ function readSens() {
     return v >= 0.3 && v <= 2.5 ? v : 1;
   } catch {
     return 1;
+  }
+}
+
+function readThird() {
+  try {
+    return localStorage.getItem(VIEW_KEY) !== "ego";
+  } catch {
+    return true;
   }
 }
 
@@ -143,6 +152,9 @@ export default function BeachGame({ socket, game, mySlot, onHud, practice = fals
   const [full, setFull] = useState(false);
   const [muted, setMuted] = useState(false);
   const [sens, setSens] = useState(sensRef.current);
+  const [third, setThird] = useState(readThird);
+  const thirdRef = useRef(third);
+  thirdRef.current = third;
 
   // Übung endet von selbst, sobald die echte Partie startet oder man nicht mehr Host ist
   useEffect(() => {
@@ -390,6 +402,13 @@ export default function BeachGame({ socket, game, mySlot, onHud, practice = fals
     setMuted(sfx.muted);
   }, []);
 
+  const toggleView = useCallback(() => {
+    const next = !thirdRef.current;
+    thirdRef.current = next;
+    setThird(next);
+    try { localStorage.setItem(VIEW_KEY, next ? "third" : "ego"); } catch { /* privates Fenster */ }
+  }, []);
+
   const lockMouse = useCallback(() => {
     const c = canvasRef.current;
     if (!c || !activeRef.current) return;
@@ -408,8 +427,9 @@ export default function BeachGame({ socket, game, mySlot, onHud, practice = fals
     const onDown = (e) => {
       if (isTyping(e) || !activeRef.current) return;
       const key = e.key.toLowerCase();
-      if (e.repeat && (key === "e" || key === "shift" || key === "f" || key === "m")) return;
+      if (e.repeat && (key === "e" || key === "shift" || key === "f" || key === "m" || key === "v")) return;
       if (key === "e") { zuenden(); return; }
+      if (key === "v") { toggleView(); return; }
       if (key === "f") { toggleFull(); return; }
       if (key === "m") { toggleMute(); return; }
       if (key === "shift") {
@@ -477,7 +497,7 @@ export default function BeachGame({ socket, game, mySlot, onHud, practice = fals
       document.removeEventListener("mousedown", onMouseDown);
       document.removeEventListener("fullscreenchange", onFull);
     };
-  }, [mySlot, sendInput, zuenden, toggleFull, toggleMute]);
+  }, [mySlot, sendInput, zuenden, toggleFull, toggleMute, toggleView]);
 
   // Partie vorbei oder Übung beendet: Maus wieder freigeben
   useEffect(() => {
@@ -554,7 +574,7 @@ export default function BeachGame({ socket, game, mySlot, onHud, practice = fals
           punchRef.current = false;
           const ballView = instance.render(st, {
             slots: shown, names, mySlot: ego ? my : null,
-            look: ego ? lookRef.current : null, punch, dt,
+            look: ego ? lookRef.current : null, punch, third: thirdRef.current, dt,
           });
 
           // Anzeigen direkt am DOM — kein React-Render pro Bild
@@ -696,11 +716,14 @@ export default function BeachGame({ socket, game, mySlot, onHud, practice = fals
               ) : (
                 <button type="button" className="bv-btn" onClick={lockMouse}>Spielen</button>
               )}
+              <button type="button" className="bv-btn bv-btn-ghost" onClick={toggleView}>
+                Ansicht: {third ? "von hinten" : "aus den Augen"}
+              </button>
               {practising && (
                 <button type="button" className="bv-btn bv-btn-ghost" onClick={() => onPractice?.(false)}>Übung beenden</button>
               )}
             </div>
-            <p className="text-xs bv-faint mt-3">Esc gibt die Maus wieder frei · F Vollbild · M Ton</p>
+            <p className="text-xs bv-faint mt-3">Esc gibt die Maus wieder frei · V Ansicht wechseln · F Vollbild · M Ton</p>
           </div>
         </div>
       )}

@@ -5,6 +5,36 @@
 // Kanäle: Gesamt → Effekte / Ambient. Einstellungen in localStorage. Audio startet erst nach der ersten
 // Nutzerinteraktion (Autoplay-Regeln der Browser): unlock() wird von der Hülle bei pointerdown/keydown aufgerufen.
 
+/**
+ * Echte Aufnahmen (public/media/sfx/<name>.ogg, Herkunft und Lizenz: QUELLEN.txt dort). Mehrere Dateien je Klang
+ * sind Varianten. gain = Lautstärke gegenüber den synthetischen Klängen, rate = Grundtonhöhe.
+ * Klänge ohne Eintrag bleiben synthetisch (Flügel, Feuer, Wasser, Verwandlung, Sieg/Niederlage, Raumton …).
+ * @type {Record<string, { files: string[], gain?: number, rate?: number }>}
+ */
+const SAMPLES = {
+  draw: { files: ["draw_1", "draw_2", "draw_3", "draw_4"], gain: 0.9 },
+  place: { files: ["place_1", "place_2", "place_3", "place_4"], gain: 1 },
+  attack: { files: ["attack_1", "attack_2", "attack_3", "attack_4"], gain: 0.9, rate: 1.1 },
+  hit: { files: ["hit_1", "hit_2", "hit_3"], gain: 1 },
+  death: { files: ["death_1", "death_2"], gain: 0.85 },
+  sacrifice: { files: ["sacrifice_1", "sacrifice_2"], gain: 0.7 },
+  bones: { files: ["bones_1", "bones_2", "bones_3"], gain: 0.75 },
+  weight: { files: ["weight_1", "weight_2", "weight_3"], gain: 0.6 },
+  scale: { files: ["scale_1"], gain: 0.5 },
+  seal: { files: ["seal_1"], gain: 1, rate: 0.9 },
+  creak: { files: ["creak_1", "creak_2", "creak_3"], gain: 0.6 },
+  coins: { files: ["coins_1"], gain: 0.7 },
+  hammer: { files: ["hammer_1"], gain: 1 },
+  // Klopfen auf den Tisch (Geste): dieselben Aufnahmen wie der Treffer, höher und leiser
+  knock: { files: ["hit_1", "hit_2", "hit_3"], gain: 0.7, rate: 1.4 },
+};
+
+/**
+ * Grundpegel aller Effekte (Aufnahmen und synthetische), unabhängig vom Regler „Effekte“: Rückmeldung vom 14.11.2026
+ * — die Effekte waren „noch leicht laut“, sonst gut. 0,7 sind rund 3 dB leiser; der Regler behält seinen Bereich.
+ */
+const SFX_TRIM = 0.7;
+
 const STORE_KEY = "ss_audio_v1";
 const DEFAULTS = { master: 0.8, sfx: 0.85, ambient: 0.45, muted: false };
 
@@ -25,6 +55,8 @@ class SoundManager {
     this.listeners = new Set();
     /** @type {Map<string, AudioBuffer|null|Promise<any>>} */
     this.overrides = new Map();
+    /** Geladene Aufnahmen je Klang (SAMPLES). @type {Map<string, { buffers: AudioBuffer[], last: number }>} */
+    this.samples = new Map();
     this.ambientNodes = null;
     this.tension = 0;
     this.ambientWanted = false;
@@ -55,7 +87,7 @@ class SoundManager {
     const s = this.settings;
     const t = this.ctx.currentTime;
     this.master.gain.setTargetAtTime(s.muted ? 0 : s.master, t, 0.05);
-    this.sfx.gain.setTargetAtTime(s.sfx, t, 0.05);
+    this.sfx.gain.setTargetAtTime(s.sfx * SFX_TRIM, t, 0.05);
     this.amb.gain.setTargetAtTime(s.ambient, t, 0.3);
   }
 
@@ -86,6 +118,7 @@ class SoundManager {
     this.noiseBuf = this.makeNoise(2);
     this.applyGains();
     if (this.ambientWanted) this.startAmbient();
+    this.preloadSamples();
   }
 
   /** @param {number} seconds @param {number} decay */
@@ -174,6 +207,7 @@ class SoundManager {
    */
   play(key, opts = {}) {
     if (!this.ctx || this.settings.muted) return;
+    if (SAMPLES[key] && this.playSample(key)) return;
     const ov = this.overrides.get(key);
     if (ov === undefined) this.probeOverride(key);
     else if (ov && !(ov instanceof Promise)) {
@@ -183,10 +217,58 @@ class SoundManager {
       src.start();
       return;
     }
-    const synth = SYNTHS[key];
+    // „hammer“ und „knock“ gibt es nur als Aufnahme; ohne Datei klingen sie wie ein Treffer
+    const synth = SYNTHS[key] || (key === "hammer" || key === "knock" ? SYNTHS.hit : undefined);
     if (synth) {
       try { synth(this, opts); } catch { /* ein kaputter Klang darf das Spiel nie stören */ }
     }
+  }
+
+  /**
+   * Aufnahme abspielen (SAMPLES): zufällige Variante, nie zweimal dieselbe hintereinander, Tonhöhe leicht gestreut —
+   * so klingt derselbe Vorgang nicht jedes Mal gleich. Solange die Dateien noch laden, gibt es `false` zurück und
+   * der synthetische Klang springt ein.
+   * @param {string} key @returns {boolean}
+   */
+  playSample(key) {
+    const ctx = /** @type {AudioContext} */ (this.ctx);
+    const def = SAMPLES[key];
+    let slot = this.samples.get(key);
+    if (!slot) {
+      slot = { buffers: [], last: -1 };
+      this.samples.set(key, slot);
+      for (const name of def.files) {
+        fetch(`/media/sfx/${name}.ogg`)
+          .then((r) => {
+            const type = r.headers.get("content-type") || "";
+            if (!r.ok || !type.includes("audio")) return null;
+            return r.arrayBuffer().then((b) => ctx.decodeAudioData(b));
+          })
+          .then((buf) => { if (buf) slot.buffers.push(buf); })
+          .catch(() => { /* Datei fehlt: der synthetische Klang bleibt */ });
+      }
+    }
+    const n = slot.buffers.length;
+    if (!n) return false;
+    let i = Math.floor(Math.random() * n);
+    if (n > 1 && i === slot.last) i = (i + 1) % n;
+    slot.last = i;
+    const src = ctx.createBufferSource();
+    src.buffer = slot.buffers[i];
+    src.playbackRate.value = (def.rate || 1) * (0.95 + Math.random() * 0.1);
+    const g = ctx.createGain();
+    g.gain.value = def.gain ?? 1;
+    src.connect(g);
+    g.connect(this.sfx);
+    src.start();
+    return true;
+  }
+
+  /** Alle Aufnahmen vorab laden (nach dem ersten Klick), damit schon der erste Klang echt ist. */
+  preloadSamples() {
+    if (!this.ctx) return;
+    // Der erste Aufruf je Klang stößt nur das Laden an und spielt noch nichts
+    for (const key of Object.keys(SAMPLES)) if (!this.samples.has(key)) this.playSample(key);
   }
 
   /** Prüft einmal, ob public/media/sfx/<key>.ogg existiert. @param {string} key */

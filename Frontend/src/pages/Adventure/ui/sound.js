@@ -75,7 +75,10 @@ const arp = (ac, notes, type, gain, step = 0.07, dur = 0.16) => notes.forEach((f
 const SOUNDS = {
   hit: (ac) => noise(ac, { dur: 0.04, gain: 0.05, freq: 2400 }),
   crit: (ac) => { noise(ac, { dur: 0.05, gain: 0.07, freq: 3400 }); tone(ac, { freq: 1500, type: "square", dur: 0.04, gain: 0.025, lp: 3000 }); },
-  kill: (ac) => tone(ac, { freq: [320, 120], type: "triangle", dur: 0.09, gain: 0.08 }),
+  // Kill und Kristall steigen mit der laufenden Serie die Tonleiter hinauf (step = Halbtonschritte, siehe playSound)
+  kill: (ac, step) => tone(ac, { freq: [320 * 2 ** (step / 12), 120 * 2 ** (step / 12)], type: "triangle", dur: 0.09, gain: 0.08 }),
+  xp: (ac, step) => tone(ac, { freq: 660 * 2 ** (step / 12), type: "sine", dur: 0.05, gain: 0.035 }),
+  streak: (ac) => arp(ac, [523, 659, 784, 1047, 1319], "square", 0.05, 0.05, 0.18),
   gold: (ac) => tone(ac, { freq: 1760, type: "triangle", dur: 0.04, gain: 0.035 }),
   hurt: (ac) => { tone(ac, { freq: [180, 70], type: "square", dur: 0.14, gain: 0.08, lp: 900 }); noise(ac, { dur: 0.08, gain: 0.08, freq: 600 }); },
   item_common: (ac) => arp(ac, [523, 784], "triangle", 0.12),
@@ -96,9 +99,10 @@ const SOUNDS = {
 };
 
 // Mindestabstand in Sekunden je Klang (alles andere spielt sofort)
-const THROTTLE = { hit: 0.06, crit: 0.08, kill: 0.07, gold: 0.09, hurt: 0.12 };
+const THROTTLE = { hit: 0.06, crit: 0.08, kill: 0.07, gold: 0.09, hurt: 0.12, xp: 0.045 };
 
-export function playSound(name) {
+// step: Halbtonschritte nach oben (nur Klänge, die es auswerten — Kill und Kristall)
+export function playSound(name, step = 0) {
   if (getSettings().volume <= 0) return;
   const fn = SOUNDS[name];
   if (!fn) return;
@@ -107,5 +111,5 @@ export function playSound(name) {
   lastPlayed[name] = now;
   const ac = audio();
   if (!ac) return;
-  try { fn(ac); } catch { /* Klang ist Komfort */ }
+  try { fn(ac, step); } catch { /* Klang ist Komfort */ }
 }

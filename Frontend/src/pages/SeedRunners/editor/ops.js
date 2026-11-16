@@ -51,7 +51,7 @@ export function footprintRect(el) {
 }
 
 // Elemente mit einer Fläche über ihren Anker hinaus
-const AREA_TYPES = new Set(['fallingBlock', 'mover', 'wind', 'gravityZone']);
+const AREA_TYPES = new Set(['fallingBlock', 'mover', 'wind', 'gravityZone', 'flut']);
 
 /**
  * Kachel, auf der eine Säge auf Kreisbahn tatsächlich GEZEICHNET wird: Die Vorschau (previewWorld.js) baut eine

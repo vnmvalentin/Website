@@ -21,7 +21,7 @@ const CANDLE_R = 1.7;
 const FPS = 30;
 
 /** Kleiner Zufall mit Startwert — die Maserung soll bei jedem Laden gleich aussehen. */
-function rng(seed) {
+export function rng(seed) {
   let a = seed >>> 0;
   return () => {
     a = (a + 0x6d2b79f5) >>> 0;
@@ -40,7 +40,7 @@ const PALETTES = {
 };
 
 /** Planken mit Maserung, Ästen und Kratzern. Gibt Farb- und Rauheitstextur zurück. */
-function woodTextures(zirkel) {
+export function woodTextures(zirkel) {
   const pal = PALETTES[zirkel] || PALETTES.moor;
   const r = rng(zirkel === "gezeiten" ? 41 : 17);
   const W = 2048;
@@ -153,7 +153,7 @@ function woodTextures(zirkel) {
 }
 
 /** Wachs mit herablaufenden Tropfen. */
-function waxTexture(seed) {
+export function waxTexture(seed) {
   const r = rng(seed);
   const c = document.createElement("canvas");
   c.width = 256;
@@ -190,7 +190,7 @@ function waxTexture(seed) {
  * Durchscheinendes Wachs: oben (nah an der Flamme) leuchtet es warm, nach unten verliert sich das.
  * Als Leuchtkarte, weil die Kerze im eigenen Licht von der Seite sonst schwarz wäre.
  */
-function waxGlowTexture() {
+export function waxGlowTexture() {
   const c = document.createElement("canvas");
   c.width = 4;
   c.height = 128;
@@ -207,7 +207,7 @@ function waxGlowTexture() {
 }
 
 /** Flamme als Shader: tropfenförmig, heller Kern, unruhiger Rand, additiv. */
-function flameMaterial() {
+export function flameMaterial() {
   return new THREE.ShaderMaterial({
     transparent: true,
     depthWrite: false,
@@ -250,7 +250,7 @@ function flameMaterial() {
 }
 
 /** Weiche Scheibe für Staubkörner. */
-function dotTexture() {
+export function dotTexture() {
   const c = document.createElement("canvas");
   c.width = 32;
   c.height = 32;

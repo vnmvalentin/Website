@@ -1,18 +1,10 @@
-import React, { useState, useEffect } from 'react';
 
-const COMMANDS = [
-    { cmd: '/voicelimit [zahl]', desc: 'Mitglieder-Limit setzen (0 = kein Limit)' },
-    { cmd: '/voicelock', desc: 'Channel sperren/entsperren für neue Nutzer' },
-    { cmd: '/voice_rename [name]', desc: 'Channel umbenennen' },
-    { cmd: '/voice_hide', desc: 'Channel für andere unsichtbar machen (aktuelle Mitglieder sehen ihn weiter)' },
-    { cmd: '/voice_unhide', desc: 'Channel wieder für alle sichtbar machen' },
-    { cmd: '/voice_kick [user]', desc: 'Nutzer aus dem Channel werfen' },
-    { cmd: '/voice_ban [user]', desc: 'Nutzer werfen und am erneuten Beitreten hindern' },
-    { cmd: '/voice_unban [user]', desc: 'Bann wieder aufheben' },
-    { cmd: '/voice_transfer [user]', desc: 'Besitzer-Status übergeben (nur der Besitzer, Ziel muss im Voice sein)' },
-];
+import React, { useState, useEffect } from 'react';
+import { DcHelp } from '../ui';
+import { isErrorStatus, useDiscordText } from '../discordI18n.js';
 
 export default function VoiceTab({ selectedServer, voiceChannels, onDirty }) {
+    const t = useDiscordText();
     const [triggerChannelId, setTriggerChannelId] = useState('');
     // Zuletzt gespeicherter Stand — der Unterschied dazu ist "ungespeichert"
     const [savedId, setSavedId] = useState('');
@@ -37,10 +29,10 @@ export default function VoiceTab({ selectedServer, voiceChannels, onDirty }) {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ triggerChannelId }),
             });
-            setSaveStatus(res.ok ? 'Gespeichert!' : 'Fehler.');
+            setSaveStatus(res.ok ? t.common.saved : t.common.error);
             if (res.ok) setSavedId(triggerChannelId);
         } catch {
-            setSaveStatus('Fehler: keine Verbindung zum Server.');
+            setSaveStatus(t.common.networkError);
         } finally {
             setIsSaving(false);
             setTimeout(() => setSaveStatus(''), 3000);
@@ -52,51 +44,39 @@ export default function VoiceTab({ selectedServer, voiceChannels, onDirty }) {
     return (
         <div className="dc-page">
             <div>
-                <h2 className="dc-h2">Custom Voice Channels</h2>
-                <p className="text-white/50 text-sm">Jeder der den Trigger-Channel betritt bekommt automatisch einen eigenen Voice-Channel.</p>
+                <h2 className="dc-h2">{t.voice.title}</h2>
+                <p className="text-white/50 text-sm">{t.voice.intro}</p>
             </div>
 
             <div className="dc-card p-6 space-y-4">
-                <h3 className="text-white font-semibold flex items-center gap-2">Trigger Channel</h3>
+                <h3 className="text-white font-semibold flex items-center gap-2">{t.voice.trigger}</h3>
                 <div>
-                    <label className="dc-label">Voice Channel auswählen</label>
+                    <label className="dc-label">{t.voice.pick}</label>
                     <select
                         value={triggerChannelId}
                         onChange={e => setTriggerChannelId(e.target.value)}
                         className="dc-input w-full"
                     >
-                        <option value="">-- Deaktiviert --</option>
+                        <option value="">{t.voice.off}</option>
                         {voiceChannels.map(c => (
                             <option key={c.id} value={c.id}>{c.name}</option>
                         ))}
                     </select>
                     <p className="text-white/40 text-xs mt-2">
-                        {triggerChannelId
-                            ? `Wenn jemand „${triggerName}“ beitritt, wird automatisch ein eigener Channel erstellt.`
-                            : 'Custom Voice Channels sind deaktiviert.'}
+                        {triggerChannelId ? t.voice.onNote(triggerName) : t.voice.offNote}
                     </p>
                 </div>
             </div>
 
-            <details className="dc-help">
-                <summary>So funktioniert es</summary>
-                <ul className="text-white/50 text-sm space-y-2">
-                    <li>• Bot erstellt <span className="text-indigo-400">Usernames Kanal</span> in der gleichen Kategorie</li>
-                    <li>• Ein privater Text-Channel wird erstellt (nur für Mitglieder des VCs sichtbar)</li>
-                    <li>• Im Text-Channel werden die verfügbaren Commands angepinnt — inkl. aktuellem Channel-Besitzer</li>
-                    <li>• Mitglieder werden beim Beitreten/Verlassen automatisch hinzugefügt/entfernt</li>
-                    <li>• Bei Besitzer-Verlassen oder <span className="text-indigo-400">/voice_transfer</span> wird Ownership übertragen und die angepinnte Nachricht aktualisiert</li>
-                    <li>• Wenn alle den Channel verlassen, werden Voice- und Text-Channel automatisch gelöscht</li>
-                </ul>
-            </details>
+            <DcHelp title={t.common.howItWorks} items={t.voice.how} />
 
             <details className="dc-help">
-                <summary>Commands (nur im dedizierten Text-Channel)</summary>
+                <summary>{t.voice.commandsTitle}</summary>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                    {COMMANDS.map(item => (
-                        <div key={item.cmd} className="dc-inset p-3">
-                            <div className="text-indigo-400 text-xs mb-1">{item.cmd}</div>
-                            <div className="text-white/50 text-xs">{item.desc}</div>
+                    {t.voice.commands.map(([cmd, desc]) => (
+                        <div key={cmd} className="dc-inset p-3">
+                            <div className="text-indigo-400 text-xs mb-1">{cmd}</div>
+                            <div className="text-white/50 text-xs">{desc}</div>
                         </div>
                     ))}
                 </div>
@@ -108,13 +88,12 @@ export default function VoiceTab({ selectedServer, voiceChannels, onDirty }) {
                     disabled={isSaving}
                     className="dc-btn"
                 >
-                    {isSaving ? 'Speichere...' : 'Speichern'}
+                    {isSaving ? t.common.saving : t.common.save}
                 </button>
                 {saveStatus
-                    ? <span className="text-sm font-medium text-white">{saveStatus}</span>
-                    : dirty && <span className="dc-unsaved">Ungespeicherte Änderungen</span>}
+                    ? <span className={`text-sm font-medium ${isErrorStatus(saveStatus) ? 'text-red-400' : 'text-white'}`}>{saveStatus}</span>
+                    : dirty && <span className="dc-unsaved">{t.common.unsaved}</span>}
             </div>
         </div>
     );
 }
-

@@ -14,6 +14,7 @@
 //                    Nach 3 Minuten Abwesenheit am Stück gibt die Engine für ihn auf.
 
 const crypto = require('crypto');
+const { zaehlePartie } = require('../lib/spielStatistik');
 
 const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 const PAUSE_MAX_MS = 60 * 1000;
@@ -21,6 +22,11 @@ const ABANDON_MS = 3 * 60 * 1000;
 const STALE_MS = 30 * 60 * 1000;
 const TIMERS = { draft: 40, extras: 45, path: 45, interlude: 30 };
 const NAME_MAX = 24;
+// Masken und Gesten am Tisch (reine Optik, keine Spielwirkung) — dieselben Kennungen wie im Frontend:
+// Frontend/src/pages/SacrificeSigils/ui/table/masks.js
+const MASK_IDS = ['wachs', 'rabe', 'geweih', 'mond', 'rinde', 'drei'];
+const GESTURES = ['klopfen', 'nicken', 'kopfschuetteln', 'zeigen', 'haende', 'verbeugen'];
+const GESTURE_GAP_MS = 1000;
 
 /**
  * @param {{ engine: any, now?: () => number, send: (socketId: string, event: string, payload: any) => void,
@@ -37,6 +43,7 @@ function createRoomManager(deps) {
 
   const cleanName = (n) => String(n || '').replace(/[\u0000-\u001f]/g, '').trim().slice(0, NAME_MAX) || 'Zeichner';
   const cleanToken = (t) => (typeof t === 'string' && /^[A-Za-z0-9_-]{8,64}$/.test(t) ? t : null);
+  const cleanMask = (m) => (MASK_IDS.includes(m) ? m : MASK_IDS[0]);
 
   function newCode() {
     let code;
@@ -56,7 +63,7 @@ function createRoomManager(deps) {
       seedInput: room.seedInput,
       seed: room.match?.seed ?? null,
       hostSeat: room.hostSeat,
-      seats: room.seats.map((s) => (s ? { name: s.name, connected: s.connected, ready: s.ready, rematch: !!s.rematch } : null)),
+      seats: room.seats.map((s) => (s ? { name: s.name, connected: s.connected, ready: s.ready, rematch: !!s.rematch, mask: s.mask || MASK_IDS[0] } : null)),
       spectators: room.spectators.size,
       fingerprint: deps.fingerprint || null,
     };
@@ -248,7 +255,7 @@ function createRoomManager(deps) {
       settings: engine.normalizeSettings(payload.settings),
       seedInput: engine.normalizeSeed(payload.seed || ''),
       hostSeat: 0,
-      seats: [{ token, name: cleanName(payload.name), socketId, connected: true, ready: false, disconnectedAt: 0 }, null],
+      seats: [{ token, name: cleanName(payload.name), mask: cleanMask(payload.mask), socketId, connected: true, ready: false, disconnectedAt: 0 }, null],
       spectators: new Map(),
       match: null,
       deadlines: [null, null],
@@ -287,11 +294,12 @@ function createRoomManager(deps) {
       const d = room.deadlines[seat];
       if (d?.paused) room.deadlines[seat] = { key: d.key, at: now() + d.remaining, total: d.total };
       if (payload.name) s.name = cleanName(payload.name);
+      if (payload.mask) s.mask = cleanMask(payload.mask);
       attach(room, socketId, seat);
       if (wasAway && room.status === 'playing') notice(room, `${s.name} ist wieder da.`);
     } else if (room.status === 'lobby' && room.seats.some((s) => !s)) {
       seat = room.seats.findIndex((s) => !s);
-      room.seats[seat] = { token, name: cleanName(payload.name), socketId, connected: true, ready: false, disconnectedAt: 0 };
+      room.seats[seat] = { token, name: cleanName(payload.name), mask: cleanMask(payload.mask), socketId, connected: true, ready: false, disconnectedAt: 0 };
       attach(room, socketId, seat);
       notice(room, `${room.seats[seat].name} setzt sich an den Tisch.`);
     } else {
@@ -337,6 +345,7 @@ function createRoomManager(deps) {
   }
 
   function startMatch(room) {
+    zaehlePartie('sacrifice-and-sigils'); // Admin-Reiter „Spiele“; Revanche zählt als neue Partie
     const seed = room.seedInput || randomSeed();
     room.match = engine.createMatch({
       seed,
@@ -373,6 +382,45 @@ function createRoomManager(deps) {
     return err ? { ok: false, error: err } : { ok: true };
   }
 
+  /** Maske wechseln (reine Optik, jederzeit — in der Lobby wie im Spiel). */
+  function mask(socketId, payload = {}) {
+    const { room, seat } = seatOfSocket(socketId);
+    if (!room || seat === null) return { ok: false, error: 'notInRoom' };
+    room.seats[seat].mask = cleanMask(payload.mask);
+    sendRoom(room);
+    return { ok: true };
+  }
+
+  /**
+   * Geste am Tisch (statt Chat): geht unverändert an den anderen Platz und die Zuschauer, nicht zurück an den Absender.
+   * Keine Spielwirkung, kein freier Text — nur eine von sechs festen Kennungen und beim Zeigen ein Feld.
+   * @param {string} socketId @param {{ kind?: string, target?: { p?: number, zone?: string, lane?: number } }} payload
+   */
+  function gesture(socketId, payload = {}) {
+    const { room, seat } = seatOfSocket(socketId);
+    if (!room || seat === null) return { ok: false, error: 'notInRoom' };
+    // In der Lobby (beide sitzen schon am Tisch) gibt es Gesten auch — nur Zeigen braucht ein Feld und damit ein Spiel
+    if (room.status !== 'playing' && room.status !== 'lobby') return { ok: false, error: 'notPlaying' };
+    if (!GESTURES.includes(payload.kind)) return { ok: false, error: 'badGesture' };
+    if (room.status === 'lobby' && payload.kind === 'zeigen') return { ok: false, error: 'notPlaying' };
+    const s = room.seats[seat];
+    if (now() - (s.gestureAt || 0) < GESTURE_GAP_MS) return { ok: false, error: 'tooFast' };
+    let target = null;
+    if (payload.kind === 'zeigen') {
+      const t = payload.target || {};
+      if (![0, 1].includes(t.p) || !['front', 'back'].includes(t.zone) || !Number.isInteger(t.lane) || t.lane < 0 || t.lane > 3) {
+        return { ok: false, error: 'badTarget' };
+      }
+      target = { p: t.p, zone: t.zone, lane: t.lane };
+    }
+    s.gestureAt = now();
+    const msg = { seat, kind: payload.kind, target };
+    const other = room.seats[1 - seat];
+    if (other?.connected && other.socketId) send(other.socketId, 'ss:gesture', msg);
+    for (const id of room.spectators.keys()) send(id, 'ss:gesture', msg);
+    return { ok: true };
+  }
+
   /** Revanche: beide wollen ⇒ neues Match, neuer Seed, Draft-Reihenfolge getauscht. */
   function rematch(socketId) {
     const { room, seat } = seatOfSocket(socketId);
@@ -389,7 +437,7 @@ function createRoomManager(deps) {
     return { ok: true };
   }
 
-  return { create, join, leave, settings, ready, action, rematch, detach, tick, rooms, _refreshTimers: refreshTimers };
+  return { create, join, leave, settings, ready, action, gesture, mask, rematch, detach, tick, rooms, _refreshTimers: refreshTimers };
 }
 
-module.exports = { createRoomManager, PAUSE_MAX_MS, ABANDON_MS };
+module.exports = { createRoomManager, PAUSE_MAX_MS, ABANDON_MS, MASK_IDS, GESTURES, GESTURE_GAP_MS };

@@ -96,6 +96,22 @@ function resultOf(team, opponent) {
   return 'draw';
 }
 
+// Duelle (Crown Series, Clankrieg-Duell): EIN Battle-Eintrag enthält bis zu drei Runden, `crowns`
+// ist die Summe über alle. Die Summe sagt nichts über den Sieger (1:2, 1:0, 1:0 ist ein Sieg mit
+// 3:2 Kronen, 0:3, 1:0, 1:0 ein Sieg mit 2:3) — live geprüft 13.11.2026: bei 10 von 234 Crown-
+// Series-Duellen lag der Kronenvergleich falsch, die gewonnenen Runden nie. null ohne Runden.
+function roundsResult(team, opponent) {
+  const mine = Array.isArray(team?.rounds) ? team.rounds : [];
+  const theirs = Array.isArray(opponent?.rounds) ? opponent.rounds : [];
+  if (!mine.length || mine.length !== theirs.length) return null;
+  let won = 0, lost = 0;
+  mine.forEach((r, i) => {
+    const cf = r?.crowns ?? 0, ca = theirs[i]?.crowns ?? 0;
+    if (cf > ca) won += 1; else if (cf < ca) lost += 1;
+  });
+  return won > lost ? 'win' : won < lost ? 'loss' : 'draw';
+}
+
 /** Battlelog eines Spielers, vereinheitlicht. Liefert immer ein Array (ggf. leer). */
 async function fetchBattlelog(tag, { safe = false, token } = {}) {
   const get = safe ? crApiGetSafe : crApiGet;
@@ -117,7 +133,7 @@ async function fetchBattlelog(tag, { safe = false, token } = {}) {
     return {
       battleTime: b.battleTime,
       battleTimeMs: parseBattleTimeMs(b.battleTime),
-      result: resultOf(team, opponent),
+      result: roundsResult(team, opponent) || resultOf(team, opponent),
       trophyChange: typeof team.trophyChange === 'number' ? team.trophyChange : 0,
       crownsFor: team.crowns ?? 0,
       crownsAgainst: opponent.crowns ?? 0,
@@ -159,6 +175,12 @@ async function fetchBattlelog(tag, { safe = false, token } = {}) {
       // cr_wintracker_battles, aber während des Syncs verfügbar, um das "aktuelle Deck" je
       // Modus abzuleiten (die API kennt keinen eigenen Endpoint dafür).
       cards: Array.isArray(team.cards) ? team.cards : [],
+      // Duell: `cards` oben sind ALLE gespielten Decks am Stück (16–32 Karten) — fürs Deck-Modul
+      // zählt das Deck der zuletzt gespielten Runde. null bei gewöhnlichen Matches.
+      deckCards: Array.isArray(team.rounds) && team.rounds.length && Array.isArray(team.rounds[team.rounds.length - 1]?.cards)
+        ? team.rounds[team.rounds.length - 1].cards : null,
+      // Global Tournament (in der API "Ladder Tournament") — siehe lib/challengeModes.js
+      isLadderTournament: b.isLadderTournament === true,
       // Für die Turnier-Auswertung (tournament/battleMatch.js): Kampfart ("friendly", "clanMate",
       // "PvP" …), Gegner-Tag und -Karten, Teamgröße (1 = 1v1)
       type: b.type || '',
@@ -329,9 +351,26 @@ async function fetchEvents(token) {
   return list.filter((e) => e && e.title).map((e) => ({ eventTag: e.eventTag || '', title: String(e.title) }));
 }
 
+/**
+ * Global Tournaments laut API (GET /globaltournaments): [{ title, maxLosses, endMs }]. Leer, wenn
+ * keins läuft oder der Abruf fehlschlägt (13.11.2026: `{"items":[]}`, die Feldnamen stammen aus der
+ * API-Beschreibung und sind an einem laufenden Turnier noch nicht geprüft).
+ */
+async function fetchGlobalTournaments(token) {
+  const data = await crApiGetSafe('/globaltournaments', { token });
+  if (!Array.isArray(data?.items)) return [];
+  return data.items.map((it) => ({
+    title: String(it?.title || ''),
+    maxLosses: Number.isInteger(it?.maxLosses) && it.maxLosses > 0 ? it.maxLosses : null,
+    endMs: it?.endTime ? parseBattleTimeMs(it.endTime) : 0,
+  }));
+}
+
 module.exports = {
   CR_API_BASE,
   fetchEvents,
+  fetchGlobalTournaments,
+  roundsResult,
   isConfigured,
   normalizeTag,
   crApiGet,

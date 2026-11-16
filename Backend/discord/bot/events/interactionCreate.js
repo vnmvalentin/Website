@@ -19,6 +19,7 @@ const { handleServerStats } = require('../commands/serverstats');
 const { handleTagesrennen } = require('../seedRunnersBoard');
 const { handleTicketCreateButton, handleTicketModalSubmit, handleTicketClose } = require('../commands/tickets');
 const { LOYALTY_COMMANDS, handleLoyaltyCommand, handleLoyaltyButton } = require('../../loyalty/games');
+const { botText } = require('../botText');
 
 const FUN_COMMANDS = ['connect3', 'magische_miesmuschel', 'pp', 'aussehen', 'iq', 'größe', 'gewicht', 'ship', 'coinflip', 'allstats', 'superkraft', 'ausrede'];
 const VOICE_COMMANDS = ['voicelimit', 'voicelock', 'voice_rename', 'voice_hide', 'voice_unhide', 'voice_transfer', 'voice_kick', 'voice_ban', 'voice_unban'];
@@ -34,12 +35,13 @@ module.exports = {
             // Fun Commands: optionaler Kanal-Check + Disabled-Check
             if (FUN_COMMANDS.includes(cmd)) {
                 const settings = getSettings(interaction.guildId);
+                const t = botText(interaction).commands;
                 if (settings.disabledCommands?.includes(cmd)) {
-                    return interaction.reply({ content: '❌ Dieser Command ist auf diesem Server deaktiviert.', flags: MessageFlags.Ephemeral });
+                    return interaction.reply({ content: t.disabled, flags: MessageFlags.Ephemeral });
                 }
                 if (settings.funChannel && interaction.channelId !== settings.funChannel) {
                     return interaction.reply({
-                        content: `❌ Diese Commands sind nur in <#${settings.funChannel}> erlaubt!`,
+                        content: t.onlyIn(settings.funChannel),
                         flags: MessageFlags.Ephemeral,
                     });
                 }
@@ -66,7 +68,7 @@ module.exports = {
             if (LOYALTY_COMMANDS.includes(cmd)) {
                 return handleLoyaltyCommand(interaction).catch(e => {
                     console.error('[Punkte]', cmd, e);
-                    const msg = { content: '❌ Da ist etwas schiefgelaufen.', flags: MessageFlags.Ephemeral };
+                    const msg = { content: botText(interaction).commands.failed, flags: MessageFlags.Ephemeral };
                     return (interaction.replied || interaction.deferred ? interaction.followUp(msg) : interaction.reply(msg)).catch(() => {});
                 });
             }
@@ -115,24 +117,25 @@ module.exports = {
 
         const roleId = interaction.customId.replace('rr_', '');
         const member = interaction.member;
+        const t = botText(interaction).roles;
 
         const configs = getReactionRoles(interaction.guildId);
         const config = configs.find(c => c.messageId === interaction.message.id);
 
         if (!config) {
-            return interaction.reply({ content: 'Dieses Setup existiert nicht mehr.', flags: MessageFlags.Ephemeral });
+            return interaction.reply({ content: t.setupGone, flags: MessageFlags.Ephemeral });
         }
 
         const role = interaction.guild.roles.cache.get(roleId);
         if (!role) {
-            return interaction.reply({ content: 'Diese Rolle existiert auf dem Server nicht mehr.', flags: MessageFlags.Ephemeral });
+            return interaction.reply({ content: t.roleGone, flags: MessageFlags.Ephemeral });
         }
 
         try {
             if (config.mode === 'single') {
                 if (member.roles.cache.has(roleId)) {
                     await member.roles.remove(roleId);
-                    return interaction.reply({ content: `Dir wurde die Rolle **${role.name}** wieder entfernt.`, flags: MessageFlags.Ephemeral });
+                    return interaction.reply({ content: t.removedAgain(role.name), flags: MessageFlags.Ephemeral });
                 }
 
                 const allRolesInSetup = Array.isArray(config.roleMapping)
@@ -144,24 +147,24 @@ module.exports = {
                 if (rolesToRemove.length > 0) {
                     await member.roles.remove(rolesToRemove);
                     const names = rolesToRemove.map(id => interaction.guild.roles.cache.get(id)?.name).filter(Boolean);
-                    if (names.length > 0) removedText = `\n*(Die alte Rolle **${names.join(', ')}** wurde entfernt).*`;
+                    if (names.length > 0) removedText = t.oldRemoved(names.join(', '));
                 }
 
                 await member.roles.add(roleId);
-                return interaction.reply({ content: `Du hast die Rolle **${role.name}** erhalten! ${removedText}`, flags: MessageFlags.Ephemeral });
+                return interaction.reply({ content: `${t.added(role.name)} ${removedText}`, flags: MessageFlags.Ephemeral });
 
             } else {
                 if (member.roles.cache.has(roleId)) {
                     await member.roles.remove(roleId);
-                    return interaction.reply({ content: `Dir wurde die Rolle **${role.name}** entfernt.`, flags: MessageFlags.Ephemeral });
+                    return interaction.reply({ content: t.removed(role.name), flags: MessageFlags.Ephemeral });
                 } else {
                     await member.roles.add(roleId);
-                    return interaction.reply({ content: `Du hast die Rolle **${role.name}** erhalten!`, flags: MessageFlags.Ephemeral });
+                    return interaction.reply({ content: t.added(role.name), flags: MessageFlags.Ephemeral });
                 }
             }
         } catch (e) {
             console.error(e);
-            return interaction.reply({ content: '❌ Fehler! Steht meine Bot-Rolle über der zu vergebenden Rolle?', flags: MessageFlags.Ephemeral });
+            return interaction.reply({ content: t.failed, flags: MessageFlags.Ephemeral });
         }
     },
 };

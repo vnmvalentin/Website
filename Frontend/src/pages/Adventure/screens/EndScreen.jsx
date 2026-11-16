@@ -1,4 +1,5 @@
-// screens/EndScreen.jsx — Auswertung nach einem Lauf: Ergebnis, Werte, Items, Account-XP und neue Freischaltungen.
+// screens/EndScreen.jsx — Auswertung nach einem Lauf: Ergebnis, Werte, Kill-Verlauf (ui/KillCurve.jsx), Items,
+// Account-XP und neue Freischaltungen.
 
 import React from "react";
 import { Trophy, Skull, Flag, Play, Home, Sparkles, Medal } from "lucide-react";
@@ -9,6 +10,7 @@ import { DIFFICULTIES } from "../engine/difficulty.js";
 import { ItemIcon, UpgradeIcon } from "../ui/icons.jsx";
 import { WEAPONS, TALENTS } from "../data/weapons.js";
 import { fmtTime } from "../engine/util.js";
+import KillCurve from "../ui/KillCurve.jsx";
 
 export default function EndScreen({ result, onAgain, onMenu }) {
   const kit = KITS[result.kitId] || KITS.default;
@@ -38,12 +40,16 @@ export default function EndScreen({ result, onAgain, onMenu }) {
           </div>
 
           <dl className="mt-6 grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
-            {[["Welten", result.stagesCleared], ["Bosse", result.stats.bossesKilled], ["Kills", result.stats.kills], ["Stufe", result.level],
+            {[["Welten", result.stagesCleared], ["Bosse", result.stats.bossesKilled], ["Kills", result.stats.kills.toLocaleString("de-DE")], ["Stufe", result.level],
               ["Schaden", Math.round(result.stats.damageDealt).toLocaleString("de-DE")], ["Erlitten", Math.round(result.stats.damageTaken).toLocaleString("de-DE")],
-              ["Gold", result.stats.goldCollected.toLocaleString("de-DE")], ["Items", result.stats.itemsCollected]].map(([k, v]) => (
+              ["Gold", result.stats.goldCollected.toLocaleString("de-DE")], ["Items", result.stats.itemsCollected],
+              ["Beste Serie", (result.stats.bestStreak || 0).toLocaleString("de-DE")], ["Kills pro Min.", result.time >= 10 ? Math.round(result.stats.kills / (result.time / 60)).toLocaleString("de-DE") : "–"],
+              ["Kolosse", result.stats.giants || 0], ["Champions", result.stats.champions || 0]].map(([k, v]) => (
               <div key={k} className="av-slot py-2.5"><dt className="text-[12px] av-faint">{k}</dt><dd className="av-num text-[20px]">{v}</dd></div>
             ))}
           </dl>
+
+          <KillCurve stats={result.stats} time={result.time} />
 
           {(result.weapons?.length > 0 || result.talents?.length > 0) && (
             <div className="mt-5 flex flex-wrap gap-[10px]">

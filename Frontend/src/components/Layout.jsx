@@ -6,6 +6,8 @@ import { useLiveStatus } from "../utils/useLiveStatus";
 import { TwitchAuthContext } from "./TwitchAuthContext";
 import { socket, ensureSocketConnected } from "../utils/socket";
 import AppBackground from "./AppBackground";
+import KontoBild from "./KontoBild";
+import { useKonto, oeffneAnmeldung } from "../utils/konto.js";
 import { NAV_CATEGORIES } from "../config/navigation";
 // 96-px-WebP (2 KB) statt /logos/logo.png: das Original ist 512×512 und 255 KB groß, wird hier
 // aber nur 32 px hoch gezeigt — und das auf jeder Seite. Das PNG bleibt für og:image (SEO.jsx).
@@ -34,6 +36,8 @@ function TwitchGlyph({ className }) {
 export default function Layout() {
   const location = useLocation();
   const { user, login } = useContext(TwitchAuthContext);
+  // Konto ohne Twitch (Discord oder Gast) — dann zeigt der Kopf das Konto statt „Anmelden“
+  const { konto } = useKonto();
   // Kanal gerade live? Dann steht in der Kopfzeile ein Hinweis (Backend fragt Twitch, siehe utils/useLiveStatus.js)
   const liveStatus = useLiveStatus();
 
@@ -357,14 +361,30 @@ export default function Layout() {
                 <span className="text-sm font-medium hidden xl:block">Updates</span>
               </Link>
 
-              {!user ? (
-                <button
-                  onClick={() => login(false)}
-                  className="flex items-center gap-2 bg-[#9146FF] hover:bg-[#7c3aed] text-white pl-3 pr-4 py-2 rounded-lg text-sm font-semibold transition-colors"
+              {!user && konto ? (
+                // Mit Discord oder als Gast angemeldet (utils/konto.js) — Twitch-Bereiche fragen bei Bedarf selbst nach Twitch
+                <Link
+                  to="/profile"
+                  className={`flex items-center gap-2.5 pl-1.5 pr-3 py-1.5 rounded-lg border transition-colors ${
+                    normalizedPath === "/profile"
+                      ? "bg-white/10 border-white/15"
+                      : "border-transparent hover:bg-white/5 hover:border-white/10"
+                  }`}
+                  title="Profil öffnen"
                 >
-                  <TwitchGlyph className="w-4 h-4" />
-                  <span className="hidden sm:block">Mit Twitch anmelden</span>
-                  <span className="sm:hidden">Login</span>
+                  <KontoBild konto={konto} />
+                  <span className="hidden md:flex flex-col items-start leading-tight">
+                    <span className="text-sm font-semibold text-white max-w-[10rem] truncate">{konto.name}</span>
+                    <span className="text-[10px] text-white/40 flex items-center gap-1"><UserRound size={9} /> Profil</span>
+                  </span>
+                </Link>
+              ) : !user ? (
+                <button
+                  onClick={oeffneAnmeldung}
+                  className="flex items-center gap-2 bg-accent hover:bg-accent-hover text-white pl-3 pr-4 py-2 rounded-lg text-sm font-semibold transition-colors"
+                >
+                  <UserRound size={16} />
+                  <span>Anmelden</span>
                 </button>
               ) : (
                 <Link
@@ -444,13 +464,15 @@ export default function Layout() {
                   >
                     <Newspaper size={17} className="text-white/35" /> Updates & News
                   </Link>
-                  {user && (
+                  {(user || konto) && (
                     <Link
                       to="/profile"
                       onClick={() => setMobileNavOpen(false)}
                       className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-semibold text-white/85 hover:bg-white/5 hover:text-white transition-colors"
                     >
-                      <img src={user.profileImageUrl} alt="" className="w-6 h-6 rounded-md object-cover" />
+                      {user
+                        ? <img src={user.profileImageUrl} alt="" className="w-6 h-6 rounded-md object-cover" />
+                        : <KontoBild konto={konto} className="w-6 h-6 rounded-md" />}
                       Mein Profil
                     </Link>
                   )}

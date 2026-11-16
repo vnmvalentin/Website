@@ -113,7 +113,7 @@ function affordable(r, P, card, p) {
   return { ok: sum >= need, need };
 }
 
-function SeerDialog({ cards, onConfirm }) {
+export function SeerDialog({ cards, onConfirm }) {
   const [order, setOrder] = useState(cards.map((_, i) => i));
   const move = (i, d) => {
     const j = i + d;

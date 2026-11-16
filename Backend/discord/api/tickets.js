@@ -6,6 +6,8 @@ const {
     getTicketFields, saveTicketFields, getTicketHistory,
 } = require('../database/db');
 
+const { botText } = require('../bot/botText');
+
 module.exports = function ({ requireAuth, discordClient }) {
     const router = express.Router();
 
@@ -19,11 +21,11 @@ module.exports = function ({ requireAuth, discordClient }) {
     // POST config → delete old message, save, send new setup message
     router.post('/:guildId/ticket-config', requireAuth, express.json(), async (req, res) => {
         const { setupChannelId, embedTitle, embedDescription, embedColor, categoryId, handlerRoleIds } = req.body;
-        if (!setupChannelId) return res.status(400).json({ error: 'setupChannelId fehlt.' });
+        if (!setupChannelId) return res.status(400).json({ error: 'setupChannelId fehlt.', code: "missing_data" });
 
         const guildId = req.params.guildId;
         const guild = discordClient.guilds.cache.get(guildId);
-        if (!guild) return res.status(404).json({ error: 'Bot nicht auf dem Server.' });
+        if (!guild) return res.status(404).json({ error: 'Bot nicht auf dem Server.', code: "bot_not_in_guild" });
 
         // Delete old setup message if exists
         const existing = getTicketConfig(guildId);
@@ -44,18 +46,19 @@ module.exports = function ({ requireAuth, discordClient }) {
 
         // Send new setup message
         const channel = guild.channels.cache.get(setupChannelId);
-        if (!channel) return res.status(404).json({ error: 'Kanal nicht gefunden.' });
+        if (!channel) return res.status(404).json({ error: 'Kanal nicht gefunden.', code: "channel_not_found" });
 
         try {
+            const t = botText(guildId).tickets;
             const embed = new EmbedBuilder()
-                .setTitle(embedTitle || 'Support Ticket')
-                .setDescription(embedDescription || 'Klicke auf den Button um ein Ticket zu erstellen.')
+                .setTitle(embedTitle || t.defaultTitle)
+                .setDescription(embedDescription || t.defaultDescription)
                 .setColor(embedColor || '#5865F2');
 
             const row = new ActionRowBuilder().addComponents(
                 new ButtonBuilder()
                     .setCustomId('ticket_create')
-                    .setLabel('🎫 Ticket erstellen')
+                    .setLabel(t.createButton)
                     .setStyle(ButtonStyle.Primary)
             );
 
@@ -63,15 +66,15 @@ module.exports = function ({ requireAuth, discordClient }) {
             updateTicketConfigMessageId(guildId, msg.id);
             res.json({ success: true, messageId: msg.id });
         } catch (e) {
-            res.status(500).json({ error: 'Nachricht konnte nicht gesendet werden: ' + e.message });
+            res.status(500).json({ error: 'Nachricht konnte nicht gesendet werden: ' + e.message, code: "send_failed" });
         }
     });
 
     // POST fields
     router.post('/:guildId/ticket-fields', requireAuth, express.json(), (req, res) => {
         const { fields } = req.body;
-        if (!Array.isArray(fields)) return res.status(400).json({ error: 'fields muss ein Array sein.' });
-        if (fields.length > 5) return res.status(400).json({ error: 'Maximal 5 Felder erlaubt (Discord-Limit).' });
+        if (!Array.isArray(fields)) return res.status(400).json({ error: 'fields muss ein Array sein.', code: "bad_fields" });
+        if (fields.length > 5) return res.status(400).json({ error: 'Maximal 5 Felder erlaubt (Discord-Limit).', code: "too_many_fields" });
         saveTicketFields(req.params.guildId, fields);
         res.json({ success: true });
     });

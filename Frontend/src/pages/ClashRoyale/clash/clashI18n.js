@@ -1,42 +1,37 @@
 // clashI18n.js — Texte für /clash (Hub) und die Kartenspiele, Deutsch + Englisch.
-// Sprache: ?lang=en in der Adresse (wie die übrigen CR-Seiten), sonst die zuletzt gewählte (localStorage), sonst
-// Browsersprache. Alle Seiten unter /clash teilen denselben Stand (useClashLang), damit der Wechsel zwischen Hub und
-// Spielen die Sprache behält.
-import { useCallback, useSyncExternalStore } from 'react';
+// Sprache: die eine Sprachwahl der Website (i18n/language.js) — ?lang=en in der Adresse gilt für den Besuch, sonst
+// die zuletzt gewählte (siteLang), sonst Deutsch. Seit Nov. 2026 ohne Erkennung über die Browsersprache: der
+// Google-Crawler meldet Englisch und hätte die vorgerenderten deutschen Seiten sonst englisch gerendert.
+// Hub, Kartenspiele und Stats teilen den Stand mit jedem anderen übersetzten Bereich der Website.
+import { useEffect } from 'react';
+import { setLanguage, useLanguage } from '../../../i18n/language';
 
-const KEY = 'crq_lang';
 const LANGS = ['de', 'en'];
 
-function initial() {
+// Früher merkten sich die CR-Seiten ihre Sprache selbst (crq_lang). Die Wahl gilt beim ersten Besuch einer CR-Seite
+// einmal als gemeinsame Wahl — aber nur, wenn es noch keine gibt, und erst HIER, nicht beim Laden der ganzen Website:
+// sonst stellte eine alte CR-Wahl die Win Challenge (samt ihrer Chat-Antworten) um, ohne dass man CR je wieder öffnet.
+const OLD_KEY = 'crq_lang';
+let adopted = false;
+function adoptOldChoice() {
+  if (adopted || typeof window === 'undefined') return;
+  adopted = true;
   try {
-    const url = new URLSearchParams(window.location.search).get('lang');
-    if (LANGS.includes(url)) return url;
-    const saved = localStorage.getItem(KEY);
-    if (LANGS.includes(saved)) return saved;
-    return /^de\b/i.test(navigator.language || 'de') ? 'de' : 'en';
-  } catch {
-    return 'de';
-  }
+    const old = localStorage.getItem(OLD_KEY);
+    if (old === null) return;
+    localStorage.removeItem(OLD_KEY);
+    if (!LANGS.includes(old) || localStorage.getItem('siteLang')) return;
+    // Eine ?lang-Angabe gilt für diesen Besuch weiter; die alte Wahl wird dann nur gemerkt
+    if (new URLSearchParams(window.location.search).has('lang')) localStorage.setItem('siteLang', old);
+    else setLanguage(old);
+  } catch { /* gesperrter Speicher: dann ohne Übernahme */ }
 }
 
-let current = typeof window === 'undefined' ? 'de' : initial();
-const listeners = new Set();
-const subscribe = (fn) => { listeners.add(fn); return () => listeners.delete(fn); };
-
 export function useClashLang() {
-  const lang = useSyncExternalStore(subscribe, () => current, () => 'de');
-  const changeLang = useCallback((next) => {
-    if (!LANGS.includes(next) || next === current) return;
-    current = next;
-    try {
-      localStorage.setItem(KEY, next);
-      const url = new URL(window.location.href);
-      if (next === 'de') url.searchParams.delete('lang'); else url.searchParams.set('lang', next);
-      window.history.replaceState(window.history.state, '', url.pathname + url.search);
-    } catch { /* Komfort */ }
-    listeners.forEach((fn) => fn());
-  }, []);
-  return { lang, t: DICT[lang] || DICT.de, changeLang };
+  // syncUrl: die englische Fassung steht immer mit ?lang=en in der Adresse (eigene Adresse für Suchmaschinen, Links)
+  const { lang, setLang } = useLanguage({ supported: LANGS, syncUrl: true });
+  useEffect(adoptOldChoice, []);
+  return { lang, t: DICT[lang] || DICT.de, changeLang: setLang };
 }
 
 /** [Deutsch, Englisch] → Text in der Sprache */
@@ -57,8 +52,10 @@ const DE = {
   fanPolicy: 'Supercells Richtlinie für Fan-Inhalte',
 
   // Hub
-  hubNew: 'Neu: Farb-Raten, Karten-Wordle und Viewer Games — das Chat-Quiz als OBS-Overlay für deinen Stream',
+  hubNew: 'Neu: Spieler-Stats, Clans, Ranglisten mit Decks und die Decks der Besten',
   hubMinigames: 'Deck Draft Minigames',
+  tabStats: 'Stats', tabStatsSub: 'Spieler, Clans, Ranglisten, Decks und Karten — live aus dem Spiel',
+  statsPlayers: 'Spieler & Clans', statsPlayersText: 'Profil mit Ranked-Deck, allen Kämpfen, Sammlung mit Aufwert-Rechner und Abzeichen.',
   tabMinigames: 'Minigames', tabMinigamesSub: 'mit Freunden draften oder die Nuzlocke-Challenge wagen',
   hubMinigamesText: 'Zehn Draft-Modi für 2–8 Spieler — Lobby erstellen, Link teilen, losdraften.',
   play: 'Spielen',
@@ -70,6 +67,18 @@ const DE = {
   forStreamers: 'Für Streamer', forStreamersSub: 'OBS-Overlays für deinen Clash-Royale-Stream',
   cardGames: 'Kartenspiele', cardGamesSub: 'schnelle Runden mit allen Clash-Royale-Karten',
   solvedToday: 'Heute gelöst',
+  // Tagesrunde aller Ratespiele (HeutePage.jsx)
+  heuteTitle: 'Tagesrunde', heuteSub: 'Alle fünf Ratespiele, einmal am Tag — für alle dieselben Karten.',
+  heuteSeo: 'Die tägliche Clash-Royale-Raterunde: Karten-Wordle, Kartenraten, Zoom-, Pixel- und Farb-Raten mit gemeinsamem Punktestand, Serie und Bestenliste.',
+  heuteTotal: 'Punkte heute', heuteOf: (n) => `${n} von 5 gespielt`, heuteOpen: 'Offen',
+  heuteStreak: (n) => `Serie ${n}`, heuteStreakNote: (best) => `Tage in Folge mit allen fünf Spielen · beste ${best}`,
+  heuteShare: 'Ergebnis kopieren', heuteCopied: 'Kopiert', heuteShareHeading: 'Clash Royale – Tagesrunde', heuteTotalShort: 'Gesamt',
+  heuteBoard: 'Bestenliste heute', heuteBoardPlayers: (n) => `${n} dabei`, heuteBoardEmpty: 'Noch steht niemand in der Liste.',
+  heuteBoardDown: 'Die Bestenliste ist gerade nicht erreichbar.', heuteLogin: 'Mit Twitch anmelden, um in die Bestenliste zu kommen.',
+  heuteLoginBtn: 'Mit Twitch anmelden', heuteYou: 'Du', heuteRank: (n) => `Platz ${n}`, heuteGames: (n) => `${n}/5`,
+  heuteAllDone: 'Alle fünf geschafft — morgen gibt es neue Karten.', heuteFirstOnly: 'Es zählt das erste Ergebnis des Tages.',
+  heuteTileText: 'Alle fünf Ratespiele des Tages in einer Runde — mit Punkten, Serie und Bestenliste.', heuteTileTag: (n) => `${n}/5 heute`,
+  heuteDoneTitle: 'Tagesrunde geschafft', heuteDoneText: 'Alle fünf gespielt — sieh dir Ergebnis und Bestenliste an.', heuteResult: 'Zum Ergebnis',
   guessTitle: 'Kartenraten', guessText: '24 Karten liegen vor dir, pro Runde kommt ein Hinweis. Klapp um, was es nicht sein kann — dann tippen.', guessTag: 'Allein · Tagesrunde',
   whoTitle: 'Wer bin ich?', whoText: 'Das Klappbrett-Spiel zu zweit: geheime Karte wählen, Ja/Nein-Fragen stellen, umklappen, raten.', whoTag: 'Zu zweit · per Link',
   statsTitle: 'Stats-Duell', statsText: 'Höher oder tiefer mit echten Kampfwerten: Leben, Schaden, DPS, Angriffstempo, Reichweite …', statsTag: 'Allein · Serie',
@@ -78,12 +87,12 @@ const DE = {
   colorTitle: 'Farb-Raten', colorText: 'Der Karte fehlt eine Farbe. Misch sie mit drei Reglern aus dem Gedächtnis nach — die Karte färbt sich live mit.', colorTag: 'Allein · Tagesrunde',
 
   // Karten-Wordle
-  wordleTitle: 'Karten-Wordle', wordleText: 'Rate eine Karte — jede Eigenschaft zeigt dir, wie nah du dran bist. Elixier, Seltenheit, Tempo, Leben …', wordleTag: 'Allein · Tagesrunde',
-  wordleHelp: 'Tippe eine beliebige Karte. Grün = stimmt, Rot = stimmt nicht, ▲▼ = die gesuchte Karte hat mehr bzw. weniger.',
+  wordleTitle: 'Karten-Wordle', wordleText: 'Rate eine Karte — jede Eigenschaft zeigt dir, wie nah du dran bist. Elixier, Seltenheit, Leben, Schaden, Erscheinungsjahr …', wordleTag: 'Allein · Tagesrunde',
+  wordleHelp: 'Tippe eine beliebige Karte. Grün = stimmt, Orange = knapp daneben, Rot = daneben, ▲▼ = die gesuchte Karte hat mehr bzw. weniger.',
   wordleWon: (c, n) => `Gesucht war ${c} — gefunden mit ${n} ${n === 1 ? 'Tipp' : 'Tipps'}.`,
   wordleTries: (n) => `${n} ${n === 1 ? 'Tipp' : 'Tipps'} bisher`,
   wordleCard: 'Karte', wordleHigher: 'höher', wordleLower: 'niedriger',
-  wordleLegend: 'Tempo und Leben auf Turnierniveau (Level 11); „—“ = gibt es bei dieser Karte nicht (z. B. Zauber).',
+  wordleLegend: 'Werte auf Turnierniveau (Level 11). Knapp daneben: ±1 Elixier, eine Tempostufe, ±25 % Leben bzw. Schaden pro Sekunde, ±2 Jahre. „—“ = gibt es bei dieser Karte nicht (z. B. Zauber).',
   wordleSeo: 'Clashdle — das Wordle mit Clash-Royale-Karten: Rate die Karte des Tages, jede Eigenschaft zeigt dir, wie nah du dran bist.',
 
   // Viewer Games
@@ -96,7 +105,13 @@ const DE = {
   vgChatOk: (l) => `Chat-Bot verbunden — liest in #${l} mit, sobald das Overlay läuft.`,
   vgChatOff: 'Chat-Bot gerade nicht verbunden — Tipps aus dem Chat kommen nicht an.',
   vgModes: 'Spielmodi', vgPixelText: 'Die ganze Karte, extrem verpixelt.', vgZoomText: 'Ein winziger Ausschnitt, extrem nah herangezoomt.',
-  vgBothModes: 'Beide aktiv: Der Modus wechselt zufällig von Runde zu Runde.',
+  vgBothModes: 'Mehrere aktiv: Der Modus wechselt zufällig von Runde zu Runde.',
+  vgStatTitle: 'Werte schätzen', vgStatText: 'Eine Karte, ein Wert (Leben oder Schaden) — wer mit !tipp 1700 am nächsten liegt, gewinnt.',
+  vgWordleTitle: 'Chat-Wordle', vgWordleText: 'Der Chat rät gemeinsam eine Karte, jeder Tipp zeigt Elixier, Seltenheit, Art und Jahr im Vergleich.',
+  vgImageOnly: 'Gilt für Pixel- und Zoom-Raten.',
+  vgEstimateSeconds: 'Zeit zum Schätzen', vgWordleSeconds: 'Zeit fürs Chat-Wordle',
+  vgScope: 'Bestenliste zählt', vgScopeSeason: 'Diese Saison', vgScopeAll: 'Alle Zeiten',
+  vgScopeNote: 'Die Saison wechselt mit der Clash-Royale-Saison am ersten Montag im Monat. Gezählt wird immer beides.',
   vgFlow: 'Ablauf', vgAdvance: 'Bild wird deutlicher …', vgByTime: 'Nach Zeit', vgByGuesses: 'Nach Fehltipps',
   vgAdvanceTime: 'Alle paar Sekunden eine Stufe deutlicher — mit Zeitbalken im Overlay.',
   vgAdvanceGuesses: 'Nach einer Anzahl falscher Tipps aus dem Chat eine Stufe deutlicher.',
@@ -204,8 +219,10 @@ const EN = {
   notAffiliated: 'This content is not affiliated with, endorsed, sponsored, or specifically approved by Supercell. For more information see',
   fanPolicy: "Supercell's Fan Content Policy",
 
-  hubNew: 'New: Colour Guess, Card Wordle and Viewer Games — the chat quiz as an OBS overlay for your stream',
+  hubNew: 'New: player stats, clans, leaderboards with decks and the decks of the best',
   hubMinigames: 'Deck Draft Minigames',
+  tabStats: 'Stats', tabStatsSub: 'players, clans, leaderboards, decks and cards — live from the game',
+  statsPlayers: 'Players & Clans', statsPlayersText: 'Profile with ranked deck, every battle, collection with upgrade calculator and badges.',
   tabMinigames: 'Minigames', tabMinigamesSub: 'draft with friends or take on the Nuzlocke challenge',
   hubMinigamesText: 'Ten draft modes for 2–8 players — create a lobby, share the link, start drafting.',
   play: 'Play',
@@ -217,6 +234,18 @@ const EN = {
   forStreamers: 'For streamers', forStreamersSub: 'OBS overlays for your Clash Royale stream',
   cardGames: 'Card games', cardGamesSub: 'quick rounds with every Clash Royale card',
   solvedToday: 'Solved today',
+  // Daily round of all guessing games (HeutePage.jsx)
+  heuteTitle: 'Daily round', heuteSub: 'All five guessing games, once a day — the same cards for everyone.',
+  heuteSeo: 'The daily Clash Royale guessing round: Card Wordle, Card Guess, Zoom, Pixel and Colour Guess with a shared score, streak and leaderboard.',
+  heuteTotal: 'Points today', heuteOf: (n) => `${n} of 5 played`, heuteOpen: 'Open',
+  heuteStreak: (n) => `Streak ${n}`, heuteStreakNote: (best) => `days in a row with all five games · best ${best}`,
+  heuteShare: 'Copy result', heuteCopied: 'Copied', heuteShareHeading: 'Clash Royale – daily round', heuteTotalShort: 'Total',
+  heuteBoard: 'Today’s leaderboard', heuteBoardPlayers: (n) => `${n} playing`, heuteBoardEmpty: 'Nobody is on the list yet.',
+  heuteBoardDown: 'The leaderboard is not reachable right now.', heuteLogin: 'Log in with Twitch to get on the leaderboard.',
+  heuteLoginBtn: 'Log in with Twitch', heuteYou: 'You', heuteRank: (n) => `Rank ${n}`, heuteGames: (n) => `${n}/5`,
+  heuteAllDone: 'All five done — new cards tomorrow.', heuteFirstOnly: 'Your first result of the day counts.',
+  heuteTileText: 'All five guessing games of the day in one round — with points, streak and leaderboard.', heuteTileTag: (n) => `${n}/5 today`,
+  heuteDoneTitle: 'Daily round done', heuteDoneText: 'All five played — check your result and the leaderboard.', heuteResult: 'See result',
   guessTitle: 'Card Guess', guessText: '24 cards in front of you, one clue per round. Flip down what it can’t be — then make your guess.', guessTag: 'Solo · daily round',
   whoTitle: 'Guess Who?', whoText: 'The classic flip-board game for two: pick a secret card, ask yes/no questions, flip, guess.', whoTag: 'Two players · via link',
   statsTitle: 'Stats Duel', statsText: 'Higher or lower with real battle stats: hitpoints, damage, DPS, hit speed, range …', statsTag: 'Solo · streak',
@@ -224,12 +253,12 @@ const EN = {
   pixelTitle: 'Pixel Guess', pixelText: 'The whole card — but so pixelated you can barely tell. Every two guesses it gets sharper.', pixelTag: 'Solo · daily round',
   colorTitle: 'Colour Guess', colorText: 'One colour of the card is missing. Mix it back from memory with three sliders — the card recolours live.', colorTag: 'Solo · daily round',
 
-  wordleTitle: 'Card Wordle', wordleText: 'Guess a card — every attribute tells you how close you are. Elixir, rarity, speed, hitpoints …', wordleTag: 'Solo · daily round',
-  wordleHelp: 'Type any card. Green = match, red = no match, ▲▼ = the secret card has more or less.',
+  wordleTitle: 'Card Wordle', wordleText: 'Guess a card — every attribute tells you how close you are. Elixir, rarity, hitpoints, damage, release year …', wordleTag: 'Solo · daily round',
+  wordleHelp: 'Type any card. Green = match, orange = close, red = off, ▲▼ = the secret card has more or less.',
   wordleWon: (c, n) => `The card was ${c} — found in ${n} ${n === 1 ? 'guess' : 'guesses'}.`,
   wordleTries: (n) => `${n} ${n === 1 ? 'guess' : 'guesses'} so far`,
   wordleCard: 'Card', wordleHigher: 'higher', wordleLower: 'lower',
-  wordleLegend: 'Speed and hitpoints at tournament standard (level 11); “—” = not applicable for this card (e.g. spells).',
+  wordleLegend: 'Stats at tournament standard (level 11). Close: ±1 elixir, one speed step, ±25 % hitpoints or damage per second, ±2 years. “—” = not applicable for this card (e.g. spells).',
   wordleSeo: 'Clashdle — Wordle with Clash Royale cards: guess the card of the day, every attribute tells you how close you are.',
 
   vgTitle: 'Viewer Games', vgText: 'A chat quiz for your stream: Pixel and Zoom Guess as an OBS overlay, your chat guesses with !tipp.', vgTag: 'For streamers · OBS',
@@ -241,7 +270,13 @@ const EN = {
   vgChatOk: (l) => `Chat bot connected — reads #${l} as soon as the overlay is running.`,
   vgChatOff: 'Chat bot is not connected right now — guesses from chat won’t arrive.',
   vgModes: 'Game modes', vgPixelText: 'The whole card, extremely pixelated.', vgZoomText: 'A tiny detail, zoomed in extremely close.',
-  vgBothModes: 'Both active: the mode switches randomly from round to round.',
+  vgBothModes: 'Several active: the mode switches randomly from round to round.',
+  vgStatTitle: 'Estimate stats', vgStatText: 'One card, one value (hitpoints or damage) — whoever gets closest with !tipp 1700 wins.',
+  vgWordleTitle: 'Chat Wordle', vgWordleText: 'Chat guesses a card together, every guess compares elixir, rarity, type and year.',
+  vgImageOnly: 'Applies to Pixel and Zoom Guess.',
+  vgEstimateSeconds: 'Time to estimate', vgWordleSeconds: 'Time for Chat Wordle',
+  vgScope: 'Leaderboard counts', vgScopeSeason: 'This season', vgScopeAll: 'All time',
+  vgScopeNote: 'The season changes with the Clash Royale season on the first Monday of the month. Both are always counted.',
   vgFlow: 'Flow', vgAdvance: 'Image gets clearer …', vgByTime: 'Over time', vgByGuesses: 'After wrong guesses',
   vgAdvanceTime: 'One stage clearer every few seconds — with a time bar in the overlay.',
   vgAdvanceGuesses: 'One stage clearer after a number of wrong guesses from chat.',

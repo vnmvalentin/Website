@@ -207,8 +207,10 @@ export function drawFrame(ctx, scale, world, cam, alpha, opts = {}) {
   const palette = opts.palette || DEFAULT_PALETTE;
   const juice = opts.juice;
   const shake = juice ? juice.shake : null;
-  const camX = cam.x + (shake ? shake.x : 0);
-  const camY = cam.y + (shake ? shake.y : 0);
+  // Auf ganze Gerätepixel gerastet: Die Kacheln werden gerundet gezeichnet, Elemente und Figur über eine Transformation —
+  // mit ungerundeter Kamera zitterten Stacheln und Figur beim Scrollen um einen Pixel gegen die Blöcke.
+  const camX = Math.round((cam.x + (shake ? shake.x : 0)) * scale) / scale;
+  const camY = Math.round((cam.y + (shake ? shake.y : 0)) * scale) / scale;
   const tick = world.tick;
 
   ctx.setTransform(1, 0, 0, 1, 0, 0);

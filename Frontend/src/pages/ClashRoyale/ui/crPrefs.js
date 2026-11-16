@@ -24,6 +24,8 @@ const BG_NAMES = {
   ice_wizard: 'Ice Wizard', dagger_duchess: 'Dagger Duchess', goblin_queen: 'Goblin Queen',
   goblinstein: 'Goblinstein', lava_hound: 'Lava Hound', prince_victory: 'Prince',
   skeleton_king: 'Skeleton King', the_heist: 'The Heist',
+  berserker_teaser: 'Berserker', chaos_draft_modes: 'Chaos Draft', crown_series: 'Crown Series',
+  infinite_elixier: 'Infinite Elixir', royalehogsevo: 'Royal Hogs Evo', spiritempress: 'Spirit Empress',
 };
 
 export const BACKGROUNDS = Object.entries(FULL)
@@ -36,8 +38,15 @@ export const BACKGROUNDS = Object.entries(FULL)
 
 /** 'default' = das blaue Karo */
 export const DEFAULT_BACKGROUND = 'default';
+/** Stats-Seiten (/clash): Hintergrund, solange niemand selbst einen gewählt hat (bgChoice) — Minigames bleiben beim Karo */
+export const STATS_DEFAULT_BACKGROUND = 'the_heist';
 
 export const backgroundUrl = (id) => BACKGROUNDS.find(b => b.id === id)?.url || null;
+
+/** Fester Hintergrund der Stats-Seiten: eigene Wahl (null = Karo) oder, ohne Wahl, STATS_DEFAULT_BACKGROUND */
+export const statsBackgroundUrl = (prefs) => (prefs.bgChoice
+  ? (prefs.background !== DEFAULT_BACKGROUND ? backgroundUrl(prefs.background) : null)
+  : backgroundUrl(STATS_DEFAULT_BACKGROUND));
 
 const STORAGE_KEY = 'crMinigamesPrefs';
 // animations: eigene Einstellung (Standard an) — bewusst NICHT an die System-Einstellung
@@ -47,7 +56,12 @@ const STORAGE_KEY = 'crMinigamesPrefs';
 // Ohne Hardwarebeschleunigung (utils/lowGfx.js) starten animations und scene3d aus (autoLowGfx: true).
 // Diese erzwungenen Werte werden NICHT gespeichert — sonst blieben sie aus, wenn die Beschleunigung wieder an
 // ist. Schaltet man einen der beiden Schalter selbst um, gilt ab dann die eigene Wahl (gfxChoice: true).
-export const DEFAULT_PREFS = { background: DEFAULT_BACKGROUND, volume: 0.5, animations: true, scene3d: true, autoLowGfx: false };
+// statsBgRotate: auf den Stats-Seiten (/clash, scout/ScoutFrame.jsx) wechseln die Hintergründe von selbst — beim
+// Aufruf ein zufälliger, danach in festem Takt der nächste (scout/StatsBackdrop.jsx). Standard aus (Nutzerwunsch
+// 15.11.2026: fester Hintergrund The Heist). Ein gespeichertes Ja zählt nur mit statsBgChoice (Schalter selbst
+// umgelegt) — kurz war „an“ der Standard und steht deshalb in manchen Browsern ungewollt im Speicher.
+// bgChoice: Hintergrund selbst gewählt (auch das Karo) → gilt überall; sonst Stats = STATS_DEFAULT_BACKGROUND.
+export const DEFAULT_PREFS = { background: DEFAULT_BACKGROUND, volume: 0.5, animations: true, scene3d: true, statsBgRotate: false, bgChoice: false, autoLowGfx: false };
 
 /** Schlüssel, deren eigenes Umschalten die automatische Grafik-Sparwahl beendet. */
 export const GFX_PREF_KEYS = ['animations', 'scene3d'];
@@ -75,7 +89,14 @@ export function loadPrefs() {
       : typeof raw.animations === 'boolean' ? raw.animations : DEFAULT_PREFS.animations;
     const scene3d = autoLowGfx ? false
       : typeof raw.scene3d === 'boolean' ? raw.scene3d : DEFAULT_PREFS.scene3d;
-    return { background, volume, animations, scene3d, autoLowGfx, ...(gfxChoice ? { gfxChoice } : {}) };
+    const statsBgChoice = raw.statsBgChoice === true;
+    const statsBgRotate = statsBgChoice && typeof raw.statsBgRotate === 'boolean' ? raw.statsBgRotate : DEFAULT_PREFS.statsBgRotate;
+    // Früher ohne Merker gespeichert: ein Bild statt des Karos war sicher selbst gewählt
+    const bgChoice = raw.bgChoice === true || background !== DEFAULT_BACKGROUND;
+    return {
+      background, volume, animations, scene3d, statsBgRotate, bgChoice, autoLowGfx,
+      ...(statsBgChoice ? { statsBgChoice } : {}), ...(gfxChoice ? { gfxChoice } : {}),
+    };
   } catch {
     return lowGfx ? { ...DEFAULT_PREFS, animations: false, scene3d: false, autoLowGfx: true } : { ...DEFAULT_PREFS };
   }

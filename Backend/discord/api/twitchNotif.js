@@ -14,7 +14,7 @@ module.exports = function ({ requireAuth }) {
 
     router.post('/:guildId/twitch-notifications', requireAuth, express.json(), (req, res) => {
         const { twitchUsername, channelId, messageTemplate, enabled } = req.body;
-        if (!twitchUsername || !channelId) return res.status(400).json({ error: 'Fehlende Daten.' });
+        if (!twitchUsername || !channelId) return res.status(400).json({ error: 'Fehlende Daten.', code: "missing_data" });
         const id = saveTwitchNotification(req.params.guildId, channelId, twitchUsername, messageTemplate || '');
         res.json({ success: true, id });
     });

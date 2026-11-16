@@ -16,11 +16,12 @@ const CACHE_MS = 60 * 1000;
 // Profilbilder nur vom Twitch-CDN — sonst könnte man über das Profil beliebige Adressen ausliefern lassen
 const AVATAR_RE = /^https:\/\/static-cdn\.jtvnw\.net\/[A-Za-z0-9._\-/]+$/;
 
-const SECTIONS = ['winTracker', 'tournaments', 'seedRunners', 'adventure', 'garden'];
+// konto: Website-Stufe, Abzeichen und Spiele mit Fortschritt aus dem Konto (konto/, seit 16.11.2026)
+const SECTIONS = ['konto', 'winTracker', 'tournaments', 'seedRunners', 'adventure', 'garden'];
 
 /**
  * @param twitchId
- * @param sources  { winTracker(id), tournaments(id), seedRunners(id), adventure(id), garden(id) } → Daten oder null
+ * @param sources  { konto(id), winTracker(id), tournaments(id), seedRunners(id), adventure(id), garden(id) } → Daten oder null
  */
 function buildProfile(twitchId, sources = {}) {
   const out = {};

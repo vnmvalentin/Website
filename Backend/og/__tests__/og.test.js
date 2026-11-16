@@ -51,7 +51,11 @@ test('Feste Seite, Turnier, Level, Tagesrennen, Einladung', () => {
   assert.equal(a.noindex, true);
   assert.match(a.description, /niemand eine Zeit/);
 
-  assert.equal(resolveMeta('/blobby/AB12', sources).title, 'Einladung: Blobby Volley');
+  const inv = resolveMeta('/blobby/AB12', sources);
+  assert.equal(inv.title, 'Einladung: Blobby Volley');
+  assert.equal(inv.shot, 'blobby', 'Einladung zeigt das Spielbild');
+  assert.equal(inv.card.kicker, 'Einladung');
+  assert.equal(resolveMeta('/flick-soccer', sources).shot, 'flick-soccer');
   assert.equal(resolveMeta('/seed-runners/XYZ9', sources).title, 'Einladung: Seed Runners');
   assert.equal(resolveMeta('/seed-runners/verlauf', sources), null, 'Unterseite ist kein Raumcode');
   assert.equal(resolveMeta('/irgendwas', sources), null);
@@ -120,4 +124,21 @@ test('Routen: Seite per X-Original-URI, Bild mit Zwischenspeicher, unbekannt →
   } finally {
     server.close();
   }
+});
+
+test('Clash-Royale-Stats: Spieler mit Namen aus dem Index, ohne Eintrag nur der Tag; Clan und Karte', () => {
+  const src = {
+    scoutPlayer: (tag) => (tag === '2PP0LYQ8' ? { name: 'Kronprinz', trophies: 7695, clan: 'Bayern Royale' } : null),
+    card: (id) => (id === 'knight' ? { id: 'knight', name: 'Knight' } : null),
+  };
+  const known = resolveMeta('/clash/spieler/2pp0lyq8?reiter=kaempfe', src);
+  assert.equal(known.title, 'Kronprinz (#2PP0LYQ8) — Clash Royale Stats');
+  assert.match(known.description, /^7\.695 Trophäen · Bayern Royale\. /);
+  assert.equal(resolveMeta('/clash/spieler/8YY2QRLG', src).title, 'Spieler #8YY2QRLG — Clash Royale Stats');
+  assert.equal(resolveMeta('/clash/spieler/8YY2QRLG', {}).section, 'cr'); // ohne Quelle weiter mit dem Tag
+  assert.equal(resolveMeta('/clash/clan/QQQ', src).title, 'Clan #QQQ — Clash Royale');
+  assert.equal(resolveMeta('/clash/karten/knight', src).title, 'Knight — Clash Royale Karte');
+  assert.equal(resolveMeta('/clash/karten/gibtsnicht', src), null);
+  assert.equal(resolveMeta('/clash/spieler/XYZ', src), null); // kein gültiger Tag
+  assert.equal(resolveMeta('/clash/decks', src).title, 'Clash Royale Decks der Besten');
 });

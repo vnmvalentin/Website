@@ -158,6 +158,50 @@ const ICONS = {
       ctx.restore();
     }
   },
+  hagel(ctx) {
+    // Wolke, darunter fallende Körner
+    ctx.beginPath();
+    ctx.arc(-40, -40, 30, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(0, -56, 38, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(42, -38, 28, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillRect(-40, -40, 82, 30);
+    ctx.lineWidth = 9;
+    ctx.lineCap = 'round';
+    for (const [x, y, r] of [[-50, 34, 13], [-12, 66, 15], [26, 30, 13], [58, 64, 12]]) {
+      ctx.beginPath();
+      ctx.arc(x, y, r, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(x + 9, y - r - 20);
+      ctx.lineTo(x + 5, y - r - 8);
+      ctx.stroke();
+    }
+  },
+  spiegel(ctx) {
+    // Handspiegel mit zwei Glanzstrichen
+    ctx.lineWidth = 16;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.ellipse(0, -20, 54, 62, 0, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.lineWidth = 22;
+    ctx.beginPath();
+    ctx.moveTo(0, 50);
+    ctx.lineTo(0, 84);
+    ctx.stroke();
+    ctx.lineWidth = 11;
+    for (const [x0, y0, x1, y1] of [[-24, -22, 4, -50], [-12, 8, 26, -30]]) {
+      ctx.beginPath();
+      ctx.moveTo(x0, y0);
+      ctx.lineTo(x1, y1);
+      ctx.stroke();
+    }
+  },
   meteor(ctx) {
     ctx.lineWidth = 16;
     ctx.lineCap = 'round';
@@ -255,21 +299,96 @@ const ICONS = {
     ctx.ellipse(0, 66, 34, 17, 0, 0, Math.PI * 2);
     ctx.fill();
   },
-  tausch(ctx) {
-    ctx.lineWidth = 18;
+  brandopfer(ctx) {
+    // Karte, aus der eine Flamme schlägt
+    ctx.lineWidth = 14;
+    ctx.lineJoin = 'round';
+    ctx.save();
+    ctx.rotate(-0.16);
+    ctx.beginPath();
+    ctx.roundRect(-44, -10, 88, 96, 12);
+    ctx.stroke();
+    ctx.restore();
+    ctx.beginPath();
+    ctx.moveTo(6, -90);
+    ctx.bezierCurveTo(22, -62, 46, -44, 38, -10);
+    ctx.bezierCurveTo(32, 14, 14, 26, 0, 26);
+    ctx.bezierCurveTo(-16, 26, -36, 12, -38, -12);
+    ctx.bezierCurveTo(-40, -30, -28, -42, -22, -58);
+    ctx.bezierCurveTo(-16, -44, -8, -40, -4, -46);
+    ctx.bezierCurveTo(4, -58, 2, -74, 6, -90);
+    ctx.fill();
+  },
+  flaschenpost(ctx) {
+    // schräg liegende Flasche mit Korken und Zettel
+    ctx.save();
+    ctx.rotate(-0.6);
+    ctx.lineWidth = 14;
+    ctx.lineJoin = 'round';
+    ctx.beginPath();
+    ctx.roundRect(-34, -30, 68, 112, 22);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(-14, -30);
+    ctx.lineTo(-14, -62);
+    ctx.lineTo(14, -62);
+    ctx.lineTo(14, -30);
+    ctx.stroke();
+    ctx.fillRect(-18, -90, 36, 24);
+    ctx.fillRect(-14, 6, 28, 46);
+    ctx.restore();
+  },
+  echo(ctx) {
+    // Punkt mit Schallbögen nach rechts
+    ctx.beginPath();
+    ctx.arc(-56, 0, 22, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.lineWidth = 16;
     ctx.lineCap = 'round';
-    for (const [y, dir] of [[-32, 1], [32, -1]]) {
+    for (const r of [52, 92, 132]) {
       ctx.beginPath();
-      ctx.moveTo(-60 * dir, y);
-      ctx.lineTo(34 * dir, y);
+      ctx.arc(-56, 0, r, -0.72, 0.72);
       ctx.stroke();
-      ctx.beginPath();
-      ctx.moveTo(78 * dir, y);
-      ctx.lineTo(34 * dir, y - 32);
-      ctx.lineTo(34 * dir, y + 32);
-      ctx.closePath();
-      ctx.fill();
     }
+  },
+  nebel(ctx) {
+    // Wolke über drei Nebelschwaden
+    ctx.beginPath();
+    ctx.arc(-38, -44, 30, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(2, -60, 38, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(44, -42, 28, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillRect(-38, -44, 82, 30);
+    ctx.lineWidth = 16;
+    ctx.lineCap = 'round';
+    for (const [y, x0, x1] of [[14, -78, 50], [46, -46, 80], [78, -70, 26]]) {
+      ctx.beginPath();
+      ctx.moveTo(x0, y);
+      ctx.lineTo(x1, y);
+      ctx.stroke();
+    }
+  },
+  supernova(ctx) {
+    // Stern mit acht langen und acht kurzen Strahlen, Ring darum
+    ctx.beginPath();
+    for (let i = 0; i < 16; i += 1) {
+      const r = i % 2 ? 26 : i % 4 ? 58 : 84;
+      const a = (i / 16) * Math.PI * 2 - Math.PI / 2;
+      if (i) ctx.lineTo(Math.cos(a) * r, Math.sin(a) * r);
+      else ctx.moveTo(Math.cos(a) * r, Math.sin(a) * r);
+    }
+    ctx.closePath();
+    ctx.fill();
+    ctx.lineWidth = 9;
+    ctx.setLineDash([16, 14]);
+    ctx.beginPath();
+    ctx.arc(0, 0, 92, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.setLineDash([]);
   },
   strahl(ctx) {
     ctx.beginPath();
@@ -346,6 +465,19 @@ function corner(ctx, card, plate, ink) {
     ctx.scale(0.25, 0.25);
     ICONS[card.k](ctx);
     ctx.restore();
+    // darunter: so viele Karten lässt sie ziehen (in der Hand sieht man von jeder Karte nur die linke Kante)
+    const { plus } = KINDS[card.k];
+    if (plus) {
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.roundRect(24, 92, 56, 36, 10);
+      ctx.fill();
+      ctx.fillStyle = INK;
+      ctx.font = `900 28px ${FONT}`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(`+${plus}`, 52, 111);
+    }
   }
 }
 function corners(ctx, card, plate, ink) {
@@ -457,6 +589,23 @@ function paintEffect(ctx, card) {
     ctx.strokeStyle = col;
     ICONS[card.k](ctx);
     ctx.restore();
+  }
+  // Marke am Medaillon: so viele Karten lässt die Karte ziehen
+  const { plus } = KINDS[card.k];
+  if (plus) {
+    ctx.fillStyle = wild ? INK : w.dark;
+    ctx.beginPath();
+    ctx.arc(CX + 82, 282, 43, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.arc(CX + 82, 282, 35, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = wild ? INK : w.dark;
+    ctx.font = `900 40px ${FONT}`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(`+${plus}`, CX + 81, 285);
   }
   ribbon(ctx, KINDS[card.k].name.toUpperCase(), wild ? CREAM : '#ffffff', wild ? INK : w.dark);
   frame(ctx, wild ? CREAM : w.color);

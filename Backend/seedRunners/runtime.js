@@ -10,12 +10,31 @@ const { createVerifier } = require('./verifier');
 const { createDailyService, dailyDateOf, dailyKeyFromToken, previousDay } = require('./daily');
 const { createLevelVerifyService } = require('./levelVerify');
 const { createLevelService } = require('./levelService');
+const { createLevelVorrat, STANDARD: VORRAT_STANDARD } = require('./levelVorrat');
+const { PFAD_GEN_VERSION } = require('./genVersion');
 const { todayDateKey } = require('./dateKey');
+const path = require('path');
 
 // Logs älterer Tage sind nur noch Beweisstücke ohne Nutzen; die Einträge selbst bleiben
 const KEEP_LOGS_DAYS = 14;
 // Die Neu-Prüfung nach einer Änderung der Physik startet erst kurz nach dem Serverstart: Der Start soll nicht auf Nachspielen warten
 const REVERIFY_DELAY_MS = 20000;
+// Ein Level-Bau dauert bis zu einer halben Minute, auf dem Server länger — großzügige Frist, wenige Wartende
+const VORRAT_BAU_TIMEOUT_MS = 180000;
+
+/** Größe des Level-Vorrats: SEEDRUNNERS_VORRAT (0 = aus), sonst der Standard aus levelVorrat.js */
+function vorratZiel() {
+  const roh = process.env.SEEDRUNNERS_VORRAT;
+  if (roh === undefined || roh === '') return VORRAT_STANDARD.ZIEL;
+  const n = Number(roh);
+  return Number.isInteger(n) && n >= 0 && n <= 200 ? n : VORRAT_STANDARD.ZIEL;
+}
+
+function nextDay(dateKey) {
+  const d = new Date(`${dateKey}T12:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + 1);
+  return d.toISOString().slice(0, 10);
+}
 
 let runtime = null;
 
@@ -26,6 +45,19 @@ function getRuntime() {
   const daily = createDailyService({ store, verifier, todayKey: todayDateKey });
   const levelVerify = createLevelVerifyService({ store, verifier });
   const levelService = createLevelService({ store, verifier });
+
+  // Level-Vorrat (levelVorrat.js): vorgebaute Zufallslevel und das Tages-Level, gebaut in einem EIGENEN Worker-Thread —
+  // dieselbe Warteschlange wie der Prüfer, nur mit dem Bau-Worker. Fällt er aus, bauen die Browser wie bisher selbst.
+  const bauer = createVerifier({ workerFile: path.join(__dirname, 'vorratWorker.js'), timeoutMs: VORRAT_BAU_TIMEOUT_MS, maxQueue: 4 });
+  const vorrat = createLevelVorrat({
+    db: store.db,
+    baue: (params) => bauer.verify(params),
+    gv: PFAD_GEN_VERSION,
+    heute: todayDateKey,
+    config: { ZIEL: vorratZiel() },
+    log: (text) => console.log(`[seed-runners] ${text}`),
+  });
+  vorrat.starte();
 
   let cutoff = todayDateKey();
   for (let i = 0; i < KEEP_LOGS_DAYS; i++) cutoff = previousDay(cutoff);
@@ -48,6 +80,11 @@ function getRuntime() {
   let vorgewaermt = null;
   const tagesLevelVorbauen = () => {
     const key = todayDateKey();
+    // Für die Browser in den Vorrat: heute und schon morgen (um Mitternacht liegt es dann bereit; ausgeliefert wird es
+    // erst ab seinem Tag). Bei jedem Takt erneut versucht — liegt es schon da, ist das nur eine Abfrage.
+    vorrat.tagVorbauen(daily.dailyParams(key))
+      .then(() => vorrat.tagVorbauen(daily.dailyParams(nextDay(key))))
+      .catch((e) => console.error('[seed-runners] Tages-Level in den Vorrat:', e));
     if (key === vorgewaermt) return;
     vorgewaermt = key;
     loadEngine()
@@ -66,6 +103,8 @@ function getRuntime() {
     daily,
     levelVerify,
     levelService,
+    vorrat,
+    bauer,
     todayKey: todayDateKey,
     dailyDateOf,
     /** Für den Raum-Manager: Prüfung mit Protokoll der Fehlschläge */
@@ -90,6 +129,8 @@ async function closeRuntime() {
   runtime = null;
   clearTimeout(rt.reverifyTimer);
   clearInterval(rt.vorbauTimer);
+  rt.vorrat.close();
+  await rt.bauer.close();
   await rt.verifier.close();
   rt.store.close();
 }

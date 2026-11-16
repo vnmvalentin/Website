@@ -45,19 +45,37 @@ export default function Datenschutz() {
         <p>
           Damit ein Besuch am selben Tag nicht doppelt zählt, bilden wir aus IP-Adresse und Browserkennung zusammen mit einem
           täglich neu gewürfelten Zufallswert eine Prüfsumme. Sie wird beim Tageswechsel gelöscht; danach lässt sich kein Besuch
-          mehr zuordnen, und über mehrere Tage hinweg ist niemand wiedererkennbar (Art. 6 Abs. 1 lit. f DSGVO).
+          mehr zuordnen, und über mehrere Tage hinweg ist niemand wiedererkennbar (Art. 6 Abs. 1 lit. f DSGVO). Für angemeldete
+          Konten gilt zusätzlich der Absatz „Nutzungstage“ in Abschnitt 4.
         </p>
       </Section>
 
-      <Section title="4. Anmeldung mit Twitch">
+      <Section title="4. Anmeldung und Konto">
         <p>
-          Viele Funktionen setzen eine Anmeldung mit Twitch voraus. Dabei erhalten wir von Twitch Ihre Twitch-ID, Ihren
-          Anmelde- und Anzeigenamen und Ihr Profilbild. Zur Anmeldung setzen wir ein technisch notwendiges Sitzungs-Cookie
-          (Art. 6 Abs. 1 lit. b DSGVO, § 25 Abs. 2 TDDDG).
+          Sie können sich mit Twitch, mit Discord oder ohne beides als Gast anmelden. Jede Anmeldung gehört zu einem Konto
+          auf dieser Website; verknüpfen Sie später einen weiteren Anmeldeweg, werden die Daten beider Konten zusammengeführt.
+          Zur Anmeldung setzen wir ein technisch notwendiges Sitzungs-Cookie (Art. 6 Abs. 1 lit. b DSGVO, § 25 Abs. 2 TDDDG).
+        </p>
+        <List items={[
+          "Twitch: Wir erhalten von Twitch Ihre Twitch-ID, Ihren Anmelde- und Anzeigenamen und Ihr Profilbild. Twitch ist nötig für Win Tracker, Overlays und die Streamer-Werkzeuge.",
+          "Discord: Wir erhalten von Discord Ihre Discord-ID, Ihren Namen und Ihr Profilbild — nur zum Anmelden, ohne Zugriff auf Ihre Server oder Nachrichten.",
+          "Gast: Wir legen ein Konto ohne Namen und ohne Kontaktdaten an und zeigen Ihnen einmal einen Wiederherstellungscode. Gespeichert wird davon nur eine Prüfsumme.",
+        ]} />
+        <p>
+          Am Konto speichern wir Ihren Anzeigenamen, die gewählte Sprache und die Spielstände, Erfahrungspunkte und Abzeichen
+          der Spiele, die Sie mit Ihrem Konto spielen. Im Profil können Sie Anmeldewege lösen und das Konto mit allen diesen
+          Daten selbst löschen.
         </p>
         <p>
-          Unter Ihrer Twitch-ID speichern wir, was Sie in den Werkzeugen und Spielen anlegen: zum Beispiel Overlays und deren
-          Einstellungen, Spielstände, Ranglisten-Einträge und veröffentlichte Level.
+          <strong className="text-white/80">Nutzungstage:</strong> Für angemeldete Konten halten wir fest, an welchen Tagen das
+          Konto die Website genutzt hat — nur das Datum, ohne Uhrzeit und ohne aufgerufene Seiten. Daraus zählen wir, wie viele
+          neue Konten nach 1, 7 und 30 Tagen wiederkommen. Die Tage werden nach 120 Tagen gelöscht (Art. 6 Abs. 1 lit. f DSGVO;
+          unser Interesse: zu sehen, ob die Website neue Besucher hält).
+        </p>
+        <p>
+          Mit Twitch angemeldet, speichern wir unter Ihrer Twitch-ID außerdem, was Sie in den Werkzeugen und den
+          Twitch-Bereichen anlegen: zum Beispiel Overlays und deren Einstellungen, Spielstände von Farm und adVentures,
+          Ranglisten-Einträge und veröffentlichte Level.
         </p>
         <p>
           Verbinden Sie die Twitch-Overlay-Tools mit Ihrem Kanal, speichern wir dafür ein Zugriffstoken von Twitch
@@ -66,10 +84,12 @@ export default function Datenschutz() {
         </p>
       </Section>
 
-      <Section title="5. Verknüpfung mit Discord">
+      <Section title="5. Discord-Bot-Dashboard">
         <p>
-          Im Profil können Sie freiwillig Ihr Discord-Konto verknüpfen. Dabei erhalten wir von Discord Ihre Discord-ID und
-          Ihren Namen. Die Verknüpfung lässt sich im Profil jederzeit lösen (Art. 6 Abs. 1 lit. a DSGVO).
+          Für das Dashboard des Discord-Bots verbinden Sie freiwillig Ihr Discord-Konto mit Ihrem Twitch-Konto. Dabei erhalten
+          wir von Discord Ihre Discord-ID, Ihren Namen und die Liste Ihrer Server und speichern die Zugriffsschlüssel
+          verschlüsselt, um Ihnen Ihre Server anzeigen zu können. Die Verbindung lässt sich jederzeit lösen
+          (Art. 6 Abs. 1 lit. a DSGVO). Sie ist unabhängig von der Anmeldung mit Discord aus Abschnitt 4.
         </p>
       </Section>
 
@@ -111,8 +131,10 @@ export default function Datenschutz() {
 
       <Section title="9. Speicherdauer">
         <p>
-          Daten zu Ihrem Konto bleiben gespeichert, solange Sie die Website nutzen. Auf Wunsch löschen wir sie — eine E-Mail an{" "}
-          <Mail /> genügt. Ausgenommen sind Daten, die wir aus gesetzlichen Gründen aufbewahren müssen.
+          Daten zu Ihrem Konto bleiben gespeichert, solange Sie die Website nutzen. Ihr Konto mit Spielständen und Abzeichen
+          können Sie im Profil selbst löschen; Daten, die unter Ihrer Twitch-ID liegen (Abschnitt 4), löschen wir auf Wunsch —
+          eine E-Mail an <Mail /> genügt. Nutzungstage löschen wir nach 120 Tagen. Ausgenommen sind Daten, die wir aus
+          gesetzlichen Gründen aufbewahren müssen.
         </p>
       </Section>
 

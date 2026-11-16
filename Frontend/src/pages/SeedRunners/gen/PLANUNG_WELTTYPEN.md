@@ -1766,3 +1766,244 @@ auch die Plattform davor die neue nicht erreichen (Sim-Probe, `abkuerzung-aufgab
 stand, fliegt der Kristall raus und der Zug wird ersetzt. Ein Weg ohne Kristall, der nur auf den Tick genau klappt, zählt nicht.
 
 **Generator-Version 4** (Tagesrennen ab 2026-10-04, GV4_TAGESRENNEN_AB / Backend GV4_AB) — Deploy muss vor diesem Tag liegen.
+
+## 17. Audit, Level-Vorrat und Prototyp „Lauflinie“ (14.11.2026)
+
+**Rückmeldung:** Seed Runners wird kaum noch gespielt — die Level waren eintönig, das wurde schnell langweilig. Jedes Level
+soll wie ein eigenes, selbst gebautes wirken; neue Hindernisse sind erwünscht; der Levelbau dauert zu lange.
+
+### 17a. Audit des Pfad-Generators (gv 4, 40 lange Level, Seeds `audit-0…39`)
+
+- 61 % aller Züge sind schlichte Sprünge (je Level 43–81 %); längste Folge am Stück im Mittel 11, bis 29.
+- Geplant sind rund 85 % Züge mit Aufgabe, gebaut 39 %: Die Aufgaben scheitern im Planer und fallen auf den Sprung zurück.
+  Ring 8,7 %, Bröckel 4,3 %, Luftportal/Schalter je 3,2 % — Seil 2 von 3486 Zügen, Kristallkette 8, Deckel 4.
+- Je Level 600 Stacheln, alles andere einstellig. Förderband, Einweg-Plattform, Klebeboden nutzt der Pfad nie.
+- Jeder Zug wird aus dem Stand geprüft und endet im Stand → „Plattform, Lücke, Plattform“, kein Gelände, kein Schwung.
+- Bauzeit einzeln 3–16 s; rund 2050 verworfene Versuche je Level (23 je gebautem Zug), 90 % der Zeit in `versuche()`.
+
+Schluss: Noch mehr Aufgaben in denselben Lostopf bringen nichts. Eintönigkeit und Bauzeit haben dieselbe Ursache — weil das
+Level in Sekunden fertig sein muss, gibt der Planer bei jeder schwierigen Aufgabe früh auf.
+
+### 17b. Bauzeit: Prüfkarte wiederverwenden (bitgleich)
+
+`pfad/probe.js ausschnittWelt(…, merk)`: In Schleifen, zwischen deren Proben sich Raster und Elemente nicht ändern (alle
+Varianten eines Zugs, alle schlichten Züge der Notwendigkeitsprüfung, Streuungs- und Taktproben), wird die eingelesene
+Karte wiederverwendet. Die Sim verändert eine Karte nie. Gemessen an 4 Seeds im Einzellauf: 41,4 s → 32,2 s (−22 %), 12 von
+12 Leveln bitgleich (Raster, Elemente, Checkpoints, Brücken); der Versions-Wächter bleibt grün, gv bleibt 4.
+
+### 17c. Level-Vorrat (Backend/seedRunners/levelVorrat.js)
+
+Der Server baut Zufallslevel im Leerlauf vor (eigener Worker-Thread `vorratWorker.js`) und liefert sie fertig aus
+(`GET /api/seed-runners/vorrat/level?seed=&biome=&gv=`, gzip, nie ein Bau auf Zuruf). `client/generateWorldAsync.js pfadLevel`
+fragt zuerst dort (4 s Frist, Prüfsumme wird nachgerechnet) und baut sonst wie bisher selbst — beides ergibt dasselbe Level.
+
+- **Zufallsrunden:** `roomManager.roundParams` holt den Seed über `randomSeed(biome)` aus dem Vorrat (socket.js). Ziel 24
+  freie Level (`SEEDRUNNERS_VORRAT`, 0 = aus); ein Seed wird nur einmal vergeben; abrufbar erst nach der Vergabe, 10 Tage.
+- **Güte-Schwelle** (`bewerte`): höchstens 58 % schlichte Sprünge, längste Folge ≤ 12, mindestens 10 verschiedene Aufgaben
+  (Extrem-Level ausgenommen), mindestens 80 Züge. In der Probe bestanden 3 von 15 Leveln (Messung an 40: 15).
+- **Tagesrennen:** heute und morgen werden vorgebaut (ohne Schwelle, der Seed steht fest), abrufbar erst ab ihrem Tag.
+- Geprüft: Backend-Tests (gestellter Bau, echter Worker, HTTP, Raum) und eine Probe mit echter Runtime und Wegwerf-Datenbank:
+  Level aus dem Vorrat bitgleich zum lokalen Bau, Abruf 6 ms. Wird erst nach einem Neustart des Produktiv-Backends aktiv.
+- Offen: Tages-Seed nach Güte wählen (braucht Server-vorgegebene Parameter auch im Archiv), Bestbewertete vorhalten.
+
+### 17d. Prototyp „Lauflinie“ (gen/world/lauf/, typen/lauf.js) — nur in der Werkbank
+
+Einheit ist die **Strecke**: mehrere Aktionen mit vollem Schwung am Stück, das Gelände entsteht um die geflogene Bahn.
+
+- `lauf/spiel.js` — der Läufer: Skript aus Schritten (`sprung`, `flug`, `kamin`, `sturz`, `lauf`), die auf den ZUSTAND
+  reagieren (Absprunglinie erreicht, Wand berührt, Lücke anpeilen), nicht auf die Uhr — so summiert sich nichts auf. Die
+  Ungenauigkeit eines Menschen ist das `zittern` je Schritt: Reaktion bis 50 ms, Haltedauer ±33 ms, Absprung bis 10 px früher.
+- `lauf/strecken.js` — Bauarten: **Kette** (je Sprung alle Zitter-Sätze bis zur Zielhöhe spielen, die Landefläche deckt die
+  Streuung, kurzer Auslauf, gleich weiter; Spielarten Hüpfkette, Weitsprünge, Stachellauf, Bröckelsprint, Federbahn, Treppe,
+  Abstieg), **Kamin** (Wandkicks, Ausstieg über die niedrigere Wand), **Sturz** (Fallschacht mit Riegeln, Steuern im Fallen).
+  Jede in beide Richtungen baubar, mit Journal zum spurlosen Zurücknehmen.
+- `lauf/ausbau.js` — Röhre um die Spur: Säulen, Grubenboden, Decke und Stacheln überall dort, wo kein Zitter-Satz hinkam
+  (eine Kachel Luft bleibt); stirbt danach ein Satz, kommt der Stachel weg. Stachel-Budget je Strecke (Elemente-Grenze).
+- `typen/lauf.js` — 5/8/12 Strecken hintereinander, nie dieselbe Art zweimal am Stück, höchstens zweimal je Level;
+  Checkpoint alle drei Strecken; am Ende der **Kettenlauf** über das ganze Level.
+
+Gemessen (lang/super/Stufe 3): Bauzeit rund 1 s (Pfad 3–16 s), 12 von 12 Strecken, Kettenlauf besteht; mit FRISCHEN
+Zitter-Sätzen, die der Bau nie sah, kommen 158 von 160 Läufen ohne Tod durchs ganze Level (ein Lauf ≈ 60 s).
+
+Lehren: Der Absprung muss nach dem Erreichen der Linie auch dann kommen, wenn man in der Reaktionszeit über die Kante gerät
+(Coyote-Zeit trägt ihn) — sonst sprang der späte Satz nie. Im ersten Tick nach dem Einsetzen steht man noch nicht: „in der
+Luft“ erst ab |vy| > 40 zählen. Die Sprungtaste jedes Mal neu drücken (gehalten löst sie keinen zweiten Sprung aus). Getippte
+Sprünge sind so flach, dass unter ihnen kein Stachel Platz hat — ein Stachellauf braucht mittlere und volle Sprünge.
+
+Offen (nach dem Anspielen zu entscheiden): Großformen mit Richtungswechsel (Wendekamin/Wendesturz sind gebaut, aber noch
+nicht im Level), Ringe und Kristalle in der Kette, neue Hindernisse (Stampfer, Taktblöcke, Schattenläufer, Boost-Streifen,
+steigende Lava), Förderband/Einweg-Plattform/Klebeboden, Abkürzungs- und Notwendigkeitsregeln, eigene Generator-Version.
+
+### 17e. Lauflinie, zweite Runde: Hindernisse statt Einerlei, ruhige Kamera (14.11.2026)
+
+**Rückmeldung nach dem Anspielen:** „Ich drücke nur D und springe ab und zu und habe nicht wirklich Anstrengung oder
+Hindernisse (jeder Sprung fühlt sich wieder gleich an). Der Screen flasht, wenn man einen Checkpoint hat, und das Bild
+ruckelt ein bisschen beim Laufen.“
+
+**Was die Messung zeigte.** Faule Bots (nur rechts halten und stur springen) kamen nur 1–14 % weit — „alles geht durch“
+war es also nicht. Aber 63 % der Schritte waren schlichte Sprünge ohne jedes Hindernis, bis zu 13 am Stück: derselbe Wert
+wie beim Pfad. Und ein Fehler im Ausbau machte den Stachellauf harmlos: Die Lücken im Boden waren nur eine Kachel flache
+Mulden ohne Stacheln (Fels und Stacheln auf Laufhöhe durften nicht in die Spur) — man lief einfach durch.
+
+**Umbau der Kette (lauf/strecken.js).** Jeder Schritt wählt eine Zug-Art:
+- `sprung` (getippt, mittel, voll, mit Luftsprung), `fall` (ohne Sprung über die Kante, tief hinab auf eine kleine Fläche)
+- `kick` — an eine Wand springen, abkicken, hinter sich höher landen; immer als Paar (Kehre), damit die Richtung bleibt.
+  Die Wand steht dort, wo der mittlere Satz nach T Ticks ist; die Landehöhe kommt aus dem GEMESSENEN Scheitel nach dem Kick.
+- `dash` — Kristall im Bogen, der Läufer dasht, sobald er die Ladung hat (waagerecht oder schräg hinauf)
+- `ring` — Boost-Ring im Bogen
+- im Flug `roehre` (zwei Röhren mit Stacheln, die Lücke ist genau die geflogene Bahn) oder `saege` (Säge knapp über/unter
+  dem Bogen); an der Landung `eng` (so breit wie die Streuung), `broeckel`, `feder`
+- Dosierung: nie zwei schlichte Sprünge hintereinander geplant — nach einem schlichten bekommt der nächste ein Hindernis
+  oder eine knappe Landung. Neue Spielarten: Wandkehren, Kristallflug, Ringbahn, Nadelöhr, Hindernislauf (von allem etwas).
+- Nach jedem Schritt wird auf dem GEBAUTEN Gelände nachgespielt (`landetAuf`): Jeder Zitter-Satz muss auf der Fläche enden.
+- Ausbau: Stachelgräben (Fels ab der Zeile unter der Lauffläche, Stacheln im Graben), ab Stufe 3 Decke mit einer Kachel
+  Abstand und Bodenstacheln bis an die Spur heran (nur in Ketten; Kamin und Fallschacht behalten den Abstand).
+
+**Gemessen (12 lange Level):** schlichte Sprünge 63 % → 33 %, längste Folge 13 → 5; je Level rund 12 Röhren, 6 Sägen, 20
+knappe Landungen, 4 Kristall-Dashes, 3 Ringe, dazu Kehren und Fallstufen; Bauzeit ~2 s; Kettenlauf 12 von 12; frische
+Zitter-Sätze 200 von 200.
+
+**Kamera und Effekte (für alle Modi):**
+- `client/camera.js`: senkrechte Totzone (26 px) — ein Hüpfer bewegt das Bild nicht mehr; am Boden zieht die Kamera
+  gemächlich nach; der Blick nach unten beim Fallen wird geglättet. Gemessen im Browser mit dem Läufer als Eingabe: größter
+  Tempo-Sprung der Kamera je Bild 410 → 23 px/s. Vorher folgte sie jedem Sprungbogen, und bei jeder Landung fiel der Blick
+  nach unten schlagartig weg.
+- `client/render.js`: Kamera auf ganze Gerätepixel gerastet — Stacheln und Figur zitterten sonst beim Scrollen um einen
+  Pixel gegen die (gerundet gezeichneten) Blöcke.
+- `client/juice.js`: kein Bildschirm-Blitz mehr am Checkpoint (Funken, Ring, Fahne, Einblendung und Ton bleiben).
+
+**Lehren.** Die Kreuzungs-Probe („Füße erreichen im Fallen die Zielhöhe“) taugt nur OHNE gebaute Fläche — auf dem fertigen
+Gelände endet der Schritt mit der Landung, die Probe meldet dann fälschlich „gescheitert“ (deshalb standen anfangs weder
+Röhren noch Sägen im Level). Der Dash galt nie als getan, weil die Ladung im selben Tick verbraucht ist, in dem man die
+Bedingung „hat Ladung“ prüft. Ring, Dash und Kick brauchen einen wirklich vollen Sprung (≥ 52 Ticks gehalten), sonst hängt
+die Bahn an der Haltedauer und frische Sätze verfehlen das Element (Ringbahn: 84 % statt 98 %). Eine Landefläche dicht an
+der Kick-Wand hängt über dem Anflug und versperrt ihn. Eine Kennzahl selbst nachmessen: Die Streckennamen klangen
+abwechslungsreich, die Schritte waren es nicht.
+
+Offen: Richtungswechsel im Großen (Wendekamin/Wendesturz), bewegte Gefahren (Kanonen, wandernde Sägen — brauchen Warten auf
+den Takt), neue Elemente (Stampfer, Taktblöcke, Schattenläufer, Boost-Streifen, Lava), Schwierigkeit nach Rückmeldung.
+
+### 17f. Lauflinie, dritte Runde: Härte, Richtungswechsel, neue Elemente Flut und Boost-Streifen (14.11.2026)
+
+**Rückmeldung:** „Jetzt geht's in die richtige Richtung. Gerne mehr Härte und Richtungswechsel und neue Hindernisse.“
+
+**Härte (lauf/strecken.js `HAERTE`, je Schwierigkeitsstufe).** Gemessen wird mit dem Läufer und FRISCHEM Zittern, Kennzahl
+ist „ohne einen Tod durchs ganze Level“. Vorher kam selbst ein ungenauer Spieler (±80 ms) auf Stufe 3 in 86 % der Läufe durch.
+- `zitter`: Mit welcher Ungenauigkeit gebaut wird — Stufe 1–2 ±50 ms, Stufe 3 ±40 ms, Stufe 4 ±33 ms, Stufe 5 ±25 ms. Schmalere
+  Spur heißt engere Landungen und Röhren.
+- `dicht` (ab Stufe 3): Röhren aus Fels direkt an der Spur (die Lücke ist genau die geflogene Bahn), Stacheln an der Stirnseite;
+  Sägen mit Radius 7 direkt über/unter dem Bogen; Flächen ohne Rand vor der Landung.
+- `eng` / `hindernis`: Anteil knapper Landungen und Sprünge mit Hindernis (Stufe 3: 60 % / 80 %).
+- Ergebnis Stufe 3: ±40 ms 98 %, ±50 ms 88 %, ±80 ms 36 %. Stufe 1: ±50 ms 100 %. Stufe 5: ±25 ms 96 %, ±50 ms 33 %.
+
+**Richtungswechsel (typen/lauf.js).** Drei Großformen: `strom` (breit, immer nach rechts), `hoch` (schmal, Start unten: am
+Rand ein Wendekamin, eine Etage höher zurück), `runter` (Start oben: Wendesturz, darunter zurück).
+- Sperrflächen `B.tabu`: die Spur jeder fertigen Strecke und der Kopfraum über dem Start — dort darf nichts Neues hin.
+- Vor jeder Strecke wird voraus gesucht, was über und unter dem Weg liegt (`freiraum`); daraus das Band für die Flächen.
+  Reicht der Platz bis zum Kartenrand nicht mehr für eine Kette, kommt die Wende; ihre Höhe bzw. Tiefe ergibt sich aus
+  allem, was hinter einem steht (`ausdehnung`).
+- Rastplattformen bleiben Platten ohne Säule (unter ihnen führt ein Wendesturz zurück); der Fallschacht prüft nur noch
+  Schacht und Auslauf statt des ganzen Rechtecks.
+- Geht es vorzeitig nicht weiter, endet das Level auf der letzten Rastplattform mit freiem Kopfraum (bis zu zwei Strecken
+  weniger). Bis zu drei Bauversuche; der Kettenlauf nimmt Ausbau-Stacheln weg, an denen ein Satz stirbt.
+- Gemessen: von 12 Leveln 7 mit Etagen (1–3 Wenden), Kettenlauf 12 von 12, Bauzeit 2–4 s.
+
+**Neue Sim-Elemente (am Ende des Schemas, bestehende Level behalten ihren Inhalts-Hash):**
+- `flut` (sim/elements/flut.js): ein Rechteck, das sich mit einer tödlichen Front füllt — nach oben als Lava, seitwärts als
+  jagende Wand. Schläft, bis die Spielermitte das Rechteck betritt; Zustand ist nur der Auslöse-Tick (Checkpoint-sicher,
+  nach einem Tod schläft sie wieder). Kein Takt, auf den man warten müsste: Der Druck hängt am Spieler.
+- `boost` (sim/elements/boost.js): Streifen am Boden, gibt das 2,2-fache Lauftempo in seine Richtung; das Übertempo baut
+  sich von selbst ab, ein Sprung vom Streifen trägt rund anderthalbmal so weit.
+- Beide im Editor (Palette, Eigenschaften, Fläche der Flut), in der Darstellung, mit Ton und Effekt.
+- In der Lauflinie: Zug-Art `boost` (Spielart Turbobahn, auch in Weitsprüngen, Stachellauf, Hindernislauf); `setzeFlut` legt
+  nach der Prüfung Lava in Kamine und eine Wand hinter Ketten — Tempo als Anteil am gemessenen Tempo des Läufers
+  (`flutTempo`), sie bleibt nur, wenn alle Zitter-Sätze entkommen.
+- Diese Sim-Änderung wechselt den SIM-Fingerprint (Neu-Prüfung der Community-Level beim Serverstart; neue Typen ändern kein
+  bestehendes Level).
+
+**Stand der Kennzahlen (12 lange Level, Stufe 3):** schlichte Sprünge 13 %, höchstens 2 am Stück; je Level 21 Röhren, 11 Sägen,
+25 knappe Landungen, 5–6 Boost-Sprünge, 2 Flut-Wände, 0,6 Lava-Kamine; Bauzeit 2,7 s.
+
+**Lehren.** Eine Sperrfläche darf nicht über die Kante hinausragen, hinter der die nächste Strecke beginnt (der erste Bau
+hatte 0 Strecken). Lava tötet sofort, wer an ihrem Fuß steht — sie braucht eine Verzögerung oder einen Fuß unter der
+Lauffläche. Wandkehren bleiben selten (0,3 je Level), weil die enge Bauweise ihnen selten Platz lässt.
+
+Offen: Stampfer, Taktblöcke, Schattenläufer; Wandkehren häufiger; Tagesrennen/Lobby auf die Lauflinie umstellen (eigene
+Generator-Version, Stichtag) — erst nach Abnahme durch den Nutzer.
+
+## 18. ÜBERGABE — Stand 14.11.2026 (hier weiterlesen, Abschnitt 17 hat die Einzelheiten)
+
+**Auftrag des Nutzers:** Seed Runners wird kaum noch gespielt, weil die Level eintönig waren. Ziel: jedes Level wie ein
+selbst gebautes, hart, abwechslungsreich, eigene Bewegung statt Warten. Drei Hebel sind freigegeben (nicht erneut fragen):
+Level-Vorrat, Lauflinie statt Einzelzüge, neue Hindernisse.
+
+**Nichts ist committet, nichts deployt.** Alle Änderungen liegen im Arbeitsverzeichnis. Der Server-Spiegel ist aktuell
+(`npm run spiegel:pruefen -- seedrunners` im Ordner Backend meldet „aktuell“). Tests zuletzt: Frontend SeedRunners 516/516
+(dauert ~20 min), Backend seedRunners 218/218.
+
+### Was fertig ist
+
+| Teil | Wo | Stand |
+|---|---|---|
+| Bauzeit Pfad −22 %, bitgleich | `gen/world/pfad/probe.js` (`merk`), `regeln.js`, `planer.js` | fertig, gv bleibt 4 |
+| Level-Vorrat | `Backend/seedRunners/levelVorrat.js`, `vorratWorker.js`, `runtime.js`, `routes.js` (`GET /vorrat/level`), `socket.js`; Browser `client/generateWorldAsync.js` (`pfadLevel`, `vorratPasst`) | fertig, wirkt erst nach Deploy + Neustart des Produktiv-Backends (nie selbst neu starten). `SEEDRUNNERS_VORRAT=0` schaltet ab |
+| Kamera ruhig, kein Checkpoint-Blitz | `client/camera.js`, `client/render.js`, `client/juice.js` | fertig, gilt für alle Modi |
+| Lauflinie (Prototyp) | `gen/world/lauf/{spiel,strecken,ausbau}.js`, `gen/world/typen/lauf.js`, Werkbank-Auswahl „Generator“ in `SeedRunnersWorldLab.jsx` | spielbar NUR in `/seed-runners/welten`; Lobby/Tagesrennen bauen weiter Pfad gv 4 |
+| Neue Elemente Flut + Boost-Streifen | `sim/elements/flut.js`, `boost.js`, Schema (am Ende), `config.js`, `client/drawElements.js`, `client/juice.js`, Editor (`palette.js`, `ops.js`, `PropertiesPanel.jsx`), `level/lint.js` | fertig, im Editor und in der Lauflinie. SIM-Fingerprint hat sich geändert |
+| Update-Log | `UPDATES_OFFEN.md` | drei Abschnitte „Seed Runners: …“ eingetragen |
+
+### Lauflinie in Kürze
+
+- Einheit ist die **Strecke**; ein Level hat 5/8/12 Strecken. Ein Bot („Läufer“, `lauf/spiel.js`) spielt jede Strecke in
+  der echten Sim, reagiert auf den Zustand (Absprunglinie, Wandkontakt, Ladung) und „zittert“ wie ein Mensch.
+- Kette (`baueKette`): je Schritt eine Zug-Art — sprung, fall, kick (Wandkehre, immer als Paar), dash (Kristall), ring,
+  boost; im Flug roehre oder saege; Landung eng, broeckel, feder. Dazu `baueKamin`, `baueSturz` (je auch als Wende).
+- `HAERTE` (strecken.js) je Schwierigkeitsstufe 1–5: Bau-Toleranz, dichte Röhren, Anteile knapper Landungen/Hindernisse,
+  Flut-Anteile. Großformen `strom` / `hoch` / `runter` in `typen/lauf.js` (`freiraum`, `ausdehnung`, `B.tabu`).
+- Letzter Messstand (Stufe 3, 12 lange Level): 13 % schlichte Sprünge, höchstens 2 am Stück; ohne Tod durchs Level bei
+  ±40 ms 98 %, ±50 ms 88 %, ±80 ms 36 %; 7 von 12 Leveln mit Wenden; Bauzeit 2–4 s; Kettenlauf 12/12.
+
+### Urteile des Nutzers bisher
+
+1. Erster Prototyp: „ich drücke nur D und springe ab und zu … jeder Sprung fühlt sich wieder gleich an“.
+2. Nach Zug-Arten und Hindernissen: „jetzt geht's in die richtige Richtung. gerne mehr Härte und Richtungswechsel und neue
+   Hindernisse“.
+3. Runde mit Härte-Tabelle, Wenden, Flut und Boost: **noch nicht angespielt — Urteil steht aus.**
+
+### Was als Nächstes ansteht
+
+1. Rückmeldung zu Runde 3 abwarten: Welche Stufe fühlt sich richtig an? Macht die jagende Wand Spaß oder nervt sie?
+2. Offen aus der Vorschlagsliste: Stampfer, Taktblöcke, Schattenläufer; ungenutzte Bodenarten (Förderband,
+   Einweg-Plattform, Klebeboden).
+3. Wandkehren kommen nur ~0,3-mal je Level vor (finden in der engen Bauweise selten Platz).
+4. Tagesrennen nach Güte aussuchen (Vorrat sortiert bisher nur Zufallsrunden aus).
+5. Lauflinie live schalten — erst nach Abnahme: neue Generator-Version nach Abschnitt 16r (GEN_VERSION +
+   PFAD_GEN_VERSION, einfrieren, Archiv eintragen, Wächter-Referenzen, Tagesrennen-Stichtag an zwei Stellen, Spiegel).
+   `weltParams` in `gen/index.js` setzt bisher fest `worldType: 'pfad'`.
+
+### Prüfen und messen
+
+- Tests: Frontend `npm test -- SeedRunners`; schnell und gezielt
+  `node --test src/pages/SeedRunners/gen/world/__tests__/lauf.test.js` und `…/sim/__tests__/flut-boost.test.js`,
+  `…/client/__tests__/camera.test.js`, `…/client/__tests__/vorrat.test.js`. Backend `npm test -- seedRunners`
+  (darin `levelVorrat.test.js`).
+- Nach jeder Änderung an `sim/` oder `gen/`: im Ordner Backend `npm run spiegel -- seedrunners`.
+- Die Messskripte lagen nur im Sitzungs-Scratch und sind weg; bei Bedarf neu schreiben. Rezepte:
+  Level bauen mit `generateWorld({ seed, length: 'long', speedClass: 'super', difficulty: 3, worldType: 'lauf' })`;
+  Kennzahlen aus `WELT_BAU.get(level).notizen` (`form`, `wenden`, `strecken`, `zugArten`, `kettenlauf`, `gruende`,
+  `pruef` = Skript + Zitter-Sätze je Strecke). Härte: `pruef`-Skripte aneinanderhängen und mit
+  `spiele(ausschnitt(grid, entities, ganzeKarte, start), skript, zittern(n, rng, faktor), …)` laufen lassen.
+  Abwechslung: `istSchlicht(schritt)` über alle Schritte zählen.
+- Im echten Spiel: Vite auf eigenem Port per PowerShell starten (nicht aus Git Bash), Werkbank mit `?debug` öffnen,
+  Bot-Eingaben je Tick vorab in Node berechnen (`laeufer` auf `createLevelWorld(level)`) und per
+  `window.__seedRaceInput((tick) => masken[tick])` einspeisen; `window.__seedRace()` liefert Welt, Kamera, Effekte.
+  Nur den eigenen Prozess beenden (`Get-NetTCPConnection -LocalPort …`; netstat zeigt deutsch „ABHÖREN“).
+
+### Fallen, die schon Zeit gekostet haben
+
+- Umbau-Skripte mit Backticks oder Apostrophen als Datei schreiben, nie per Bash-Heredoc (zerstört `\b`, bricht ab).
+- Die Kreuzungs-Probe („Füße erreichen im Fallen die Zielhöhe“) nur OHNE gebaute Fläche; danach `landetAuf`.
+- Ring, Dash, Kick, Boost brauchen voll gehaltene Sprünge (≥ 52 Ticks), sonst verfehlen frische Zitter-Sätze das Element.
+- Eine Sperrfläche (`B.tabu`) darf nicht über die Kante ragen, hinter der die nächste Strecke beginnt.
+- Lava tötet sofort, wer an ihrem Fuß steht: Verzögerung oder Fuß unter der Lauffläche.
+- Abwechslung an den Schritten messen, nicht an Streckennamen; Kontrollbild im Browser ansehen, bevor „fertig“ gemeldet wird.

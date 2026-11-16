@@ -10,10 +10,12 @@ import himmelsreich from './typen/himmelsreich.js';
 import parcours from './typen/parcours.js';
 import turm from './typen/turm.js';
 import pfad from './typen/pfad.js';
+import lauf from './typen/lauf.js';
 
 // Reihenfolge ist bedeutungslos, aber stabil halten: Die Auswahl würfelt über die Liste, und eine
 // Umsortierung würde alle Seeds verschieben.
-const MODULE = [hoehlen, himmelsreich, parcours, turm, pfad];
+// (lauf: Prototyp „Lauflinie“, 14.11.2026 — nur auf Wunsch baubar, siehe ZUFALLS_TYPEN)
+const MODULE = [hoehlen, himmelsreich, parcours, turm, pfad, lauf];
 
 /** id → Welttyp, geprüft. Ein Vertragsbruch fällt hier auf, nicht erst in einer Lobby. */
 export const WELTTYPEN = Object.freeze(Object.fromEntries(

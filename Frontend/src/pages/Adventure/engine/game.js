@@ -15,7 +15,7 @@ import { updateDirector } from "./director.js";
 import { updateEnemies } from "./enemies.js";
 import { updateAllies } from "./allies.js";
 import { updateProjectiles } from "./projectiles.js";
-import { updateHazards, updateZones } from "./combat.js";
+import { updateHazards, updateZones, updateStreak } from "./combat.js";
 import { updateItemEffects } from "./procs.js";
 import { updateWeapons } from "./weapons.js";
 import { initHorde, updateHorde } from "./horde.js";
@@ -56,7 +56,8 @@ export function createGame({ kitId, difficulty = "normal", seed, lockedItems = [
     },
     player: createPlayer(kit, snap?.player),
     events: [],
-    fx: { texts: [], particles: [], rings: [], bolts: [], slashes: [], shake: 0, sfx: { hit: 0, crit: 0, kill: 0, gold: 0, hurt: 0 } },
+    fx: { texts: [], particles: [], rings: [], bolts: [], slashes: [], deaths: [], deathSeq: 0, shake: 0, sfx: { hit: 0, crit: 0, kill: 0, gold: 0, hurt: 0, xp: 0 } },
+    streak: { n: 0, t: 0 }, // laufende Kill-Serie (engine/combat.js)
     over: false,
     won: snap?.won ?? false,
     inputEnabled: true,
@@ -94,6 +95,7 @@ export function stepGame(g, dt, input) {
   updateStage(g, dt);
   for (const w of g.walls) w.t -= dt;
   if (g.walls.length) g.walls = g.walls.filter((w) => w.t > 0);
+  updateStreak(g, dt);
   updateFx(g, dt);
   if (g.player.pendingLevels > 0 && g.player.alive && !g.over && !g.levelUp) openLevelUp(g);
 }
@@ -116,7 +118,7 @@ export function snapshotGame(g) {
     player: {
       level: p.level, xp: Math.floor(p.xp), gold: Math.floor(p.gold), items: { ...p.items }, itemOrder: [...p.itemOrder],
       equipment: p.equipment, soulStacks: p.soulStacks, hpFrac: Math.max(0.05, p.hp / p.stats.maxHp),
-      weapons: { ...p.weapons }, weaponOrder: [...p.weaponOrder], talents: { ...p.talents }, talentOrder: [...p.talentOrder],
+      weapons: { ...p.weapons }, weaponOrder: [...p.weaponOrder], talents: { ...p.talents }, talentOrder: [...p.talentOrder], boons: { ...p.boons },
       pendingLevels: p.pendingLevels,
     },
   };
@@ -142,7 +144,7 @@ export function hudState(g) {
     level: p.level, xp: p.xp, xpNext: xpToNext(p.level), gold: Math.floor(p.gold),
     time: g.time, coeff: g.coeff, tier,
     stageName: g.biome.name, stageIndex: g.stageIndex, loop: g.loop, stagesCleared: g.stagesCleared,
-    kills: g.stats.kills,
+    kills: g.stats.kills, streak: g.streak.n,
     items: p.itemOrder.filter((id) => p.items[id] > 0 && ITEMS[id]).map((id) => ({ id, n: p.items[id] })),
     weapons: p.weaponOrder.filter((id) => p.weapons[id]).map((id) => ({ id, level: p.weapons[id] })),
     talents: p.talentOrder.filter((id) => p.talents[id]).map((id) => ({ id, level: p.talents[id] })),

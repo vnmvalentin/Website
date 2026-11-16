@@ -1,0 +1,168 @@
+/* Hauptmenü am Tisch (TableMenu.jsx): wenige Zeilen am linken Rand über dem Raum — keine Kästen, kein Leuchten. */
+
+.sm-root {
+  position: fixed;
+  inset: 0 auto 0 0;
+  z-index: 6;
+  width: min(500px, 46vw);
+  display: flex;
+  flex-direction: column;
+  justify-content: safe center;
+  gap: clamp(8px, 2vh, 22px);
+  padding: clamp(16px, 4vh, 48px) 24px clamp(16px, 4vh, 48px) clamp(16px, 5vw, 88px);
+  color: var(--bone);
+  /* Dunkel nach links: die Zeilen bleiben lesbar, der Tisch rechts im Licht */
+  background: linear-gradient(to right, rgb(5 3 2 / 0.82) 0%, rgb(5 3 2 / 0.6) 62%, rgb(5 3 2 / 0) 100%);
+  overflow-y: auto;
+}
+
+.sm-title {
+  font-family: var(--font-title);
+  font-size: clamp(30px, min(5.2vw, 7vh), 72px);
+  line-height: 0.95;
+  letter-spacing: 0.03em;
+  color: var(--parchment-light);
+  text-shadow: 0 2px 0 #000;
+}
+.sm-title em { font-style: normal; color: var(--wax-red-light); }
+.sm-tagline {
+  margin-top: 8px;
+  max-width: 46ch;
+  font-style: italic;
+  font-size: clamp(14px, 1.9vh, 17px);
+  color: rgb(232 223 204 / 0.62);
+}
+
+.sm-name { min-height: 30px; font-size: 15px; }
+.sm-name form { display: flex; flex-direction: column; gap: 4px; max-width: 300px; }
+
+.sm-list { display: flex; flex-direction: column; align-items: flex-start; gap: clamp(0px, 0.6vh, 6px); }
+
+/* Eine Menüzeile: nur Schrift. Unter dem Zeiger rückt sie ein und bekommt einen Wachsstrich davor. */
+.sm-line {
+  position: relative;
+  padding: clamp(3px, 0.7vh, 7px) 0;
+  min-height: 36px;
+  font-family: var(--font-title);
+  font-size: clamp(20px, min(2.2vw, 3.5vh), 31px);
+  line-height: 1.15;
+  letter-spacing: 0.03em;
+  text-align: left;
+  color: rgb(232 223 204 / 0.86);
+  background: none;
+  border: 0;
+  cursor: pointer;
+  transition: color 0.12s ease, transform 0.12s ease;
+}
+.sm-line::before {
+  content: "";
+  position: absolute;
+  left: -22px;
+  top: 50%;
+  width: 12px;
+  height: 3px;
+  margin-top: -1px;
+  border-radius: 2px;
+  background: var(--wax-red-light);
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+.sm-line:hover, .sm-line:focus-visible { color: var(--candle); transform: translateX(6px); outline: none; }
+.sm-line:hover::before, .sm-line:focus-visible::before { opacity: 1; }
+.sm-line-back { font-size: clamp(16px, min(1.6vw, 2.6vh), 21px); color: rgb(232 223 204 / 0.6); }
+
+/* Wahl aus wenigen Wörtern (Übung) */
+.sm-pick { display: flex; align-items: baseline; gap: 14px; min-height: 36px; }
+.sm-pick-opts { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 16px; }
+.sm-pick-label {
+  flex: none;
+  width: 7.2em;
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgb(232 223 204 / 0.5);
+}
+.sm-word {
+  padding: 4px 0;
+  min-height: 34px;
+  font-family: var(--font-title);
+  font-size: clamp(17px, 2.5vh, 21px);
+  color: rgb(232 223 204 / 0.6);
+  background: none;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+}
+.sm-word:hover, .sm-word:focus-visible { color: var(--bone); outline: none; }
+.sm-word[aria-checked="true"] { color: var(--candle); border-bottom-color: var(--wax-red-light); }
+
+.sm-input {
+  width: 100%;
+  max-width: 300px;
+  padding: 6px 2px;
+  font-family: var(--font-title);
+  font-size: 22px;
+  color: var(--bone);
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid rgb(232 223 204 / 0.35);
+  border-radius: 0;
+}
+.sm-input:focus { outline: none; border-bottom-color: var(--candle); }
+.sm-input::placeholder { color: rgb(232 223 204 / 0.3); }
+.sm-input-sm { width: 12em; font-size: 18px; padding: 2px; }
+.sm-code { font-size: 34px; letter-spacing: 0.3em; text-transform: uppercase; margin-bottom: 6px; }
+
+.sm-hint {
+  min-height: 2.6em;
+  max-width: 36ch;
+  font-size: 15px;
+  line-height: 1.4;
+  color: rgb(232 223 204 / 0.62);
+}
+.sm-hint-static { min-height: 0; margin: 2px 0 4px; }
+.sm-err { font-size: 15px; color: #e07a6a; }
+
+.sm-quiet {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 2px 0;
+  font-size: 14px;
+  color: rgb(232 223 204 / 0.55);
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+.sm-quiet b { font-weight: 600; color: rgb(232 223 204 / 0.85); }
+.sm-quiet:hover, .sm-quiet:focus-visible { color: var(--bone); outline: none; }
+.sm-foot { display: flex; flex-wrap: wrap; gap: 4px 20px; margin-top: clamp(4px, 2vh, 20px); }
+
+
+/* Lobby am Tisch (TableLobby.jsx): eine schmale Zeile oben — Code, Link, Seed, Einstellungen, Aufstehen */
+.sl-bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 22px;
+  padding: 10px clamp(16px, 3vw, 40px);
+  background: linear-gradient(to bottom, rgb(5 3 2 / 0.78), rgb(5 3 2 / 0));
+  color: var(--bone);
+}
+.sl-code {
+  font-family: var(--font-title);
+  font-size: 26px;
+  letter-spacing: 0.3em;
+  color: var(--parchment-light);
+  user-select: text;
+  -webkit-user-select: text;
+}
+.sl-seed { display: inline-flex; align-items: baseline; gap: 8px; font-size: 14px; color: rgb(232 223 204 / 0.55); }
+.sl-seed .sm-input { width: 9em; font-size: 16px; }
+.sl-seed .sm-input:disabled { opacity: 0.7; }
+.sl-gap { flex: 1; }

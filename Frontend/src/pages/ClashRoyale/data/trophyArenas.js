@@ -108,6 +108,13 @@ export function trophyArenaIcon(trophies) {
   return null;
 }
 
+/** Arena-Icon zum Arena-Namen, wie ihn die API im Profil nennt (player.arena.name), oder null. */
+export function trophyArenaIconByName(name) {
+  const wanted = String(name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+  if (!wanted) return null;
+  return ARENAS.find((a) => a.name.toLowerCase().replace(/[^a-z0-9]/g, '') === wanted)?.icon || null;
+}
+
 /** Arena-Name für einen Trophäenstand, oder '' (kein bekannter Name — siehe Kommentar oben). */
 export function trophyArenaName(trophies) {
   const n = Number(trophies) || 0;

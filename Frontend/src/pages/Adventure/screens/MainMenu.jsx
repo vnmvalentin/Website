@@ -22,7 +22,8 @@ function MenuButton({ icon: Icon, label, sub, onClick }) {
   );
 }
 
-const SCOPES = [["all", "Gesamt"], ["week", "Diese Woche"], ["daily", "Tageslauf"]];
+// "Klassik" = die eingefrorene Liste von vor dem Horde-Umbau (November 2026); die anderen haben damals neu begonnen
+const SCOPES = [["all", "Gesamt"], ["week", "Diese Woche"], ["daily", "Tageslauf"], ["classic", "Klassik"]];
 
 // Halle der Helden: lädt selbst, mit Filter nach Zeitraum und Kit (der Tageslauf hat keinen Kit-Filter)
 function HallOfHeroes({ reloadKey }) {
@@ -53,11 +54,12 @@ function HallOfHeroes({ reloadKey }) {
           </select>
         )}
       </div>
+      {scope === "classic" && <p className="av-faint text-[14px] mb-3">Bestwerte von vor dem Horde-Umbau. Diese Liste ist eingefroren — alle anderen haben neu begonnen.</p>}
       {rows === null ? (
         <p className="av-slot px-4 py-6 text-center av-faint">Lädt …</p>
       ) : rows.length === 0 ? (
         <p className="av-slot px-4 py-6 text-center av-faint">
-          {failed ? "Bestenliste gerade nicht erreichbar." : scope === "daily" ? "Heute hat noch niemand den Tageslauf gespielt." : "Noch keine Einträge — dein nächster Lauf bringt dich hierher."}
+          {failed ? "Bestenliste gerade nicht erreichbar." : scope === "daily" ? "Heute hat noch niemand den Tageslauf gespielt." : scope === "classic" ? "Keine Einträge aus der Zeit vor der Horde." : "Noch keine Einträge — dein nächster Lauf bringt dich hierher."}
         </p>
       ) : (
         <ol className="flex flex-col gap-1.5 max-h-[420px] av-scroll pr-1">

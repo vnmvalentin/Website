@@ -102,7 +102,7 @@ export default function Codex({ profile, onBack }) {
                 );
               })}
             </div>
-            <h2 className="av-label mb-3">Evolutionen · Waffe auf Stufe 5 + passendes Talent</h2>
+            <h2 className="av-label mb-3">Evolutionen · Waffe ab Stufe 5 + passendes Talent · noch dreimal ausbaubar</h2>
             <div className="grid sm:grid-cols-2 gap-2 mb-7">
               {EVOLUTION_IDS.map((id) => {
                 const def = WEAPONS[id];
@@ -155,7 +155,7 @@ export default function Codex({ profile, onBack }) {
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               {b.enemies.map(([id]) => (
                 <div key={id} className="av-slot flex flex-col items-center gap-1 px-3 py-3">
-                  <FlatSprite kind="enemy" id={id} size={64} />
+                  <FlatSprite kind="enemy" id={id} size={72} />
                   <span className="text-center">{ENEMIES[id].name}</span>
                 </div>
               ))}
@@ -170,7 +170,7 @@ export default function Codex({ profile, onBack }) {
               const item = ITEMS[def.item];
               return (
                 <div key={id} className="av-slot flex items-center gap-4 px-4 py-3">
-                  <FlatSprite kind="boss" id={id} size={72} />
+                  <FlatSprite kind="boss" id={id} size={84} />
                   <div className="min-w-0">
                     <div className="av-title text-[18px]">{def.name}</div>
                     <div className="text-[14px] av-dim">{def.title} · {world?.name}</div>

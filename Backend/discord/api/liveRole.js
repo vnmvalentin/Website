@@ -11,7 +11,7 @@ module.exports = function ({ requireAuth }) {
 
     router.post('/:guildId/live-role', requireAuth, express.json(), (req, res) => {
         const { liveRoleId, restrictionRoleId, enabled } = req.body;
-        if (!liveRoleId) return res.status(400).json({ error: 'liveRoleId fehlt.' });
+        if (!liveRoleId) return res.status(400).json({ error: 'liveRoleId fehlt.', code: "missing_data" });
         saveLiveRole(req.params.guildId, liveRoleId, restrictionRoleId || null, enabled !== false);
         res.json({ success: true });
     });

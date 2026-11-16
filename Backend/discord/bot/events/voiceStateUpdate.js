@@ -5,6 +5,7 @@ const {
     getActiveVoiceChannel, deleteActiveVoiceChannel, updateVoiceOwner, updateVoicePinMessage,
     trackVoiceActivity,
 } = require('../../database/db');
+const { botText } = require('../botText');
 
 // In-Memory: wann ist ein Nutzer welchem Voice-Channel beigetreten (für Zeit-Tracking)
 const voiceJoinTimestamps = new Map(); // `${guildId}:${userId}` -> { channelId, joinedAt }
@@ -47,40 +48,32 @@ function initVoiceTracking(client) {
     }
 }
 
-function buildCommandsEmbed(ownerName) {
+/** Angepinnte Übersicht. t: Texte des Servers (botText(guild)), wegen unknown auf oberster Ebene. */
+function buildCommandsEmbed(ownerName, t) {
     return new EmbedBuilder()
         .setColor(0x06b6d4)
-        .setTitle('🎛️ Voice Channel Commands')
+        .setTitle(t.voice.pinTitle)
         .setDescription(
-            'Nur für den Channel-Besitzer, solange er im Voice ist. Per Knopf unten oder per Command:\n\n' +
-            '`/voicelimit [zahl]` — Userlimit setzen (0 = unbegrenzt)\n' +
-            '`/voicelock` — Channel sperren / entsperren\n' +
-            '`/voice_rename [name]` — Channel umbenennen\n' +
-            '`/voice_hide` — Channel für andere unsichtbar machen\n' +
-            '`/voice_unhide` — Channel wieder sichtbar machen\n' +
-            '`/voice_kick [user]` — Nutzer aus dem Channel werfen\n' +
-            '`/voice_ban [user]` — Nutzer werfen und am Beitreten hindern\n' +
-            '`/voice_unban [user]` — Bann wieder aufheben\n' +
-            '`/voice_transfer [user]` — Besitzer-Status übergeben\n\n' +
-            `👑 **Voice Channel Besitzer:** ${ownerName || 'Unbekannt'}`
+            `${t.voice.pinIntro}\n\n${t.voice.pinCommands.join('\n')}\n\n${t.voice.pinOwner(ownerName || t.unknown)}`
         );
 }
 
 // Knopfleiste unter der Commands-Übersicht (customIds: siehe commands/voice.js → handleVoiceComponent)
-function buildVoiceControls() {
+function buildVoiceControls(t) {
+    const b = t.voice.buttons;
     const button = (id, label, style = ButtonStyle.Secondary) => new ButtonBuilder().setCustomId(id).setLabel(label).setStyle(style);
     return [
         new ActionRowBuilder().addComponents(
-            button('vc_lock', 'Sperren / Entsperren'),
-            button('vc_hide', 'Verstecken / Zeigen'),
-            button('vc_limit', 'Limit'),
-            button('vc_rename', 'Umbenennen'),
+            button('vc_lock', b.lock),
+            button('vc_hide', b.hide),
+            button('vc_limit', b.limit),
+            button('vc_rename', b.rename),
         ),
         new ActionRowBuilder().addComponents(
-            button('vc_kick', 'Kicken', ButtonStyle.Danger),
-            button('vc_ban', 'Bannen', ButtonStyle.Danger),
-            button('vc_unban', 'Entbannen'),
-            button('vc_transfer', 'Besitzer übergeben'),
+            button('vc_kick', b.kick, ButtonStyle.Danger),
+            button('vc_ban', b.ban, ButtonStyle.Danger),
+            button('vc_unban', b.unban),
+            button('vc_transfer', b.transfer),
         ),
     ];
 }
@@ -92,17 +85,20 @@ async function updateVoicePinOwner(guild, vcRecord, newOwnerId) {
     if (!textChannel) return;
     const msg = await textChannel.messages.fetch(vcRecord.pin_message_id).catch(() => null);
     if (!msg) return;
+    const t = botText(guild);
     const ownerName = guild.members.cache.get(newOwnerId)?.displayName
         || (await guild.members.fetch(newOwnerId).catch(() => null))?.displayName
-        || 'Unbekannt';
-    await msg.edit({ embeds: [buildCommandsEmbed(ownerName)] }).catch(() => {});
+        || t.unknown;
+    // Knöpfe mit erneuern: nach einem Sprachwechsel im Dashboard passen sie so wieder zur Übersicht
+    await msg.edit({ embeds: [buildCommandsEmbed(ownerName, t)], components: buildVoiceControls(t) }).catch(() => {});
 }
 
 async function createPrivateVC(guild, member, triggerChannel) {
     const categoryId = triggerChannel.parentId;
+    const t = botText(guild);
 
     const voiceChannel = await guild.channels.create({
-        name: `🔊 ${member.displayName}s Kanal`,
+        name: t.voice.channelName(member.displayName),
         type: ChannelType.GuildVoice,
         parent: categoryId,
         userLimit: 0,
@@ -151,7 +147,7 @@ async function createPrivateVC(guild, member, triggerChannel) {
     };
     try {
         const pinMsg = await withRetry('Commands-Nachricht senden', () =>
-            textChannel.send({ embeds: [buildCommandsEmbed(member.displayName)], components: buildVoiceControls() }));
+            textChannel.send({ embeds: [buildCommandsEmbed(member.displayName, t)], components: buildVoiceControls(t) }));
         updateVoicePinMessage(voiceChannel.id, pinMsg.id);
         await withRetry('Commands-Nachricht anpinnen', () => pinMsg.pin());
     } catch (e) {

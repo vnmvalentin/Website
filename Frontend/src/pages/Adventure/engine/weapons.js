@@ -9,14 +9,18 @@ import { spawnPlayerBullet } from "./projectiles.js";
 import { damageEnemy, enemiesNear, addHazard, healPlayer } from "./combat.js";
 import { lightning, ring, slash, burst } from "./fx.js";
 import { dist2, clamp } from "./util.js";
+import { collectEnemies } from "./grid.js";
+
+const nearHits = [];
+const whipHits = [];
 
 export const weaponLevel = (p, id) => WEAPONS[id]?.levels[(p.weapons[id] || 1) - 1];
 
 // Gegner im Umkreis, nächste zuerst (nur kämpfende — Lager-Gegner werden nicht von selbst angegriffen)
 function targetsNear(g, x, y, range) {
   const out = [];
-  for (const e of g.enemies) {
-    if (e.dead || e.invuln || !e.aggro) continue;
+  for (const e of collectEnemies(g, x, y, range, nearHits)) {
+    if (e.invuln || !e.aggro) continue;
     const d = dist2(x, y, e.x, e.y);
     if (d < range * range) out.push({ e, d });
   }
@@ -53,7 +57,7 @@ const FIRE = {
     for (const e of hits) {
       lightning(g, [{ x: e.x + 10, y: e.y - 460 }, { x: e.x - 16, y: e.y - 300 }, { x: e.x + 12, y: e.y - 140 }, { x: e.x, y: e.y }], "#fff3a0", 0.22);
       for (const o of enemiesNear(g, e.x, e.y, r)) {
-        damageEnemy(g, o, p.stats.damage * l.mult, { proc: 0.3 });
+        damageEnemy(g, o, p.stats.damage * l.mult, { proc: 0.3, kind: "shock" });
         if (l.stun && !o.isBoss && !o.dead) o.freezeT = Math.max(o.freezeT, 0.35);
       }
       ring(g, e.x, e.y, r, "#ffe14d", 0.25);
@@ -96,7 +100,7 @@ const FIRE = {
     for (const a of angles) {
       slash(g, p.x, oy, a, len, half);
       const ca = Math.cos(a), sa = Math.sin(a);
-      for (const e of g.enemies) {
+      for (const e of collectEnemies(g, p.x, oy, len + half, whipHits)) {
         if (e.dead || e.invuln) continue;
         // in das Koordinatensystem des Hiebs drehen: along = entlang, across = quer dazu
         const along = (e.x - p.x) * ca + (e.y - oy) * sa;

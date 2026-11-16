@@ -14,19 +14,19 @@ const UNKNOWN_MEMBER = 10007;
 function requireGuildAdmin(discordClient) {
     return async function guildAdminGuard(req, res, next) {
         const guildId = String(req.params.guildId || '');
-        if (!/^\d{5,25}$/.test(guildId)) return res.status(400).json({ error: 'Ungültige Server-ID' });
+        if (!/^\d{5,25}$/.test(guildId)) return res.status(400).json({ error: 'Ungültige Server-ID', code: "bad_guild_id" });
 
         const link = links.getLink(req.twitchId);
-        if (!link || !link.userId) return res.status(401).json({ error: 'Discord nicht verknüpft' });
+        if (!link || !link.userId) return res.status(401).json({ error: 'Discord nicht verknüpft', code: "not_linked" });
 
         const key = `${guildId}:${link.userId}`;
         const hit = cache.get(key);
         if (hit && hit.until > Date.now()) {
-            return hit.ok ? next() : res.status(403).json({ error: 'Keine Berechtigung für diesen Server' });
+            return hit.ok ? next() : res.status(403).json({ error: 'Keine Berechtigung für diesen Server', code: "no_permission" });
         }
 
         const guild = discordClient.guilds.cache.get(guildId);
-        if (!guild) return res.status(404).json({ error: 'Der Bot ist nicht auf diesem Server' });
+        if (!guild) return res.status(404).json({ error: 'Der Bot ist nicht auf diesem Server', code: "bot_not_in_guild" });
 
         let member = guild.members.cache.get(link.userId) || null;
         if (!member) {
@@ -35,14 +35,14 @@ function requireGuildAdmin(discordClient) {
             } catch (e) {
                 // Kein Mitglied: das ist eine echte Antwort. Alles andere (Discord hängt,
                 // Drosselung) darf niemanden für eine Minute aussperren.
-                if (e?.code !== UNKNOWN_MEMBER) return res.status(503).json({ error: 'Discord antwortet gerade nicht. Bitte gleich noch einmal versuchen.' });
+                if (e?.code !== UNKNOWN_MEMBER) return res.status(503).json({ error: 'Discord antwortet gerade nicht. Bitte gleich noch einmal versuchen.', code: "discord_down" });
                 member = null;
             }
         }
         const ok = !!member && (guild.ownerId === member.id || member.permissions.has(PermissionFlagsBits.Administrator));
         cache.set(key, { ok, until: Date.now() + TTL_MS });
         if (cache.size > 5000) for (const [k, v] of cache) if (v.until < Date.now()) cache.delete(k);
-        return ok ? next() : res.status(403).json({ error: 'Keine Berechtigung für diesen Server' });
+        return ok ? next() : res.status(403).json({ error: 'Keine Berechtigung für diesen Server', code: "no_permission" });
     };
 }
 

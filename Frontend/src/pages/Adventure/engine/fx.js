@@ -33,6 +33,17 @@ export function slash(g, x, y, angle, len, half) {
   g.fx.slashes.push({ x, y, angle, len, half, t: 0, life: 0.2 });
 }
 
+// Tode: was die Zeichner für den Abgang brauchen — Art des Todes und Richtung des letzten Treffers. Jeder Eintrag
+// trägt eine laufende Nummer (seq); die Zeichner merken sich, bis wohin sie schon gezeichnet haben, und lesen nur.
+// kind: hit (normal) · blast (weggeschleudert) · burn (verbrannt) · shatter (gefroren zersplittert) · poison · shock
+const MAX_DEATHS = 200;
+export function death(g, e, kind, fromX, fromY) {
+  const list = g.fx.deaths;
+  if (list.length >= MAX_DEATHS) list.shift();
+  const a = Math.atan2(e.y - fromY, e.x - fromX);
+  list.push({ seq: ++g.fx.deathSeq, x: e.x, y: e.y, r: e.r, type: e.type, bossId: e.bossId || null, kind, dirX: Math.cos(a), dirY: Math.sin(a), big: !!(e.isBoss || e.giant || e.champion) });
+}
+
 export function shake(g, amount) {
   g.fx.shake = Math.min(18, Math.max(g.fx.shake, amount));
 }

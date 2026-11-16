@@ -9,7 +9,7 @@ import { COLLECTIBLE, CARDS, RARITIES, resolveCard } from "./cards.js";
 import { pickWeighted, rand, randInt, shuffle, streamFrom } from "./rng.js";
 import { MIN_DECK, CAMPFIRE_RISK, MAX_CAMPFIRES_PER_MAP } from "../data/events.js";
 import { ITEMS, MAX_ITEMS } from "../data/items.js";
-import { allHeads, allBases, sameHead, sameBase, totemSlot, combineError } from "../data/totems.js";
+import { allHeads, allBases, sameHead, sameBase, totemSlot, combineError, LANE_PROPS } from "../data/totems.js";
 import { parseSigil } from "./sigils/index.js";
 import { getZirkel, zirkelOf } from "./zirkel/index.js";
 
@@ -52,7 +52,52 @@ export function generateMap(seed, pathNo, levels, zirkelId) {
     }
     nodes.push(row);
   }
+  // Totems gibt es nur noch am Schrein (Regel seit 15.11.2026): auf der ersten Ebene steht immer einer, damit jeder
+  // vor dem ersten Kampf eines bekommen kann — wenn er den Weg dorthin wählt. Eigener Zufallsstrom, damit der Rest der
+  // Karte so bleibt, wie er aus dem Seed entsteht.
+  if (levels > 0 && !nodes[0].some((n) => n.type === "shrine")) {
+    const st = randInt(streamFrom("schrein", seed, pathNo), STRANDS);
+    nodes[0][st] = { type: "shrine" };
+  }
   return { pathNo, levels, nodes };
+}
+
+/** Hat ein Spieler schon ein Totem (gleich welches)? @param {any} player */
+export function hasTotem(player) {
+  const t = player?.totems;
+  return !!(t && (t.tribe || t.lane || t.side));
+}
+
+/**
+ * Drei fertige Totems für den ersten Besuch am Schrein: zwei Stamm-Totems verschiedener Stämme (bevorzugt Stämme aus
+ * dem eigenen Deck) und ein Lanen-Totem. Den Moorling-Kopf (Nebendeck) gibt es erst ab dem zweiten Besuch als neues
+ * Teil (Regel seit 15.11.2026) — beim ersten Besuch war er fast immer die beste Wahl.
+ * @param {{rng:number}} s @param {any} match @param {any} player
+ */
+function starterTotems(s, match, player) {
+  const z = zirkelOf(match);
+  const counts = new Map();
+  for (const dc of player.deck) {
+    const t = CARDS[dc.baseId]?.tribe;
+    if (t && !z.tribes.find((x) => x.id === t)?.neutral) counts.set(t, (counts.get(t) || 0) + 1);
+  }
+  const tribeWeights = z.tribes.filter((t) => !t.neutral).map((t) => [t.id, 1 + (counts.get(t.id) || 0) * 3]);
+  const sigils = shuffle(s, [...z.totemBaseSigils]);
+  /** @type {Array<{ head: any, base: any }>} */
+  const out = [];
+  /** @type {Set<string>} */
+  const usedSigils = new Set();
+  for (let n = 0; n < 2; n++) {
+    const free = tribeWeights.filter(([id]) => !out.some((o) => o.head.tribe === id));
+    if (!free.length) break;
+    const tribeHead = { kind: "tribe", tribe: pickWeighted(s, /** @type {any} */ (free)) };
+    const tribeBase = sigils.filter((x) => !usedSigils.has(x)).map((sigil) => ({ kind: "sigil", sigil })).find((b) => !combineError(tribeHead, b, z));
+    if (!tribeBase) continue;
+    usedSigils.add(tribeBase.sigil);
+    out.push({ head: tribeHead, base: tribeBase });
+  }
+  out.push({ head: { kind: "lane", lane: randInt(s, 4) }, base: { kind: "prop", prop: LANE_PROPS[randInt(s, LANE_PROPS.length)] } });
+  return out.filter((o) => !combineError(o.head, o.base, z));
 }
 
 /** Erreichbare Stränge auf der aktuellen Ebene. @param {number|null} strand */
@@ -125,6 +170,8 @@ export function createScene(match, p, node, level, strand) {
     }
     case "shrine": {
       const player = match.players[p];
+      // Noch kein Totem: drei fertige zur Wahl (das erste Totem gibt es nur hier)
+      if (!hasTotem(player)) return { kind: "shrine", first: true, offers: starterTotems(s, match, player), taken: false };
       const heads = allHeads(zirkelOf(match)).filter((h) => !player.heads.some((x) => sameHead(x, h)));
       const bases = allBases(zirkelOf(match)).filter((b) => !player.bases.some((x) => sameBase(x, b)));
       const hs = shuffle(s, heads).slice(0, 1).map((head) => ({ head }));
@@ -265,9 +312,15 @@ export function sceneAction(match, p, a, io) {
         const offer = scene.offers[a.index];
         if (!offer) return { error: "badIndex" };
         if (offer.head) player.heads.push(offer.head);
-        else player.bases.push(offer.base);
+        if (offer.base) player.bases.push(offer.base);
         scene.taken = true;
         emit({ type: "totemPart", part: offer });
+        // Erstes Totem: kommt fertig zusammengesetzt
+        if (offer.head && offer.base) {
+          const slot = totemSlot(offer.head);
+          player.totems[slot] = { head: offer.head, base: offer.base };
+          emit({ type: "totemBuilt", slot, totem: player.totems[slot] });
+        }
         return {};
       }
       if (op === "assemble") {

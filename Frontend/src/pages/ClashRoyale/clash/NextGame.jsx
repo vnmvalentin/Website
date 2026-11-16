@@ -12,6 +12,7 @@ import searchImg from '../../../assets/clashRoyale/ui/search.webp';
 import eyeImg from '../../../assets/clashRoyale/ui/eye.webp';
 import potionImg from '../../../assets/clashRoyale/ui/card_boost_potion.png';
 import swordImg from '../../../assets/clashRoyale/ui/sword.webp';
+import crownImg from '../../../assets/clashRoyale/ui/crown.png';
 
 /** Reihenfolge der Kette; store = localStorage-Schlüssel der Tagesrunde (wie im Hub) */
 const CHAIN = [
@@ -37,21 +38,30 @@ function pickNext(current) {
   return rest.find((g) => !solvedToday(g, day)) || rest[0];
 }
 
+/** Alle Tagesrunden der Kette (die mit store) heute erledigt? Dann führt der Endscreen zum Ergebnis (HeutePage.jsx). */
+function allSolved() {
+  const day = berlinDay();
+  return CHAIN.filter((g) => g.store).every((g) => solvedToday(g, day));
+}
+
 /** @param current  id des laufenden Spiels (siehe CHAIN) */
 export default function NextGame({ current, className = '' }) {
   const { lang, t } = useClashLang();
-  const next = useMemo(() => pickNext(current), [current]);
-  const to = lang === 'en' ? `${next.to}?lang=en` : next.to;
+  const next = useMemo(() => (allSolved() ? null : pickNext(current)), [current]);
+  const q = lang === 'en' ? '?lang=en' : '';
+  const item = next
+    ? { to: `${next.to}${q}`, img: next.img, title: t[next.title], text: t[next.text], cta: t.play }
+    : { to: `/clash/heute${q}`, img: crownImg, title: t.heuteDoneTitle, text: t.heuteDoneText, cta: t.heuteResult };
   return (
-    <Link to={to} className={`crq-next ${className}`}>
-      <img src={next.img} alt="" draggable={false} />
+    <Link to={item.to} className={`crq-next ${className}`}>
+      <img src={item.img} alt="" draggable={false} />
       <span className="min-w-0 flex-1">
         <span className="crq-next-label">{t.nextUp}</span>
-        <span className="crq-next-title">{t[next.title]}</span>
-        <span className="crq-next-text">{t[next.text]}</span>
+        <span className="crq-next-title">{item.title}</span>
+        <span className="crq-next-text">{item.text}</span>
       </span>
       <span className="cr-arcade-btn cr-arcade-btn--sm cr-arcade-btn--gold shrink-0">
-        {t.play} <ArrowRight size={16} />
+        {item.cta} <ArrowRight size={16} />
       </span>
     </Link>
   );

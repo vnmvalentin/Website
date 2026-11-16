@@ -1,13 +1,18 @@
 // ui/pages/RoomPage.jsx — Online-Raum: /sacrifice-and-sigils/raum/:code (bzw. „neu“ zum Erstellen).
-import React, { useState } from "react";
+// Am Tisch im Kerzenlicht (Standard) sitzt man schon in der Lobby am Tisch (table/TableLobby.jsx); LobbyScreen bleibt
+// der Ausweichweg wie beim Hauptmenü.
+import React, { Suspense, lazy, useState } from "react";
 import { useNavigate, useParams, Link } from "react-router-dom";
 import SEO from "../../../../components/SEO";
 import { useOnlineGame } from "../../net/useOnlineGame.js";
 import { DEFAULT_SETTINGS } from "../../engine/match.js";
-import { getPrefs, setPrefs } from "../prefs.js";
+import { getPrefs, setPrefs, useNewTable } from "../prefs.js";
 import LobbyScreen from "../screens/LobbyScreen.jsx";
 import GameScreen from "../GameScreen.jsx";
 import { de } from "../../i18n/de.js";
+
+const TableLobby = lazy(() => import("../table/TableLobby.jsx"));
+const TableHost = lazy(() => import("../table/TableHost.jsx"));
 
 const ERRORS = {
   notFound: "Diesen Raum gibt es nicht (mehr). Prüfe den Code.",
@@ -48,6 +53,11 @@ function Room({ code, name }) {
       navigate(`/sacrifice-and-sigils/raum/${c}`, { replace: true });
     },
   });
+  // Tisch im Kerzenlicht wie im Hauptmenü: Standard, außer bisheriger Tisch gewählt, Sparmodus, hochkant, kein WebGL
+  const newTable = useNewTable();
+  const [tableFailed, setTableFailed] = useState(false);
+  const wideEnough = typeof window === "undefined" || window.innerWidth >= window.innerHeight * 1.2;
+  const atTable = newTable && wideEnough && !tableFailed;
 
   if (game.kicked) return <p className="text-center py-20 ss-dim">Dieser Platz wurde in einem anderen Fenster übernommen.</p>;
   if (game.error) {
@@ -58,13 +68,28 @@ function Room({ code, name }) {
       </div>
     );
   }
-  if (!game.room) return <p className="text-center py-20 ss-dim">{game.connection === "connected" ? "Tisch wird gedeckt …" : "Verbinde …"}</p>;
+  const waiting = game.connection === "connected" ? "Tisch wird gedeckt …" : "Verbinde …";
+  if (!game.room) {
+    // Am Tisch: der Tisch aus dem Hauptmenü bleibt stehen, bis der Raum da ist (kein Sprung auf eine leere Seite)
+    if (atTable) {
+      return (
+        <Suspense fallback={null}>
+          <TableHost zirkel="moor" seated={false} quiet onFallback={() => setTableFailed(true)}>
+            {() => <div className="st-toast ss-paper" role="status">{waiting}</div>}
+          </TableHost>
+        </Suspense>
+      );
+    }
+    return <p className="text-center py-20 ss-dim">{waiting}</p>;
+  }
   const shownCode = realCode || game.room.code;
   return (
     <>
       {game.staleClient && <p className="ss-hint max-w-xl mx-auto mt-3">Das Spiel wurde aktualisiert. Bitte lade die Seite neu, damit Server und Browser gleich rechnen.</p>}
       {game.room.status === "lobby"
-        ? <LobbyScreen game={game} code={shownCode} />
+        ? (atTable
+          ? <Suspense fallback={null}><TableLobby game={game} onFallback={() => setTableFailed(true)} /></Suspense>
+          : <LobbyScreen game={game} code={shownCode} />)
         : <GameScreen game={game} onExit={() => { game.lobby.leave(); navigate("/sacrifice-and-sigils"); }} />}
     </>
   );

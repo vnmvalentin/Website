@@ -21,12 +21,15 @@
 const path = require('path');
 const { pathToFileURL } = require('url');
 const { createRoomManager } = require('./roomManager');
+const { meldeSpielAn } = require('../lib/spielStatistik');
 
 const TICK_MS = 250;
 const MAX_EVENTS_PER_SECOND = 20;
 const ENGINE = path.join(__dirname, 'shared', 'engine', 'index.js');
 
 let managerPromise = null;
+let liveManager = null; // für die Live-Zahlen im Admin; entsteht erst mit dem ersten Besucher
+meldeSpielAn('worldflip', () => (liveManager ? liveManager.stats() : { raeume: 0, spieler: 0 }));
 
 function getManager(io) {
   if (!managerPromise) {
@@ -34,6 +37,7 @@ function getManager(io) {
       const engine = await import(pathToFileURL(ENGINE).href);
       const send = (id, event, payload) => io.to(id).emit(event, payload);
       const manager = createRoomManager({ engine, send });
+      liveManager = manager;
       setInterval(() => {
         try {
           manager.tick();

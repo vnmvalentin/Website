@@ -18,6 +18,8 @@ const EVENT_TYPES = new Set([
   'take', 'insert', 'valve', 'statue', 'code', 'carving', 'noise', 'crumb', 'caught', 'escaped', 'wipe', 'sfx', 'hide', 'scare',
 ]);
 
+const { zaehlePartie } = require('../lib/spielStatistik');
+
 function createLightsOutRooms({ send, now = Date.now, random = Math.random }) {
   const rooms = new Map(); // code -> room
   const sockets = new Map(); // socketId -> { code, seat }
@@ -144,6 +146,7 @@ function createLightsOutRooms({ send, now = Date.now, random = Math.random }) {
     room.seed = Number.isInteger(seed) && seed > 0 && seed < 2 ** 31 ? seed : Math.floor(random() * 2 ** 31) || 1;
     room.round += 1;
     room.phase = 'playing';
+    zaehlePartie('lights-out'); // Admin-Reiter „Spiele“: jeder Start einer Ebene (auch der Neuversuch) ist eine Partie
     room.startPlayers = connected(room).map((p) => ({ seat: p.seat, name: p.name }));
     pushRoom(room);
     broadcast(room, 'lo:start', startPayload(room));
@@ -240,7 +243,14 @@ function createLightsOutRooms({ send, now = Date.now, random = Math.random }) {
     }
   }
 
-  return { create, join, start, lobby, state, world, event, leave, disconnect, sweep, _rooms: rooms };
+  // Admin-Reiter „Spiele“ (lib/spielStatistik.js): offene Räume und die verbundenen Spieler darin
+  function stats() {
+    let spieler = 0;
+    for (const room of rooms.values()) spieler += connected(room).length;
+    return { raeume: rooms.size, spieler };
+  }
+
+  return { create, join, start, lobby, state, world, event, leave, disconnect, sweep, stats, _rooms: rooms };
 }
 
 module.exports = { createLightsOutRooms, MAX_PLAYERS };

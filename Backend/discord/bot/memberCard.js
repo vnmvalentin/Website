@@ -4,6 +4,7 @@
 // Discord-Embed und kein gezeichnetes Bild — dafür bräuchte der Bot eine
 // Bildbibliothek, die es im Projekt nicht gibt.
 const { EmbedBuilder } = require('discord.js');
+const { botText } = require('./botText');
 
 const COLORS = { welcome: 0x5865f2, leave: 0x747f8d };
 
@@ -13,8 +14,9 @@ const COLORS = { welcome: 0x5865f2, leave: 0x747f8d };
  * @param {'welcome'|'leave'} kind
  */
 function memberCard(member, text, kind) {
+    const t = botText(member);
     const user = member.user;
-    const name = member.displayName || user?.globalName || user?.username || 'Unbekannt';
+    const name = member.displayName || user?.globalName || user?.username || t.unknown;
     const avatar = (size) => (typeof member.displayAvatarURL === 'function'
         ? member.displayAvatarURL({ size })
         : user?.displayAvatarURL?.({ size })) || null;
@@ -24,7 +26,7 @@ function memberCard(member, text, kind) {
         .setAuthor({ name, iconURL: avatar(64) || undefined })
         // Discord erlaubt höchstens 4096 Zeichen
         .setDescription(String(text).slice(0, 4096))
-        .setFooter({ text: kind === 'leave' ? `Noch ${member.guild.memberCount} Mitglieder` : `Mitglied #${member.guild.memberCount}` })
+        .setFooter({ text: kind === 'leave' ? t.card.leaveFooter(member.guild.memberCount) : t.card.welcomeFooter(member.guild.memberCount) })
         .setTimestamp();
     const big = avatar(256);
     if (big) embed.setThumbnail(big);

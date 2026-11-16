@@ -79,7 +79,7 @@ export const KITS = {
   },
   cyber: {
     id: "cyber",
-    name: "Cyber-Söldner",
+    name: "Tüftler",
     role: "Dauerfeuer und Technik",
     projectile: "proj_laser",
     hp: 100, damage: 12, speed: 235, armor: 5, crit: 0.01,
@@ -93,7 +93,7 @@ export const KITS = {
   },
   gh0stqq: {
     id: "gh0stqq",
-    name: "Baumeister",
+    name: "Steinbrecher",
     role: "Mauern und Kontrolle",
     projectile: "proj_block",
     hp: 130, damage: 12, speed: 220, armor: 5, crit: 0.01,

@@ -1,15 +1,42 @@
 // ui/screens/HomeScreen.jsx — Titel-Szene mit Kerzen: Spiel erstellen / beitreten / Übung / Kartenbuch / Anleitung / Tutorial.
-import React, { useMemo, useState } from "react";
+// Am Tisch im Kerzenlicht (Standard) steht stattdessen das Hauptmenü am Tisch (table/TableMenu.jsx); diese Seite
+// bleibt der Ausweichweg: bisheriger Tisch gewählt, Sparmodus, kein WebGL, hochkant.
+import React, { Suspense, lazy, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Swords, DoorOpen, Bot, BookOpen, ScrollText, GraduationCap, Footprints } from "lucide-react";
 import SEO from "../../../../components/SEO";
 import Card from "../card/Card.jsx";
 import { COLLECTIBLE, resolveCard } from "../../engine/cards.js";
-import { usePrefs, setPrefs } from "../prefs.js";
+import { usePrefs, setPrefs, useNewTable } from "../prefs.js";
 import { sound } from "../../audio/sound.js";
 import { de } from "../../i18n/de.js";
 
+const TableMenu = lazy(() => import("../table/TableMenu.jsx"));
+
+const SEO_PROPS = {
+  title: "Sacrifice & Sigils – Kartenspiel im Browser",
+  description: "Düsteres 1v1-Kartenspiel im Browser: Draft, Opfer, Knochen und Wachs, eine Messingwaage und ein Pfad durchs Aschemoor. Online gegen Freunde oder gegen die KI.",
+  path: "/sacrifice-and-sigils",
+};
+
 export default function HomeScreen() {
+  const newTable = useNewTable();
+  const [failed, setFailed] = useState(false);
+  // Hochkant (Handy) ist der Tisch noch nicht eingerichtet (Plan, Phase 7)
+  const wideEnough = typeof window === "undefined" || window.innerWidth >= window.innerHeight * 1.2;
+  if (newTable && wideEnough && !failed) {
+    return (
+      <>
+        <SEO {...SEO_PROPS} />
+        <Suspense fallback={null}><TableMenu onFallback={() => setFailed(true)} /></Suspense>
+      </>
+    );
+  }
+  return <FlatHome />;
+}
+
+/** Das bisherige Hauptmenü (Pergament mit Menüliste). */
+function FlatHome() {
   const navigate = useNavigate();
   const prefs = usePrefs();
   const [name, setName] = useState(prefs.name || "");
@@ -71,11 +98,7 @@ export default function HomeScreen() {
 
   return (
     <div className="max-w-[1200px] mx-auto px-4 py-8 md:py-14">
-      <SEO
-        title="Sacrifice & Sigils – Kartenspiel im Browser"
-        description="Düsteres 1v1-Kartenspiel im Browser: Draft, Opfer, Knochen und Wachs, eine Messingwaage und ein Pfad durchs Aschemoor. Online gegen Freunde oder gegen die KI."
-        path="/sacrifice-and-sigils"
-      />
+      <SEO {...SEO_PROPS} />
       <div className="grid md:grid-cols-[1.15fr_1fr] gap-10 items-center">
         <div className="relative">
           <p className="ss-dim italic mb-3">Eine versunkene Kapelle im Aschemoor. Zwei Zeichner, ein Tisch, eine Waage.</p>

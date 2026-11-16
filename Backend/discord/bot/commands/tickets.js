@@ -6,22 +6,25 @@ const {
 const {
     getTicketConfig, getTicketFields, saveTicketHistoryEntry, closeTicketHistoryEntry,
 } = require('../../database/db');
+const { botText } = require('../botText');
 
-const DEFAULT_FIELD = { label: 'Anliegen', placeholder: 'Beschreibe dein Anliegen...', required: true, style: 2 };
+// Feld, wenn der Server keine eigenen Felder eingerichtet hat — Beschriftung in der Sprache des Servers
+const defaultField = (t) => ({ ...t.defaultField, required: true, style: 2 });
 
 async function handleTicketCreateButton(interaction) {
+    const t = botText(interaction).tickets;
     const config = getTicketConfig(interaction.guildId);
     if (!config) {
-        return interaction.reply({ content: '❌ Das Ticket-System ist nicht mehr eingerichtet.', flags: MessageFlags.Ephemeral });
+        return interaction.reply({ content: t.notSetUp, flags: MessageFlags.Ephemeral });
     }
 
     const fields = getTicketFields(interaction.guildId);
-    const usedFields = fields.length > 0 ? fields : [DEFAULT_FIELD];
+    const usedFields = fields.length > 0 ? fields : [defaultField(t)];
 
     try {
         const modal = new ModalBuilder()
             .setCustomId('ticket_modal')
-            .setTitle((config.embedTitle || 'Support Ticket').slice(0, 45));
+            .setTitle((config.embedTitle || t.defaultTitle).slice(0, 45));
 
         modal.addComponents(...usedFields.slice(0, 5).map((f, i) => {
             const input = new TextInputBuilder()
@@ -38,21 +41,22 @@ async function handleTicketCreateButton(interaction) {
     } catch (e) {
         console.error('Ticket modal error:', e);
         if (!interaction.replied) {
-            await interaction.reply({ content: '❌ Fehler beim Öffnen des Formulars.', flags: MessageFlags.Ephemeral }).catch(() => {});
+            await interaction.reply({ content: t.formFailed, flags: MessageFlags.Ephemeral }).catch(() => {});
         }
     }
 }
 
 async function handleTicketModalSubmit(interaction) {
+    const t = botText(interaction).tickets;
     const config = getTicketConfig(interaction.guildId);
     if (!config) {
-        return interaction.reply({ content: '❌ Das Ticket-System ist nicht mehr eingerichtet.', flags: MessageFlags.Ephemeral });
+        return interaction.reply({ content: t.notSetUp, flags: MessageFlags.Ephemeral });
     }
 
     await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
     const fields = getTicketFields(interaction.guildId);
-    const usedFields = fields.length > 0 ? fields : [DEFAULT_FIELD];
+    const usedFields = fields.length > 0 ? fields : [defaultField(t)];
     const fieldData = {};
     usedFields.slice(0, 5).forEach((f, i) => {
         try { fieldData[f.label] = interaction.fields.getTextInputValue(`field_${i}`); } catch {}
@@ -92,37 +96,38 @@ async function handleTicketModalSubmit(interaction) {
         saveTicketHistoryEntry(interaction.guildId, interaction.user.id, channel.id, interaction.user.username, fieldData);
 
         const embed = new EmbedBuilder()
-            .setTitle(`🎫 ${config.embedTitle || 'Support Ticket'}`)
+            .setTitle(`🎫 ${config.embedTitle || t.defaultTitle}`)
             .setColor(config.embedColor || '#5865F2')
-            .setDescription(`Ticket erstellt von <@${interaction.user.id}>`)
+            .setDescription(t.createdBy(interaction.user.id))
             .addFields(Object.entries(fieldData).map(([name, value]) => ({ name, value: value || '—' })))
             .setTimestamp();
 
         const closeRow = new ActionRowBuilder().addComponents(
-            new ButtonBuilder().setCustomId('ticket_close').setLabel('🔒 Ticket schließen').setStyle(ButtonStyle.Danger)
+            new ButtonBuilder().setCustomId('ticket_close').setLabel(t.closeButton).setStyle(ButtonStyle.Danger)
         );
 
         const mentions = [`<@${interaction.user.id}>`, ...validHandlerRoleIds.map(id => `<@&${id}>`)].join(' ');
 
         await channel.send({ content: mentions, embeds: [embed], components: [closeRow] });
 
-        await interaction.editReply({ content: `✅ Dein Ticket wurde erstellt: <#${channel.id}>` });
+        await interaction.editReply({ content: t.created(channel.id) });
     } catch (e) {
         console.error('Ticket creation error:', e);
-        await interaction.editReply({ content: `❌ Fehler beim Erstellen des Ticket-Kanals: \`${e.message || e}\`` });
+        await interaction.editReply({ content: t.createFailed(e.message || e) });
     }
 }
 
 async function handleTicketClose(interaction) {
+    const t = botText(interaction).tickets;
     const config = getTicketConfig(interaction.guildId);
     const isHandler = config?.handlerRoleIds?.some(id => interaction.member.roles.cache.has(id));
     const canManage = interaction.member.permissions.has(PermissionFlagsBits.ManageChannels);
     if (!isHandler && !canManage) {
-        return interaction.reply({ content: '❌ Nur Bearbeiter können dieses Ticket schließen.', flags: MessageFlags.Ephemeral });
+        return interaction.reply({ content: t.onlyHandlers, flags: MessageFlags.Ephemeral });
     }
 
     try {
-        await interaction.reply({ content: '🔒 Ticket wird geschlossen — Kanal wird in 5 Sekunden gelöscht.' });
+        await interaction.reply({ content: t.closing });
         closeTicketHistoryEntry(interaction.channelId);
         setTimeout(() => {
             interaction.channel.delete().catch(() => {});

@@ -383,9 +383,11 @@ export function pruefeZug(grid, entities, cls, laufTempo, schritt) {
   // der den vorigen Zug etwas anders gesprungen ist (Kettenlauf: eine Kachel daneben, und der Einzelblock-Sprung danach
   // fiel zu kurz)
   const laeufe = [...varianten(zug, laufTempo), { ...zug, startDx: -4 }, { ...zug, startDx: 4 }, ...(schritt.starts || []).map((sx) => ({ ...zug, startX: sx }))];
+  // (alle Varianten auf derselben Karte: nur einmal einlesen, probe.js `merk`)
+  const merk = {};
   for (const v of laeufe) {
     const st0 = v.startX != null ? { x: v.startX, y: von.y } : von;
-    const aus = ausschnittWelt(grid, entities, st0, cls, { x: Math.round((von.x + ziel.x0) / 2), y: Math.round((von.y + ziel.row) / 2) });
+    const aus = ausschnittWelt(grid, entities, st0, cls, { x: Math.round((von.x + ziel.x0) / 2), y: Math.round((von.y + ziel.row) / 2) }, merk);
     if (v.startDx) aus.welt.player.x += v.startDx;
     aus.welt.flags.keys = Number(schritt.schluessel) || 0;     // Schlüssel in der Tasche: Türen öffnen sich
     aus.welt.flags.sw = schritt.sw || 0;                        // geschaltete Kanäle: Farbblock-Brücken sind fest
@@ -1108,8 +1110,9 @@ export function planePfad({ rng, cls, d, limits, reach, grid, start, richtungen:
         // Ohne Ziel spielen
         // (Luftportal: Ausschnitt zwischen Absprung und Ausgang, sonst läge der Ausgang außerhalb)
         let mitte = null;
-        const probeSpielen = (z2 = zug) => {
-          const aus = ausschnittWelt(grid, entities, von, cls, mitte || { x: von.x + zug.dir * 10, y: von.y + Math.round(dy / 2) });
+        // (`merk`: nur in Schleifen mitgeben, zwischen deren Proben sich Raster und Elemente nicht ändern — probe.js)
+        const probeSpielen = (z2 = zug, merk = null) => {
+          const aus = ausschnittWelt(grid, entities, von, cls, mitte || { x: von.x + zug.dir * 10, y: von.y + Math.round(dy / 2) }, merk);
           aus.welt.flags.keys = schluessel;
           aus.welt.flags.sw = swMaske;
           if (z2.startDx) aus.welt.player.x += z2.startDx;
@@ -1401,8 +1404,9 @@ export function planePfad({ rng, cls, d, limits, reach, grid, start, richtungen:
           let gut = true;
           // (Flappy-Seil: auch die Starts ±4 px der Menschen-Prüfung — nach mehreren Schwüngen streuen sie am weitesten)
           const streuLaeufe = [...varianten(zug, reach.runSpeed).slice(1), ...(zug.flappy ? [{ ...zug, startDx: -4 }, { ...zug, startDx: 4 }] : [])];
+          const merkStreu = {};
           for (const v of streuLaeufe) {
-            const sp = probeSpielen(v).spur;
+            const sp = probeSpielen(v, merkStreu).spur;
             const Lv = landeIndex(sp);
             if (Lv < 3) { gut = false; break; }
             const lx = standKachel(sp[Lv]).x;
@@ -1514,7 +1518,8 @@ export function planePfad({ rng, cls, d, limits, reach, grid, start, richtungen:
           const kante = zug.dir > 0 ? plat.x1 : plat.x0;
           const ende = zug.dir > 0 ? x0 - 1 : x1 + 1;
           const flugAlle = new Set();
-          for (const v of varianten(zug, reach.runSpeed)) beruehrteKacheln(probeSpielen(v).spur, flugAlle);
+          const merkFlug = {};
+          for (const v of varianten(zug, reach.runSpeed)) beruehrteKacheln(probeSpielen(v, merkFlug).spur, flugAlle);
           let oben = Infinity;
           for (const key of flugAlle) { const [x, y] = key.split(',').map(Number); if ((x - kante) * zug.dir > 0 && (ende - x) * zug.dir >= 0) oben = Math.min(oben, y); }
           const C = oben - 2;                                    // Felszeile; Stacheln darunter (C+1) direkt über der Bahn
@@ -1669,7 +1674,8 @@ export function planePfad({ rng, cls, d, limits, reach, grid, start, richtungen:
           // Muss man die Lücke wirklich abpassen? Derselbe Zug zu 6 anderen Zeitpunkten im Takt — mindestens 2 davon treffen
           // die Kugeln (sonst wäre der Beschuss Kulisse)
           let tote = 0;
-          for (let k = 1; k <= 6; k++) if (probeSpielen({ ...zug, schussReaktion: zug.schussReaktion + Math.round((k * period * 120) / 7) }).tot) tote++;
+          const merkTakt = {};
+          for (let k = 1; k <= 6; k++) if (probeSpielen({ ...zug, schussReaktion: zug.schussReaktion + Math.round((k * period * 120) / 7) }, merkTakt).tot) tote++;
           if (tote < 2) { verwerfen('beschuss-harmlos'); continue; }
           // Muss man überhaupt durch die Kugelbahn? (Rückmeldung 03.10.2026: „unter den Projektilen einfach durch, ohne dort
           // jemals durchzumüssen“ — eine Bahn quer über dem Scheitel unterflog ein flacherer Sprung.) Die Bahnen zur Probe

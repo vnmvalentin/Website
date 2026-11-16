@@ -5,6 +5,7 @@
 import { makeRng, hashSeed, dist } from "./util.js";
 import { NORMAL_WORLD_SIZE, FINAL_WORLD_SIZE } from "../data/biomes.js";
 
+const CAMP_COUNT = 0;
 export const INTERACTABLE_COUNTS = { chest: 18, bigChest: 4, equipChest: 3, luckShrine: 2, combatShrine: 1, healShrine: 1, fateShrine: 1, sacrificeAltar: 1, curseShrine: 1, diceShrine: 1 };
 
 export function generateWorld(seed, stageIndex, loop, biome) {
@@ -31,7 +32,7 @@ export function generateWorld(seed, stageIndex, loop, biome) {
   let teleporter = null;
   for (let i = 0; i < 200 && !teleporter; i++) {
     const p = { x: rng.range(margin + 200, size - margin - 200), y: rng.range(margin + 200, size - margin - 200) };
-    if (dist(p.x, p.y, spawn.x, spawn.y) > 1700) teleporter = p;
+    if (dist(p.x, p.y, spawn.x, spawn.y) > 1300) teleporter = p;
   }
   if (!teleporter) teleporter = { x: spawn.x > size / 2 ? margin + 300 : size - margin - 300, y: size / 2 };
 
@@ -48,7 +49,7 @@ export function generateWorld(seed, stageIndex, loop, biome) {
     for (const o of obstacles) if (dist(x, y, o.x, o.y) < o.r + r + pad) return false;
     return true;
   };
-  const clusterCount = 34;
+  const clusterCount = 22;
   for (let c = 0; c < clusterCount; c++) {
     const cx = rng.range(margin, size - margin);
     const cy = rng.range(margin, size - margin);
@@ -64,7 +65,7 @@ export function generateWorld(seed, stageIndex, loop, biome) {
     }
   }
   // Ein paar Einzelstücke für Abwechslung auf freien Flächen
-  for (let i = 0; i < 40; i++) {
+  for (let i = 0; i < 26; i++) {
     const [sprite, rMin, rMax] = rng.pick(biome.obstacles);
     const r = rng.range(rMin, rMax);
     const x = rng.range(margin, size - margin);
@@ -112,7 +113,9 @@ export function generateWorld(seed, stageIndex, loop, biome) {
 
   // Gegnerlager
   const camps = [];
-  for (let i = 0; i < 300 && camps.length < 12; i++) {
+  // Lager gibt es seit November 2026 nicht mehr (CAMP_COUNT 0): die Horde kommt von selbst, herumstehende Grüppchen
+  // waren nur noch Laufweg. Der Code bleibt, falls eine Welt wieder welche bekommen soll.
+  for (let i = 0; i < 300 && camps.length < CAMP_COUNT; i++) {
     const x = rng.range(margin, size - margin);
     const y = rng.range(margin, size - margin);
     if (dist(x, y, spawn.x, spawn.y) < 1000) continue;

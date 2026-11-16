@@ -70,12 +70,14 @@ module.exports = function ({ requireAuth, discordClient }) {
         // Wer den Server verlassen hat, lässt sich nicht mehr nachladen — dann
         // steht dort "Ehemaliges Mitglied" statt einer ID.
         await ensureMembers(guild, [...rawVoice, ...rawChat].map(r => r.userId));
+        // former: true, damit das Dashboard den Ersatznamen in seiner Sprache zeigen kann
         const nameOf = (id) => guild?.members.cache.get(id)?.displayName || 'Ehemaliges Mitglied';
+        const isFormer = (id) => !guild?.members.cache.get(id);
 
         res.json({
             messageStats: await resolveChannels(guild, rawMessages),
-            voiceStats: rawVoice.map(row => ({ userId: row.userId, totalSeconds: row.totalSeconds, displayName: nameOf(row.userId) })),
-            userMessageStats: rawChat.map(row => ({ userId: row.userId, total: row.total, displayName: nameOf(row.userId) })),
+            voiceStats: rawVoice.map(row => ({ userId: row.userId, totalSeconds: row.totalSeconds, displayName: nameOf(row.userId), former: isFormer(row.userId) })),
+            userMessageStats: rawChat.map(row => ({ userId: row.userId, total: row.total, displayName: nameOf(row.userId), former: isFormer(row.userId) })),
             totals: { messages: getMessageTotal(guildId, days), chatters: getChatterCount(guildId, days) },
         });
     });
@@ -112,15 +114,17 @@ module.exports = function ({ requireAuth, discordClient }) {
         try {
             const png = await renderMemberImage({
                 name: 'Mika',
-                serverName: guild?.name || 'Dein Server',
+                serverName: guild?.name || (req.query.lang === 'en' ? 'Your server' : 'Dein Server'),
                 memberCount: guild?.memberCount || 128,
                 kind: req.query.kind === 'leave' ? 'leave' : 'welcome',
                 layout: req.query.layout,
+                // Die im Dashboard gewählte (auch noch ungespeicherte) Sprache des Bots
+                lang: req.query.lang === 'en' ? 'en' : 'de',
             });
             res.set({ 'Content-Type': 'image/png', 'Cache-Control': 'private, max-age=300' }).send(png);
         } catch (e) {
             console.warn('[Discord] Vorschaubild:', e.message);
-            res.status(500).json({ error: 'Bild konnte nicht gezeichnet werden.' });
+            res.status(500).json({ error: 'Bild konnte nicht gezeichnet werden.', code: "image_failed" });
         }
     });
 

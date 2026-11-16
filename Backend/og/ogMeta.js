@@ -21,36 +21,47 @@ const SECTIONS = {
   site: { kicker: 'VNMVALENTIN.DE', accent: '#e5e7eb' },
 };
 
-// Feste Seiten, die nicht vorgerendert sind (die vorgerenderten liefert nginx selbst aus, mit eigenen Tags)
+// Feste Seiten, die nicht vorgerendert sind (die vorgerenderten liefert nginx selbst aus, mit eigenen Tags).
+// shot = Vorschaubild aus dem Spiel (Frontend/public/media/previews/<shot>.webp, erzeugt mit scripts/vorschaubilder.cjs) —
+// es füllt das Link-Bild, der Text steht darüber.
 const STATIC_PAGES = {
-  '/seed-runners': { section: 'seed', title: 'Seed Runners', description: 'Schnelles Speedrun-Rennen im Browser: Alle laufen dasselbe zufällig erzeugte Level, wer zuerst im Ziel ist, gewinnt. Online mit Freunden, ohne Download.' },
+  '/seed-runners': { section: 'seed', shot: 'seed-runners', title: 'Seed Runners', description: 'Schnelles Speedrun-Rennen im Browser: Alle laufen dasselbe zufällig erzeugte Level, wer zuerst im Ziel ist, gewinnt. Online mit Freunden, ohne Download.' },
   '/seed-runners/levels': { section: 'seed', title: 'Level-Bibliothek', description: 'Level, die andere gebaut haben: mit Bestenliste, Geistern und vom Server bestätigten Zeiten.' },
   '/seed-runners/editor': { section: 'seed', title: 'Level-Editor', description: 'Baue eigene Seed-Runners-Level im Browser und veröffentliche sie für alle.' },
-  '/garden': { section: 'garden', title: 'Virtual Farm', description: 'Deine eigene Farm im Browser: pflanzen, ernten, Tiere halten und den Hof mit Deko gestalten — mit Nachbarn auf derselben Insel.' },
-  '/adventures': { section: 'games', title: 'adVentures', description: 'Roguelite-Dungeon im Browser: Waffen, Talente, Bosse — jeder Lauf anders.' },
-  '/blobby': { section: 'games', title: 'Blobby Volley', description: 'Blobby Volley online: Volleyball im Browser, 1v1 oder 2v2. Link teilen, losspielen, kein Download.' },
-  '/lights-out': { section: 'games', title: 'Lights Out', description: 'Horror im Browser in vier Ebenen: Wald, Anstalt, Keller, Garten — in jeder ein anderes Ding im Dunkeln. Allein oder zu viert im Koop.' },
-  '/flick-soccer': { section: 'games', title: 'Flick Soccer', description: 'Scheiben-Fußball im Browser: Formation wählen, zurückziehen, abschießen. Gegen den Computer, zu zweit oder online per Link.' },
-  '/worldflip': { section: 'games', title: 'Worldflip', description: '3D-Kartenspiel im Browser: Karten ablegen, während vier Welten um den Tisch kippen und ausbrechen. 13 Effektkarten, 12 Weltereignisse — gegen Bots, online zu viert oder 2 gegen 2.' },
-  '/connect4': { section: 'games', title: 'Connect 4', description: 'Vier Gewinnt gegen einen Freund: Link teilen und direkt loslegen, kein Download nötig.' },
+  '/garden': { section: 'garden', shot: 'garden', title: 'Virtual Farm', description: 'Deine eigene Farm im Browser: pflanzen, ernten, Tiere halten und den Hof mit Deko gestalten — mit Nachbarn auf derselben Insel.' },
+  '/adventures': { section: 'games', shot: 'adventures', title: 'adVentures', description: 'Horde-Roguelite in 3D im Browser: Waffen feuern von selbst, tausende Gegner pro Lauf, fünf Welten bis zum Drachen.' },
+  '/blobby': { section: 'games', shot: 'blobby', title: 'Blobby Volley', description: 'Blobby Volley online: Volleyball im Browser, 1v1 oder 2v2. Link teilen, losspielen, kein Download.' },
+  '/lights-out': { section: 'games', shot: 'lights-out', title: 'Lights Out', description: 'Horror im Browser in vier Ebenen: Wald, Anstalt, Keller, Garten — in jeder ein anderes Ding im Dunkeln. Allein oder zu viert im Koop.' },
+  '/flick-soccer': { section: 'games', shot: 'flick-soccer', title: 'Flick Soccer', description: 'Scheiben-Fußball im Browser: Formation wählen, zurückziehen, abschießen. Gegen den Computer, zu zweit oder online per Link.' },
+  '/worldflip': { section: 'games', shot: 'worldflip', title: 'Worldflip', description: '3D-Kartenspiel im Browser: Karten ablegen, während vier Welten um den Tisch kippen und ausbrechen. 19 Effektkarten, 12 Weltereignisse — gegen Bots, online zu viert oder 2 gegen 2.' },
+  '/connect4': { section: 'games', shot: 'connect4', title: 'Connect 4', description: 'Vier Gewinnt gegen einen Freund: Link teilen und direkt loslegen, kein Download nötig.' },
   '/sacrifice-and-sigils/kartenbuch': { section: 'sigils', title: 'Kartenbuch', description: 'Alle Karten, Sigils, Items und Ereignisse von Sacrifice & Sigils.' },
-  '/sacrifice-and-sigils/moorwanderung': { section: 'sigils', title: 'Die Moorwanderung', description: 'Run-Modus für 2 bis 6 Spieler: allein durchs Moor, Deck ausbauen, im Duell Lebenssiegel verteidigen.' },
+  '/sacrifice-and-sigils/moorwanderung': { section: 'sigils', shot: 'sacrifice-and-sigils', title: 'Die Moorwanderung', description: 'Run-Modus für 2 bis 6 Spieler: allein durchs Moor, Deck ausbauen, im Duell Lebenssiegel verteidigen.' },
   '/tools/vorlagen': { section: 'stream', title: 'Overlay-Galerie', description: 'Fertige Looks für die kostenlosen OBS-Overlays: Win Tracker, Win Challenge und Twitch-Umfragen, -Vorhersagen und -Ziele. Mit einem Klick übernehmen.' },
-  '/tanzfigur': { section: 'stream', title: 'Tanzfigur bauen', description: 'Bau dir deine Figur mit Hut, Kopf, Outfit und Schuhen — sie tanzt beim Stream-Start auf der Tanzfläche mit.' },
+  '/tanzfigur': { section: 'stream', shot: 'tanzfigur', title: 'Tanzfigur bauen', description: 'Bau dir deine Figur mit Hut, Kopf, Outfit und Schuhen — sie tanzt beim Stream-Start auf der Tanzfläche mit.' },
+  // Clash-Royale-Stats (Frontend: pages/ClashRoyale/scout/)
+  '/clash/spieler': { section: 'cr', title: 'Clash Royale Spieler-Stats', description: 'Profil mit Ranked-Deck, Kämpfen, Sammlung und Aufwert-Rechner — dazu Clans mit Clankrieg.' },
+  '/clash/ranglisten': { section: 'cr', title: 'Clash Royale Ranglisten', description: 'Die besten Spieler mit ihren Ranked-Decks und die besten Clans: weltweit und je Land.' },
+  '/clash/karten': { section: 'cr', title: 'Clash Royale Karten', description: 'Alle Karten mit Kampfwerten, Nutzung und Siegquote bei den besten Spielern.' },
+  '/clash/decks': { section: 'cr', title: 'Clash Royale Decks der Besten', description: 'Was die besten Spieler gerade spielen: häufigste Decks mit Siegquote — nach Karten filtern und mit der eigenen Sammlung abgleichen.' },
+  '/clash/crown-series': { section: 'cr', title: 'Clash Royale Crown Series', description: 'Die besten Duell-Decks: Sets aus vier Decks ohne doppelte Karte, die Sets der Bestplatzierten und alle Duell-Decks mit Siegquote.' },
+  '/clash/vergleich': { section: 'cr', title: 'Clash Royale Spieler-Vergleich', description: 'Zwei Spieler nebeneinander: Trophäen, Ranked, Siegquote, Sammlung, Decks und direkte Duelle.' },
+  '/clash/heute': { section: 'cr', title: 'Clash Royale Tagesrunde', description: 'Alle fünf Ratespiele des Tages: Karten-Wordle, Kartenraten, Zoom-, Pixel- und Farb-Raten — mit Punkten, Serie und Bestenliste.' },
+  '/clash/baukasten': { section: 'cr', title: 'Clash Royale Deck-Baukasten', description: 'Deck bauen und sofort sehen, was fehlt: Elixier, Cycle, Luftabwehr, Zauber — dazu ähnliche Decks der Besten.' },
   '/updates': { section: 'site', title: 'Updates', description: 'Alle Neuerungen, Fixes und Features von vnmvalentin.de im Überblick.' },
   '/Giveaways': { section: 'stream', title: 'Giveaways', description: 'Aktuelle Giveaways von vnmvalentin.' },
   '/Abstimmungen': { section: 'stream', title: 'Abstimmungen', description: 'Community-Abstimmungen von vnmvalentin.' },
 };
 
-// Einladungslinks in Räume: Code in der Adresse, keine Live-Daten nötig
+// Einladungslinks in Räume: Code in der Adresse, keine Live-Daten nötig. Das Bild zeigt das Spiel (shot) mit „Einladung“.
 const ROOM_PATTERNS = [
-  { re: /^\/seed-runners\/([A-Za-z0-9-]{3,16})$/, section: 'seed', game: 'Seed Runners', text: 'Ein Rennen wartet auf dich: Klick auf den Link und lauf direkt mit, ohne Download.' },
-  { re: /^\/blobby\/([A-Za-z0-9-]{3,16})$/, section: 'games', game: 'Blobby Volley', text: 'Du bist zu einer Partie Blobby Volley eingeladen. Klick und spiel direkt mit.' },
-  { re: /^\/connect4\/([A-Za-z0-9-]{3,16})$/, section: 'games', game: 'Connect 4', text: 'Du bist zu einer Partie Vier Gewinnt eingeladen. Klick und spiel direkt mit.' },
-  { re: /^\/flick-soccer\/([A-Za-z0-9-]{3,16})$/, section: 'games', game: 'Flick Soccer', text: 'Du bist zu einem Spiel Flick Soccer eingeladen. Klick und spiel direkt mit.' },
-  { re: /^\/worldflip\/([A-Za-z0-9-]{3,16})$/, section: 'games', game: 'Worldflip', text: 'Am schwebenden Tisch ist ein Platz frei. Klick und spiel direkt mit.' },
-  { re: /^\/sacrifice-and-sigils\/raum\/([A-Za-z0-9-]{3,16})$/, section: 'sigils', game: 'Sacrifice & Sigils', text: 'Ein Tisch in der versunkenen Kapelle wartet auf dich. Klick und spiel direkt mit.' },
-  { re: /^\/sacrifice-and-sigils\/moorwanderung\/([A-Za-z0-9-]{3,16})$/, section: 'sigils', game: 'Die Moorwanderung', text: 'Eine Gruppe bricht ins Moor auf. Klick und spiel direkt mit.' },
+  { re: /^\/seed-runners\/([A-Za-z0-9-]{3,16})$/, section: 'seed', game: 'Seed Runners', shot: 'seed-runners', text: 'Ein Rennen wartet auf dich: Klick auf den Link und lauf direkt mit, ohne Download.', invite: 'Ein Rennen wartet auf dich — lauf direkt mit.' },
+  { re: /^\/blobby\/([A-Za-z0-9-]{3,16})$/, section: 'games', game: 'Blobby Volley', shot: 'blobby', text: 'Du bist zu einer Partie Blobby Volley eingeladen. Klick und spiel direkt mit.', invite: 'Du bist zu einer Partie eingeladen — klick und spiel mit.' },
+  { re: /^\/connect4\/([A-Za-z0-9-]{3,16})$/, section: 'games', game: 'Connect 4', shot: 'connect4', text: 'Du bist zu einer Partie Vier Gewinnt eingeladen. Klick und spiel direkt mit.', invite: 'Du bist zu einer Partie eingeladen — klick und spiel mit.' },
+  { re: /^\/flick-soccer\/([A-Za-z0-9-]{3,16})$/, section: 'games', game: 'Flick Soccer', shot: 'flick-soccer', text: 'Du bist zu einem Spiel Flick Soccer eingeladen. Klick und spiel direkt mit.', invite: 'Du bist zu einem Spiel eingeladen — klick und spiel mit.' },
+  { re: /^\/worldflip\/([A-Za-z0-9-]{3,16})$/, section: 'games', game: 'Worldflip', shot: 'worldflip', text: 'Am schwebenden Tisch ist ein Platz frei. Klick und spiel direkt mit.', invite: 'Am Tisch ist ein Platz frei — klick und spiel mit.' },
+  { re: /^\/sacrifice-and-sigils\/raum\/([A-Za-z0-9-]{3,16})$/, section: 'sigils', game: 'Sacrifice & Sigils', shot: 'sacrifice-and-sigils', text: 'Ein Tisch in der versunkenen Kapelle wartet auf dich. Klick und spiel direkt mit.', invite: 'Ein Tisch in der Kapelle wartet auf dich.' },
+  { re: /^\/sacrifice-and-sigils\/moorwanderung\/([A-Za-z0-9-]{3,16})$/, section: 'sigils', game: 'Die Moorwanderung', shot: 'sacrifice-and-sigils', text: 'Eine Gruppe bricht ins Moor auf. Klick und spiel direkt mit.', invite: 'Eine Gruppe bricht ins Moor auf — komm mit.' },
 ];
 
 // Unterseiten von /seed-runners, die kein Raumcode sind
@@ -214,6 +225,35 @@ function resolveMeta(rawUri, sources = {}) {
     };
   }
 
+  // Clash-Royale-Stats: Spieler (Name aus dem Namens-Index, sonst nur der Tag), Clan, Karte
+  m = path.match(/^\/clash\/(spieler|clan)\/([0289PYLQGRJCUVpylqgrjcuv]{3,12})$/);
+  if (m) {
+    const tag = m[2].toUpperCase();
+    if (m[1] === 'clan') {
+      return {
+        path, section: 'cr', title: `Clan #${tag} — Clash Royale`, description: 'Mitglieder mit Aktivität, laufender Clankrieg und die letzten Kriege.',
+        image: { kind: 'page', key: '/clash/spieler' },
+      };
+    }
+    const p = safe(sources.scoutPlayer, tag);
+    const name = clip(p?.name, 40);
+    const facts = [p?.trophies > 0 ? `${Number(p.trophies).toLocaleString('de-DE')} Trophäen` : '', clip(p?.clan, 40)].filter(Boolean).join(' · ');
+    return {
+      path, section: 'cr', title: name ? `${name} (#${tag}) — Clash Royale Stats` : `Spieler #${tag} — Clash Royale Stats`,
+      description: `${facts ? `${facts}. ` : ''}Ranked-Deck, Kämpfe, Sammlung und Abzeichen.`,
+      image: { kind: 'page', key: '/clash/spieler' },
+    };
+  }
+  m = path.match(/^\/clash\/karten\/([a-z0-9-]{2,40})$/);
+  if (m) {
+    const c = safe(sources.card, m[1]);
+    if (!c) return null;
+    return {
+      path, section: 'cr', title: `${clip(c.name, 40)} — Clash Royale Karte`, description: `${clip(c.name, 40)}: Kampfwerte, Nutzung und Siegquote bei den besten Spielern und die Decks, in denen sie steckt.`,
+      image: { kind: 'page', key: '/clash/karten' },
+    };
+  }
+
   // Einladungen in Räume
   for (const r of ROOM_PATTERNS) {
     const rm = path.match(r.re);
@@ -221,7 +261,8 @@ function resolveMeta(rawUri, sources = {}) {
     if (r.section === 'seed' && SEED_RESERVED.has(rm[1].toLowerCase())) continue;
     return {
       path, section: r.section, title: `Einladung: ${r.game}`, description: r.text,
-      image: { kind: 'invite', key: r.game }, noindex: true,
+      image: { kind: 'invite', key: r.game }, noindex: true, shot: r.shot,
+      card: { kicker: 'Einladung', title: r.game, lines: [r.invite] },
     };
   }
 

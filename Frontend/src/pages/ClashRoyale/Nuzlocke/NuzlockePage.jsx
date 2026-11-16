@@ -874,7 +874,7 @@ export default function NuzlockePage() {
       <div className="min-h-full flex flex-col">
         {/* ── Obere Zeile wie im Hub: zurück zur Website | Einstellungen ──────────── */}
         <div className="shrink-0 flex items-center gap-2 px-3 md:px-6 pt-3 md:pt-5 relative z-20">
-          <Link to="/clash" className={`${chipClass} px-3.5`} title="Zurück zur Website">
+          <Link to="/clash?reiter=minigames" className={`${chipClass} px-3.5`} title="Zurück zur Website">
             <ArrowLeftToLine size={16} />
             <span className="hidden sm:inline">Zurück zur Website</span>
           </Link>

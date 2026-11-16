@@ -14,19 +14,14 @@ import { TwitchAuthContext } from "../TwitchAuthContext";
 import { TwitchLoginButton } from "../ui";
 import { LEGAL_LINKS, salesVisible } from "../../config/legal";
 import { ToolShellContext } from "./toolShellContext";
-import { visibleTools, toolForPath } from "./tools";
+import { visibleTools, toolForPath, toolLabel } from "./tools";
+import { SHELL_TEXT } from "./toolShellText";
+import { useLanguage } from "../../i18n/language";
+import LanguageSwitch from "../../i18n/LanguageSwitch";
 
-const DEFAULT_LABELS = {
-  back: "Zu den Streamer-Tools",
-  login: "Mit Twitch anmelden",
-  logout: "Abmelden",
-  profile: "Profil öffnen",
-  menu: "Alle Werkzeuge",
-  allTools: "Streamer-Tools",
-  home: "Startseite",
-};
+const DE_ONLY = ["de"];
 
-function ToolsMenu({ activeKey, labels, user }) {
+function ToolsMenu({ activeKey, labels, user, lang }) {
   const [open, setOpen] = useState(false);
   const wrapRef = useRef(null);
   const { pathname } = useLocation();
@@ -61,14 +56,14 @@ function ToolsMenu({ activeKey, labels, user }) {
       </button>
       {open && (
         <div role="menu" className="dropdown-in absolute right-0 top-full mt-1.5 z-50 w-60 max-w-[calc(100vw-16px)] p-1.5 rounded-lg border border-line bg-surface-raised shadow-2xl shadow-black/60">
-          {visibleTools(user).map(({ key, label, icon: Icon, to }) => (
+          {visibleTools(user).map((t) => { const { key, icon: Icon, to } = t; return (
             <Link key={key} to={to} role="menuitem"
               className={`${item} ${key === activeKey ? "bg-accent/15 text-white" : "text-white/70 hover:bg-white/5 hover:text-white"}`}>
               <Icon size={15} className={key === activeKey ? "text-accent-soft" : "text-white/40"} />
-              <span className="flex-1 truncate">{label}</span>
+              <span className="flex-1 truncate">{toolLabel(t, lang)}</span>
               {key === activeKey && <Check size={14} className="text-accent-soft" />}
             </Link>
-          ))}
+          ); })}
           <div className="my-1.5 border-t border-line" />
           <Link to="/tools" role="menuitem" className={`${item} text-white/70 hover:bg-white/5 hover:text-white`}>
             <Wrench size={15} className="text-white/40" />{labels.allTools}
@@ -93,17 +88,27 @@ function ToolsMenu({ activeKey, labels, user }) {
  * @param {object} props
  * @param {React.ReactNode} [props.title]   Name in der Leiste; sonst aus tools.js nach der Adresse
  * @param {string} [props.titleTo]          wohin der Name führt (Startseite des Werkzeugs)
- * @param {React.ReactNode} [props.center]  feste Mitte der Leiste, z. B. die Sprachwahl der Win Challenge
+ * @param {React.ReactNode} [props.center]  feste Mitte der Leiste; ohne Angabe steht dort der Sprachumschalter, wenn
+ *                                          das Werkzeug laut tools.js (langs) mehrere Sprachen kann
  * @param {boolean} [props.hideLogin]       kein Anmelde-Knopf (Seiten, die über einen geheimen Link laufen)
- * @param {Partial<typeof DEFAULT_LABELS>} [props.labels]  Texte der Leiste (für übersetzte Werkzeuge)
+ * @param {object} [props.labels]          einzelne Texte der Leiste überschreiben (Schlüssel wie in toolShellText.js)
  * @param {object} [props.outletContext]    wird an die Seiten durchgereicht (useOutletContext)
- * @param {string} [props.lang]
+ * @param {string} [props.lang]             Sprache von Leiste und Menü, wenn ein Aufsatz sie selbst bestimmt (WcShell);
+ *                                          sonst die gewählte Sprache, sofern das Werkzeug sie kann, und Deutsch
  */
-export default function ToolShell({ title, titleTo, center, hideLogin = false, labels: labelsIn, outletContext, lang }) {
+export default function ToolShell({ title, titleTo, center, hideLogin = false, labels: labelsIn, outletContext, lang: langProp }) {
   const { user, logout } = useContext(TwitchAuthContext);
   const { pathname } = useLocation();
   const tool = toolForPath(pathname, user);
-  const labels = { ...DEFAULT_LABELS, ...labelsIn };
+  // Nur Werkzeuge, die laut tools.js übersetzt sind, folgen der gewählten Sprache — sonst stünde eine englische
+  // Leiste über deutschem Inhalt
+  const toolLangs = tool?.langs || DE_ONLY;
+  const site = useLanguage({ supported: toolLangs });
+  const lang = langProp || site.lang;
+  const labels = { ...SHELL_TEXT.dict(lang), ...labelsIn };
+  const middle = center !== undefined ? center
+    : toolLangs.length > 1 ? <LanguageSwitch lang={lang} langs={toolLangs} onChange={site.setLang} label={labels.language} />
+    : null;
   const Icon = tool?.icon || Wrench;
 
   // Platz in der Leiste für <ToolHeader>. Als State statt Ref, damit die Seiten neu zeichnen,
@@ -124,19 +129,19 @@ export default function ToolShell({ title, titleTo, center, hideLogin = false, l
               <Icon size={15} />
             </span>
             <span className="hidden sm:inline font-display text-[15px] font-bold tracking-tight truncate max-w-[14rem]">
-              {title || tool?.label || "Streamer-Tools"}
+              {title || (tool ? toolLabel(tool, lang) : labels.allTools)}
             </span>
           </Link>
 
-          {center && (
-            <div className="md:absolute md:left-1/2 md:top-1/2 md:-translate-x-1/2 md:-translate-y-1/2 shrink-0">{center}</div>
+          {middle && (
+            <div className="md:absolute md:left-1/2 md:top-1/2 md:-translate-x-1/2 md:-translate-y-1/2 shrink-0">{middle}</div>
           )}
 
           {/* Knöpfe der Seite (ToolHeader) */}
           <div ref={setHeaderSlot} className="flex-1 min-w-0 flex items-center gap-1.5 sm:gap-2" />
 
           <div className="flex items-center gap-1 sm:gap-1.5 shrink-0 pl-1.5 sm:pl-2 border-l border-line">
-            <ToolsMenu activeKey={tool?.key} labels={labels} user={user} />
+            <ToolsMenu activeKey={tool?.key} labels={labels} user={user} lang={lang} />
             {user ? (
               <>
                 <Link to="/profile" title={labels.profile} aria-label={labels.profile}
@@ -154,7 +159,7 @@ export default function ToolShell({ title, titleTo, center, hideLogin = false, l
             ) : !hideLogin && (
               <TwitchLoginButton size="sm">
                 <span className="hidden sm:inline">{labels.login}</span>
-                <span className="sm:hidden">Login</span>
+                <span className="sm:hidden">{labels.loginShort}</span>
               </TwitchLoginButton>
             )}
           </div>

@@ -3,7 +3,7 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const path = require('path');
 const { pathToFileURL } = require('url');
-const { createRoomManager, PAUSE_MAX_MS, ABANDON_MS } = require('../roomManager');
+const { createRoomManager, PAUSE_MAX_MS, ABANDON_MS, GESTURE_GAP_MS } = require('../roomManager');
 
 const SHARED = path.join(__dirname, '..', 'shared');
 const loadEngine = () => import(pathToFileURL(path.join(SHARED, 'engine', 'index.js')).href);
@@ -147,4 +147,50 @@ test('Aufgeben per Leave im laufenden Match beendet es; Revanche braucht beide',
   t.m.rematch('sB');
   assert.equal(room.status, 'playing');
   assert.equal(room.draftRound, 1);
+});
+
+test('Masken: jeder Platz trägt seine Maske, Unbekanntes fällt auf die Standardmaske zurück', async () => {
+  const engine = await loadEngine();
+  const m = createRoomManager({ engine, now: () => 1, send: () => {} });
+  const created = m.create('sA', { name: 'Anna', token: 'tokenAAAA', mask: 'rabe' });
+  const joined = m.join('sB', { code: created.code, name: 'Bert', token: 'tokenBBBB', mask: '<script>' });
+  assert.deepEqual(joined.room.seats.map((s) => s.mask), ['rabe', 'wachs']);
+  // Wiederkehr mit anderer Maske übernimmt sie
+  assert.equal(m.join('sB2', { code: created.code, name: 'Bert', token: 'tokenBBBB', mask: 'mond' }).room.seats[1].mask, 'mond');
+  // Wechsel im laufenden Raum
+  assert.equal(m.mask('sA', { mask: 'rinde' }).ok, true);
+  assert.equal(m.rooms.get(created.code).seats[0].mask, 'rinde');
+  assert.equal(m.mask('sA', { mask: 42 }).ok, true);
+  assert.equal(m.rooms.get(created.code).seats[0].mask, 'wachs');
+  assert.equal(m.mask('fremd', { mask: 'rabe' }).error, 'notInRoom');
+});
+
+test('Gesten (auch in der Lobby): gehen an den anderen Platz und die Zuschauer, nicht zurück; nur feste Kennungen, gebremst', async () => {
+  const t = await setup({ spectators: true });
+  // In der Lobby: Gesten ja, Zeigen (braucht ein Feld) nein
+  assert.equal(t.m.gesture('sA', { kind: 'zeigen', target: { p: 1, zone: 'front', lane: 0 } }).error, 'notPlaying');
+  assert.equal(t.m.gesture('sA', { kind: 'nicken' }).ok, true);
+  assert.deepEqual(t.outbox.filter((o) => o.event === 'ss:gesture').map((o) => o.socketId), ['sB']);
+  t.outbox.length = 0;
+  t.advance(GESTURE_GAP_MS);
+  t.m.ready('sA', { ready: true });
+  t.m.ready('sB', { ready: true });
+  t.m.join('sC', { code: t.code, name: 'Cora', token: 'tokenCCCC' });
+  const got = () => t.outbox.filter((o) => o.event === 'ss:gesture').map((o) => `${o.socketId}:${o.payload.seat}:${o.payload.kind}`);
+  assert.equal(t.m.gesture('sA', { kind: 'nicken' }).ok, true);
+  assert.deepEqual(got(), ['sB:0:nicken', 'sC:0:nicken']);
+  // zu schnell hintereinander
+  assert.equal(t.m.gesture('sA', { kind: 'klopfen' }).error, 'tooFast');
+  // der andere Platz hat seine eigene Bremse
+  assert.equal(t.m.gesture('sB', { kind: 'verbeugen' }).ok, true);
+  t.advance(GESTURE_GAP_MS);
+  // freier Text und Unbekanntes kommen nicht durch
+  assert.equal(t.m.gesture('sA', { kind: 'hallo du' }).error, 'badGesture');
+  // Zeigen braucht ein gültiges Feld; weitergegeben wird nur das Geprüfte
+  assert.equal(t.m.gesture('sA', { kind: 'zeigen', target: { p: 1, zone: 'front', lane: 9 } }).error, 'badTarget');
+  assert.equal(t.m.gesture('sA', { kind: 'zeigen', target: { p: 1, zone: 'front', lane: 2, extra: 'x' } }).ok, true);
+  const last = t.outbox.filter((o) => o.event === 'ss:gesture').pop().payload;
+  assert.deepEqual(last, { seat: 0, kind: 'zeigen', target: { p: 1, zone: 'front', lane: 2 } });
+  // Zuschauer können keine Gesten machen
+  assert.equal(t.m.gesture('sC', { kind: 'nicken' }).error, 'notInRoom');
 });

@@ -88,6 +88,8 @@
   color: var(--wf-dim); border: 1px solid var(--wf-line-2); background: transparent; transition: background-color 120ms, color 120ms;
 }
 .wf-icon-btn:hover { background: var(--wf-surface-2); color: var(--wf-text); }
+/* Lautstärkeregler in der Kopfleiste */
+.wf-volume { width: 86px; height: 20px; accent-color: var(--wf-cream); cursor: pointer; }
 
 .wf-seg { display: inline-flex; padding: 3px; gap: 3px; border-radius: 7px; background: var(--wf-bg); border: 1px solid var(--wf-line); }
 .wf-seg > button { padding: 5px 13px; border-radius: 4px; font-weight: 600; font-size: 14px; color: var(--wf-dim); transition: background-color 120ms, color 120ms; }
@@ -150,6 +152,29 @@
 .wf-world-row b { text-transform: uppercase; font-weight: 800; color: var(--wf-w); }
 .wf-timer { height: 3px; background: var(--wf-surface-3); border-radius: 2px; overflow: hidden; margin-top: 7px; }
 .wf-timer > i { display: block; height: 100%; background: var(--wf-cream); transition: width 250ms linear; }
+/* Partnerhand oben rechts (2 gegen 2): Gegenstück zur Welt-Tafel */
+.wf-mate { position: absolute; top: 10px; right: 10px; padding: 8px 10px 10px; width: min(360px, calc(50% - 96px)); }
+.wf-mate-head { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 14px; margin-bottom: 7px; min-width: 0; }
+.wf-mate-head i { margin-left: auto; font-style: normal; font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--wf-faint); }
+.wf-mate-cards { display: flex; flex-wrap: wrap; gap: 4px; }
+.wf-mate-cards > span { width: 38px; }
+.wf-mate-cards .wf-cardimg { width: 100%; }
+.wf-mate-dark { font-size: 12.5px; color: var(--wf-dim); }
+/* Flaschenpost: die Hand, in die man gerade schauen darf — mittig über dem Tisch, schließt sich von selbst */
+.wf-peek { position: absolute; left: 50%; top: 38%; translate: -50% -50%; padding: 10px 12px 12px; width: min(560px, calc(100% - 24px)); animation: wf-flash-in 220ms ease-out both; }
+.wf-peek-cards { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; }
+.wf-peek-cards > span { width: 62px; }
+.wf-peek-cards .wf-cardimg { width: 100%; }
+.wf-peek-close { margin-left: auto; display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 5px; color: var(--wf-dim); }
+.wf-peek-close:hover { background: var(--wf-surface-3); color: var(--wf-text); }
+@media (max-width: 640px) { .wf-peek-cards > span { width: 44px; } }
+@media (max-width: 760px) {
+  .wf-mate { top: 106px; right: 8px; width: 104px; padding: 5px 6px 6px; }
+  .wf-mate-head { font-size: 12px; margin-bottom: 5px; }
+  .wf-mate-head i { display: none; }
+  .wf-mate-cards { gap: 3px; }
+  .wf-mate-cards > span { width: 27px; }
+}
 @media (max-width: 760px) {
   .wf-wheelbox { left: auto; right: 8px; translate: 0 0; width: 92px; height: 92px; padding: 5px; }
   .wf-world { width: calc(100% - 116px); padding: 8px 10px; font-size: 12px; }
@@ -165,19 +190,19 @@
   position: relative; width: 100%; padding: 18px 24px 20px; text-align: center; color: #fff;
   background: var(--wf-w); border-top: 6px solid var(--wf-cream); border-bottom: 6px solid var(--wf-wd);
   background-image: repeating-linear-gradient(-55deg, rgb(0 0 0 / 0.09) 0 22px, transparent 22px 44px);
-  animation: wf-splash-in 2600ms cubic-bezier(0.2, 0.9, 0.2, 1) both;
+  animation: wf-splash-in 1800ms cubic-bezier(0.2, 0.9, 0.2, 1) both;
 }
 .wf-splash-kicker { font-weight: 800; font-size: 13px; text-transform: uppercase; letter-spacing: 0.22em; color: var(--wf-wd); }
-.wf-splash-title { font-weight: 900; font-size: clamp(40px, 8vw, 92px); line-height: 0.95; text-transform: uppercase; letter-spacing: -0.03em; animation: wf-splash-title 2600ms cubic-bezier(0.2, 0.9, 0.2, 1) both; }
+.wf-splash-title { font-weight: 900; font-size: clamp(40px, 8vw, 92px); line-height: 0.95; text-transform: uppercase; letter-spacing: -0.03em; animation: wf-splash-title 1800ms cubic-bezier(0.2, 0.9, 0.2, 1) both; }
 .wf-splash-text { margin-top: 6px; font-weight: 600; font-size: clamp(15px, 2.2vw, 22px); }
 .wf-splash-by { margin-top: 4px; font-weight: 700; font-size: 12px; text-transform: uppercase; letter-spacing: 0.14em; color: var(--wf-wd); }
 @keyframes wf-splash-in { 0% { clip-path: inset(50% 0); } 9% { clip-path: inset(0); } 88% { clip-path: inset(0); opacity: 1; } 100% { clip-path: inset(50% 0); opacity: 0; } }
 @keyframes wf-splash-title { 0% { translate: -60px 0; opacity: 0; } 12% { translate: 0 0; opacity: 1; } 100% { translate: 14px 0; } }
 @media (prefers-reduced-motion: reduce) { .wf-splash-band, .wf-splash-title { animation: none; } }
 
-/* Eigener Zustand: Rahmen ums ganze Bild mit Ansage oben in der Mitte */
-.wf-selfframe { position: absolute; inset: 0; pointer-events: none !important; border: 7px solid var(--wf-s); display: flex; justify-content: center; align-items: flex-start; }
-.wf-selfframe span { margin-top: -1px; padding: 6px 16px 7px; background: var(--wf-s); color: var(--wf-si); font-weight: 800; font-size: 14px; border-radius: 0 0 8px 8px; }
+/* Eigener Zustand: Rahmen ums ganze Bild mit Ansage unten in der Mitte (oben säße sie unter dem Weltenrad) */
+.wf-selfframe { position: absolute; inset: 0; pointer-events: none !important; border: 7px solid var(--wf-s); display: flex; justify-content: center; align-items: flex-end; }
+.wf-selfframe span { margin-bottom: -1px; padding: 7px 16px 6px; background: var(--wf-s); color: var(--wf-si); font-weight: 800; font-size: 14px; border-radius: 8px 8px 0 0; text-align: center; }
 .wf-selfframe-frozen { --wf-s: #7fd0ff; --wf-si: #06283d; }
 .wf-selfframe-shield { --wf-s: #5fd67a; --wf-si: #07290f; }
 .wf-selfframe-away { --wf-s: #f4eedf; --wf-si: #17161d; }
@@ -208,6 +233,7 @@
 .wf-status-shield { background: #5fd67a; color: #07290f; }
 .wf-status-frozen { background: #7fd0ff; color: #06283d; }
 .wf-status-away { background: #f4eedf; color: #17161d; }
+.wf-status-fog { background: #d9d2ee; color: #2a2440; }
 
 /* Einblendung zu einem Ereignis */
 .wf-flash {
@@ -224,7 +250,25 @@
   position: absolute; left: 0; top: 0; pointer-events: none; will-change: transform;
   display: flex; flex-direction: column; align-items: center; gap: 4px; width: 0; white-space: nowrap;
 }
-.wf-plate-stack { display: flex; flex-direction: column; align-items: center; gap: 4px; translate: 0 -100%; }
+.wf-plate-stack { position: relative; display: flex; flex-direction: column; align-items: center; gap: 4px; translate: 0 -100%; }
+
+/* „+N“: so viele Karten hat jemand gerade gezogen (GameTable popDraw, Dauer POP_MS) */
+.wf-pop {
+  position: absolute; left: 50%; bottom: calc(100% + 4px); translate: -50% 0; pointer-events: none;
+  font-weight: 900; font-size: 30px; line-height: 1; color: var(--wf-cream);
+  text-shadow: 0 2px 0 var(--wf-ink), 2px 0 0 var(--wf-ink), -2px 0 0 var(--wf-ink), 0 -2px 0 var(--wf-ink);
+  animation: wf-pop 1.6s ease-out forwards;
+}
+.wf-pop[data-big="true"] { font-size: 40px; color: var(--wf-vulkan); }
+.wf-me .wf-pop { left: 24px; translate: 0 0; }
+@keyframes wf-pop {
+  0% { opacity: 0; transform: translateY(10px) scale(0.6); }
+  14% { opacity: 1; transform: translateY(0) scale(1.18); }
+  26% { transform: translateY(0) scale(1); }
+  75% { opacity: 1; }
+  100% { opacity: 0; transform: translateY(-22px); }
+}
+@media (prefers-reduced-motion: reduce) { .wf-pop { animation: none; } }
 .wf-plate-status { display: flex; gap: 4px; }
 .wf-plate-box { display: inline-flex; align-items: center; gap: 8px; padding: 4px 9px; font-weight: 700; font-size: 14px; transition: padding 160ms, font-size 160ms; }
 .wf-plate-box[data-turn="true"] { padding: 7px 12px; font-size: 17px; font-weight: 800; border-width: 2px; }
@@ -235,10 +279,13 @@
 .wf-plate-count[data-last="true"] { background: var(--wf-vulkan); color: #fff; }
 
 /* Zeile über der eigenen Hand */
-.wf-turnbar { position: absolute; left: 50%; bottom: 31%; translate: -50% 0; display: flex; align-items: center; gap: 10px; padding: 7px 12px; font-weight: 700; max-width: calc(100% - 24px); }
+.wf-turnbar { position: absolute; left: 50%; bottom: 31%; translate: -50% 0; width: max-content; display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 8px 10px; padding: 7px 12px; font-weight: 700; max-width: calc(100% - 24px); }
 .wf-turnbar[data-mine="true"] { background: var(--wf-cream); color: var(--wf-ink); border-color: var(--wf-cream); font-size: 18px; font-weight: 800; padding: 10px 16px; }
 .wf-turnbar .wf-btn { background: var(--wf-ink); color: var(--wf-cream); }
 .wf-turnbar .wf-btn:hover:not(:disabled) { background: #2b2936; }
+/* Angriff hinnehmen: der leise Knopf neben den Antwort-Karten */
+.wf-turnbar .wf-btn-take { background: transparent; color: var(--wf-ink); border-color: var(--wf-ink); }
+.wf-turnbar .wf-btn-take:hover:not(:disabled) { background: rgb(23 22 29 / 0.12); }
 @media (max-width: 640px) { .wf-turnbar { font-size: 13px; bottom: 28%; } }
 
 .wf-me { position: absolute; left: 12px; bottom: 12px; padding: 6px 10px; font-weight: 700; font-size: 14px; display: flex; align-items: center; gap: 8px; pointer-events: none; }
@@ -266,7 +313,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .wf-flash, .wf-toast { animation: none; }
+  .wf-flash, .wf-toast, .wf-peek { animation: none; }
   .wf-tint { display: none; }
 }
 

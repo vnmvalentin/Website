@@ -23,6 +23,7 @@ const timerMath = require("../winchallenge/timerMath");
 const streamToolRaids = require("../streamTool/lib/streamToolRaids");
 const streamToolStats = require("../streamTool/lib/streamToolStats");
 const streamToolScenes = require("../streamTool/lib/streamToolScenes");
+const streamToolAlerts = require("../streamTool/lib/streamToolAlerts");
 const winTrackerChat = require("../clashRoyale/lib/winTrackerChat");
 // CR-Minigames: Chat stimmt im Pyramidendraft für den Streamer ab
 const crTwitchChat = require("../clashRoyale/core/twitchChat");
@@ -416,6 +417,7 @@ function getChannelList() {
     for (const c of streamToolRaids.getRaidChannels()) set.add(normalizeChannel(c));
     for (const c of streamToolStats.getStatsChannels()) set.add(normalizeChannel(c));
     for (const c of streamToolScenes.getSceneChannels()) set.add(normalizeChannel(c));
+    for (const c of streamToolAlerts.getAlertChannels()) set.add(normalizeChannel(c));
   } catch (e) {
     console.warn("[stream-tool] Overlay-Kanäle nicht lesbar:", e.message);
   }
@@ -1119,6 +1121,25 @@ async function initWinchallengeIrc() {
   client.on("resub", countSub("resub"));
   client.on("subgift", countSub("gift"));
   client.on("anonsubgift", countSub("gift"));
+
+  // Alerts (Overlay-Modul der Twitch-Overlays): eigene Zuhörer, damit Statistik, Hype Train und Raid-Clip
+  // unberührt bleiben. Anders als die Statistik zeigen die Alerts ein Geschenkpaket als EINEN Hinweis —
+  // dafür hören sie auch auf die Ankündigung "submysterygift".
+  const alertSafe = (label, fn) => (...args) => {
+    try {
+      fn(...args);
+    } catch (e) {
+      console.warn(`[stream-tool] Alert (${label}):`, e.message);
+    }
+  };
+  client.on("subscription", alertSafe("Abo", streamToolAlerts.onSub));
+  client.on("resub", alertSafe("Verlängerung", streamToolAlerts.onResub));
+  client.on("subgift", alertSafe("Geschenk", streamToolAlerts.onSubGift));
+  client.on("anonsubgift", alertSafe("Geschenk", streamToolAlerts.onAnonSubGift));
+  client.on("submysterygift", alertSafe("Geschenkpaket", streamToolAlerts.onMysteryGift));
+  client.on("anonsubmysterygift", alertSafe("Geschenkpaket", streamToolAlerts.onAnonMysteryGift));
+  client.on("cheer", alertSafe("Bits", streamToolAlerts.onCheer));
+  client.on("raided", alertSafe("Raid", streamToolAlerts.onRaid));
 
   client.on("notice", (ircChannel, messageId, message) => {
     const m = String(message || "");

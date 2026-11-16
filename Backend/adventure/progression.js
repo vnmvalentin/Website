@@ -17,9 +17,9 @@ const UNLOCK_TRACK = [
   { level: 9, kind: "kit", id: "bestmod", label: "Kit: Giftmischer" },
   { level: 10, kind: "perk", id: "startItems", value: 1, label: "Startgeschenk: 1 Item zu Beginn jedes Laufs" },
   { level: 11, kind: "items", ids: ["phoenixfeder"], label: "Item: Phönixfeder" },
-  { level: 12, kind: "kit", id: "cyber", label: "Kit: Cyber-Söldner" },
+  { level: 12, kind: "kit", id: "cyber", label: "Kit: Tüftler" },
   { level: 13, kind: "items", ids: ["meteorsplitter", "zeitkristall"], label: "Items: Meteorsplitter, Zeitkristall" },
-  { level: 15, kind: "kit", id: "gh0stqq", label: "Kit: Baumeister" },
+  { level: 15, kind: "kit", id: "gh0stqq", label: "Kit: Steinbrecher" },
   { level: 17, kind: "perk", id: "startItems", value: 2, label: "Startgeschenk: 2 Items zu Beginn" },
   { level: 20, kind: "title", id: "legende", label: "Titel: Legende" },
 ];
@@ -36,8 +36,13 @@ function levelInfo(totalXp) {
   return { level, into: rest, need: xpForLevel(level) };
 }
 
+// Seit dem Horde-Umbau (November 2026) fallen in einem Lauf etwa siebenmal so viele Gegner wie vorher (rund 14.000
+// statt 2.000). Damit Account-Stufen und Punkte nicht mit explodieren, zählt ein Kill entsprechend weniger.
+const KILL_XP = 0.15;
+const KILL_SCORE = 0.3;
+
 function runXp({ kills, stagesCleared, bossesKilled, timeSec, won, difficulty }) {
-  const base = kills + stagesCleared * 80 + bossesKilled * 100 + Math.floor(timeSec / 60) * 12 + (won ? 400 : 0);
+  const base = Math.round(kills * KILL_XP) + stagesCleared * 80 + bossesKilled * 100 + Math.floor(timeSec / 60) * 12 + (won ? 400 : 0);
   return Math.round(base * (DIFFICULTY_XP[difficulty] ?? 1));
 }
 
@@ -46,11 +51,16 @@ function runXp({ kills, stagesCleared, bossesKilled, timeSec, won, difficulty })
 // jede Albtraum+-Stufe noch einmal +25 %.
 const DIFFICULTY_SCORE = { easy: 0.6, normal: 1, hard: 1.5 };
 
-function runScore({ kills = 0, stagesCleared = 0, bossesKilled, timeSec = 0, won = false, difficulty, ascension = 0 }) {
+function scoreWith(killWeight, { kills = 0, stagesCleared = 0, bossesKilled, timeSec = 0, won = false, difficulty, ascension = 0 }) {
   const bosses = bossesKilled ?? stagesCleared; // alte Bestwerte ohne Bosszahl: jede Welt hatte einen Boss
-  const base = kills * 2 + stagesCleared * 500 + bosses * 400 + Math.floor(timeSec / 60) * 25 + (won ? 3000 : 0);
+  const base = Math.round(kills * killWeight) + stagesCleared * 500 + bosses * 400 + Math.floor(timeSec / 60) * 25 + (won ? 3000 : 0);
   return Math.round(base * (DIFFICULTY_SCORE[difficulty] ?? 1) * (1 + 0.25 * (ascension || 0)));
 }
+
+const runScore = (result) => scoreWith(KILL_SCORE, result);
+// Formel vor dem Horde-Umbau — nur noch, um sehr alte Bestwerte ohne gespeicherte Punktzahl nachzurechnen
+// (die stehen alle in der eingefrorenen "Klassik"-Liste)
+const classicScore = (result) => scoreWith(2, result);
 
 // Was ein Account mit dieser Stufe (und diesen alten Skin-Käufen) freigeschaltet hat
 function unlocksFor(level, ownedSkins = []) {
@@ -64,4 +74,4 @@ function unlocksFor(level, ownedSkins = []) {
   return { kits: KIT_IDS.filter((k) => kits.has(k)), lockedItems, difficulties, startItems, title };
 }
 
-module.exports = { KIT_IDS, UNLOCK_TRACK, DIFFICULTY_XP, xpForLevel, levelInfo, runXp, runScore, unlocksFor };
+module.exports = { KIT_IDS, UNLOCK_TRACK, DIFFICULTY_XP, xpForLevel, levelInfo, runXp, runScore, classicScore, unlocksFor };

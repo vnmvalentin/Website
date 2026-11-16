@@ -1,6 +1,10 @@
+
 import React, { useState } from 'react';
+import { DcHelp } from '../ui';
+import { serverErrorText, useDiscordText } from '../discordI18n.js';
 
 export default function AutoRolesTab({ selectedServer, serverRoles }) {
+    const t = useDiscordText();
     const [sourceRoleId, setSourceRoleId] = useState('');
     const [assignRoleId, setAssignRoleId] = useState('');
     const [isRunning, setIsRunning] = useState(false);
@@ -22,10 +26,10 @@ export default function AutoRolesTab({ selectedServer, serverRoles }) {
             if (res.ok) {
                 setResult(data.count);
             } else {
-                setError(data.error || 'Unbekannter Fehler.');
+                setError(serverErrorText(t, data));
             }
         } catch {
-            setError('Netzwerkfehler.');
+            setError(t.shell.noConnection);
         } finally {
             setIsRunning(false);
         }
@@ -41,27 +45,25 @@ export default function AutoRolesTab({ selectedServer, serverRoles }) {
     return (
         <div className="dc-page">
             <div>
-                <h2 className="dc-h2">Rollen zuweisen</h2>
-                <p className="text-white/50 text-sm">
-                    Wähle eine Quell-Rolle und eine Ziel-Rolle. Alle Mitglieder mit der Quell-Rolle erhalten sofort die Ziel-Rolle.
-                </p>
+                <h2 className="dc-h2">{t.autoRoles.title}</h2>
+                <p className="text-white/50 text-sm">{t.autoRoles.intro}</p>
             </div>
 
             <div className="dc-card p-6 space-y-5 max-w-2xl">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                        <label className="dc-label">Quell-Rolle <span className="text-white/40 font-normal">(haben diese Rolle)</span></label>
+                        <label className="dc-label">{t.autoRoles.source} <span className="text-white/40 font-normal">{t.autoRoles.sourceHint}</span></label>
                         <select value={sourceRoleId} onChange={e => { setSourceRoleId(e.target.value); setResult(null); setError(''); }}
                             className="dc-input w-full">
-                            <option value="">-- Rolle auswählen --</option>
+                            <option value="">{t.common.pickRole}</option>
                             {serverRoles.map(r => <option key={r.id} value={r.id}>@{r.name}</option>)}
                         </select>
                     </div>
                     <div>
-                        <label className="dc-label">Ziel-Rolle <span className="text-white/40 font-normal">(sollen diese erhalten)</span></label>
+                        <label className="dc-label">{t.autoRoles.target} <span className="text-white/40 font-normal">{t.autoRoles.targetHint}</span></label>
                         <select value={assignRoleId} onChange={e => { setAssignRoleId(e.target.value); setResult(null); setError(''); }}
                             className="dc-input w-full">
-                            <option value="">-- Rolle auswählen --</option>
+                            <option value="">{t.common.pickRole}</option>
                             {serverRoles.map(r => <option key={r.id} value={r.id}>@{r.name}</option>)}
                         </select>
                     </div>
@@ -69,12 +71,12 @@ export default function AutoRolesTab({ selectedServer, serverRoles }) {
 
                 {sourceRoleId && assignRoleId && (
                     <div className="dc-inset p-4 text-sm flex flex-wrap items-center gap-2">
-                        <span className="text-white/50">Gib allen</span>
+                        <span className="text-white/50">{t.autoRoles.giveAll}</span>
                         <span className="px-2 py-0.5 rounded-md border text-sm"
                             style={{ color: roleColor(sourceRoleId), borderColor: roleColor(sourceRoleId) + '40', background: roleColor(sourceRoleId) + '15' }}>
                             @{roleName(sourceRoleId)}
                         </span>
-                        <span className="text-white/50">Mitgliedern auch</span>
+                        <span className="text-white/50">{t.autoRoles.membersToo}</span>
                         <span className="px-2 py-0.5 rounded-md border text-sm"
                             style={{ color: roleColor(assignRoleId), borderColor: roleColor(assignRoleId) + '40', background: roleColor(assignRoleId) + '15' }}>
                             @{roleName(assignRoleId)}
@@ -87,38 +89,25 @@ export default function AutoRolesTab({ selectedServer, serverRoles }) {
                     disabled={isRunning || !sourceRoleId || !assignRoleId || sourceRoleId === assignRoleId}
                     className="dc-btn flex items-center gap-2"
                 >
-                    {isRunning ? (
-                        'Wird ausgeführt…'
-                    ) : 'Rollen jetzt vergeben'}
+                    {isRunning ? t.autoRoles.running : t.autoRoles.run}
                 </button>
 
                 {result !== null && (
                     <div className="bg-green-500/10 border border-green-500/30 rounded-md p-4">
                         <p className="text-green-400 font-semibold">
-                            {result === 0
-                                ? 'Alle passenden Mitglieder hatten die Rolle bereits.'
-                                : `${result} Mitglied${result !== 1 ? 'er' : ''} ${result !== 1 ? 'haben' : 'hat'} die Rolle erhalten.`}
+                            {result === 0 ? t.autoRoles.allHad : t.autoRoles.assigned(result)}
                         </p>
                     </div>
                 )}
 
                 {error && (
                     <div className="bg-red-500/10 border border-red-500/30 rounded-md p-4">
-                        <p className="text-red-400">Fehler: {error}</p>
+                        <p className="text-red-400">{t.common.errorWith(error)}</p>
                     </div>
                 )}
             </div>
 
-            <details className="dc-help">
-                <summary>Hinweis</summary>
-                <ul className="text-white/50 text-sm space-y-1">
-                    <li>• Die Aktion wird sofort ausgeführt und kann nicht rückgängig gemacht werden</li>
-                    <li>• Mitglieder die die Ziel-Rolle bereits haben werden übersprungen</li>
-                    <li>• Die Bot-Rolle muss über der Ziel-Rolle in der Rollenhierarchie stehen</li>
-                    <li>• Bei sehr großen Servern kann die Ausführung etwas dauern</li>
-                </ul>
-            </details>
+            <DcHelp title={t.common.note} items={t.autoRoles.notes} />
         </div>
     );
 }
-

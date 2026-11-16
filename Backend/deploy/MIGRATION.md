@@ -109,7 +109,8 @@ Auf **NEU** ausführen:
       rsync -avz root@ALT_IP:/var/www/admin-api/.env /var/www/admin-api/
       chown -R www-data:www-data /var/www/admin-api
       ```
-      `sessions.json` mitzunehmen bedeutet: eingeloggte Nutzer bleiben eingeloggt.
+      Die Sitzungen liegen seit 16.11.2026 in `data/sessions.db` und kommen mit `data/` mit — eingeloggte Nutzer
+      bleiben eingeloggt. `sessions.json` ist nur noch die Altdatei, die beim ersten Start einmal übernommen wurde.
 - [ ] Auf **NEU** starten:
       ```bash
       systemctl daemon-reload

@@ -1,10 +1,15 @@
 // engine/projectiles.js — Geschosse von Spieler/Verbündeten und Gegnern. Gegnergeschosse bleiben an Hindernissen und
-// Baumeister-Mauern hängen (Deckung lohnt sich), Spielergeschosse fliegen durch, damit man nicht an Steinen hängt.
+// Steinbrecher-Mauern hängen (Deckung lohnt sich), Spielergeschosse fliegen durch, damit man nicht an Steinen hängt.
 
 import { damageEnemy, addHazard, addZone, hurtPlayer, nearestEnemy } from "./combat.js";
 import { burst, floatText } from "./fx.js";
 import { hasAffix } from "./enemies.js";
 import { dist2, distToSegment } from "./util.js";
+import { collectEnemies, collectObstacles } from "./grid.js";
+
+// Trefferlisten, die jeder Tick wiederverwendet (siehe grid.js)
+const bulletHits = [];
+const bulletBlocks = [];
 
 // Kommt das Geschoss von vorn (±60°) auf einen Schild zu?
 function shieldBlocks(e, b) {
@@ -117,10 +122,8 @@ export function updateProjectiles(g, dt) {
 
     let dead = b.life <= 0;
     if (!dead) {
-      for (const e of g.enemies) {
+      for (const e of collectEnemies(g, b.x, b.y, b.r, bulletHits)) {
         if (e.dead || e.invuln || b.hit.has(e)) continue;
-        const rr = e.r + b.r;
-        if (dist2(b.x, b.y, e.x, e.y) > rr * rr) continue;
         b.hit.add(e);
         if (shieldBlocks(e, b)) {
           burst(g, b.x, b.y, "#e8e2d4", 6, 160, 0.25, 3);
@@ -178,10 +181,7 @@ export function updateProjectiles(g, dt) {
     b.x += b.vx * dt;
     b.y += b.vy * dt;
     if (!b.passThrough) {
-      let blocked = false;
-      for (const o of g.obstacles) {
-        if (dist2(b.x, b.y, o.x, o.y) < o.r * o.r) { blocked = true; break; }
-      }
+      let blocked = collectObstacles(g, b.x, b.y, 0, bulletBlocks).length > 0;
       if (!blocked) {
         for (const w of g.walls) {
           if (distToSegment(b.x, b.y, w.x1, w.y1, w.x2, w.y2) < w.w / 2 + b.r) { blocked = true; break; }

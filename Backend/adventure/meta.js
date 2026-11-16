@@ -8,6 +8,10 @@ const { KIT_IDS } = require("./progression");
 // Farbvarianten. Die Färbung selbst steht im Frontend (data/skins.js); hier nur, welche es gibt.
 const SKIN_IDS = ["schatten", "frost", "gold"];
 
+// Kill-Erfolge: vor dem Horde-Umbau 1000 (ein Lauf hatte ~2.000 Kills), seitdem 5.000 (ein Lauf hat ~14.000). Die ids
+// bleiben, wer den Erfolg schon hat, behält ihn.
+const HORDE_KILLS = 5000;
+
 // test(r, x): r = vom Server geprüftes Ergebnis, x = vom Client gemeldete Zusatzwerte (gedeckelt, nur für Kosmetik)
 const GENERAL = [
   { id: "ersterBoss", name: "Erster Boss", desc: "Besiege einen Boss.", test: (r) => r.bossesKilled >= 1 },
@@ -15,7 +19,7 @@ const GENERAL = [
   { id: "sieg", name: "Drachentöter", desc: "Besiege Thunderwing.", test: (r) => r.won },
   { id: "siegAlbtraum", name: "Albtraumbezwinger", desc: "Gewinne auf Albtraum.", test: (r) => r.won && r.difficulty === "hard" },
   { id: "schnell", name: "Eilbote", desc: "Gewinne in unter 20 Minuten.", test: (r) => r.won && r.timeSec < 1200 },
-  { id: "kills1000", name: "Horde gebrochen", desc: "1000 Kills in einem Lauf.", test: (r) => r.kills >= 1000 },
+  { id: "kills1000", name: "Horde gebrochen", desc: "5.000 Kills in einem Lauf.", test: (r) => r.kills >= HORDE_KILLS },
   { id: "evolution", name: "Verwandlung", desc: "Entwickle eine Waffe weiter.", test: (r, x) => x.evolutions >= 1 },
   { id: "evolution3", name: "Arsenal", desc: "3 Evolutionen in einem Lauf.", test: (r, x) => x.evolutions >= 3 },
   { id: "champions5", name: "Championjäger", desc: "Besiege 5 Champions in einem Lauf.", test: (r, x) => x.champions >= 5 },
@@ -24,12 +28,23 @@ const GENERAL = [
   { id: "sparsam", name: "Asket", desc: "Schaffe 3 Welten mit höchstens 10 Items.", test: (r, x) => r.stagesCleared >= 3 && x.itemCount <= 10 },
   { id: "aufstieg", name: "Über den Albtraum hinaus", desc: "Gewinne auf Albtraum+ 1.", test: (r) => r.won && r.ascension >= 1 },
   { id: "aufstieg5", name: "Unmöglich, wirklich", desc: "Gewinne auf Albtraum+ 5.", test: (r) => r.won && r.ascension >= 5 },
+  // Seit dem Horde-Umbau (November 2026). Schwellen am Test-Bot gemessen: ein Sieg hat 16.000–23.000 Kills, die beste
+  // Serie liegt dann bei 3.500–8.000, pro Lauf fallen 2–6 Kolosse; 30.000 Kills und der erste Segen brauchen Zyklus 2.
+  // Seit 16.11.2026 reißt die Serie nach 1,0 s statt 2,5 s: beste Serie je Lauf ~600–4.700, deshalb „Unaufhaltsam“ bei
+  // 2.500 statt 5.000. Die id bleibt serie5000 (gespeichert bei allen, die ihn schon haben).
+  { id: "serie1000", name: "Im Rausch", desc: "Halte eine Kill-Serie von 1.000.", test: (r, x) => x.bestStreak >= 1000 },
+  { id: "serie5000", name: "Unaufhaltsam", desc: "Halte eine Kill-Serie von 2.500.", test: (r, x) => x.bestStreak >= 2500 },
+  { id: "kills15000", name: "Schnitter", desc: "15.000 Kills in einem Lauf.", test: (r) => r.kills >= 15000 },
+  { id: "kills30000", name: "Weltenbrand", desc: "30.000 Kills in einem Lauf.", test: (r) => r.kills >= 30000 },
+  { id: "kolosse5", name: "Riesentöter", desc: "Fälle 5 Kolosse in einem Lauf.", test: (r, x) => x.giants >= 5 },
+  { id: "sechsWaffen", name: "Wandelndes Arsenal", desc: "Trage sechs Waffen gleichzeitig.", test: (r, x) => (x.weapons || []).length >= 6 },
+  { id: "segen", name: "Gesegnet", desc: "Baue alles aus und wähle einen Segen.", test: (r, x) => x.boons >= 1 },
 ];
 
 // Pro Kit drei Erfolge, jeder schaltet eine Farbvariante dieses Kits frei
 const PER_KIT = [
   { skin: "schatten", name: "Schattenhaut", desc: "Schaffe 3 Welten mit diesem Kit.", test: (r) => r.stagesCleared >= 3 },
-  { skin: "frost", name: "Frostgeboren", desc: "1000 Kills in einem Lauf mit diesem Kit.", test: (r) => r.kills >= 1000 },
+  { skin: "frost", name: "Frostgeboren", desc: "5.000 Kills in einem Lauf mit diesem Kit.", test: (r) => r.kills >= HORDE_KILLS },
   { skin: "gold", name: "Goldener Held", desc: "Gewinne mit diesem Kit.", test: (r) => r.won },
 ];
 

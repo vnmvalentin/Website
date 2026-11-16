@@ -5,12 +5,20 @@ import { nearestEnemy } from "./combat.js";
 import { priceOf } from "./interact.js";
 import { chooseUpgrade } from "./levelup.js";
 import { dist2 } from "./util.js";
+import { collectEnemies } from "./grid.js";
 
-// Stufenaufstieg: Waffe verbessern vor neuer Waffe vor Talent (ungefähr so, wie man es als Mensch auch macht)
+const nearby = [];
+
+// Stufenaufstieg: Evolution vor Waffe verbessern vor neuer Waffe, Talente im Verhältnis dazu (ungefähr so, wie man
+// es als Mensch auch macht)
 export function botChoose(g) {
   if (!g.levelUp) return false;
   const p = g.player;
-  const score = (c) => (c.kind === "weapon" ? (p.weapons[c.id] ? 3 : 2) : c.kind === "talent" ? 1 : 0);
+  // Talente ziehen mit: liegen sie mehr als die Hälfte hinter den Waffenstufen, gehen sie vor. Eine fünfte und
+  // sechste Waffe nimmt der Bot nur, wenn sonst nichts Brauchbares im Angebot ist.
+  const sum = (o) => Object.values(o).reduce((n, v) => n + v, 0);
+  const owned = Object.keys(p.weapons).length, lagging = sum(p.talents) * 2 < sum(p.weapons);
+  const score = (c) => (c.kind === "evolution" ? 5 : c.kind === "weapon" ? (p.weapons[c.id] ? 3 : owned < 4 ? 2 : 0.5) : c.kind === "talent" ? (lagging ? 3.5 : 1) : 0);
   const list = g.levelUp.choices;
   let best = 0;
   for (let i = 1; i < list.length; i++) if (score(list[i]) > score(list[best])) best = i;
@@ -69,11 +77,41 @@ export function botInput(g, opts = {}) {
   if (p.x > g.world.w - edge) mx -= 2;
   if (p.y < edge) my += 2;
   if (p.y > g.world.h - edge) my -= 2;
-  // Ausweichen: weg von nahen Gegnern (abschaltbar) und von Telegraphen
-  if (opts.evade !== false) for (const e of g.enemies) {
-    const d2 = dist2(p.x, p.y, e.x, e.y);
-    const lim = (e.r + 140) * (e.r + 140);
-    if (d2 < lim) { const a = Math.atan2(p.y - e.y, p.x - e.x); mx += Math.cos(a) * 1.6; my += Math.sin(a) * 1.6; }
+  // Ausweichen (abschaltbar). In einer Horde hilft "weg vom Nächsten" nicht — dann steht man in der Ecke. Stattdessen
+  // die Umgebung in zwölf Richtungen teilen, die Gefahr in jeder zählen und in die freieste laufen. So macht es auch
+  // ein Mensch: Lücke suchen, im Bogen um die Menge herum.
+  if (opts.evade !== false) {
+    const SECT = 12, R = 300, TAU = Math.PI * 2;
+    const danger = new Float32Array(SECT);
+    let total = 0;
+    for (const e of collectEnemies(g, p.x, p.y, R, nearby)) {
+      if (e.hidden) continue;
+      const d = Math.sqrt(dist2(p.x, p.y, e.x, e.y));
+      // Gefährliche Einzelne (alles außer Futter): direkt Abstand halten, wie bisher
+      if (e.tier !== "futter") {
+        if (d < e.r + 140) { const a = Math.atan2(p.y - e.y, p.x - e.x); mx += Math.cos(a) * 1.6; my += Math.sin(a) * 1.6; }
+        continue;
+      }
+      const close = 1 - Math.min(1, Math.max(0, d - e.r) / R);
+      const w = close * close;
+      const s = Math.floor((((Math.atan2(e.y - p.y, e.x - p.x) % TAU) + TAU) % TAU) / TAU * SECT) % SECT;
+      danger[s] += w; danger[(s + 1) % SECT] += w * 0.5; danger[(s + SECT - 1) % SECT] += w * 0.5;
+      total += w;
+    }
+    if (total > 0.15) {
+      // Bei gleicher Gefahr gewinnt die Richtung, die am ehesten zum Ziel führt; der Weltrand zählt als Gefahr
+      const goalA = goal ? Math.atan2(goal.y - p.y, goal.x - p.x) : p.moveAngle;
+      let bestA = 0, bestScore = Infinity;
+      for (let s = 0; s < SECT; s++) {
+        const a = ((s + 0.5) / SECT) * TAU;
+        const ex = p.x + Math.cos(a) * 220, ey = p.y + Math.sin(a) * 220;
+        const wall = ex < 60 || ey < 60 || ex > g.world.w - 60 || ey > g.world.h - 60 ? 3 : 0;
+        const score = danger[s] + wall - Math.cos(a - goalA) * 0.35;
+        if (score < bestScore) { bestScore = score; bestA = a; }
+      }
+      const k = Math.min(2.5, 0.6 + total * 0.8);
+      mx += Math.cos(bestA) * k; my += Math.sin(bestA) * k;
+    }
   }
   // Geschossen seitlich ausweichen (nur solchen, die auf dich zufliegen und nah sind)
   if (opts.evade !== false) for (const b of g.eBullets) {

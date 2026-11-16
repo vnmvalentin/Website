@@ -158,6 +158,56 @@ const DRAW = {
     ctx.fillRect(el.tx * TILE + 4, el.ty * TILE + 4, TILE - 8, TILE - 8);
   },
 
+  flut(ctx, el, world) {
+    // Schlafend: gestrichelter Rahmen und Pfeile in Laufrichtung — man soll sehen, was kommt, bevor es losläuft
+    const [dx, dy] = DIR[el.dir];
+    if (el.voll <= 0) {
+      ctx.strokeStyle = el.aktiv && world.tick % 10 < 5 ? 'rgba(255, 122, 61, 0.8)' : 'rgba(255, 122, 61, 0.28)';
+      ctx.setLineDash([4, 4]);
+      ctx.lineWidth = 1;
+      ctx.strokeRect(el.x + 0.5, el.y + 0.5, el.w - 1, el.h - 1);
+      ctx.setLineDash([]);
+    }
+    // Gefüllte Fläche: flach gefärbt, an der Front eine helle Kante mit wandernden Zacken
+    let fx = el.x;
+    let fy = el.y;
+    let fw = el.w;
+    let fh = el.h;
+    if (el.dir === 'up') { fy = el.y + el.h - el.voll; fh = el.voll; }
+    else if (el.dir === 'down') fh = el.voll;
+    else if (el.dir === 'right') fw = el.voll;
+    else { fx = el.x + el.w - el.voll; fw = el.voll; }
+    if (el.voll > 0) {
+      ctx.fillStyle = 'rgba(214, 61, 31, 0.78)';
+      ctx.fillRect(fx, fy, fw, fh);
+      ctx.fillStyle = '#ffb347';
+      const zacke = (world.tick >> 2) % 8;
+      if (dy !== 0) {
+        const kante = dy < 0 ? fy : fy + fh - 2;
+        ctx.fillRect(fx, kante, fw, 2);
+        for (let x = fx - zacke; x < fx + fw; x += 8) if (x >= fx) ctx.fillRect(x, dy < 0 ? kante - 2 : kante + 2, 3, 2);
+      } else {
+        const kante = dx > 0 ? fx + fw - 2 : fx;
+        ctx.fillRect(kante, fy, 2, fh);
+        for (let y = fy - zacke; y < fy + fh; y += 8) if (y >= fy) ctx.fillRect(dx > 0 ? kante + 2 : kante - 2, y, 2, 3);
+      }
+    }
+  },
+
+  boost(ctx, el, world) {
+    // Flacher Streifen auf dem Boden mit wandernden Winkeln in Laufrichtung
+    const s = el.dir === 'left' ? -1 : 1;
+    const y = el.y + TILE;
+    ctx.fillStyle = 'rgba(52, 211, 153, 0.35)';
+    ctx.fillRect(el.x, y - 3, TILE, 3);
+    ctx.fillStyle = el.cd > 0 ? '#a7f3d0' : '#34d399';
+    const versatz = ((world.tick >> 1) % 8) * s;
+    for (let k = 0; k < 2; k++) {
+      const mx = el.x + ((k * 8 + versatz + 16) % 16);
+      triangle(ctx, mx, y - 6, mx, y - 1, mx + 4 * s, y - 3.5);
+    }
+  },
+
   cannon(ctx, el) {
     // Immer eine ganz schwache Bahn, damit man sieht, wohin geschossen wird (wie beim Laser)
     const x0 = el.mx;

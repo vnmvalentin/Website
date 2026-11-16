@@ -44,6 +44,11 @@ const path = require('path');
 const { pathToFileURL } = require('url');
 const { createRoomManager } = require('./roomManager');
 const { createTournamentManager } = require('./tournamentManager');
+const { meldeSpielAn } = require('../lib/spielStatistik');
+
+// Admin-Reiter „Spiele“: die Raumverwaltung entsteht erst mit dem ersten Besucher
+let liveManager = null;
+meldeSpielAn('flick-soccer', () => (liveManager ? liveManager.stats() : { raeume: 0, spieler: 0 }));
 
 const TICK_MS = 250;
 const MAX_EVENTS_PER_SECOND = 20;
@@ -57,6 +62,7 @@ function getManager(io) {
       const engine = await import(pathToFileURL(ENGINE).href);
       const send = (id, event, payload) => io.to(id).emit(event, payload);
       const manager = createRoomManager({ engine, send });
+      liveManager = manager;
       // Speicher erst hier laden: Prüfstände ohne FLICK_TOURNAMENT_DB sollen die echte Datei nicht schon beim require anlegen
       let store = null;
       try {

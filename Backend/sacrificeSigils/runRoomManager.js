@@ -12,6 +12,7 @@
 //   Verbindung    Budgets laufen weiter (Aufgabe 5). Nach 5 Minuten Abwesenheit am Stück scheidet der Spieler aus.
 
 const crypto = require('crypto');
+const { zaehlePartie } = require('../lib/spielStatistik');
 
 const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 const ABANDON_MS = 5 * 60 * 1000;
@@ -322,6 +323,7 @@ function createRunRoomManager(deps) {
   }
 
   function startRun(room) {
+    zaehlePartie('sacrifice-and-sigils'); // eine Moorwanderung = eine Partie
     const seed = room.seedInput || randomSeed();
     room.run = engine.createRun({ seed, settings: room.settings, names: room.seats.map((s) => s.name), salt: crypto.randomBytes(12).toString('hex') });
     room.status = 'playing';
