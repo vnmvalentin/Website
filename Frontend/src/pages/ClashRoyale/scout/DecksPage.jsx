@@ -4,7 +4,7 @@
 // ?top=100|250|500 zeigt nur Kämpfe der Top N (eigene Teil-Auswertung im Backend), ohne = alle gesammelten (Top 1.000).
 import React, { useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import cardsImg from '../../../assets/clashRoyale/ui/cards.png';
+import cardsImg from '../../../assets/clashRoyale/ui/cards.webp';
 import bannerArt from '../../../assets/clashRoyale/bg/card_evolution.webp';
 import ScoutFrame from './ScoutFrame';
 import { Banner, CardPicker, DeckLine, LoadState, Panel, PickedCards, Seg, SortControl } from './parts';
@@ -25,7 +25,9 @@ export default function DecksPage() {
   const top = TOPS.includes(params.get('top')) ? params.get('top') : '1000';
   const { data, error, loading, reload } = useScout(top === '1000' ? '/meta' : `/meta?top=${top}`);
   const meta = data?.meta;
-  const [sort, setSort] = useState({ by: 'uses', dir: 'desc' });
+  // Standard: von den meisten Spielern genutzt. Die Zahl der Kämpfe misst eher, wie viel einzelne Spieler spielen —
+  // sie steht nur noch auf der Deck-Seite. Gleichstand bleibt in der Server-Reihenfolge (nach Kämpfen).
+  const [sort, setSort] = useState({ by: 'players', dir: 'desc' });
   const [count, setCount] = useState(STEP);
 
   // Gewählte Karten stehen in der Adresse (?karten=a,b), damit sich eine Auswahl teilen lässt
@@ -44,7 +46,7 @@ export default function DecksPage() {
     const list = (meta?.decks || [])
       .filter((d) => picked.every((id) => d.cards.some((c) => c.id === id)))
       .map((d) => ({ ...d, elixir: deckStats(d.cards).avgElixir }));
-    const value = { uses: (d) => d.uses, winRate: (d) => d.winRate, elixir: (d) => d.elixir ?? 99 }[sort.by] || ((d) => d.uses);
+    const value = { players: (d) => d.players, winRate: (d) => d.winRate, elixir: (d) => d.elixir ?? 99 }[sort.by] || ((d) => d.players);
     return sortBy(list, value, sort.dir, () => '');
   }, [meta, picked, sort]);
 
@@ -58,7 +60,7 @@ export default function DecksPage() {
   };
   const topSeg = <Seg options={TOPS.map((v) => ({ id: v, label: t.topN(fmtNum(Number(v), lang)) }))} value={top} onChange={pickTop} label={t.topFilter} />;
 
-  const sortOptions = [{ id: 'uses', label: t.sortUses }, { id: 'winRate', label: t.sortWinRate }, { id: 'elixir', label: t.avgElixir }];
+  const sortOptions = [{ id: 'players', label: t.players }, { id: 'winRate', label: t.sortWinRate }, { id: 'elixir', label: t.avgElixir }];
 
   return (
     <ScoutFrame seo={{ title: t.decksTitle, description: t.metaSeo, path: '/clash/decks' }}>
@@ -88,13 +90,11 @@ export default function DecksPage() {
           {decks.length ? (
             <div className="flex flex-col gap-2.5">
               {decks.slice(0, count).map((d, i) => (
-                <DeckLine key={d.key || d.cards.map((c) => c.id || c.name).join(',')} cards={d.cards} tower={d.tower} rank={i + 1} level={false}
+                <DeckLine key={d.key || d.cards.map((c) => c.id || c.name).join(',')} cards={d.cards} tower={d.tower} rank={i + 1} level={false} wide
                   figures={[
                     { value: fmtPct(d.winRate, lang), label: t.winRate, tone: d.winRate >= 0.5 ? GOOD : BAD },
-                    { value: fmtNum(d.uses, lang), label: t.usesLabel },
-                  ]}>
-                  {t.usedBy(d.players)}
-                </DeckLine>
+                    { value: fmtNum(d.players, lang), label: t.players },
+                  ]} />
               ))}
               {decks.length > count && (
                 <button type="button" className="cr-arcade-btn cr-arcade-btn--sm cr-arcade-btn--blue self-center mt-2" onClick={() => setCount((n) => n + STEP)}>

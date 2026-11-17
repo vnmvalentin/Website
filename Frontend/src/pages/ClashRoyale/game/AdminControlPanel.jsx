@@ -4,7 +4,7 @@
 import React from 'react';
 import { CrClose, CrCrown, CrShield } from '../ui/CrIcons';
 import PlayerAvatar from '../components/PlayerAvatar';
-import crownIcon from '../../../assets/clashRoyale/ui/crown.png';
+import crownIcon from '../../../assets/clashRoyale/ui/crown.webp';
 
 export default function AdminControlPanel({ players, hostId, onTransferHost, onSetSpectator, onClose, t }) {
   return (

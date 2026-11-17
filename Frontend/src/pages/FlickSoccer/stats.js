@@ -8,9 +8,10 @@ import { SKINS, SKIN_IDS, FIELD_IDS, FORMATION_IDS, isCustomFormation, isUnlocke
 import { ACHIEVEMENTS, CATALOGS, achievementDone, itemUnlocked } from './progress.js';
 import { TOUR_STAGES, starsFor, tourStage } from './tour.js';
 import { TRICKS } from './trickData.js';
+import { meldeAenderung } from '../../utils/spielstand.js';
 
-const KEY = 'flickSoccer.stats';
-const COUNTERS = [
+export const KEY = 'flickSoccer.stats';
+export const COUNTERS = [
   'played', 'wins', 'goals', 'winsEasy', 'winsMedium', 'winsHard', 'winsProfi', 'onlineWins', 'cleanSheets',
   'chaosWins', 'bankGoals', 'kickoffGoals', 'posts', 'maxGoals', 'customWins', 'cardsPlayed',
   'shots', 'powerSum', 'ballHits', // Spielstil: eigene Schüsse, Summe der Schusskraft (0…1), Schüsse mit Ballkontakt
@@ -25,6 +26,11 @@ function readRaw() {
   } catch {
     raw = {};
   }
+  return normalizeStats(raw);
+}
+
+/** Gespeicherten (oder vom Konto geholten) Rohstand säubern: nur bekannte Zähler und IDs */
+export function normalizeStats(raw = {}) {
   const out = {};
   for (const f of COUNTERS) out[f] = f === 'powerSum' ? Math.max(0, Number(raw[f]) || 0) : int(raw[f]);
   // Aufstellungen: { id: { p: gespielt, w: gewonnen } } — nur bekannte IDs
@@ -51,7 +57,7 @@ function readRaw() {
   return out;
 }
 
-function derive(s) {
+export function derive(s) {
   const d = { ...s };
   d.formationsPlayed = Object.values(s.formations).filter((e) => e.p > 0).length;
   d.fieldsWon = Object.values(s.fieldWins).filter((n) => n > 0).length;
@@ -79,6 +85,7 @@ function save(raw) {
   } catch {
     /* ohne Speicher keine Freischaltungen — das Spiel läuft trotzdem */
   }
+  meldeAenderung('flick-soccer'); // Konto-Anbindung (kontoStand.js) speichert mit
 }
 
 /** Alles, was mit diesen Zählern frei ist: [{ kind, id, name }] */

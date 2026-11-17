@@ -6,6 +6,7 @@ import { priceOf } from "./interact.js";
 import { chooseUpgrade } from "./levelup.js";
 import { dist2 } from "./util.js";
 import { collectEnemies } from "./grid.js";
+import { GEAR_REACH } from "./worldMechanics.js";
 
 const nearby = [];
 
@@ -47,7 +48,8 @@ export function botInput(g, opts = {}) {
     }
     goal = best;
   }
-  if (!goal && wantTele && t.state !== "charging" && !g.biome.final) goal = t;
+  // Im Finale erst nach dem Sieg: dann durch den Teleporter in den nächsten Zyklus (ein Mensch klickt „Weiter“)
+  if (!goal && wantTele && t.state !== "charging" && (!g.biome.final || t.state === "ready")) goal = t;
   if (t.state === "charging") goal = { x: t.x + Math.cos(g.time) * 250, y: t.y + Math.sin(g.time) * 250 };
   // Nichts zu tun: kreisen statt den Boss viel zu früh zu rufen (ein Mensch farmt erst ein wenig)
   if (!goal && !g.biome.final) goal = { x: p.x + Math.cos(g.time * 0.4) * 300, y: p.y + Math.sin(g.time * 0.4) * 300 };
@@ -60,13 +62,14 @@ export function botInput(g, opts = {}) {
     const a = Math.atan2(goal.y - p.y, goal.x - p.x);
     mx += Math.cos(a); my += Math.sin(a);
     if (dist2(p.x, p.y, goal.x, goal.y) < 60 * 60) pressed.interact = true;
-    // Hindernis direkt voraus: seitlich daran vorbei
+    // Hindernis direkt voraus: seitlich daran vorbei (Zahnradfallen mit ihrer ganzen Klinge — ein Mensch sieht sie kreisen)
     for (const o of g.obstacles) {
+      const or = o.sprite === "gear" ? GEAR_REACH : o.r;
       const ax = o.x - p.x, ay = o.y - p.y;
       const along = ax * Math.cos(a) + ay * Math.sin(a);
-      if (along < 0 || along > o.r + 90) continue;
+      if (along < 0 || along > or + 90) continue;
       const side = -ax * Math.sin(a) + ay * Math.cos(a);
-      if (Math.abs(side) > o.r + p.r + 6) continue;
+      if (Math.abs(side) > or + p.r + 6) continue;
       const s = side >= 0 ? -1 : 1;
       mx += -Math.sin(a) * s * 1.5; my += Math.cos(a) * s * 1.5;
     }

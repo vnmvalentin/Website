@@ -12,6 +12,7 @@ import { PICKS_PER_PLAYER, DRAFT_ROUNDS, ROUND_SIZE, draftRound, roundPids } fro
 import { errorText } from "../../i18n/de.js";
 import { sound } from "../../audio/sound.js";
 import { useShell } from "../shellContext.js";
+import { helpFor } from "./touch.js";
 import { rowX, stageModel, timeLeft } from "./stageModel.js";
 
 /** Karten der Runde: nebeneinander in der Tischmitte, etwas größer als im Kampf. */
@@ -154,10 +155,13 @@ export default function TableDraft({ room, view, you, send, names, timers, clock
           onClose={() => setPaused(false)}
           onSurrender={you !== null ? () => send({ type: "surrender" }) : null}
           onFallback={onFallback}
-          help={<>
+          help={helpFor(<>
             Karte in der Tischmitte anklicken: nehmen · Rechtsklick (oder lange drücken): Karte ansehen ·
             deine gewählten Karten liegen unten als Hand. Legendäre Karten gibt es nur einmal pro Match.
-          </>}
+          </>, <>
+            Karte in der Tischmitte antippen: nehmen · lange drücken: Karte ansehen · deine gewählten Karten liegen
+            unten als Hand. Legendäre Karten gibt es nur einmal pro Match.
+          </>)}
         />
       )}
     </>

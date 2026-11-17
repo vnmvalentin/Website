@@ -1,7 +1,7 @@
 // Tests der Kampf-Auswertung.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { analyze, byDay, crownSet, currentStreak, deckStats, deckFit, deckKey, rankedChange } from '../analysis.js';
+import { analyze, byDay, crownSet, currentStreak, deckStats, deckFit, deckKey, rankedChange, winsBefore } from '../analysis.js';
 
 const card = (id, elixir = 3, lvl = 14) => ({ id, name: id, elixir, lvl });
 const DECK = ['knight', 'archers', 'fireball', 'musketeer', 'skeletons', 'ice-spirit', 'the-log', 'hog-rider'].map((id, i) => card(id, [3, 3, 4, 4, 1, 1, 2, 4][i]));
@@ -160,4 +160,49 @@ test('Crown-Series-Set: Runden-Decks der neuesten Duelle, keine Karte doppelt, h
   assert.deepEqual(s.decks.map((d) => [d.rounds, d.wins]), [[2, 2], [2, 2], [1, 0], [1, 0]]);
   assert.equal(s.battles, 3);
   assert.equal(crownSet([battle('win', OTHER)]), null);
+});
+
+test('Crown-Series-Set aus gemerkten Duellen, wenn sie nicht mehr unter den letzten Kämpfen sind', () => {
+  const D = (ids) => ids.map((id) => card(id));
+  const A = D(['a1', 'a2', 'a3', 'a4', 'a5', 'a6', 'a7', 'a8']);
+  const B = D(['b1', 'b2', 'b3', 'b4', 'b5', 'b6', 'b7', 'b8']);
+  const C = D(['c1', 'c2', 'c3', 'c4', 'c5', 'c6', 'c7', 'c8']);
+  const recent = [battle('win', OTHER), battle('loss', MK)];
+  // so kommen die Duelle aus dem Speicher: verkleinert auf Runden-Decks und Rundenergebnis
+  const slim = (decks, rounds) => { const b = battle('win', OTHER, { group: 'crown', rounds }); return { t: b.t, group: 'crown', result: 'win', rounds, team: [{ tag: 'ME', decks }] }; };
+  const older = slim([A, B], [{ f: 1, a: 0 }, { f: 1, a: 0 }]);
+  const oldest = slim([C, A], [{ f: 0, a: 1 }, { f: 1, a: 0 }]);
+  assert.equal(analyze(recent).crownSet, null);
+  const a = analyze(recent, { crown: [older, oldest] });
+  assert.deepEqual(a.crownSet.decks.map((d) => d.cards[0].id), ['a1', 'b1', 'c1']);
+  assert.deepEqual(a.crownSet.decks.map((d) => [d.rounds, d.wins]), [[2, 2], [1, 1], [1, 0]]);
+  assert.equal(a.crownSet.t, older.t);
+  assert.equal(a.count, 2); // die gemerkten Duelle zählen nur fürs Set, nicht für Bilanz und Form
+  // Steht ein Duell in beiden Listen, zählt es einmal
+  const full = battle('win', OTHER, { group: 'crown', rounds: [{ f: 1, a: 0 }, { f: 1, a: 0 }] });
+  full.team[0].decks = [A, B];
+  const both = analyze([full, ...recent], { crown: [{ t: full.t, group: 'crown', result: 'win', rounds: full.rounds, team: [{ tag: 'ME', decks: [A, B] }] }] });
+  assert.equal(both.crownSet.battles, 1);
+  assert.deepEqual(both.crownSet.decks.map((d) => [d.rounds, d.wins]), [[1, 1], [1, 1]]);
+});
+
+test('Siege vor dem Kampf: fehlender Stand heißt in Läufen 0, bei Spaß-Events nichts', () => {
+  const run = (group, me, opp, extra = {}) => ({ group, mode: '', team: [{ start: me }], opponent: [{ start: opp }], ...extra });
+  const both = (b) => [winsBefore(b, b.team[0], true), winsBefore(b, b.opponent[0])];
+  // Grand Challenge: API lässt startingTrophies bei 0 weg — beide Seiten
+  assert.deepEqual(both(run('party', undefined, undefined, { mode: 'Challenge_AllCards_EventDeck_NoSet' })), [0, 0]);
+  assert.deepEqual(both(run('party', 4, undefined, { challenge: 'grand', mode: 'Challenge_AllCards_EventDeck_NoSet' })), [4, 0]);
+  // challengeWinCountBefore gilt nur für den eigenen Spieler
+  assert.deepEqual(both(run('party', undefined, undefined, { challengeWins: 3 })), [3, 0]);
+  // Crown Series und Turniere zählen Siege ab 1
+  assert.deepEqual(both(run('crown', undefined, 2)), [0, 2]);
+  assert.deepEqual(both(run('tournament', 5, undefined)), [5, 0]);
+  // Event mit Siegzählung erkennt man an der anderen Seite; Spaß-Events ohne Stand bekommen nichts
+  assert.deepEqual(both(run('party', 3, undefined, { mode: 'Chaos_1v1_MegaDraft_S3' })), [3, 0]);
+  assert.deepEqual(both(run('party', undefined, undefined, { mode: 'Showdown_Friendly' })), [null, null]);
+  // Global Tournament: nur was die API ausdrücklich nennt
+  assert.deepEqual(both(run('tournament', undefined, undefined, { challenge: 'global', challengeWins: 7 })), [7, null]);
+  // andere Modi: keine Siege
+  assert.deepEqual(both(run('ladder', 9000, 8900)), [null, null]);
+  assert.deepEqual(both(run('ranked', undefined, undefined)), [null, null]);
 });

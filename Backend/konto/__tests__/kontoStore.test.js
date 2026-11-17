@@ -126,6 +126,11 @@ test("Abzeichen: nur aus dem Katalog, jedes nur einmal", () => {
     assert.equal(store.meldeErfolge(kontoId, "gibt-es-nicht", ["x"]).fehler, "spiel");
     assert.equal(store.meldeErfolge(kontoId, "flick-soccer", "kein-array").fehler, "liste");
     assert.equal(store.ansicht(kontoId).erfolge.length, 2);
+    // Entziehen (z. B. erstatteter Kauf): nur genau dieses Abzeichen, danach darf es wieder vergeben werden
+    assert.equal(store.entziehErfolg(kontoId, "flick-soccer", "hattrick"), true);
+    assert.equal(store.entziehErfolg(kontoId, "flick-soccer", "hattrick"), false);
+    assert.deepEqual(store.ansicht(kontoId).erfolge.map((e) => e.erfolg), ["erstes-tor"]);
+    assert.deepEqual(store.meldeErfolge(kontoId, "flick-soccer", ["hattrick"]).neu, ["hattrick"]);
   } finally {
     store.close();
   }
@@ -261,6 +266,53 @@ test("Wiederkehr: Folgetag, 7 und 30 Tage — nur neue Konten, nur abgelaufene Z
     // Aufräumen nach 120 Tagen
     uhr.t = tag(200);
     assert.ok(store.raeumeAuf() >= 6);
+  } finally {
+    store.close();
+  }
+});
+
+test("Bestwerte: nur aus dem Katalog, je Wert nur Verbesserungen; Zusammenführen behält den besseren", () => {
+  const ordner = fs.mkdtempSync(path.join(os.tmpdir(), "konto-test-"));
+  const uhr = { t: START };
+  const store = createKontoStore({
+    datei: path.join(ordner, "konten.db"),
+    now: () => uhr.t,
+    bestwertKatalog: {
+      "lights-out": [
+        { id: "flucht", name: { de: "Flucht", en: "Escape" }, art: "zeit", besser: "kleiner" },
+        { id: "ebenen", name: { de: "Ebenen", en: "Floors" }, art: "zahl", besser: "groesser" },
+      ],
+    },
+  });
+  try {
+    const a = store.erstelleGast().kontoId;
+    let r = store.meldeBestwerte(a, "lights-out", { flucht: 90_500.4, ebenen: 3, quatsch: 1 });
+    assert.deepEqual(r, { ok: true, neu: ["flucht", "ebenen"], abgelehnt: ["quatsch"] });
+    r = store.meldeBestwerte(a, "lights-out", { flucht: 95_000, ebenen: 5 });
+    assert.deepEqual(r.neu, ["ebenen"], "langsamere Zeit zählt nicht, mehr Ebenen schon");
+    assert.deepEqual(store.meldeBestwerte(a, "lights-out", { flucht: -1 }).abgelehnt, ["flucht"]);
+    assert.equal(store.meldeBestwerte(a, "gibts-nicht", { flucht: 1 }).fehler, "spiel");
+    assert.equal(store.meldeBestwerte(a, "lights-out", [1, 2]).fehler, "liste");
+    assert.deepEqual(store.ansicht(a).bestwerte.map((b) => [b.wert, b.zahl]), [["ebenen", 5], ["flucht", 90_500]]);
+
+    // Zusammenführen: Twitch-Konto bleibt, je Wert gewinnt der bessere; Beobachter erfährt es
+    const gemeldet = [];
+    const aus = store.beobachte({
+      zusammengefuehrt: (ziel, quelle) => gemeldet.push(["zusammen", ziel, quelle]),
+      geloescht: (k) => gemeldet.push(["weg", k]),
+    });
+    const t = store.anmelden("twitch", "77", { name: "Tw" }).kontoId;
+    store.meldeBestwerte(t, "lights-out", { flucht: 80_000, ebenen: 2 });
+    const v = store.verknuepfe(a, "twitch", "77", { name: "Tw" });
+    assert.equal(v.kontoId, t);
+    assert.deepEqual(store.ansicht(t).bestwerte.map((b) => [b.wert, b.zahl]), [["ebenen", 5], ["flucht", 80_000]]);
+    assert.deepEqual(gemeldet, [["zusammen", t, a]]);
+
+    store.loesche(t);
+    assert.deepEqual(gemeldet.at(-1), ["weg", t]);
+    aus();
+    store.loesche(store.erstelleGast().kontoId);
+    assert.equal(gemeldet.length, 2, "abgemeldeter Beobachter hört nichts mehr");
   } finally {
     store.close();
   }

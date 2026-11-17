@@ -45,7 +45,7 @@ export default function History({ onBack }) {
                       <span>{kit?.name} · {DIFFICULTIES[r.difficulty]?.name}{r.ascension ? `+${r.ascension}` : ""}</span>
                     </div>
                     <div className="text-[14px] av-dim av-num">
-                      {fmtDate(r.at)} · {r.stages} {r.stages === 1 ? "Welt" : "Welten"} · {fmtTime(r.timeSec)} · {r.kills} Kills
+                      {fmtDate(r.at)} · {(r.depth ?? r.stages + 1) > 6 ? `Tiefe ${r.depth ?? r.stages + 1}` : `${r.stages} ${r.stages === 1 ? "Welt" : "Welten"}`} · {fmtTime(r.timeSec)} · {r.kills} Kills
                     </div>
                     {r.deathCause && (
                       <div className="text-[14px]">

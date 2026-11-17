@@ -200,3 +200,28 @@
 }
 .sb-turn:hover:not(:disabled), .sb-turn:focus-visible { opacity: 1; outline: none; }
 .sb-turn:disabled { opacity: 0.18; cursor: default; }
+
+/* Flache Fenster (Handy quer, Phase 7): Einband, Bändchen, Kopfzeile und Filter enger, damit für die Seiten genug
+   Höhe bleibt (bei 375 px Höhe lagen die Karten sonst halb unter der Fußzeile). Die Kartengröße folgt dann der Höhe
+   (TableBook.jsx, cardW). */
+@media (max-height: 500px) {
+  .sb-root { padding: 30px 8px 6px; }
+  .sb-book { padding: 6px; }
+  .sb-spread { padding: 8px 22px 2px; }
+  .sb-ribbons { top: -26px; left: 40px; gap: 6px; }
+  .sb-ribbon { min-width: 70px; height: 34px; padding: 4px 10px 10px; font-size: 14px; }
+  .sb-ribbon:hover, .sb-ribbon:focus-visible { height: 38px; }
+  .sb-ribbon[aria-current="page"] { height: 44px; }
+  .sb-close { top: -29px; }
+  .sb-head { gap: 2px 14px; padding-bottom: 4px; margin-bottom: 6px; }
+  .sb-title { font-size: 22px; }
+  .sb-count { font-size: 13px; }
+  .sb-tools { gap: 0 10px; font-size: 13px; }
+  .ss-game .sb-root .sb-tools input.sb-input, .sb-root .sb-select, .sb-root .sb-word { min-height: 30px; padding-top: 0; padding-bottom: 0; font-size: 13px; }
+  .sb-root .sb-word { font-size: 15px; }
+  .ss-game .sb-root label.sb-check { min-height: 30px; }
+  .sb-flow { font-size: 15px; line-height: 1.4; }
+  .sb-h2 { font-size: 18px; }
+  .sb-foot { padding-top: 0; }
+  .sb-root .sb-turn { height: 30px; min-height: 30px; }
+}

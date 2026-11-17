@@ -1,7 +1,7 @@
 import React, { Suspense, lazy, useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
 import CardFace from '../ui/CardFace';
 import { CrCheck, CrFisherman, CrStopwatch, CrTv } from '../ui/CrIcons';
-import crownIcon from '../../../assets/clashRoyale/ui/crown.png';
+import crownIcon from '../../../assets/clashRoyale/ui/crown.webp';
 import { RARITY_COLOR, cardImageUrl } from '../data/cards';
 import ModeShell from './ModeShell';
 import { drawCardFrame } from './cardCrop';

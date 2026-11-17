@@ -7,6 +7,7 @@
 //
 // Alte Chunk-Level (vor Phase D) haben keine Referenz: Sie werden nicht mehr erzeugt und sind nicht bewertbar.
 import { LEITIDEEN } from '../gen/world/pfad/leitideen.js';
+import { LAUF_AUTOR, laufIdeeName } from '../gen/world/lauf/namen.js';
 import { BIOMES } from '../gen/biomes.js';
 
 /** Referenz zu Runden-Parametern (Lobby-Runde, Tagesrennen); null bei alten Chunk-Leveln */
@@ -49,8 +50,9 @@ export const AUTOR_NAMEN = Object.freeze({
   flitzer: 'Flitzer',
 });
 
-export const leitideeName = (id) => (id && LEITIDEEN[id] ? LEITIDEEN[id].name : null);
-export const autorName = (id) => (id ? AUTOR_NAMEN[id] || id : null);
+// Lauf-Level (ab gv 5): Großform als Leitidee, „Lauflinie“ als Autor (gen/world/lauf/namen.js)
+export const leitideeName = (id) => (id && LEITIDEEN[id] ? LEITIDEEN[id].name : laufIdeeName(id));
+export const autorName = (id) => (id === LAUF_AUTOR ? 'Lauflinie' : id ? AUTOR_NAMEN[id] || id : null);
 export const biomeName = (id) => (id === 'random' ? 'Zufälliges Biom' : BIOMES[id]?.label || id);
 /** Untertitel eines Zufallslevels: der Seed, ein fest gewähltes Biom dazu (ein zufälliges ist keine Information) */
 export const seedLine = (seed, biome) => `Seed ${seed}${biome && biome !== 'random' ? ` · ${biomeName(biome)}` : ''}`;

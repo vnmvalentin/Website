@@ -66,7 +66,11 @@ export const GEN_PFAD = 'pfad';
 // Version 3 (01.10.2026): Kanonen, Luftportale, Schlüsselsprung, Kristall-Tunnel, Luftkristall, Großform Schlot (PLANUNG 16s).
 // Version 4 (03.10.2026): Höhenbudget je Zeile (Schlot baute 40–60 s), keine Schlüssel ohne Tür, Kanonenbahnen nicht umgehbar,
 // Kristalle nur, wo sie gebraucht werden (PLANUNG 16t).
-export const GEN_VERSION = 4;
+// Version 5 (16.11.2026): Die Lauflinie (Welttyp lauf, PLANUNG 17d–17f) ersetzt den Pfad — Strecken mit vollem Schwung,
+// Härte-Stufe 3, Wenden, Flut und Boost-Streifen. Welcher Welttyp zu einer Version gehört, sagt LAUF_AB_GV (gen/index.js).
+export const GEN_VERSION = 5;
+/** Ab dieser Generator-Version bauen Zufallslevel die Lauflinie statt des Pfads (gen/index.js weltParams) */
+export const LAUF_AB_GV = 5;
 const cleanGv = (v) => (Number.isInteger(Number(v)) && Number(v) >= 1 && Number(v) <= 999 ? Number(v) : 1);
 
 /** Ab diesem Tag ist das Tagesrennen ein Pfad-Level (muss zu Backend/seedRunners/daily.js passen) */
@@ -78,6 +82,10 @@ export const GV2_TAGESRENNEN_AB = '2026-09-28';
 export const GV3_TAGESRENNEN_AB = '2026-10-03';
 /** Ab diesem Tag Generator-Version 4 (muss zu Backend/seedRunners/daily.js passen; nach dem Deploy liegen) */
 export const GV4_TAGESRENNEN_AB = '2026-10-04';
+/** Ab diesem Tag Generator-Version 5 = Lauflinie (muss zu Backend/seedRunners/daily.js GV5_AB passen). Der Deploy MUSS vor
+ * diesem Tag liegen — sonst baut der alte Server die Tage ab hier mit Version 4, und nach dem Deploy wechselte das Level eines
+ * schon gespielten Tages. Verschiebt sich der Deploy, das Datum an beiden Stellen verschieben. */
+export const GV5_TAGESRENNEN_AB = '2026-11-20';
 
 export function normalizeParams(raw = {}) {
   if (raw.gen === GEN_PFAD) {
@@ -97,7 +105,7 @@ export function dailyParams(dateKey) {
   // (Jede Generator-Version bekommt einen Stichtag — frühere Tage behalten ihre Version, sonst änderte sich rückwirkend das
   // Level vergangener Tage)
   if (dateKey >= PFAD_TAGESRENNEN_AB) {
-    return normalizeParams({ seed: `daily-${dateKey}`, biome: 'random', gen: GEN_PFAD, gv: dateKey >= GV4_TAGESRENNEN_AB ? 4 : dateKey >= GV3_TAGESRENNEN_AB ? 3 : dateKey >= GV2_TAGESRENNEN_AB ? 2 : 1 });
+    return normalizeParams({ seed: `daily-${dateKey}`, biome: 'random', gen: GEN_PFAD, gv: dateKey >= GV5_TAGESRENNEN_AB ? 5 : dateKey >= GV4_TAGESRENNEN_AB ? 4 : dateKey >= GV3_TAGESRENNEN_AB ? 3 : dateKey >= GV2_TAGESRENNEN_AB ? 2 : 1 });
   }
   return normalizeParams({ seed: `daily-${dateKey}`, length: 'medium', speedClass: 'normal', biome: 'random' });
 }

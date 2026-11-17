@@ -11,28 +11,27 @@ import { buildDeckLink } from '../data/cardDeckIds';
 import { useClanBadgeUrl } from '../data/clanBadges';
 import Modal from '../ui/Modal';
 import { CrCheck, CrClock, CrElixir, CrPlus, CrRandom, CrSearch, CrStar, CrUser } from '../ui/CrIcons';
-import { MEDAL_ICON_URL } from '../data/leagueIcons';
-import trophyImg from '../../../assets/clashRoyale/ui/trophy.png';
-import crownSeriesImg from '../../../assets/clashRoyale/ui/CR_CrownSeriesIcon.png';
-import league2v2Img from '../../../assets/clashRoyale/badges/league2v2.png';
-import clanWarsImg from '../../../assets/clashRoyale/ui/clan-wars.png';
-import challengeImg from '../../../assets/clashRoyale/ui/challenge-grand.webp';
-import tourneyImg from '../../../assets/clashRoyale/ui/tourney_trophy.webp';
-import friendlyImg from '../../../assets/clashRoyale/ui/friendly.webp';
-import draftImg from '../../../assets/clashRoyale/ui/draft.webp';
-import battleImg from '../../../assets/clashRoyale/ui/battle.png';
-import goldImg from '../../../assets/clashRoyale/ui/gold.png';
+import { MEDAL_ICON_URL, challengeBadgeUrl } from '../data/leagueIcons';
+import trophyImg from '../../../assets/clashRoyale/ui/trophy.webp';
+import crownSeriesImg from '../../../assets/clashRoyale/modes/CR_CrownSeriesIcon.webp';
+import clanWarsImg from '../../../assets/clashRoyale/ui/clan-wars.webp';
+import challengeImg from '../../../assets/clashRoyale/modes/challenge-grand.webp';
+import tourneyImg from '../../../assets/clashRoyale/modes/tourney_trophy.webp';
+import draftImg from '../../../assets/clashRoyale/modes/draft.webp';
+import { friendlyImg, modeArt, twoVsTwoImg } from '../data/modeArt';
+import battleImg from '../../../assets/clashRoyale/ui/battle.webp';
+import goldImg from '../../../assets/clashRoyale/ui/gold.webp';
 import evoShardImg from '../../../assets/clashRoyale/ui/evo_shard.webp';
 import heroShardImg from '../../../assets/clashRoyale/ui/Hero_Shard.webp';
 import towerImg from '../../../assets/clashRoyale/ui/tower.webp';
 import starLevelImg from '../../../assets/clashRoyale/ui/star_level.webp';
 import royaleShuffleImg from '../../../assets/clashRoyale/ui/royale_shuffle.webp';
 import itemHeaderImg from '../../../assets/clashRoyale/ui/item_header.webp';
-import upgradeImg from '../../../assets/clashRoyale/ui/upgrade.png';
+import upgradeImg from '../../../assets/clashRoyale/ui/upgrade-arrow.webp';
 import { deckStats, localDayKey } from './analysis';
 import { fmtDec, fmtNum, useScoutText } from './scoutI18n';
-import { useSaved } from './scoutApi';
-import { deckPath } from './scoutUtil';
+import { currentLimit, useSaved } from './scoutApi';
+import { battleModeName, deckPath } from './scoutUtil';
 
 const RARITY_BY_ID = Object.fromEntries(ALL_CARDS.map((c) => [c.id, c.rarity]));
 const CARD_NAME = Object.fromEntries(ALL_CARDS.map((c) => [c.id, c.name]));
@@ -191,16 +190,29 @@ export function DeckShare({ cards, className = '' }) {
  * Ein Deck als Zeile: links die acht Karten, rechts oben die Kennzahlen (figures: [{ value, label, tone }]),
  * darunter eine Nebenzeile (children) und Ø Elixier/Cycle mit Deck-Seite und Kopieren-Menü (DeckShare).
  * @param {number} rank  Platz in einer Liste (optional)
+ * @param {boolean} wide  wie in der Rangliste: Karten so groß wie dort, Ø Elixier und Cycle unter dem Deck statt rechts
+ *                        (ganzseitige Listen wie Meta Decks) — rechts bleiben nur Kennzahlen und Knöpfe
  */
-export function DeckLine({ cards, cap, tower, rank, figures = [], children, level = true }) {
+export function DeckLine({ cards, cap, tower, rank, figures = [], children, level = true, wide = false }) {
   const { t, lang, q } = useScoutText();
   const { avgElixir, cycle } = deckStats(cards);
   const page = deckPath(cards);
+  // Wie in der Rangliste: acht Karten in einer Reihe, die Turmtruppe etwas kleiner dahinter
+  const grid = <DeckGrid cards={cards} tower={tower || undefined} cap={cap} size="row" level={level} />;
   return (
-    <div className={`crs-deckline${rank ? ' crs-deckline--ranked' : ''}`}>
+    <div className={`crs-deckline${rank ? ' crs-deckline--ranked' : ''}${wide ? ' crs-deckline--wide' : ''}`}>
       {rank ? <span className={`crs-rank crs-rank--${rank} justify-self-start`}>{rank}</span> : null}
-      {/* Wie in der Rangliste: acht Karten in einer Reihe, die Turmtruppe etwas kleiner dahinter */}
-      <DeckGrid cards={cards} tower={tower || undefined} cap={cap} size="row" level={level} />
+      {wide ? (
+        <div className="min-w-0">
+          {grid}
+          {(avgElixir !== null || cycle !== null) && (
+            <div className="crs-rankrow-meta">
+              {avgElixir !== null && <span className="crs-delta"><CrElixir size={14} /> {fmtDec(avgElixir, lang)}</span>}
+              {cycle !== null && <span className="crs-delta" title={t.cycleHint}><CrRandom size={14} /> {cycle} {t.cycle}</span>}
+            </div>
+          )}
+        </div>
+      ) : grid}
       <div className="crs-deckline-info">
         {figures.length > 0 && (
           <div className="crs-deckline-top">
@@ -211,10 +223,12 @@ export function DeckLine({ cards, cap, tower, rank, figures = [], children, leve
         )}
         {children && <div className="crs-deckline-sub">{children}</div>}
         <div className="crs-deckline-foot">
-          <span className="crs-deckmeta">
-            {avgElixir !== null && <span><CrElixir size={16} /><b>{fmtDec(avgElixir, lang)}</b></span>}
-            {cycle !== null && <span title={t.cycleHint}><CrRandom size={16} /><b>{cycle}</b> {t.cycle}</span>}
-          </span>
+          {!wide && (
+            <span className="crs-deckmeta">
+              {avgElixir !== null && <span><CrElixir size={16} /><b>{fmtDec(avgElixir, lang)}</b></span>}
+              {cycle !== null && <span title={t.cycleHint}><CrRandom size={16} /><b>{cycle}</b> {t.cycle}</span>}
+            </span>
+          )}
           <span className="flex flex-wrap items-center gap-2">
             {page && <Link to={`${page}${q}`} className="cr-chip flex items-center h-9 px-3 rounded-xl font-cr text-sm text-white">{t.deckPage}</Link>}
             <DeckShare cards={cards} />
@@ -225,17 +239,31 @@ export function DeckLine({ cards, cap, tower, rank, figures = [], children, leve
   );
 }
 
-// Abzeichen je Kampfgruppe (analysis/scoutShape: modeGroup) — Bilder aus dem Spiel
+// Abzeichen je Kampfgruppe (analysis/scoutShape: modeGroup) — Bilder aus dem Spiel. 2v2 = gewöhnliches 2v2; die 2v2-Liga
+// erkennt modeArt am einzelnen Kampf.
 const MODE_ICON = {
-  ranked: MEDAL_ICON_URL, ladder: trophyImg, crown: crownSeriesImg, '2v2': league2v2Img, war: clanWarsImg,
+  ranked: MEDAL_ICON_URL, ladder: trophyImg, crown: crownSeriesImg, '2v2': twoVsTwoImg, war: clanWarsImg,
   challenge: challengeImg, tournament: tourneyImg, friendly: friendlyImg, party: draftImg,
 };
 const modeIconUrl = (group) => MODE_ICON[group] || battleImg;
 
-/** Abzeichen des Spielmodus eines Kampfes. */
-export function ModeBadge({ group, size = 28, className = '' }) {
-  const { t } = useScoutText();
-  return <img src={modeIconUrl(group)} alt={t.groups[group] || ''} title={t.groups[group] || ''} draggable={false}
+// Symbol-Schlüssel ohne eigenes Modus-Bild: „challenge“ = Classic, Grand oder 20 Win, aber unklar welche (Kampf von vor
+// der Event-Erkennung) → neutrale Schwerter statt eines Kranzes; clan_wars nutzt das Spiel selbst für 1v1 Showdown.
+// Alle übrigen Modus-Bilder: data/modeArt.js.
+const KEY_ART = { clan_wars: clanWarsImg, challenge: battleImg };
+
+/**
+ * Abzeichen des Spielmodus eines Kampfes. Mit `battle`: Kranz der Challenge (Classic, Grand, 20 Win …), sonst das
+ * Symbol des Modus (Draft, Chaos, Dragon Hunt, 2v2-Liga …), sonst das der Kampfgruppe — bei Events ohne eigenes Bild
+ * neutrale Schwerter statt des Draft-Symbols der Gruppe.
+ */
+export function ModeBadge({ group, battle = null, size = 28, className = '' }) {
+  const { t, lang } = useScoutText();
+  const src = (battle && (challengeBadgeUrl(battle.challenge, null) || modeArt(battle) || KEY_ART[battle.modeIcon]
+    || (group === 'party' ? battleImg : null)))
+    || modeIconUrl(group);
+  const label = (battle && battleModeName(battle, lang)) || t.groups[group] || '';
+  return <img src={src} alt={label} title={label} draggable={false}
     className={`inline-block shrink-0 object-contain ${className}`} style={{ width: size, height: size }} />;
 }
 
@@ -660,9 +688,16 @@ export const BannerIcon = icon(itemHeaderImg);
 export const CollectionIcon = icon(royaleShuffleImg);
 export const ClanWarIcon = icon(clanWarsImg);
 
+/** Uhrzeit, ab der es weitergeht — mit „morgen“, wenn sie nicht mehr heute liegt */
+function untilText(ms, lang, t) {
+  const d = new Date(ms);
+  const time = d.toLocaleTimeString(lang === 'en' ? 'en' : 'de-DE', { hour: '2-digit', minute: '2-digit' });
+  return d.toDateString() === new Date().toDateString() ? time : `${t.limitTomorrow}, ${time}`;
+}
+
 /** Platzhalter beim Laden bzw. Fehlermeldung mit „Nochmal versuchen". children = Zusatz unter der Fehlermeldung. */
 export function LoadState({ loading, error, onRetry, children }) {
-  const { t } = useScoutText();
+  const { t, lang } = useScoutText();
   if (loading) {
     return (
       <div className="flex flex-col gap-4" aria-busy="true" aria-label={t.loading}>
@@ -672,9 +707,16 @@ export function LoadState({ loading, error, onRetry, children }) {
     );
   }
   if (!error) return null;
+  // Kontingent erschöpft: ehrlich sagen, ab wann es weitergeht, und ob eine Anmeldung mehr Spielraum gibt
+  const limit = error === 'rateLimited' || error === 'dailyLimit' ? currentLimit() : null;
   return (
     <Panel className="text-center">
       <p className="crs-title text-xl mb-2">{t.err[error] || t.err.apiDown}</p>
+      {limit && (
+        <p className="text-sm crs-muted mb-2">
+          {t.limitUntil(untilText(limit.until, lang, t))}{limit.login ? ` ${t.limitLogin}` : ''}
+        </p>
+      )}
       {children}
       {onRetry && error !== 'invalidTag' && error !== 'notFound' && (
         <button type="button" onClick={onRetry} className="cr-arcade-btn cr-arcade-btn--sm cr-arcade-btn--blue mt-3"><RefreshCw size={15} /> {t.retry}</button>

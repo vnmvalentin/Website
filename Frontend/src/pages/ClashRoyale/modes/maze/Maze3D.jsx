@@ -18,8 +18,8 @@ import { RARITY_COLOR, cardImageUrl } from '../../data/cards';
 import { rememberCustomPick } from '../../ui/flyToDeck';
 import { CARD_FRAME_BOX, CARD_IMAGE_SIZE } from '../cardCrop';
 import { createQualityGovernor } from '../scene3d/kit';
-import ghostImgSrc from '../../../../assets/clashRoyale/ui/Royale_Ghost.png';
-import chestImgSrc from '../../../../assets/clashRoyale/ui/draft-chest.png';
+import ghostImgSrc from '../../../../assets/clashRoyale/ui/Royale_Ghost.webp';
+import chestImgSrc from '../../../../assets/clashRoyale/ui/draft-chest.webp';
 import jokerImgSrc from '../../../../assets/clashRoyale/ui/UnknownCard.webp';
 
 // Blickrichtungen im Uhrzeigersinn — Index = Blickrichtung, Wert = Server-Zugrichtung

@@ -20,7 +20,7 @@ import { seeded, berlinDay, readStore, writeStore } from './quizData';
 import { useClashLang } from './clashI18n';
 import { playSound } from '../ui/sound';
 import { hslToRgb, colorOf, preparePatch, recolorPatch, checkerPatch, matchScore, rgbCss } from './colorMath';
-import potionImg from '../../../assets/clashRoyale/ui/card_boost_potion.png';
+import potionImg from '../../../assets/clashRoyale/ui/card_boost_potion.webp';
 
 const STORE = 'crq_color_v1';
 const ROUNDS = 5;

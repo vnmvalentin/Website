@@ -34,6 +34,7 @@ const STATIC_PAGES = {
   '/lights-out': { section: 'games', shot: 'lights-out', title: 'Lights Out', description: 'Horror im Browser in vier Ebenen: Wald, Anstalt, Keller, Garten — in jeder ein anderes Ding im Dunkeln. Allein oder zu viert im Koop.' },
   '/flick-soccer': { section: 'games', shot: 'flick-soccer', title: 'Flick Soccer', description: 'Scheiben-Fußball im Browser: Formation wählen, zurückziehen, abschießen. Gegen den Computer, zu zweit oder online per Link.' },
   '/worldflip': { section: 'games', shot: 'worldflip', title: 'Worldflip', description: '3D-Kartenspiel im Browser: Karten ablegen, während vier Welten um den Tisch kippen und ausbrechen. 19 Effektkarten, 12 Weltereignisse — gegen Bots, online zu viert oder 2 gegen 2.' },
+  '/spieleabend': { section: 'games', shot: 'spieleabend', title: 'Spieleabend', description: 'Ein Zimmer mit Tisch im Browser: Freunde per Link einladen und zusammen 4 gewinnt, Mensch ärgere dich nicht oder Zeichen-Hochstapler spielen. Ohne Download, ohne Anmeldung.' },
   '/connect4': { section: 'games', shot: 'connect4', title: 'Connect 4', description: 'Vier Gewinnt gegen einen Freund: Link teilen und direkt loslegen, kein Download nötig.' },
   '/sacrifice-and-sigils/kartenbuch': { section: 'sigils', title: 'Kartenbuch', description: 'Alle Karten, Sigils, Items und Ereignisse von Sacrifice & Sigils.' },
   '/sacrifice-and-sigils/moorwanderung': { section: 'sigils', shot: 'sacrifice-and-sigils', title: 'Die Moorwanderung', description: 'Run-Modus für 2 bis 6 Spieler: allein durchs Moor, Deck ausbauen, im Duell Lebenssiegel verteidigen.' },
@@ -57,6 +58,7 @@ const STATIC_PAGES = {
 const ROOM_PATTERNS = [
   { re: /^\/seed-runners\/([A-Za-z0-9-]{3,16})$/, section: 'seed', game: 'Seed Runners', shot: 'seed-runners', text: 'Ein Rennen wartet auf dich: Klick auf den Link und lauf direkt mit, ohne Download.', invite: 'Ein Rennen wartet auf dich — lauf direkt mit.' },
   { re: /^\/blobby\/([A-Za-z0-9-]{3,16})$/, section: 'games', game: 'Blobby Volley', shot: 'blobby', text: 'Du bist zu einer Partie Blobby Volley eingeladen. Klick und spiel direkt mit.', invite: 'Du bist zu einer Partie eingeladen — klick und spiel mit.' },
+  { re: /^\/spieleabend\/([A-Za-z0-9-]{3,16})$/, section: 'games', game: 'Spieleabend', shot: 'spieleabend', text: 'Am Tisch ist ein Platz für dich frei. Klick und spiel direkt mit.', invite: 'Am Tisch ist ein Platz für dich frei — klick und spiel mit.' },
   { re: /^\/connect4\/([A-Za-z0-9-]{3,16})$/, section: 'games', game: 'Connect 4', shot: 'connect4', text: 'Du bist zu einer Partie Vier Gewinnt eingeladen. Klick und spiel direkt mit.', invite: 'Du bist zu einer Partie eingeladen — klick und spiel mit.' },
   { re: /^\/flick-soccer\/([A-Za-z0-9-]{3,16})$/, section: 'games', game: 'Flick Soccer', shot: 'flick-soccer', text: 'Du bist zu einem Spiel Flick Soccer eingeladen. Klick und spiel direkt mit.', invite: 'Du bist zu einem Spiel eingeladen — klick und spiel mit.' },
   { re: /^\/worldflip\/([A-Za-z0-9-]{3,16})$/, section: 'games', game: 'Worldflip', shot: 'worldflip', text: 'Am schwebenden Tisch ist ein Platz frei. Klick und spiel direkt mit.', invite: 'Am Tisch ist ein Platz frei — klick und spiel mit.' },
@@ -205,6 +207,15 @@ function resolveMeta(rawUri, sources = {}) {
     if (!p) return null;
     const s = p.sections || {};
     const parts = [];
+    // Visitenkarte (seit 16.11.2026): Website-Stufe, Lieblingsspiel, Abzeichen, gewähltes CR-Konto
+    if (p.stufe) parts.push(`Stufe ${p.stufe.stufe}`);
+    if (s.lieblingsspiel) parts.push(`spielt am liebsten ${s.lieblingsspiel.name}`);
+    const nAbz = s.abzeichen ? s.abzeichen.vitrine.length + s.abzeichen.weitere.length : 0;
+    if (nAbz) parts.push(`${nAbz} Abzeichen`);
+    if (s.clash && !s.winTracker) {
+      const c = s.clash;
+      parts.push(c.leagueNumber > 0 ? (c.leagueNumber === 7 ? 'Ultimate Champion' : `Liga ${c.leagueNumber}`) : `${c.trophies} Trophäen`);
+    }
     if (s.winTracker) {
       const w = s.winTracker;
       parts.push(w.trackMode !== 'trophies' && w.leagueNumber > 0 ? (w.leagueNumber === 7 ? 'Ultimate Champion' : `Liga ${w.leagueNumber}`) : `${w.trophies} Trophäen`);
@@ -218,7 +229,7 @@ function resolveMeta(rawUri, sources = {}) {
     if (s.garden) parts.push(`Farm Stufe ${s.garden.level}`);
     const name = clip(p.displayName || p.login, 40);
     return {
-      path, section: s.winTracker || s.tournaments ? 'cr' : 'site', title: `${name} — Profil`,
+      path, section: s.winTracker || s.tournaments || s.clash ? 'cr' : 'site', title: `${name} — Profil`,
       description: parts.length ? `${parts.join(' · ')}. Das ganze Profil auf vnmvalentin.de.` : `Das Profil von ${name} auf vnmvalentin.de.`,
       image: { kind: 'profile', key: p.login },
       card: { lines: [parts.slice(0, 3).join(' · ') || 'Profil auf vnmvalentin.de'] },

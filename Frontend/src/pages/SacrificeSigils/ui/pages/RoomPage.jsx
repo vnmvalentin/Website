@@ -7,6 +7,7 @@ import SEO from "../../../../components/SEO";
 import { useOnlineGame } from "../../net/useOnlineGame.js";
 import { DEFAULT_SETTINGS } from "../../engine/match.js";
 import { getPrefs, setPrefs, useNewTable } from "../prefs.js";
+import { useWideEnough } from "../table/useAtTable.js";
 import LobbyScreen from "../screens/LobbyScreen.jsx";
 import GameScreen from "../GameScreen.jsx";
 import { de } from "../../i18n/de.js";
@@ -56,7 +57,7 @@ function Room({ code, name }) {
   // Tisch im Kerzenlicht wie im Hauptmenü: Standard, außer bisheriger Tisch gewählt, Sparmodus, hochkant, kein WebGL
   const newTable = useNewTable();
   const [tableFailed, setTableFailed] = useState(false);
-  const wideEnough = typeof window === "undefined" || window.innerWidth >= window.innerHeight * 1.2;
+  const wideEnough = useWideEnough();
   const atTable = newTable && wideEnough && !tableFailed;
 
   if (game.kicked) return <p className="text-center py-20 ss-dim">Dieser Platz wurde in einem anderen Fenster übernommen.</p>;

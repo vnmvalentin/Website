@@ -8,7 +8,7 @@ import ModeShell from './ModeShell';
 import { WILDCARD_IMG, TOKEN_IMG } from '../data/wildcardTokenAssets';
 import { CARD_CROP } from './cardCrop';
 import { GameHeader, GameFooter, PlayerPanel } from './GameChrome';
-import crownIcon from '../../../assets/clashRoyale/ui/crown.png';
+import crownIcon from '../../../assets/clashRoyale/ui/crown.webp';
 import { avatarUrl } from '../components/avatars';
 
 const RARITY_ORDER = ['Common', 'Rare', 'Epic', 'Legendary', 'Champion'];

@@ -41,9 +41,13 @@ import { useNavigate, useParams } from "react-router-dom";
 import { io } from "socket.io-client";
 import {
   Volleyball, Copy, Check, LogOut, RotateCcw, Loader2, Users, Settings2, ArrowLeftRight,
-  ChevronLeft, ChevronRight, ChevronUp, Zap, Box,
+  ChevronLeft, ChevronRight, ChevronUp, Zap, Box, Wind, ArrowLeft, ArrowRight, Crown,
 } from "lucide-react";
 import SEO from "../../components/SEO";
+import ErgebnisTeilen from "../../components/ErgebnisTeilen.jsx";
+import { blobbyErgebnis } from "./ergebnis.js";
+import { zaehleBlobbyPartie } from "./kontoStand.js";
+import { eigeneZier } from "./zier.js";
 import BlobbySettings from "./BlobbySettings";
 import BeachGame from "./beach/BeachGame";
 import { DEFAULT_SETTINGS, normalizeSettings, POWERUP_LABELS, settingsSummary } from "./settings";
@@ -52,7 +56,7 @@ import { SLOT_COLOR, TEAM_COLOR, POWERUP_COLOR, drawScene } from "./render";
 import {
   WORLD_H, FIELD_W, NET_BASE_TOP, BALL_RADIUS, TICK_HZ, TICK_MS,
   SERVE_BALL_HEIGHT, SERVE_BALL_OFFSET, teamOf, groundPlaneFor, slotStartX,
-  stepBallFree,
+  stepBallFree, BALL_GRAVITATION, GIANT_BALL_GRAVITY,
 } from "./physics";
 import { POWERUP_TYPES } from "./physics";
 
@@ -100,7 +104,7 @@ function sampleBlob(target, buf, t) {
   return s.dry;
 }
 
-function sampleBall(ball, buf, t, rally, width, netX, netTop) {
+function sampleBall(ball, buf, t, rally, width, netX, netTop, party) {
   const s = sampleAt(buf, t);
   if (!s) return false;
   if (s.a !== s.b) {
@@ -114,7 +118,7 @@ function sampleBall(ball, buf, t, rally, width, netX, netTop) {
   if (!rally) return s.dry;               // im Aufschlag hängt der Ball, da wird nichts gefüllt
   const ahead = Math.min(BALL_FILL_MAX_MS, t - s.a.st);
   const steps = Math.round(ahead / TICK_MS);
-  for (let i = 0; i < steps; i++) stepBallFree(ball, width, netX, netTop);
+  for (let i = 0; i < steps; i++) stepBallFree(ball, width, netX, netTop, party);
   return s.dry;
 }
 
@@ -145,6 +149,11 @@ function freshWorld(mode) {
     frame: 0,
     blobs,
     ball: { x: slotStartX(1, mode) + SERVE_BALL_OFFSET, y: SERVE_BALL_HEIGHT, vx: 0, vy: 0 },
+    // Partyregeln (aus dem Schnappschuss): Ballgröße, Wind, zweiter Ball
+    ballR: BALL_RADIUS,
+    wind: 0,
+    ball2: null,
+    hasBall2: false,
     powerup: null,
     rot: 0,
     bob: 0,
@@ -173,6 +182,7 @@ function BlobbyGame({ socket, mySlot, status, players, settings, slots, mirror, 
   const sentMaskRef = useRef(0);
   // Alles Entfernte kommt aus diesen Puffern — Zeitstempel ist die Server-Frame-Nummer
   const remoteBufRef = useRef({});
+  const ballBuf2Ref = useRef([]);   // Doppelball: zweiter Ball, gleiche Uhr wie der erste
   const ballBufRef = useRef([]);
   // Abspieluhr in Server-Millisekunden. Sie läuft mit der echten Zeit mit und wird sanft
   // an den Schnappschuss-Strom angeglichen; ihr fester Abstand zum neuesten Stand ist die
@@ -188,6 +198,7 @@ function BlobbyGame({ socket, mySlot, status, players, settings, slots, mirror, 
   const liveRef = useRef(false);
   const rafCountRef = useRef(0);   // nur für die ?net=1-Diagnose
   const namesRef = useRef({});
+  const ziersRef = useRef({}); // Accessoires aus dem Laden je Platz (zier.js)
   const slotsRef = useRef(slots);
   // Laufende Nummer der Eingabe. Der Server schickt sie im Schnappschuss zurück; gebraucht
   // wird sie dort nur noch, um überholte Pakete zu verwerfen — der Client gleicht nichts
@@ -291,6 +302,7 @@ function BlobbyGame({ socket, mySlot, status, players, settings, slots, mirror, 
   liveRef.current = status === "playing";
   slotsRef.current = slots;
   namesRef.current = Object.fromEntries(slots.map((s) => [s, players?.[s]?.name || ""]));
+  ziersRef.current = Object.fromEntries(slots.map((s) => [s, players?.[s]?.zier || 0]));
 
   // Nur Änderungen gehen raus — gehaltene Tasten kosten kein Netz. Die laufende Nummer
   // dient dem Server nur dazu, überholte Pakete zu verwerfen.
@@ -402,6 +414,11 @@ function BlobbyGame({ socket, mySlot, status, players, settings, slots, mirror, 
       const st = s.f * TICK_MS;      // Server-Zeit dieses Schnappschusses
       w.netTop = s.nt;
       w.powerup = s.pu ? { x: s.pu[0], y: s.pu[1], t: s.pu[2] } : null;
+      // Partyregeln: Ballgröße (Riesenball), Wind, zweiter Ball (Doppelball)
+      w.ballR = s.br || BALL_RADIUS;
+      w.wind = s.wd || 0;
+      w.hasBall2 = !!s.b2;
+      if (!s.b2) w.ball2 = null;
 
       const raw = {};
       for (const slot of active) {
@@ -468,6 +485,12 @@ function BlobbyGame({ socket, mySlot, status, players, settings, slots, mirror, 
       if (hardReset) ballBuf.length = 0;
       ballBuf.push({ st, x: s.b[0], y: s.b[1], vx: s.b[2], vy: s.b[3] });
       if (ballBuf.length > 32) ballBuf.shift();
+      const ballBuf2 = ballBuf2Ref.current;
+      if (hardReset || !s.b2) ballBuf2.length = 0;
+      if (s.b2) {
+        ballBuf2.push({ st, x: s.b2[0], y: s.b2[1], vx: s.b2[2], vy: s.b2[3] });
+        if (ballBuf2.length > 32) ballBuf2.shift();
+      }
 
       // Auch der EIGENE Platz landet im Puffer — er ist jetzt genauso ein entferntes
       // Objekt wie jeder andere Blob. Genau das ist der Kern der Umstellung: eine Uhr für
@@ -499,6 +522,7 @@ function BlobbyGame({ socket, mySlot, status, players, settings, slots, mirror, 
         reason: s.pr,
         touches: s.tc,
         lastHit: s.lh,
+        wind: s.wd || 0,
         held,
         effects: (s.ef || []).map(([t, team, left]) => ({
           type: POWERUP_TYPES[t],
@@ -572,8 +596,16 @@ function BlobbyGame({ socket, mySlot, status, players, settings, slots, mirror, 
       }
       if (clock.live) {
         const beforeVx = w.ball.vx;
-        if (sampleBall(w.ball, ballBufRef.current, clock.t, rally, w.width, w.netX, w.netTop)) dry = true;
+        // Partyregeln für das Auffüllen von Paketlücken: wie der Server (Riesenball schwebt, Wind schiebt)
+        const party = { r: w.ballR, g: w.ballR > BALL_RADIUS ? BALL_GRAVITATION * GIANT_BALL_GRAVITY : BALL_GRAVITATION, wind: w.wind };
+        if (sampleBall(w.ball, ballBufRef.current, clock.t, rally, w.width, w.netX, w.netTop, party)) dry = true;
         if (rally) w.rot += ((beforeVx + w.ball.vx) / 2) * 0.006 * (dt / TICK_MS);
+        w.ball.r = w.ballR;
+        if (w.hasBall2 && ballBuf2Ref.current.length) {
+          if (!w.ball2) w.ball2 = { x: 0, y: 0, vx: 0, vy: 0 };
+          sampleBall(w.ball2, ballBuf2Ref.current, clock.t, rally, w.width, w.netX, w.netTop, party);
+          w.ball2.r = w.ballR;
+        }
       }
 
       // Puffertiefe: direkt aus dem gemessenen Jitter, nicht mehr aus einer Sperrklinke.
@@ -621,13 +653,13 @@ function BlobbyGame({ socket, mySlot, status, players, settings, slots, mirror, 
 
       const r3d = r3dRef.current;
       if (r3d) {
-        r3d.render(w, { names: namesRef.current, slots: active, mySlot, mirror, dt });
+        r3d.render(w, { names: namesRef.current, ziers: ziersRef.current, slots: active, mySlot, mirror, dt });
         return;
       }
       const scale = canvas.width / worldW;
       if (mirror) ctx.setTransform(-scale, 0, 0, scale, canvas.width, 0);
       else ctx.setTransform(scale, 0, 0, scale, 0, 0);
-      drawScene(ctx, w, { names: namesRef.current, slots: active, dpr, mirror });
+      drawScene(ctx, w, { names: namesRef.current, ziers: ziersRef.current, slots: active, dpr, mirror });
     };
     raf = requestAnimationFrame(frame);
     return () => { cancelAnimationFrame(raf); ro.disconnect(); };
@@ -854,7 +886,7 @@ export default function BlobbyRoom() {
     setView3d(false);
     setToast("3D wird von diesem Browser nicht unterstützt.");
   }, []);
-  const [hud, setHud] = useState({ phase: "serve", phaseFrames: 0, reason: "", touches: 0, lastHit: 0, held: null, effects: [] });
+  const [hud, setHud] = useState({ phase: "serve", phaseFrames: 0, reason: "", touches: 0, lastHit: 0, wind: 0, held: null, effects: [] });
 
   // Der Tick feuert jetzt bis zu 75×/s — nur echte Änderungen dürfen ein Rendern auslösen
   const handleHud = useCallback((next) => {
@@ -862,7 +894,7 @@ export default function BlobbyRoom() {
     setHud((prev) =>
       prev.phase === next.phase && prev.touches === next.touches &&
       prev.lastHit === next.lastHit && prev.reason === next.reason &&
-      prev.held === next.held &&
+      prev.held === next.held && prev.wind === next.wind &&
       key(prev) === key(next) &&
       Math.abs(prev.phaseFrames - next.phaseFrames) < 8
         ? prev
@@ -908,7 +940,7 @@ export default function BlobbyRoom() {
         nameUsedRef.current = saved.name;
         setName(saved.name);
         setPhase((p) => (p === "in-game" ? p : "joining"));
-        s.emit("bv:join", { code, name: saved.name }, handleJoinAck);
+        s.emit("bv:join", { code, name: saved.name, zier: eigeneZier() }, handleJoinAck);
       } else {
         setPhase((p) => (p === "in-game" ? p : "name-entry"));
       }
@@ -919,7 +951,9 @@ export default function BlobbyRoom() {
     s.on("bv:slot", (info) => {
       setMySlot(info?.slot ?? null);
       setIsSpectator(!!info?.spectator);
-      if (info?.spectator) setToast("Der Modus wurde geändert — du schaust jetzt zu.");
+      // König des Strandes: Verlierer stellen sich hinten an, der Nächste rückt nach
+      if (info?.reason === "koenig") setToast(info.spectator ? "Verloren — du stellst dich hinten in der Warteschlange an." : "Du bist dran: fordere den König heraus!");
+      else if (info?.spectator) setToast("Der Modus wurde geändert — du schaust jetzt zu.");
     });
     s.on("bv:playerLeft", (info) => setToast(`${info?.name || "Ein Spieler"} hat das Spiel verlassen.`));
 
@@ -942,13 +976,13 @@ export default function BlobbyRoom() {
     setError("");
     nameUsedRef.current = trimmed;
     setPhase("joining");
-    socketRef.current?.emit("bv:join", { code, name: trimmed }, handleJoinAck);
+    socketRef.current?.emit("bv:join", { code, name: trimmed, zier: eigeneZier() }, handleJoinAck);
   };
 
   const claimSlot = () => {
     const trimmed = nameUsedRef.current || name.trim();
     if (!trimmed) return;
-    socketRef.current?.emit("bv:join", { code, name: trimmed }, handleJoinAck);
+    socketRef.current?.emit("bv:join", { code, name: trimmed, zier: eigeneZier() }, handleJoinAck);
   };
 
   const leaveGame = () => {
@@ -976,6 +1010,30 @@ export default function BlobbyRoom() {
     () => (game?.slots?.length ? game.slots : settings.mode === "2v2" ? [1, 2, 3, 4] : [1, 2]),
     [game?.slots, settings.mode]
   );
+
+  // Letzter eigener Sieg fürs Ergebnisbild. Bei König des Strandes geht die nächste Partie nach 4 s von selbst los —
+  // der Knopf steht dann in der König-Zeile und braucht den Stand der gewonnenen Partie.
+  const [letzterSieg, setLetzterSieg] = useState(null);
+  const siegTeam = mySlot ? teamOf(mySlot) : 0;
+  // Statistik am Konto: jede beendete Partie einmal zählen (Raum + Partienummer), nur als Spieler
+  useEffect(() => {
+    if (game?.status !== "finished" || !siegTeam || !game?.winner) return;
+    const gewonnen = game.winner === siegTeam;
+    zaehleBlobbyPartie({
+      code: game.code || code, matchId: game.matchId ?? 0, gewonnen,
+      gegenpunkte: game.score?.[siegTeam === 1 ? 2 : 1] ?? 0,
+      koenigSerie: gewonnen && game.king?.team === siegTeam ? game.king.streak : 0,
+    });
+  }, [game?.status, game?.winner, game?.matchId, game?.code, game?.score, game?.king, siegTeam, code]);
+
+  useEffect(() => {
+    if (game?.status !== "finished" || !siegTeam || game?.winner !== siegTeam) return;
+    setLetzterSieg({
+      score: { ...(game.score || {}) },
+      team: siegTeam,
+      koenigSerie: game.king?.team === siegTeam ? game.king.streak : 0,
+    });
+  }, [game?.status, game?.winner, game?.score, game?.king, siegTeam]);
 
   // ---------- Zwischenzustände ----------
   if (phase === "loading" || phase === "joining") {
@@ -1136,6 +1194,26 @@ export default function BlobbyRoom() {
               <span key={label}>· {label}</span>
             ))}
           </div>
+          {/* König des Strandes: wer König ist (mit Serie) und wer als Nächstes dran ist */}
+          {settings.koenig && (game?.king || game?.queue?.length > 0) && (
+            <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 mt-1.5 text-[12px] text-white/75">
+              {game?.king && (
+                <span className="inline-flex items-center gap-1 font-semibold text-[var(--bv-sun)]">
+                  <Crown size={13} /> {game.king.names.join(" & ")}
+                  <span className="text-white/60 font-normal">· {game.king.streak === 1 ? "1 Sieg" : `${game.king.streak} Siege in Folge`}</span>
+                </span>
+              )}
+              {game?.queue?.length > 0 && (
+                <span>Warteschlange: {game.queue.map((n, i) => `${i + 1}. ${n}`).join(" · ")}</span>
+              )}
+              {mySlot != null && letzterSieg && game?.king?.team === myTeam && (
+                <ErgebnisTeilen className="inline-flex items-center gap-1 font-semibold text-[var(--bv-sun)] underline underline-offset-2 hover:text-white"
+                  mitSymbol={false} ergebnis={() => blobbyErgebnis({ ...letzterSieg, settings })}>
+                  Sieg teilen
+                </ErgebnisTeilen>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Spielfeld. Die Breite wird von der Fensterhöhe gedeckelt (oben), damit auf dem Notebook
@@ -1170,6 +1248,20 @@ export default function BlobbyRoom() {
           {banner && missing === 0 && status !== "finished" && (
             <div className="absolute top-3 left-1/2 -translate-x-1/2 px-4 py-1.5 rounded-md bg-[var(--bv-paper)] border-2 border-[var(--bv-ink)] pointer-events-none whitespace-nowrap">
               <span className="text-[var(--bv-ink)] text-sm font-bold">{banner}</span>
+            </div>
+          )}
+
+          {/* Wind (Partyregel): Richtung so, wie man das Feld sieht (gespiegelt für Team 2), Stärke in drei Stufen */}
+          {!isBeach && hud.wind !== 0 && status === "playing" && (
+            <div className="absolute top-3 right-3 flex items-center gap-1.5 px-2 py-1 rounded border border-white/20 pointer-events-none"
+              style={{ background: "rgba(8, 16, 28, 0.72)" }} aria-label="Wind">
+              <Wind size={14} className="text-white/80" />
+              {((hud.wind > 0) !== mirror ? <ArrowRight size={14} className="text-[var(--bv-sun)]" /> : <ArrowLeft size={14} className="text-[var(--bv-sun)]" />)}
+              <span className="flex items-end gap-0.5" aria-hidden="true">
+                {[1, 2, 3].map((n) => (
+                  <span key={n} className="w-1 rounded-sm" style={{ height: 4 + n * 3, background: Math.abs(hud.wind) >= [0.03, 0.047, 0.064][n - 1] ? "var(--bv-sun)" : "rgba(255,255,255,0.2)" }} />
+                ))}
+              </span>
             </div>
           )}
 
@@ -1265,7 +1357,15 @@ export default function BlobbyRoom() {
                 <p className="bv-display text-[22px] bv-coral mb-4 bv-num">
                   {score[1]} : {score[2]}
                 </p>
-                {mySlot != null && (
+                {settings.koenig ? (
+                  <p className="text-sm bv-dim">
+                    {game?.king && <span className="inline-flex items-center gap-1 font-semibold"><Crown size={14} /> {game.king.names.join(" & ")} {game.king.names.length > 1 ? "bleiben" : "bleibt"} König{game.king.streak > 1 ? ` (${game.king.streak} in Folge)` : ""}</span>}
+                    <br />
+                    {game?.queue?.length > 0
+                      ? `Gleich geht's weiter: ${game.queue.slice(0, slots.length / 2).join(" & ")} ${slots.length / 2 > 1 && game.queue.length > 1 ? "fordern" : "fordert"} heraus.`
+                      : "Niemand wartet: gleich die nächste Runde."}
+                  </p>
+                ) : mySlot != null && (
                   <div className="flex flex-col items-center gap-2">
                     <button
                       type="button"
@@ -1280,6 +1380,11 @@ export default function BlobbyRoom() {
                       <p className="text-xs font-semibold bv-sea">Die anderen wollen eine Revanche!</p>
                     )}
                   </div>
+                )}
+                {/* König des Strandes: der Knopf steht in der König-Zeile, weil hier nach 4 s die nächste Partie beginnt */}
+                {!settings.koenig && mySlot != null && myTeam === winnerTeam && letzterSieg && (
+                  <ErgebnisTeilen className="bv-btn bv-btn-sm bv-btn-ghost mt-3"
+                    ergebnis={() => blobbyErgebnis({ ...letzterSieg, settings })} />
                 )}
               </div>
             </div>

@@ -24,6 +24,7 @@ import { tribeIdsOf } from "../../data/tribes.js";
 import { de, errorText } from "../../i18n/de.js";
 import { sound } from "../../audio/sound.js";
 import { useShell } from "../shellContext.js";
+import { helpFor } from "./touch.js";
 import { baseDesc, baseName, headKind, headName, headTarget, slotLabel, totemText } from "../common/totemText.js";
 import { rowX, stageModel, timeLeft, totemsOnTable } from "./stageModel.js";
 
@@ -496,10 +497,13 @@ export default function TableScene({ room, view, you, send, names, timers, clock
           onClose={() => setPaused(false)}
           onSurrender={() => send({ type: "surrender" })}
           onFallback={onFallback}
-          help={<>
+          help={helpFor(<>
             Karte oder Zettel anklicken: wählen · Siegelstempel oder Leertaste: ausführen, was das Blatt in der letzten
             Zeile nennt · Zettel am rechten Rand: weitergehen · Rechtsklick (oder lange drücken): Karte ansehen.
-          </>}
+          </>, <>
+            Karte oder Zettel antippen: wählen · Siegelstempel antippen: ausführen, was das Blatt in der letzten Zeile
+            nennt · Zettel am rechten Rand: weitergehen · Karte lange drücken: ansehen.
+          </>)}
         />
       )}
     </>

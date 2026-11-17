@@ -11,7 +11,7 @@ import React from 'react';
 import Modal from '../ui/Modal';
 import { CrTarget, CrInfo, CrSettings } from '../ui/CrIcons';
 import { tutorialFor, TUTORIAL_I18N } from './modeTutorials';
-import scrollIcon from '../../../assets/clashRoyale/ui/icon_daily_task_scroll_opened.png';
+import scrollIcon from '../../../assets/clashRoyale/ui/icon_daily_task_scroll_opened.webp';
 
 /** Überschrift eines Abschnitts — Symbol, Text, dünne Linie. */
 function SectionTitle({ icon: Icon, children }) {

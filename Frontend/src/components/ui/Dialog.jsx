@@ -90,7 +90,7 @@ export default function Dialog({ open, onClose, title, kicker, footer, width = "
             </div>
             {dismissible && (
               <button type="button" onClick={onClose} aria-label="Schließen"
-                className="p-1.5 -mr-1.5 -mt-0.5 rounded-md text-white/40 hover:text-white hover:bg-white/5 transition-colors">
+                className="p-1.5 -mr-1.5 -mt-0.5 rounded-md text-white/55 hover:text-white hover:bg-white/5 transition-colors">
                 <X size={18} />
               </button>
             )}

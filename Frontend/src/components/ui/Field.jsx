@@ -5,7 +5,7 @@
 import React, { forwardRef, useId } from "react";
 
 const FIELD =
-  "w-full rounded-lg bg-black/30 border border-line text-sm text-white placeholder:text-white/30 " +
+  "w-full rounded-lg bg-black/30 border border-line text-sm text-white placeholder:text-white/50 " +
   "transition-colors hover:border-white/20 focus:border-accent focus:outline-none " +
   "disabled:opacity-50 disabled:cursor-not-allowed aria-invalid:border-danger";
 
@@ -49,7 +49,7 @@ export function Field({ label, hint, error, className = "", children }) {
         "aria-describedby": note ? noteId : child.props["aria-describedby"],
       })}
       {note && (
-        <p id={noteId} className={`text-xs ${error ? "text-red-300" : "text-white/45"}`}>{note}</p>
+        <p id={noteId} className={`text-xs ${error ? "text-red-300" : "text-white/55"}`}>{note}</p>
       )}
     </div>
   );

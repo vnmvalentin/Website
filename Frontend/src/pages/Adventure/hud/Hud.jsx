@@ -170,7 +170,8 @@ export function HudLoadout({ hud }) {
 // Handy (RunScreen „kompakt“): eine Leiste oben — Held mit Leben und Erfahrung, Zeit und Gefahr, Pause und Ton —,
 // darunter mittig Boss, Teleporter, Champion und Meldungen. Wo die Mitte beginnt, setzt RunScreen über
 // --av-center-top/--av-center-side (rechts liegt im Querformat die Minikarte des Zeichners).
-function CompactHud({ hud, kit, skin, banner, touch, onPause }) {
+// depthBest: Bestmarke der Tiefe (ab Zyklus 2 angezeigt) — fehlte hier und ließ die kompakte Ansicht ab Zyklus 2 abstürzen
+function CompactHud({ hud, kit, skin, banner, touch, depthBest = 0, onPause }) {
   const xpPct = hud.xpNext > 0 ? hud.xp / hud.xpNext : 0;
   return (
     <div className="av-hud">
@@ -195,6 +196,7 @@ function CompactHud({ hud, kit, skin, banner, touch, onPause }) {
           <div className="av-title text-[20px] av-num leading-none">{fmtTime(hud.time)}</div>
           <div className="mt-1 text-[12px] leading-tight" style={{ color: hud.tier.index >= 7 ? "#ff5a4a" : hud.tier.index >= 4 ? "var(--av-torch)" : "var(--av-ink)" }}>{hud.tier.label}</div>
           <div className="mt-0.5 text-[11px] leading-tight av-dim">{hud.loop > 0 ? `Z${hud.loop + 1} · ` : ""}Welt {hud.stageIndex + 1}</div>
+          {hud.loop > 0 && <div className="mt-0.5 text-[11px] leading-tight av-num" style={{ color: depthBest && hud.depth > depthBest ? "var(--av-gold)" : "#c39bff" }}>Tiefe {hud.depth}{depthBest ? ` · Best ${depthBest}` : ""}</div>}
         </div>
         <div className="av-hc-buttons">
           <button type="button" className="av-volume-btn av-hc-btn" onClick={onPause} aria-label="Pause"><Pause size={18} /></button>
@@ -217,9 +219,9 @@ function CompactHud({ hud, kit, skin, banner, touch, onPause }) {
 
 // touch: am Handy übernehmen hud/TouchControls.jsx die Fähigkeiten-Leiste und den Hinweis für E.
 // compact: kleiner Bildschirm (RunScreen) — schmale Leiste oben, Waffen und Items im Pausenmenü (HudLoadout).
-export default function Hud({ hud, kit, skin = "", banner, touch = false, compact = false, onPause }) {
+export default function Hud({ hud, kit, skin = "", banner, touch = false, compact = false, depthBest = 0, onPause }) {
   if (!hud) return null;
-  if (compact) return <CompactHud hud={hud} kit={kit} skin={skin} banner={banner} touch={touch} onPause={onPause} />;
+  if (compact) return <CompactHud hud={hud} kit={kit} skin={skin} banner={banner} touch={touch} depthBest={depthBest} onPause={onPause} />;
   const xpPct = hud.xpNext > 0 ? hud.xp / hud.xpNext : 0;
   const tierPct = Math.round(hud.tier.progress * 100);
   return (
@@ -272,6 +274,14 @@ export default function Hud({ hud, kit, skin = "", banner, touch = false, compac
           ))}
         </div>
         <div className="mt-2 text-[14px] av-dim">{hud.loop > 0 ? `Zyklus ${hud.loop + 1} · ` : ""}Welt {hud.stageIndex + 1} · {hud.stageName}</div>
+        {/* Ab Zyklus 2: Tiefe über alle Zyklen, die eigene Bestmarke und die Wendung des Zyklus (engine/twists.js) */}
+        {hud.loop > 0 && (
+          <div className="mt-1 text-[14px] av-num">
+            <span style={{ color: depthBest && hud.depth > depthBest ? "var(--av-gold)" : "#c39bff" }}>Tiefe {hud.depth}</span>
+            {depthBest > 0 && <span className="av-faint"> · Bestmarke {depthBest}</span>}
+            {hud.twist && <div className="text-[13px] av-dim">Wendung: {hud.twist}</div>}
+          </div>
+        )}
         <VolumeControl compact className="mt-2.5 w-full" />
       </div>
 

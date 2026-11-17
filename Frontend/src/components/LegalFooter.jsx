@@ -8,7 +8,9 @@ import { LEGAL_LINKS, salesVisible } from "../config/legal";
 export default function LegalFooter() {
   if (!salesVisible()) return null;
   return (
-    <footer className="mt-12 pt-5 pb-2 border-t border-white/10 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-white/40">
+    <footer className="mt-12 pt-5 pb-2 border-t border-white/10 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-white/55">
+      {/* Laden (pages/Website/Laden.jsx) — gleich sichtbar wie die Rechtsseiten */}
+      <Link to="/laden" className="hover:text-white transition-colors">Unterstützen</Link>
       {LEGAL_LINKS.map((l) => (
         <Link key={l.to} to={l.to} className="hover:text-white transition-colors">{l.label}</Link>
       ))}

@@ -24,7 +24,25 @@ export const SKIN_HATS = [
   'Ohne', 'Spitzhut', 'Zylinder', 'Antenne', 'Hörner', 'Kappe', 'Propeller', 'Blume', 'Heiligenschein', 'Pilz',
   'Katzenohren', 'Partyhut', 'Pudelmütze', 'Cowboyhut', 'Kochmütze', 'Piratenhut', 'Hasenohren', 'Wikingerhelm',
   'Sombrero', 'Doktorhut', 'Kopfhörer', 'Einhorn', 'Frosch', 'Weihnachtsmütze', 'Schleife', 'Quietscheente',
+  // ab hier aus dem Laden (LADEN_HUETE) — gilt in Worldflip und am Spieleabend
+  'Königskrone', 'Krake',
 ];
+/** Hüte 0 … FREIE_HUETE-1 hat jeder; die Bots auf dem Server würfeln nur aus diesen. */
+export const FREIE_HUETE = 26;
+/** Hut-Index → Artikel im Laden (Backend/laden/katalog.js, Spiel „worldflip“) */
+export const LADEN_HUETE = Object.freeze({ 26: 'wf-hut-krone', 27: 'wf-hut-krake' });
+
+/** Darf man diesen Hut selbst tragen? besitz: Set gekaufter Laden-Artikel (utils/ladenBesitz.js) */
+export const hutErlaubt = (h, besitz) => h < FREIE_HUETE || !!(LADEN_HUETE[h] && besitz?.has?.(LADEN_HUETE[h]));
+
+/** Hüte, die man selbst wählen kann (für die Auswahl im Menü), in Listen-Reihenfolge */
+export const waehlbareHuete = (besitz) => SKIN_HATS.map((_, i) => i).filter((i) => hutErlaubt(i, besitz));
+
+/** Eigenes Aussehen prüfen: ein nicht (mehr) gekaufter Laden-Hut fällt auf den Spitzhut zurück */
+export function eigenerSkin(raw, besitz, seat = 0) {
+  const s = normalizeSkin(raw, seat);
+  return hutErlaubt(s.h, besitz) ? s : { ...s, h: 1 };
+}
 export const SKIN_FACES = [
   'Normal', 'Brille', 'Schläfrig', 'Grimmig', 'Einauge', 'Schnurrbart',
   'Katze', ':3', 'UwU', 'Fröhlich', 'Herzaugen', 'Zunge raus', 'Vampir', 'Sternaugen', 'Staunend',
@@ -48,7 +66,7 @@ export function randomSkin(avoid = [], random = Math.random) {
   const pool = free.length ? free : SKIN_COLORS.map((_, i) => i);
   return {
     c: pool[Math.floor(random() * pool.length)],
-    h: Math.floor(random() * SKIN_HATS.length),
+    h: Math.floor(random() * FREIE_HUETE),
     f: Math.floor(random() * SKIN_FACES.length),
   };
 }

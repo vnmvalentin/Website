@@ -6,6 +6,7 @@ import { burst, floatText } from "./fx.js";
 import { hasAffix } from "./enemies.js";
 import { dist2, distToSegment } from "./util.js";
 import { collectEnemies, collectObstacles } from "./grid.js";
+import { raiseSkeleton } from "./allies.js";
 
 // Trefferlisten, die jeder Tick wiederverwendet (siehe grid.js)
 const bulletHits = [];
@@ -47,6 +48,8 @@ export function spawnPlayerBullet(g, o) {
     traveled: 0,
     returning: false,
     zone: o.zone || null,
+    element: o.element || null, // Alchemist: { effect, color } der Explosion
+    raise: o.raise || 0, // Nekromantin: Chance, dass ein Getöteter als Skelett aufsteht
   });
 }
 
@@ -68,9 +71,10 @@ export function spawnEnemyBullet(g, o) {
 }
 
 function explode(g, b) {
+  const color = b.element?.color || "#ff9a3c";
   addHazard(g, { shape: "circle", x: b.x, y: b.y, r: b.explodeR, delay: 0, dmg: b.dmg * (b.kind === "fireball" ? 0.6 : 1), friendly: true,
-    proc: b.kind === "rocket" ? 0 : 0.5, color: "#ff9a3c" });
-  burst(g, b.x, b.y, "#ff9a3c", 10, 220);
+    proc: b.kind === "rocket" ? 0 : 0.5, color, effect: b.element?.effect });
+  burst(g, b.x, b.y, color, 10, 220);
 }
 
 export function updateProjectiles(g, dt) {
@@ -133,6 +137,7 @@ export function updateProjectiles(g, dt) {
         }
         const kb = (b.kind === "block" ? 60 : 0) + (b.primary && p.items.rueckstoss ? 90 * p.items.rueckstoss : 0);
         damageEnemy(g, e, b.dmg, { proc: b.proc, primary: b.primary, knockback: kb, fromX: b.x - b.vx * 0.05, fromY: b.y - b.vy * 0.05 });
+        if (b.raise && e.dead && !e.isBoss && g.rng.chance(b.raise)) raiseSkeleton(g, e.x, e.y);
         // Spiegelnd: jedes ~5. Geschoss fliegt zurück
         if (!e.dead && hasAffix(e, "spiegelnd") && g.rng.chance(0.2)) {
           spawnEnemyBullet(g, { x: e.x, y: e.y, angle: Math.atan2(p.y - e.y, p.x - e.x), speed: 420, dmg: e.dmg * 0.7, sprite: b.sprite || "proj_basic", life: 2.5, r: 8, src: e });

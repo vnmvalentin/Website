@@ -13,7 +13,7 @@ const http = require('http');
 const express = require('express');
 const { createStore } = require('../store');
 const { createVerifier } = require('../verifier');
-const { createLevelVorrat, bewerte, GUETE } = require('../levelVorrat');
+const { createLevelVorrat, bewerte, GUETE, GUETE_LAUF } = require('../levelVorrat');
 const { createSeedRunnersRouter } = require('../routes');
 const { createRoomManager } = require('../roomManager');
 const { PFAD_GEN_VERSION } = require('../genVersion');
@@ -63,6 +63,19 @@ test('Güte-Schwelle: abwechslungsreiche Level bestehen, eintönige nicht', () =
   assert.equal(bewerte({ ...GUT, arten: 2, extrem: true, schlicht: 80 }).ok, false);
   assert.equal(bewerte(null).ok, false);
   assert.equal(bewerte({}).ok, false);
+});
+
+test('Güte-Schwelle der Lauflinie (ab gv 5): fängt nur Ausreißer', () => {
+  const LAUF = { welt: 'lauf', zuege: 55, schlicht: 7, folge: 1, arten: 13, strecken: 12, geplant: 12, kettenlauf: true };
+  assert.equal(bewerte(LAUF).ok, true);
+  // (die Pfad-Schwelle verlangte 80 Züge — ein Lauf-Level hat ~55 Schritte und besteht trotzdem)
+  assert.ok(LAUF.zuege < GUETE.zuegeMin);
+  assert.equal(bewerte({ ...LAUF, kettenlauf: false }).grund, 'Kettenlauf gescheitert');
+  assert.equal(bewerte({ ...LAUF, strecken: 12 - GUETE_LAUF.streckenFehlMax }).ok, true);
+  assert.equal(bewerte({ ...LAUF, strecken: 12 - GUETE_LAUF.streckenFehlMax - 1 }).grund, 'zu kurz');
+  assert.equal(bewerte({ ...LAUF, schlicht: Math.ceil(55 * GUETE_LAUF.schlichtMax) + 1 }).ok, false);
+  assert.equal(bewerte({ ...LAUF, folge: GUETE_LAUF.folgeMax + 1 }).ok, false);
+  assert.equal(bewerte({ ...LAUF, arten: GUETE_LAUF.artenMin - 1 }).ok, false);
 });
 
 test('Auffüllen: baut bis zum Ziel, verwirft eintönige Level, vergibt jedes nur einmal', async () => {
@@ -258,12 +271,18 @@ test('Echter Bau im Worker: dasselbe Level wie direkt gebaut, mit Kennzahlen', a
     assert.equal(a.elements.length, b.elements.length);
     assert.deepEqual(a.spawns, b.spawns);
 
+    // Ab gv 5 baut der Vorrat die Lauflinie: Kennzahlen an den Schritten der Strecken (vorratWorker.js kennzahlenLauf)
     const k = res.kennzahlen;
-    assert.ok(k.zuege >= 60, `Züge ${k.zuege}`);
-    assert.ok(k.schlicht > 0 && k.schlicht < k.zuege, `schlichte Züge ${k.schlicht}`);
-    assert.ok(k.folge >= 1 && k.folge <= k.schlicht);
-    assert.ok(k.arten >= 1);
-    assert.equal(typeof bewerte(k).ok, 'boolean');
+    assert.equal(k.welt, 'lauf');
+    assert.ok(k.zuege >= 30, `Schritte ${k.zuege}`);
+    assert.ok(k.schlicht >= 0 && k.schlicht < k.zuege, `schlichte Schritte ${k.schlicht}`);
+    assert.ok(k.folge <= k.schlicht);
+    assert.ok(k.arten >= 5, `Zug-Arten ${k.arten}`);
+    assert.ok(k.strecken >= 10 && k.geplant === 12, `Strecken ${k.strecken}/${k.geplant}`);
+    assert.equal(k.kettenlauf, true);
+    assert.equal(k.autor, 'lauflinie');
+    assert.match(String(k.leitidee), /^lauf-(strom|hoch|runter)$/);
+    assert.equal(bewerte(k).ok, true, JSON.stringify(bewerte(k)));
 
     // Eine andere Generator-Version baut der Vorrat nicht
     const alt = await bauer.verify({ ...params, gv: PFAD_GEN_VERSION - 1 });

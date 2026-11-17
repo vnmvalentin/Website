@@ -12,6 +12,9 @@ import { Link, Outlet, useLocation } from "react-router-dom";
 import { ArrowLeft, Check, Home, LayoutGrid, LogOut, Wrench } from "lucide-react";
 import { TwitchAuthContext } from "../TwitchAuthContext";
 import { TwitchLoginButton } from "../ui";
+import KontoBild from "../KontoBild";
+import Glocke from "../Glocke";
+import { useKonto } from "../../utils/konto.js";
 import { LEGAL_LINKS, salesVisible } from "../../config/legal";
 import { ToolShellContext } from "./toolShellContext";
 import { visibleTools, toolForPath, toolLabel } from "./tools";
@@ -98,6 +101,7 @@ function ToolsMenu({ activeKey, labels, user, lang }) {
  */
 export default function ToolShell({ title, titleTo, center, hideLogin = false, labels: labelsIn, outletContext, lang: langProp }) {
   const { user, logout } = useContext(TwitchAuthContext);
+  const { konto } = useKonto();
   const { pathname } = useLocation();
   const tool = toolForPath(pathname, user);
   // Nur Werkzeuge, die laut tools.js übersetzt sind, folgen der gewählten Sprache — sonst stünde eine englische
@@ -141,6 +145,8 @@ export default function ToolShell({ title, titleTo, center, hideLogin = false, l
           <div ref={setHeaderSlot} className="flex-1 min-w-0 flex items-center gap-1.5 sm:gap-2" />
 
           <div className="flex items-center gap-1 sm:gap-1.5 shrink-0 pl-1.5 sm:pl-2 border-l border-line">
+            {/* Glocke wie auf der Website (Anschluss glocke-huellen) — am Handy fehlt in der Leiste der Platz */}
+            <span className="hidden sm:block"><Glocke /></span>
             <ToolsMenu activeKey={tool?.key} labels={labels} user={user} lang={lang} />
             {user ? (
               <>
@@ -150,6 +156,20 @@ export default function ToolShell({ title, titleTo, center, hideLogin = false, l
                     ? <img src={user.profileImageUrl} alt="" className="w-7 h-7 rounded-md object-cover" />
                     : <span className="w-7 h-7 rounded-md bg-white/10" />}
                   <span className="hidden lg:inline text-sm font-semibold text-white/80 max-w-[9rem] truncate">{user.displayName}</span>
+                </Link>
+                <button type="button" onClick={logout} title={labels.logout} aria-label={labels.logout}
+                  className="hidden sm:inline-flex w-9 h-9 items-center justify-center rounded-md text-white/40 hover:text-white hover:bg-white/5 transition-colors">
+                  <LogOut size={16} />
+                </button>
+              </>
+            ) : konto ? (
+              // Mit Discord oder als Gast angemeldet (utils/konto.js) — z. B. im Discord-Dashboard, das kein Twitch braucht.
+              // Twitch-Werkzeuge fragen auf ihrer Seite selbst nach Twitch.
+              <>
+                <Link to="/profile" title={labels.profile} aria-label={labels.profile}
+                  className="h-9 inline-flex items-center gap-2 px-1 sm:pr-2.5 rounded-md hover:bg-white/5 transition-colors">
+                  <KontoBild konto={konto} className="w-7 h-7 rounded-md" schrift="text-xs" />
+                  <span className="hidden lg:inline text-sm font-semibold text-white/80 max-w-[9rem] truncate">{konto.name}</span>
                 </Link>
                 <button type="button" onClick={logout} title={labels.logout} aria-label={labels.logout}
                   className="hidden sm:inline-flex w-9 h-9 items-center justify-center rounded-md text-white/40 hover:text-white hover:bg-white/5 transition-colors">

@@ -2,6 +2,7 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import { visualizer } from "rollup-plugin-visualizer";
+import kommentareEntfernen from "./scripts/kommentareEntfernen.js";
 
 const analyze = process.env.ANALYZE === "true";
 
@@ -52,6 +53,8 @@ export default defineConfig({
     },
     react(),
     tailwindcss(),
+    // Nur beim Bauen: keine Quelltext-Kommentare/Notizen in dist/ (Details in der Datei)
+    kommentareEntfernen(),
     analyze &&
       visualizer({
         filename: "dist/stats.html",

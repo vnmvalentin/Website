@@ -20,6 +20,7 @@ import TableStarter from "./TableStarter.jsx";
 import TableCamp from "./TableCamp.jsx";
 import { TableDuelAnnounce, TableSealBreak } from "./TableRunFx.jsx";
 import TableRunResult from "./TableRunResult.jsx";
+import { zaehleMoorwanderung } from "../../kontoStand.js";
 import "./run.css";
 
 /** @param {{ game: any, onExit: () => void }} props */
@@ -80,6 +81,13 @@ export default function RunGame({ game, onExit }) {
 
   const onBusy = useCallback((b) => setBattleBusy(b), []);
   const surrender = useCallback(() => { game.send({ type: "surrender" }); }, [game]);
+
+  // Statistik am Konto: eine beendete Moorwanderung einmal zählen (je Seed), mit dem eigenen Platz
+  const eigenerPlatz = you !== null && you !== undefined ? view?.players?.[you]?.place ?? null : null;
+  useEffect(() => {
+    if (view?.phase !== "over" || you === null || you === undefined) return;
+    zaehleMoorwanderung({ seed: view.seed, platz: eigenerPlatz });
+  }, [view?.phase, view?.seed, eigenerPlatz, you]);
 
   if (!view) return <p className="text-center ss-dim py-20">Der Tisch wird gedeckt …</p>;
   const me = you !== null ? view.players[you] : null;

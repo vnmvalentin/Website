@@ -3,6 +3,7 @@ import { RULES, DEFAULT_FORMATION, DEFAULT_SKIN, DEFAULT_FIELD, isCustomFormatio
 import { AI_LEVELS } from './ai.js';
 import { loadStats } from './stats.js';
 import { BALLS, CELEBRATIONS, DEFAULT_LOOK, itemUnlocked } from './progress.js';
+import { ladenBesitzSofort } from '../../utils/spielstand.js';
 
 const KEY = 'flickSoccer.prefs';
 const TOKEN_KEY = 'flickSoccer.token';
@@ -34,6 +35,7 @@ export function loadPrefs() {
     raw = {};
   }
   const stats = loadStats();
+  const besitz = ladenBesitzSofort('flick-soccer'); // gekaufte Scheiben (Laden), aus dem Zwischenspeicher
   // nur Freigeschaltetes (jemand könnte den Speicher von Hand ändern — dann eben der Standard)
   const pick = (catalog, id, fallback) => (itemUnlocked(catalog, id, stats) ? id : fallback);
   return {
@@ -50,8 +52,8 @@ export function loadPrefs() {
     replay: raw.replay === true,
     field: isField(raw.field) ? raw.field : DEFAULT_PREFS.field,
     chaos: raw.chaos === true,
-    skin: isUnlocked(raw.skin, stats) ? raw.skin : DEFAULT_SKIN,
-    skin2: isUnlocked(raw.skin2, stats) ? raw.skin2 : DEFAULT_SKIN,
+    skin: isUnlocked(raw.skin, stats, besitz) ? raw.skin : DEFAULT_SKIN,
+    skin2: isUnlocked(raw.skin2, stats, besitz) ? raw.skin2 : DEFAULT_SKIN,
     ball: pick(BALLS, raw.ball, DEFAULT_LOOK.ball),
     celebration: pick(CELEBRATIONS, raw.celebration, DEFAULT_LOOK.celebration),
   };

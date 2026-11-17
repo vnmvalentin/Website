@@ -46,7 +46,7 @@ export const KINDS = {
   kipp: { name: 'Wirbel', world: null, text: 'Der Tisch wirbelt herum: Die Spielrichtung dreht sich.' },
   sturm: { name: 'Sturm', world: null, attack: true, text: 'Der Nächste wird weggeweht und setzt aus.' },
   hagel: { name: 'Hagel', world: null, attack: true, plus: 2, text: 'Der Nächste zieht 2 Karten — oder legt selbst einen Hagel drauf und reicht alles weiter.' },
-  meteor: { name: 'Meteor', world: 0, attack: true, plus: 3, text: 'Der Nächste zieht 3 Karten und setzt aus.' },
+  meteor: { name: 'Meteor', world: 0, attack: true, plus: 3, text: 'Der Nächste zieht 3 Karten.' },
   walze: { name: 'Feuerwalze', world: 0, plus: 1, text: 'Alle Gegner ziehen 1 Karte.' },
   brandopfer: { name: 'Brandopfer', world: 0, text: 'Du verbrennst eine zufällige eigene Karte.' },
   frost: { name: 'Frost', world: 1, attack: true, target: true, text: 'Friert einen Spieler ein: Er setzt seinen nächsten Zug aus.' },
@@ -65,7 +65,7 @@ export const KINDS = {
 };
 
 export const RULES = {
-  CHARGE_MAX: 4, // so viel Ladung, dann bricht die Welt aus (bleibt beim Weltwechsel erhalten)
+  CHARGE_MAX: 5, // so viel Ladung, dann bricht die Welt aus (bleibt beim Weltwechsel erhalten; Karten, die immer passen, laden nicht)
   HAND_SIZES: [5, 7, 10],
   DEFAULT_HAND: 7,
   MIN_PLAYERS: 2,
@@ -87,40 +87,46 @@ export const TEAMS = [
 /**
  * Dauer je Ereignis in Millisekunden. Der Browser spielt die Ereignisse genau so lange ab (scene/tableScene.js),
  * der Server wartet so lange, bevor ein Bot zieht oder die Zugzeit läuft (durationOf in game.js).
+ * Seit 16.11.2026 enden die Effekte kurz nach ihrem Bild (Rückmeldung: nach einem Effekt ging es zu langsam weiter);
+ * wie lange eine Effektkarte groß gezeigt wird (playFx), blieb gleich.
  */
 export const ANIM = {
   play: 1000, // Zahlenkarte
   playFx: 2600, // Effektkarte: wird groß gezeigt, bevor sie auf die Ablage fällt
-  draw: 850,
+  draw: 850, // dazu je Karte ab der dritten DRAW_EACH (Ziehen, bis es passt)
   misplay: 1700,
-  world: 2100,
+  world: 750, // Weltwechsel: sofort, ohne Abblenden
   flip: 2200,
-  skip: 2300,
-  hagel: 2900,
-  meteor: 3300,
-  walze: 2000,
-  frost: 2600,
-  again: 1200,
-  shield: 1300,
-  gift: 2400,
-  swap: 2600,
-  beam: 2900,
-  block: 1200,
+  skip: 1700,
+  hagel: 2450,
+  meteor: 2750,
+  walze: 1700,
+  frost: 2000,
+  again: 800,
+  shield: 900,
+  gift: 1900,
+  swap: 2200,
+  beam: 2250,
+  block: 900,
   ask: 300, // jemand darf antworten (Spiegel, Hagel drauflegen)
-  reflect: 2300, // Spiegel wird gezeigt und wirft den Angriff zurück
-  sitout: 900,
-  burn: 1800,
-  peek: 2600,
-  nova: 2200,
-  fog: 1600,
-  unfog: 1000,
-  rotate: 2600,
-  thaw: 1200,
+  reflect: 2000, // Spiegel wird gezeigt und wirft den Angriff zurück
+  sitout: 700,
+  burn: 1400,
+  peek: 2200,
+  nova: 1800,
+  fog: 1200,
+  unfog: 800,
+  rotate: 2200,
+  thaw: 900,
   combo: 300,
-  erupt: 3800,
-  dark: 1500,
-  light: 900,
+  erupt: 3500, // 1600 Band, 1600 Wirkung, kurzer Ausklang (tableScene erupt)
+  dark: 1100,
+  light: 600,
   reshuffle: 600,
   turn: 450,
   win: 800,
 };
+export const DRAW_EACH = 170; // Abstand der einzelnen Karten beim Austeilen (tableScene deal)
+
+/** Bedenkzeit der Bots nach dem Abspielen: nach einem Effekt kürzer — man hat ja gerade zugeschaut (botThinkMs in game.js). */
+export const BOT_THINK = { calm: 1600, afterFx: 650 };

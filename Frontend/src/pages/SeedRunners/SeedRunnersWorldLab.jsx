@@ -109,7 +109,7 @@ export default function SeedRunnersWorldLab() {
           <span className="block text-[11px] uppercase tracking-wider text-white/35 mb-1">Generator</span>
           <select className={field} value={worldType} onChange={(e) => setWorldType(e.target.value)}>
             <option value="pfad">Pfad</option>
-            <option value="lauf">Lauflinie (Prototyp)</option>
+            <option value="lauf">Lauflinie (ab Version 5 in den Rennen)</option>
           </select>
         </label>
         <label className="block">

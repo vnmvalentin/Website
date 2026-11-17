@@ -1,13 +1,16 @@
 import React, { useState, useEffect, useContext } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import {
     Settings, UserPlus, LogOut, Gamepad2, Tag, CheckSquare,
     Volume2, Users, Tv, Image, Globe, BarChart2,
     Radio, Ticket, Bot, ArrowRight, ChevronDown, Coins,
 } from 'lucide-react';
 import { TwitchAuthContext } from '../../components/TwitchAuthContext';
-import { TwitchLoginButton } from '../../components/ui';
 import { ToolHeader } from '../../components/toolShell/ToolParts';
+// Seit „discord-verzeichnis“ reicht jedes Konto der Website (Discord, Twitch, Gast) — wer den Bot über eine Bot-Liste
+// findet, hat oft kein Twitch. Die Discord-Verknüpfung fürs Dashboard (Server-Liste) bleibt ein eigener Schritt.
+import { useKonto, oeffneAnmeldung, mitDiscordAnmelden } from '../../utils/konto.js';
+import { withLang } from '../StreamerTools/productTexts';
 
 function DiscordGlyph({ className }) {
   return (
@@ -93,9 +96,20 @@ const GROUPS = [
 
 const ALL_TABS = GROUPS.flatMap(g => g.tabs);
 
+/** Wie lange das Dashboard nach „Bot einladen“ auf den Beitritt wartet, und wie oft es nachsieht. */
+const INVITE_WAIT_MS = 5 * 60 * 1000;
+const INVITE_POLL_MS = 4000;
+
 export default function DiscordBotDashboard() {
     const { user } = useContext(TwitchAuthContext);
+    const { konto } = useKonto();
+    const signedIn = !!(user || konto);
     const t = useDiscordText();
+    // ?server=<id>: Die Begrüßung des Bots auf einem neuen Server verlinkt hierher (Backend/discord/bot/onboarding.js)
+    const [params, setParams] = useSearchParams();
+    const wantedServer = params.get('server');
+    // Nach „Bot einladen“: der Server, auf dessen Beitritt das Dashboard wartet
+    const [waitingFor, setWaitingFor] = useState(null);
 
     const [isDiscordLoggedIn, setIsDiscordLoggedIn] = useState(false);
     const [servers, setServers] = useState([]);
@@ -185,7 +199,7 @@ export default function DiscordBotDashboard() {
     }, [serverId, activeTab]);
 
     useEffect(() => {
-        if (!user) { setLoading(false); return; }
+        if (!signedIn) { setLoading(false); return; }
         let alive = true;
         let retry = 0;
         const load = () => {
@@ -199,7 +213,9 @@ export default function DiscordBotDashboard() {
                         setDiscordDown('');
                     } else if (status === 401) {
                         // Nur das heißt wirklich „nicht verknüpft“
-                        fetch('/api/discord/login-url').then(r => r.json()).then(d => { if (alive) setLoginUrl(d.url); });
+                        // Rücksprung auf genau diese Adresse — ein ?server=<id> aus der Begrüßung des Bots bleibt erhalten
+                        const returnTo = `${window.location.pathname}${window.location.search}`;
+                        fetch(`/api/discord/login-url?returnTo=${encodeURIComponent(returnTo)}`).then(r => r.json()).then(d => { if (alive) setLoginUrl(d.url); });
                         setIsDiscordLoggedIn(false);
                         setDiscordDown('');
                     } else {
@@ -218,7 +234,38 @@ export default function DiscordBotDashboard() {
         };
         load();
         return () => { alive = false; clearTimeout(retry); };
-    }, [user]);
+    }, [signedIn]);
+
+    // Direktlink ?server=<id>: Ist der Bot dort, gleich diesen Server öffnen. Der Parameter fällt danach weg.
+    useEffect(() => {
+        if (!wantedServer || selectedServer || servers.length === 0) return;
+        const found = servers.find((s) => s.id === wantedServer && s.botPresent);
+        if (found) setSelectedServer(found);
+        const next = new URLSearchParams(params);
+        next.delete('server');
+        setParams(next, { replace: true });
+    }, [wantedServer, servers, selectedServer, params, setParams]);
+
+    // Nach „Bot einladen“ (neuer Tab): nachsehen, bis der Bot auf dem Server ist, dann den Server öffnen
+    useEffect(() => {
+        if (!waitingFor) return undefined;
+        let alive = true;
+        const until = Date.now() + INVITE_WAIT_MS;
+        const tick = () => {
+            fetch('/api/discord/guilds')
+                .then((r) => (r.ok ? r.json() : null))
+                .then((data) => {
+                    if (!alive || !data?.guilds) return;
+                    setServers(data.guilds);
+                    const found = data.guilds.find((s) => s.id === waitingFor.id && s.botPresent);
+                    if (found) { setWaitingFor(null); setSelectedServer(found); }
+                })
+                .catch(() => {});
+            if (Date.now() > until) setWaitingFor(null);
+        };
+        const id = setInterval(tick, INVITE_POLL_MS);
+        return () => { alive = false; clearInterval(id); };
+    }, [waitingFor]);
 
     useEffect(() => {
         if (!selectedServer) return;
@@ -277,7 +324,7 @@ export default function DiscordBotDashboard() {
 
     /* ── Vor der Anmeldung: Karte mittig in der Tool-Hülle ─────────────────────
        Diese Fassungen sehen Besucher und Suchmaschinen. */
-    if (!user) return (
+    if (!signedIn) return (
         <div className="page-fade h-full flex items-center justify-center p-6">
             {seo(t.shell.seoTitle, t.shell.seoDesc)}
             <div className="dc-root dc-card p-8 max-w-sm w-full flex flex-col items-center gap-5 text-center">
@@ -286,7 +333,18 @@ export default function DiscordBotDashboard() {
                     <h1 className="text-xl font-bold text-white mb-1.5">{t.shell.heading}</h1>
                     <p className="text-sm text-white/50">{t.shell.loginHint}</p>
                 </div>
-                <TwitchLoginButton />
+                <div className="w-full flex flex-col gap-2">
+                    <button type="button" onClick={() => mitDiscordAnmelden()} className="dc-btn !min-h-[40px] w-full" data-dc-login-discord>
+                        <DiscordGlyph className="w-4 h-4" /> {t.shell.loginDiscord}
+                    </button>
+                    <button type="button" onClick={oeffneAnmeldung}
+                        className="h-10 w-full rounded-md border border-white/10 hover:border-white/25 text-[13px] font-bold text-white/75 hover:text-white transition-colors">
+                        {t.shell.loginOther}
+                    </button>
+                </div>
+                <Link to={withLang('/tools/discord-bot', t.lang)} className="text-[13px] font-semibold text-[#8f98f8] hover:text-white transition-colors">
+                    {t.shell.whatItDoes} →
+                </Link>
                 <LegalLinks />
             </div>
         </div>
@@ -394,6 +452,16 @@ export default function DiscordBotDashboard() {
                         <h2 className="dc-h2">{t.shell.yourServers}</h2>
                         <p>{t.shell.pickServer}</p>
 
+                        {waitingFor && (
+                            <div className="mt-5 dc-card p-3.5 flex items-center gap-3" role="status" data-dc-waiting>
+                                {serverIcon(waitingFor, 32)}
+                                <div className="min-w-0">
+                                    <p className="text-[13.5px] font-semibold text-white truncate">{t.shell.waitingForBot(waitingFor.name)}</p>
+                                    <p className="text-[12.5px] text-white/50">{t.shell.waitingHint}</p>
+                                </div>
+                            </div>
+                        )}
+
                         {[[t.shell.withBot, managed], [t.shell.withoutBot, inviteable]].map(([title, list]) => list.length > 0 && (
                             <section key={title} className="mt-6">
                                 <h3 className="text-[10.5px] font-bold uppercase tracking-wider text-white/40 mb-2">{title}</h3>
@@ -408,6 +476,7 @@ export default function DiscordBotDashboard() {
                                                 </button>
                                             ) : (
                                                 <a href={server.inviteUrl} target="_blank" rel="noopener noreferrer"
+                                                    onClick={() => setWaitingFor(server)}
                                                     className="h-9 px-4 inline-flex items-center rounded-md border border-white/10 hover:border-white/25 text-[13px] font-bold text-white/80 hover:text-white transition-colors">
                                                     {t.shell.invite}
                                                 </a>
@@ -466,6 +535,7 @@ export default function DiscordBotDashboard() {
                     <main key={activeItem.id} className="flex-1 min-h-0 overflow-y-auto custom-scrollbar p-4 md:p-6">
                     {activeTab === 'general' && (
                         <GeneralTab
+                            serverId={selectedServer.id} overview={overview} onOpenTab={switchTab}
                             prefix={prefix} setPrefix={setPrefix}
                             botNickname={botNickname} setBotNickname={setBotNickname}
                             botLanguage={botLanguage} setBotLanguage={setBotLanguage}

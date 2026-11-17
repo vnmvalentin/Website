@@ -13,6 +13,11 @@ import { getTableStage, subscribeTableStage, setActiveTableScene } from "./table
 
 /** Längste Zeit, die das Spielfeld für den Einstieg verborgen bleibt. */
 const INTRO_FALLBACK_MS = 5000;
+/**
+ * Die Einstiegsfahrt gibt es einmal je Tab. Danach wird der Tisch ohne Fahrt gebaut — wer das Handy mitten in der
+ * Partie vom Tisch im Kerzenlicht zurück hochkant dreht (Phase 7), sähe sonst Sekunden lang ein leeres Spielfeld.
+ */
+let introSeen = false;
 
 /** @param {{ reduced: boolean }} props */
 export default function Table3DLayer({ reduced }) {
@@ -140,7 +145,9 @@ export default function Table3DLayer({ reduced }) {
       loading = true;
       zirkel = stage.zirkel;
       // sofort (vor dem ersten Bild) ausblenden, damit der Einstieg nicht über ein sichtbares Spielfeld fährt
-      setAttr("table3d", reducedRef.current ? "on" : "intro");
+      const withIntro = !introSeen && !reducedRef.current;
+      introSeen = true;
+      setAttr("table3d", withIntro ? "intro" : "on");
       introTimer = window.setTimeout(() => { if (game.dataset.table3d === "intro") setAttr("table3d", "on"); }, INTRO_FALLBACK_MS);
       import("./tableScene.js").then((m) => {
         loading = false;
@@ -148,7 +155,7 @@ export default function Table3DLayer({ reduced }) {
         const s = m.createTableScene(bg, {
           zirkel,
           reduced: reducedRef.current,
-          intro: true,
+          intro: withIntro,
           onIntroDone: () => { clearTimeout(introTimer); setAttr("table3d", "on"); },
         });
         if (!s) { teardown(); return; }

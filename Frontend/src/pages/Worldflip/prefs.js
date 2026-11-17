@@ -1,11 +1,13 @@
-// prefs.js — gemerkte Einstellungen von Worldflip (nur dieser Browser): Name, eigener Blob, Tischgröße, 2 gegen 2, Handkarten, Online-Token.
+// prefs.js — gemerkte Einstellungen von Worldflip (nur dieser Browser): Name, eigener Blob, Tischgröße, 2 gegen 2, Handkarten,
+// Ziehen bis es passt, Online-Token.
 import { RULES } from './engine/index.js';
-import { normalizeSkin } from './skins.js';
+import { eigenerSkin, normalizeSkin } from './skins.js';
+import { ladenBesitzSofort } from '../../utils/spielstand.js';
 
 const KEY = 'worldflip.prefs';
 const TOKEN_KEY = 'worldflip.token';
 
-export const DEFAULT_PREFS = Object.freeze({ name: '', players: 4, teams: false, handSize: RULES.DEFAULT_HAND, skin: normalizeSkin(null, 0) });
+export const DEFAULT_PREFS = Object.freeze({ name: '', players: 4, teams: false, handSize: RULES.DEFAULT_HAND, drawUntil: false, skin: normalizeSkin(null, 0) });
 
 export function loadPrefs() {
   let raw = {};
@@ -18,8 +20,9 @@ export function loadPrefs() {
     name: typeof raw.name === 'string' ? raw.name.slice(0, 20) : '',
     players: raw.players >= RULES.MIN_PLAYERS && raw.players <= RULES.MAX_PLAYERS ? raw.players : DEFAULT_PREFS.players,
     teams: raw.teams === true,
-    skin: normalizeSkin(raw.skin, 0),
+    skin: eigenerSkin(raw.skin, ladenBesitzSofort('worldflip')), // Laden-Hüte nur, solange gekauft
     handSize: RULES.HAND_SIZES.includes(raw.handSize) ? raw.handSize : DEFAULT_PREFS.handSize,
+    drawUntil: raw.drawUntil === true,
   };
 }
 

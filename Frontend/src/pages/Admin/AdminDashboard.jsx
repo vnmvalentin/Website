@@ -4,7 +4,7 @@ import { TwitchAuthContext } from "../../components/TwitchAuthContext";
 import {
   Radio, Gamepad2, Eye, LayoutDashboard, Swords, Sprout,
   Trophy, Grid3x3, Crown, Search, RefreshCw, Trash2, Pencil, ExternalLink,
-  Users, SlidersHorizontal, Globe, Lock, Flag, BarChart3, Clapperboard, Bug, Gauge, Bot,
+  Users, SlidersHorizontal, Globe, Lock, Flag, BarChart3, Clapperboard, Bug, Gauge, Bot, MessageSquare, Gamepad, Gift,
 } from "lucide-react";
 import { io } from "socket.io-client";
 import SEO from "../../components/SEO";
@@ -16,6 +16,9 @@ import FehlerPanel from "./FehlerPanel.jsx";
 import LeistungPanel from "./LeistungPanel.jsx";
 import SpielePanel from "./SpielePanel.jsx";
 import DiscordPanel from "./DiscordPanel.jsx";
+import FeedbackPanel from "./FeedbackPanel.jsx";
+import MitspielenPanel from "./MitspielenPanel.jsx";
+import AboVergabePanel from "./AboVergabePanel.jsx";
 
 // DEINE ID
 import { STREAMER_ID } from "../../config/owner";
@@ -26,6 +29,9 @@ const SECTIONS = [
   { id: "spiele", label: "Spiele", icon: Gamepad2 },
   { id: "fehler", label: "Fehler", icon: Bug },
   { id: "leistung", label: "Leistung", icon: Gauge },
+  { id: "feedback", label: "Feedback", icon: MessageSquare },
+  { id: "mitspielen", label: "Mitspielen", icon: Gamepad },
+  { id: "abos", label: "Abos", icon: Gift },
   { id: "adventures", label: "adVentures", icon: Swords },
   { id: "garden", label: "Virtual Farm", icon: Sprout },
   { id: "winchallenge", label: "Win-Challenges", icon: Trophy },
@@ -302,6 +308,12 @@ export default function AdminDashboard() {
       // SPIELE und DISCORD-BOT — ebenso selbstständig (Backend/admin/routes.js)
       if (activeTab === "spiele") return <SpielePanel />;
       if (activeTab === "discord") return <DiscordPanel />;
+      // FEEDBACK — selbstständig (Backend/routes/feedbackRoutes.js): lesen, beantworten (→ Glocke des Absenders)
+      if (activeTab === "feedback") return <FeedbackPanel />;
+      // MITSPIELEN — Stream-Raum und Warteschlange (Backend/mitspielen)
+      if (activeTab === "mitspielen") return <MitspielenPanel />;
+      // Abo von Hand vergeben oder nehmen (Backend/billing/adminGrants.js)
+      if (activeTab === "abos") return <AboVergabePanel />;
 
       if (fetchLoading) return <div className="p-8 text-center animate-pulse text-accent-soft font-semibold">Lade Daten aus der Datenbank...</div>;
 
@@ -897,7 +909,7 @@ export default function AdminDashboard() {
                   </h2>
 
                   {/* Die Suche filtert nur die Listen dieser Datei; Reiter mit eigenem Panel haben keine */}
-                  {!["broadcast", "seedrunners", "analytics", "spiele", "fehler", "leistung", "discord"].includes(activeTab) && (
+                  {!["broadcast", "seedrunners", "analytics", "spiele", "fehler", "leistung", "discord", "abos"].includes(activeTab) && (
                       <div className="relative w-full sm:w-72">
                           <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/30" />
                           <input

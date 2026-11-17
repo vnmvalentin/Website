@@ -21,6 +21,7 @@ import { fmtTime } from "../engine/util.js";
 import { ITEMS } from "../data/items.js";
 import { playSound } from "../ui/sound.js";
 import { getSettings, updateSettings, subscribeSettings } from "../ui/settings.js";
+import { TWISTS, activeTwist, depthOf, twistForLoop } from "../engine/twists.js";
 
 let revealKey = 0;
 const REVEAL_MS = 2400;
@@ -88,7 +89,7 @@ function SettingsPanel() {
   );
 }
 
-export default function RunScreen({ run, onFinished, onQuit }) {
+export default function RunScreen({ run, depthBest = 0, onFinished, onQuit }) {
   const wrapRef = useRef(null);
   const canvasRef = useRef(null);
   const canvas3dRef = useRef(null);
@@ -106,6 +107,9 @@ export default function RunScreen({ run, onFinished, onQuit }) {
   const [victory, setVictory] = useState(false);
   const [saveError, setSaveError] = useState(null);
   const [busy, setBusy] = useState(false);
+  // Neue Bestmarke der Tiefe einmal je Lauf ansagen (ab dem zweiten Zyklus; im ersten zählt der Sieg)
+  const depthRecordShown = useRef(false);
+  const pendingRecord = useRef(0);
   const kit = KITS[run.kitId] || KITS.default;
   const touch = useTouchDevice(); // Handy/Tablet: Touch-Steuerung statt Maus und Tasten
 
@@ -213,7 +217,21 @@ export default function RunScreen({ run, onFinished, onQuit }) {
             else if (ev.type === "streak") showBanner(`${ev.n}er Serie`, "Alle Kristalle fliegen dir zu", "#5ec8ff", 1800);
             else if (ev.type === "giantDead") runner.hitstop(stop * 0.3);
             else if (ev.type === "championDead") showBanner("Champion besiegt", "Beute liegt bereit", "var(--av-gold)", 2200);
-            else if (ev.type === "stageStart") showBanner(ev.final ? "Gewitterhort" : ev.name, ev.final ? "Das Finale" : `${ev.loop > 0 ? `Zyklus ${ev.loop + 1} · ` : ""}Welt ${ev.index + 1}`, "var(--av-torch)");
+            else if (ev.type === "stageStart") {
+              const record = ev.loop > 0 && depthBest > 0 && ev.depth > depthBest && !depthRecordShown.current;
+              if (record) depthRecordShown.current = true;
+              // (erste Welt eines Zyklus: dort sagt das folgende Ereignis „twist“ an — die Bestmarke steht dann mit dabei)
+              if (ev.loop > 0 && ev.index === 0) pendingRecord.current = record ? ev.depth : 0;
+              else if (record) showBanner(`Neue Bestmarke: Tiefe ${ev.depth}`, `${ev.name} · weiter als je zuvor`, "var(--av-gold)", 3200);
+              else if (ev.loop > 0) showBanner(ev.name, `Zyklus ${ev.loop + 1} · Welt ${ev.index + 1} · Tiefe ${ev.depth}`, "var(--av-torch)");
+              else showBanner(ev.final ? "Gewitterhort" : ev.name, ev.final ? "Das Finale" : `Welt ${ev.index + 1}`, "var(--av-torch)");
+            }
+            // Erste Welt eines neuen Zyklus: seine Wendung (engine/twists.js) statt des Weltnamens
+            else if (ev.type === "twist") {
+              const rec = pendingRecord.current;
+              pendingRecord.current = 0;
+              showBanner(`Zyklus ${ev.loop + 1}: ${ev.name}`, rec ? `${ev.desc} Neue Bestmarke: Tiefe ${rec}.` : ev.desc, "#c39bff", 4500);
+            }
             else if (ev.type === "stageChanged") save();
             else if (ev.type === "bossStart") showBanner(ev.name, ev.title, "#ff5a4a", 3200);
             else if (ev.type === "bossDead") { runner.hitstop(stop * 0.6); showBanner(`${ev.name} besiegt`, "Beute liegt bereit", "var(--av-gold)"); }
@@ -320,7 +338,7 @@ export default function RunScreen({ run, onFinished, onQuit }) {
       {/* unten die 3D-Ansicht (unsichtbar, solange sie lädt oder die 2D-Ansicht gewählt ist), darüber die 2D-Fläche */}
       <canvas ref={canvas3dRef} className="absolute inset-0 w-full h-full" style={{ visibility: "hidden" }} />
       <canvas ref={canvasRef} className="relative block w-full h-full" />
-      {ready && <Hud hud={hud} kit={kit} skin={run.skin || ""} banner={banner} touch={touch} compact={layout.compact} onPause={() => setPause(true)} />}
+      {ready && <Hud hud={hud} kit={kit} skin={run.skin || ""} banner={banner} touch={touch} compact={layout.compact} depthBest={depthBest} onPause={() => setPause(true)} />}
       {ready && touch && !paused && !victory && !hud?.levelUp && (
         <TouchControls runnerRef={runnerRef} hud={hud} kit={kit} onPause={layout.compact ? null : () => setPause(true)} />
       )}
@@ -360,8 +378,11 @@ export default function RunScreen({ run, onFinished, onQuit }) {
             <h2 className="av-title text-[30px]">Pause</h2>
             {g && (
               <p className="mt-2 av-dim">
-                {kit.name} · Welt {g.stageIndex + 1}{g.loop > 0 ? ` (Zyklus ${g.loop + 1})` : ""} · {fmtTime(g.time)} · Stufe {g.player.level}
+                {kit.name} · Welt {g.stageIndex + 1}{g.loop > 0 ? ` (Zyklus ${g.loop + 1}, Tiefe ${depthOf(g)})` : ""} · {fmtTime(g.time)} · Stufe {g.player.level}
               </p>
+            )}
+            {g && activeTwist(g) && (
+              <p className="mt-2 text-[15px]"><span style={{ color: "#c39bff" }}>Wendung: {TWISTS[activeTwist(g)].name}.</span> <span className="av-dim">{TWISTS[activeTwist(g)].desc}</span></p>
             )}
             <div className="mt-6 flex flex-col gap-3">
               <button className="av-btn" onClick={() => setPause(false)}><Play size={18} fill="currentColor" /> Weiterspielen</button>
@@ -397,12 +418,21 @@ export default function RunScreen({ run, onFinished, onQuit }) {
             <Trophy size={40} className="av-gold mx-auto" />
             <h2 className="av-title text-[34px] mt-3">Sieg!</h2>
             <p className="mt-3 av-dim leading-relaxed">
-              Thunderwing ist gefallen — nach {fmtTime(g.time)}. Du kannst den Lauf jetzt als Sieg werten lassen oder in den nächsten Zyklus gehen:
-              alle Welten noch einmal, gemischte Gegner, mehr Beute und ein höherer Rekord.
+              Thunderwing ist gefallen — nach {fmtTime(g.time)}. Wie weit kommst du? Jede Welt ab jetzt zählt für die Bestenliste
+              „Am weitesten gekommen“ — der Sieg bleibt dir, auch wenn du später fällst.
             </p>
+            {(() => {
+              const next = TWISTS[twistForLoop(g.seed, g.loop + 1)];
+              return (
+                <p className="mt-3 text-[15px] leading-relaxed">
+                  <span style={{ color: "#c39bff" }}>Zyklus {g.loop + 2} bringt die Wendung „{next.name}“:</span> <span className="av-dim">{next.desc} Mit jeder Welt werden die Gegner schneller und treffen härter.</span>
+                </p>
+              );
+            })()}
+            {depthBest > 0 && <p className="mt-2 text-[14px] av-faint">Deine Bestmarke: Tiefe {depthBest}</p>}
             <div className="mt-6 flex flex-col gap-3">
-              <button className="av-btn" onClick={() => finish(true)}><Trophy size={18} /> Lauf als Sieg beenden</button>
-              <button className="av-btn av-btn-stone" onClick={continueLoop}><RotateCw size={17} /> Weiter in Zyklus {g.loop + 2}</button>
+              <button className="av-btn" onClick={continueLoop}><RotateCw size={17} /> Weiter in Zyklus {g.loop + 2}</button>
+              <button className="av-btn av-btn-stone" onClick={() => finish(true)}><Trophy size={18} /> Lauf als Sieg beenden</button>
             </div>
           </div>
         </div>

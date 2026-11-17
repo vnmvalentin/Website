@@ -139,6 +139,25 @@
 .sm-quiet:hover, .sm-quiet:focus-visible { color: var(--bone); outline: none; }
 .sm-foot { display: flex; flex-wrap: wrap; gap: 4px 20px; margin-top: clamp(4px, 2vh, 20px); }
 
+/* Flache Fenster (Handy quer, Phase 7): alle sieben Zeilen ohne Scrollen — Titel kleiner, Unterzeile und
+   Zeiger-Erklärung weg (ohne Maus gibt es kein Drüberfahren), Zeilen dichter. Der Rest der Spalte scrollt. */
+@media (max-height: 500px) {
+  .sm-root { gap: 4px; padding-top: 10px; padding-bottom: 10px; width: min(440px, 50vw); }
+  .sm-root > * { flex-shrink: 0; }   /* sonst schrumpft die Namenszeile unter die erste Menüzeile */
+  .sm-title { font-size: clamp(24px, 8vh, 34px); }
+  .sm-tagline { display: none; }
+  .sm-root .sm-name { min-height: 0; }
+  .sm-root .sm-name .sm-quiet { min-height: 30px; }
+  .sm-list { gap: 0; }
+  .sm-root .sm-line { min-height: 38px; padding: 0; font-size: clamp(17px, 5.4vh, 22px); }
+  .sm-root .sm-line-back { font-size: clamp(15px, 4.4vh, 18px); }
+  .sm-root .sm-pick, .sm-root .sm-word { min-height: 34px; }
+  .sm-root .sm-word { font-size: 17px; }
+  .sm-hint:not(.sm-hint-static) { display: none; }
+  .sm-hint-static { font-size: 13px; }
+  .sm-foot { margin-top: 4px; }
+}
+
 
 /* Lobby am Tisch (TableLobby.jsx): eine schmale Zeile oben — Code, Link, Seed, Einstellungen, Aufstehen */
 .sl-bar {
@@ -166,3 +185,12 @@
 .sl-seed .sm-input { width: 9em; font-size: 16px; }
 .sl-seed .sm-input:disabled { opacity: 0.7; }
 .sl-gap { flex: 1; }
+
+/* Lobby auf flachen Fenstern (Handy quer, Phase 7): die Zeile passt in eine Reihe und liegt nicht über der Maske */
+@media (max-height: 500px) {
+  .sl-bar { gap: 2px 14px; padding: 4px 14px 10px; }
+  .sl-code { font-size: 20px; letter-spacing: 0.2em; }
+  .sl-bar .sm-quiet { font-size: 13px; }
+  .sl-seed { font-size: 13px; }
+  .ss-game .sl-bar .sl-seed input.sm-input { width: 6.5em; min-height: 30px; padding: 0 2px; font-size: 14px; }
+}

@@ -3,14 +3,14 @@
 // Die Daten zeichnet engine/timeline.js auf. Mit der Maus (oder Pfeiltasten) lässt sich jeder Abschnitt ablesen.
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { BIOMES } from "../data/biomes.js";
+import { biomeFor } from "../data/biomes.js";
 import { summarizeTimeline } from "../engine/timeline.js";
 import { fmtTime } from "../engine/util.js";
 
 const H = 200;
 const PAD = { l: 48, r: 14, t: 40, b: 26 };
 const num = (n) => n.toLocaleString("de-DE");
-const worldName = (w) => `${BIOMES[w.index]?.name || `Welt ${w.index + 1}`}${w.loop > 0 ? ` · Zyklus ${w.loop + 1}` : ""}`;
+const worldName = (w) => `${biomeFor(w.index, w.loop)?.name || `Welt ${w.index + 1}`}${w.loop > 0 ? ` · Zyklus ${w.loop + 1}` : ""}`;
 
 // Runde Obergrenze mit höchstens vier Schritten
 function niceScale(max) {
@@ -100,7 +100,7 @@ export default function KillCurve({ stats, time }) {
 
             {/* Welten: Strich am Beginn, Name darüber — nur wenn er in den Abschnitt passt */}
             {worlds.map((w, i) => {
-              const name = BIOMES[w.index]?.name || "";
+              const name = biomeFor(w.index, w.loop)?.name || "";
               const room = x(Math.min(w.to, end)) - x(w.from);
               return (
                 <g key={`${w.from}-${i}`}>

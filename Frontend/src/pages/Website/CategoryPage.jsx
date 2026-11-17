@@ -2,12 +2,14 @@
 // Navigations-Kategorie als große anklickbare Kacheln.
 import { Link, useOutletContext } from "react-router-dom";
 import { ArrowRight, ExternalLink, Lock } from "lucide-react";
-import { getCategory } from "../../config/navigation";
+import { kategorieFuer } from "../../config/navigationEn";
+import { useLanguage } from "../../i18n/language.js";
+import { HUELLE_TEXTE } from "../../components/huelleTexte.js";
 import SEO from "../../components/SEO";
 import TileCard from "../../components/TileCard";
 import { Page, PageHeader } from "../../components/ui";
 
-function CategoryCard({ link, openFeedback }) {
+function CategoryCard({ link, openFeedback, t }) {
   const Icon = link.icon;
 
   const inner = (
@@ -30,12 +32,12 @@ function CategoryCard({ link, openFeedback }) {
           <ArrowRight size={18} className="text-white/20 group-hover:text-accent-soft group-hover:translate-x-1 transition-all" />
         )}
       </div>
-      <h3 className={`font-display text-lg font-bold mb-1.5 ${link.locked ? "text-white/45" : "text-white"}`}>
+      <h3 className={`font-display text-lg font-bold mb-1.5 ${link.locked ? "text-white/55" : "text-white"}`}>
         {link.label}
       </h3>
-      <p className={`text-sm leading-relaxed ${link.locked ? "text-white/25" : "text-white/45"}`}>{link.description}</p>
+      <p className={`text-sm leading-relaxed ${link.locked ? "text-white/25" : "text-white/55"}`}>{link.description}</p>
       {link.locked && link.lockedNote && (
-        <p className="mt-4 pt-3 border-t border-line flex items-center gap-2 text-xs font-semibold text-white/40">
+        <p className="mt-4 pt-3 border-t border-line flex items-center gap-2 text-xs font-semibold text-white/55">
           <Lock size={12} className="shrink-0" />
           {link.lockedNote}
         </p>
@@ -51,7 +53,7 @@ function CategoryCard({ link, openFeedback }) {
     return (
       <div
         aria-disabled="true"
-        title={link.lockedNote || "Vorübergehend gesperrt"}
+        title={link.lockedNote || t.gesperrt}
         className="rounded-lg bg-surface/80 border border-line p-6 text-left block w-full cursor-not-allowed"
       >
         {inner}
@@ -81,7 +83,9 @@ function CategoryCard({ link, openFeedback }) {
 }
 
 export default function CategoryPage({ categoryKey }) {
-  const category = getCategory(categoryKey);
+  const { lang } = useLanguage({ supported: HUELLE_TEXTE.langs });
+  const t = HUELLE_TEXTE.dict(lang);
+  const category = kategorieFuer(categoryKey, lang);
   const { openFeedback } = useOutletContext() || {};
 
   if (!category) return null;
@@ -93,13 +97,14 @@ export default function CategoryPage({ categoryKey }) {
         description={category.seoDescription || category.description}
         keywords={category.keywords}
         path={category.to}
+        lang={lang}
         jsonLd={[
           // Breadcrumb: zeigt in den Suchergebnissen "vnmvalentin › Kategorie" statt der nackten URL
           {
             '@context': 'https://schema.org',
             '@type': 'BreadcrumbList',
             itemListElement: [
-              { '@type': 'ListItem', position: 1, name: 'Startseite', item: 'https://vnmvalentin.de' },
+              { '@type': 'ListItem', position: 1, name: t.startseite, item: 'https://vnmvalentin.de' },
               { '@type': 'ListItem', position: 2, name: category.label, item: `https://vnmvalentin.de${category.to}` },
             ],
           },
@@ -128,10 +133,12 @@ export default function CategoryPage({ categoryKey }) {
 
       {/* Unterpunkte: Vorschau-Karten (components/TileCard.jsx). Gesperrte bleiben als tote Kachel stehen, noch
           nicht fertige (soon) erscheinen hier gar nicht. */}
+      {/* Überschrift nur für Screenreader: die Kacheln tragen h3, darüber stünde sonst direkt die h1 */}
+      <h2 className="sr-only">{t.inhaltDesBereichs}</h2>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 md:gap-6">
         {category.links.filter((l) => !l.soon).map((link, i) => (
           link.locked
-            ? <CategoryCard key={link.label} link={link} openFeedback={openFeedback} />
+            ? <CategoryCard key={link.label} link={link} openFeedback={openFeedback} t={t} />
             : (
               <TileCard
                 key={link.label}

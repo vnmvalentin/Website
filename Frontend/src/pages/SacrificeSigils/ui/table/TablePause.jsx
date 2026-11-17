@@ -5,6 +5,7 @@ import React, { useEffect, useState } from "react";
 import { de } from "../../i18n/de.js";
 import { sound } from "../../audio/sound.js";
 import { usePrefs, setPrefs, SPEED_OPTIONS } from "../prefs.js";
+import { isTouch } from "./touch.js";
 
 /**
  * @param {{ title: string, sub?: React.ReactNode, extra?: React.ReactNode, help: React.ReactNode, onClose: () => void,
@@ -48,6 +49,8 @@ export default function TablePause({ title, sub, extra, help, onClose, onSurrend
           ))}
         </div>
         <p className="st-pause-help">{help}</p>
+        {/* Gilt in jeder Phase am Tisch (TableMirror) */}
+        {!isTouch() && <p className="st-pause-help">Mit der Tastatur: Tab springt zwischen Hand, Brett, Karten und Gegenständen, die Pfeiltasten wählen, Eingabe klickt, I zeigt eine Karte. Ein Screenreader liest vor, was gewählt ist.</p>}
       </div>
     </div>
   );

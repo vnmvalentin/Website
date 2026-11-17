@@ -13,6 +13,8 @@ const BASE = "/media/av3d";
 const cache = new Map();
 
 // Liefert { name, walk: [Körper je Schritt], idle: Körper, tris, duration (Sekunden für einen Durchlauf der Schritte) }
+// Name mit Zusatz „~grau“ (z. B. "drache~grau"): dieselbe Datei, Farben entfärbt — dann lässt sich die Figur mit `tint`
+// in jede Farbe tönen (die Färbung multipliziert nur: ein oranger Drache wird sonst nie eisblau).
 export function loadFigure(name) {
   if (!cache.has(name)) cache.set(name, build(name));
   return cache.get(name);
@@ -21,7 +23,8 @@ export function loadFigure(name) {
 const linear = (v) => { const c = v / 255; return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); };
 
 async function build(name) {
-  const res = await fetch(`${BASE}/${name}.bin`);
+  const [file, variant] = name.split("~");
+  const res = await fetch(`${BASE}/${file}.bin`);
   if (!res.ok) throw new Error(`Figur ${name} fehlt (${res.status})`);
   const buf = await res.arrayBuffer();
   const view = new DataView(buf);
@@ -37,6 +40,12 @@ async function build(name) {
   const srgb = new Uint8Array(buf, colorAt, verts * 3);
   const color = new Float32Array(verts * 3);
   for (let i = 0; i < color.length; i++) color[i] = linear(srgb[i]);
+  if (variant === "grau") {
+    for (let i = 0; i < color.length; i += 3) {
+      const l = 0.2126 * color[i] + 0.7152 * color[i + 1] + 0.0722 * color[i + 2];
+      color[i] = color[i + 1] = color[i + 2] = l;
+    }
+  }
   const colorAttr = new THREE.BufferAttribute(color, 3);
   const indexAttr = new THREE.BufferAttribute(new Uint16Array(buf, indexAt, tris * 3), 1);
 

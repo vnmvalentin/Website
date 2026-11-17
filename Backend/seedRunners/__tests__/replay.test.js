@@ -192,19 +192,59 @@ test('Phase D: Pfad-Runden werden mit dem Pfad-Level nachgespielt', async () => 
   assert.equal(alt.status, 'skipped');
 });
 
-// Phase D, die eigentliche Zusage: Ein ECHTER Lauf durch ein Live-Pfad-Level (die geplanten Züge nacheinander gespielt,
+// Phase D, die eigentliche Zusage: Ein ECHTER Lauf durch ein Zufallslevel (die geplanten Züge nacheinander gespielt,
 // zum Schluss auf die Zielmarke) besteht die Prüfung — mit genau seiner Zeit. Ein Tick weniger behauptet fällt durch.
-test('Phase D: ein echter Lauf durch ein Pfad-Level besteht die Server-Prüfung', async () => {
+// Seit Generator-Version 5 ist das laufende Zufallslevel die Lauflinie (gespielt vom Läufer, gen/world/lauf/spiel.js);
+// Pfad-Level (gv 1–4: vergangene Tagesrennen, Favoriten) kommen aus dem Archiv und werden ebenso geprüft (Test darunter).
+test('Phase D: ein echter Lauf durch ein Lauf-Level (laufende Version) besteht die Server-Prüfung', async () => {
   const engine = await loadEngine();
   const imp = (rel) => import(pathToFileURL(path.join(__dirname, '..', 'engine', rel)).href);
   const { WELT_BAU } = await imp('gen/world/generate.js');
-  const { WEGE } = await imp('gen/world/typen/pfad.js');
-  const { zugEingabe, zugFertig } = await imp('gen/world/pfad/zuege.js');
+  const { laeufer } = await imp('gen/world/lauf/spiel.js');
   const { stepWorld } = await imp('sim/world.js');
   const { INPUT } = await imp('sim/inputBits.js');
-  // (laufende Generator-Version: nur die baut levelFuerParams live, ältere kommen aus dem Archiv)
   const params = { seed: 'phase-d', length: 'long', speedClass: 'super', biome: 'random', gen: 'pfad', gv: engine.GEN_VERSION };
   const level = engine.levelFuerParams(params);
+  assert.equal(level.meta.worldType, 'lauf');
+  // Skript aller Strecken am Stück, mit dem „mittleren“ Zitter-Satz (so prüft auch der Kettenlauf beim Bau)
+  const { pruef } = WELT_BAU.get(level).notizen;
+  const skript = pruef.flatMap((s) => s.skript);
+  const zitter = pruef.flatMap((s) => s.saetze[0].slice(0, s.skript.length));
+  const welt = engine.createLevelWorld(level);
+  const masken = [];
+  const schritt = (m) => { masken.push(m); stepWorld(welt, m); };
+  const ein = laeufer(skript, zitter);
+  const z = {};
+  for (let t = 0; t < 120 * 300 && !welt.finished && !welt.deaths; t++) {
+    const m = ein(welt, z);
+    if (z.fertig) break;
+    schritt(m);
+  }
+  assert.equal(welt.deaths, 0, `der Läufer stirbt nicht (Schritt ${z.i} von ${skript.length})`);
+  const ziel = level.meta.finish[1] || level.meta.finish[0];
+  for (let t = 0; t < 600 && !welt.finished; t++) schritt((welt.player.x + 5) / 16 < ziel.x ? INPUT.RIGHT : INPUT.LEFT);
+  assert.ok(welt.finished && welt.deaths === 0, 'der gespielte Lauf kommt ohne Tod ins Ziel');
+  const log = toLog(masken);
+  const ok = await verifyRun({ params, log, ticks: welt.finishTick, fp: engine.ENGINE_FINGERPRINT });
+  assert.equal(ok.status, 'ok', ok.reason);
+  assert.equal(ok.ticks, welt.finishTick);
+  const falsch = await verifyRun({ params, log, ticks: welt.finishTick - 1, fp: engine.ENGINE_FINGERPRINT });
+  assert.equal(falsch.status, 'invalid');
+});
+
+test('Phase D: ein echter Lauf durch ein Pfad-Level aus dem Archiv (gv 4) besteht die Server-Prüfung', async () => {
+  const engine = await loadEngine();
+  const imp = (rel) => import(pathToFileURL(path.join(__dirname, '..', 'engine', rel)).href);
+  // Das Archiv der Version 4: dieselben Dateien, die replay.js für gv 4 lädt (gleiche Module, gleiche WeakMaps)
+  const { generateWorld, WELT_BAU } = await imp('archiv/pfad-v4/gen/world/generate.js');
+  const { WEGE } = await imp('archiv/pfad-v4/gen/world/typen/pfad.js');
+  const { zugEingabe, zugFertig } = await imp('archiv/pfad-v4/gen/world/pfad/zuege.js');
+  const { stepWorld } = await imp('sim/world.js');
+  const { INPUT } = await imp('sim/inputBits.js');
+  const params = { seed: 'phase-d', length: 'long', speedClass: 'super', biome: 'random', gen: 'pfad', gv: 4 };
+  const w = engine.weltParams(params);
+  assert.equal(w.worldType, 'pfad', 'bis Version 4 bleibt es der Pfad');
+  const level = generateWorld(engine.ohneGv(w));
   const { schritte } = WEGE.get(WELT_BAU.get(level));
   const welt = engine.createLevelWorld(level);
   const masken = [];

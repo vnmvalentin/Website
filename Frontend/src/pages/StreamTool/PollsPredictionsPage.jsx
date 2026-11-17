@@ -15,6 +15,7 @@ import {
   LogOut, TriangleAlert, Info, Users, Star, ArrowRight, Clapperboard, Play, Square,
   Activity, RotateCcw, TrainFront, Plane, UsersRound, CircleDot,
   ChevronDown, FlaskConical, Link2, Lock, Palette, Bell, Volume2,
+  Hourglass, Pause, Plus, Minus, HandCoins, Zap, Trash2, Upload, Music, Image as ImageIcon,
 } from 'lucide-react';
 import PremiumDialog from '../../components/PremiumDialog';
 import { PREMIUM_INCLUDES, openPortal, untilText } from '../../utils/billingApi';
@@ -32,9 +33,15 @@ import {
   useDemoSim, useLinger, paintDemo, MODULE_DEFAULTS, TWITCH_GOAL_TYPES, TWITCH_GOAL_FAMILY,
   resolveTwitchGoal, STAT_METRICS, SCENE_IDS, demoHype, demoMarbles, planeMessages,
   ALERT_KINDS, ALERT_TEXT_FIELD, DEFAULT_TEXTS, demoAlert,
+  SUBATHON_RULE_KEYS, SUBATHON_CURRENCIES, toSubathonView, demoSubathon, subathonClock, subathonDelta,
+  subathonRemaining, subathonStartMs, subathonWhat,
+  OVERLAY_FONTS, ALL_FONTS_HREF, fontFamilyOf, fontHref, withoutPremium, alertMediaOf, mediaUrl,
 } from './streamToolConfig';
-import { OverlayLangContext, OVERLAY_TEXTS } from './overlayI18n';
+import { useFontLink } from '../../components/shell/useFontLink';
+import { OverlayLangContext, OVERLAY_TEXTS, overlayFormat } from './overlayI18n';
 import { AlertWidget, useAlertPlayer, playAlertSound, speakAlert, alertSpeech } from './OverlayAlerts';
+import { SubathonWidget } from './OverlaySubathon';
+import { getVorlage, markVorlageUsed as countVorlageUse, userVorlageId } from '../StreamerTools/vorlagen/vorlagenApi';
 import { EDITOR_TEXTS, apiErrorText, clipWarningText, useEditorText } from './editorI18n';
 import { useLanguage } from '../../i18n/language';
 import {
@@ -95,6 +102,12 @@ const MODULES = [
     id: 'alerts',
     kind: 'alerts',
     icon: Bell,
+    maxColors: 1,
+  },
+  {
+    id: 'subathon',
+    kind: 'subathon',
+    icon: Hourglass,
     maxColors: 1,
   },
   // Ab hier die Szenen: sie spielen quer übers Bild und haben keine Karte, die
@@ -239,6 +252,35 @@ function MiniButton({ icon: Icon, children, spin, ...props }) {
       <Icon size={13} className={spin ? 'animate-spin' : ''} />
       {children}
     </button>
+  );
+}
+
+/** Kleines „Abo“-Schild hinter dem Titel eines Abo-Extras (Schrift, eigene Töne/Bilder, Happy Hour). */
+function PremiumMark() {
+  const t = useEditorText();
+  return (
+    <span className="ml-1.5 inline-flex items-center gap-1 rounded-sm bg-accent/15 px-1.5 py-px align-middle text-[9.5px] font-bold text-accent-soft normal-case tracking-normal">
+      <Lock size={9} /> {t.premiumExtra}
+    </span>
+  );
+}
+
+/**
+ * Hinweis an einem Abo-Extra ohne Abo: was das heißt, und der Weg zum Abo. Solange noch nicht verkauft wird
+ * (config/legal.js), steht dort nur „Bald verfügbar“.
+ * @param {{ on: boolean, sales: boolean, ask: () => void }} premium
+ */
+function PremiumNote({ premium }) {
+  const t = useEditorText();
+  if (!premium || premium.on) return null;
+  return (
+    <div className="flex items-center gap-2.5 text-[11.5px] leading-snug text-white/65">
+      <Lock size={13} className="shrink-0 text-accent-soft" />
+      <span className="min-w-0 flex-1">{t.premiumExtraNote}</span>
+      {premium.sales
+        ? <button type="button" onClick={premium.ask} className="shrink-0 font-bold text-accent-soft hover:text-white">{t.premiumMore}</button>
+        : <span className="shrink-0 text-white/40">{t.comingSoon}</span>}
+    </div>
   );
 }
 
@@ -1156,6 +1198,8 @@ function AlertSettings({ meta, module, set, tools }) {
         </div>
       </Section>
 
+      <AlertMediaSection module={module} set={set} tools={tools} />
+
       <Section title={t.alertTextsSection}>
         <div className="space-y-2.5">
           {ALERT_KINDS.map((k) => {
@@ -1188,12 +1232,479 @@ function AlertSettings({ meta, module, set, tools }) {
   );
 }
 
+/** Was der Datei-Dialog anbietet. Geprüft wird am Server an den ersten Bytes (Backend/streamTool/lib/streamToolMedia.js). */
+const MEDIA_ACCEPT = 'image/png,image/jpeg,image/gif,image/webp,audio/mpeg,audio/ogg,audio/wav,.mp3,.ogg,.wav';
+const MB = 1024 * 1024;
+const mediaSelect = 'w-full min-w-0 bg-[#1a1a20] border border-white/10 rounded-lg px-2 py-1.5 text-white outline-none text-[12px] focus:border-accent disabled:text-white/30';
+
+/**
+ * Eigene Töne und Bilder je Alert-Art (Abo-Extra). Die Dateien liegen am Server (eine Liste je Konto), das Modul
+ * merkt sich nur, welche Datei zu welcher Art gehört: module.media = { follow: { sound, image }, … }.
+ */
+function AlertMediaSection({ module, set, tools }) {
+  const t = useEditorText();
+  const premium = tools?.premium;
+  const on = !!premium?.on;
+  const [lib, setLib] = useState(null);
+  const [busy, setBusy] = useState(false);
+  const fileRef = useRef(null);
+  const mediaMap = module.media && typeof module.media === 'object' ? module.media : {};
+
+  useEffect(() => {
+    if (!on) return undefined;
+    let alive = true;
+    api.listMedia().then((d) => { if (alive) setLib(d); }).catch(() => {});
+    return () => { alive = false; };
+  }, [on]);
+
+  const files = lib?.media || [];
+  const images = files.filter((f) => f.kind === 'image');
+  const sounds = files.filter((f) => f.kind === 'sound');
+  const locale = t.lang === 'en' ? 'en-US' : 'de-DE';
+  // Unter 1 MB in KB, sonst MB mit einer Stelle — „0 MB“ für ein kleines Bild sähe nach Fehler aus
+  const sizeText = (bytes) => (bytes < MB
+    ? `${Math.max(1, Math.round(bytes / 1024))} KB`
+    : `${(bytes / MB).toLocaleString(locale, { maximumFractionDigits: 1 })} MB`);
+
+  /** Zuordnung ändern; eine Art ohne Ton und Bild fällt aus der Liste. */
+  const pick = (kind, field, id) => {
+    const next = { sound: mediaMap[kind]?.sound || null, image: mediaMap[kind]?.image || null, [field]: id || null };
+    const media = { ...mediaMap };
+    if (next.sound || next.image) media[kind] = next;
+    else delete media[kind];
+    set({ media });
+  };
+
+  const upload = async (e) => {
+    const chosen = [...(e.target.files || [])];
+    e.target.value = '';
+    if (!chosen.length) return;
+    setBusy(true);
+    try {
+      for (const f of chosen) {
+        const d = await api.uploadMedia(f);
+        setLib((prev) => ({ ...(prev || {}), media: [d.media, ...((prev && prev.media) || [])], usage: d.usage }));
+      }
+    } catch (err) {
+      tools?.flash?.(apiErrorText(t, err));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const remove = async (f) => {
+    if (!window.confirm(t.alertMediaDeleteConfirm(f.name || f.id))) return;
+    setBusy(true);
+    try {
+      const d = await api.deleteMedia(f.id);
+      setLib((prev) => ({ ...prev, media: (prev?.media || []).filter((x) => x.id !== f.id), usage: d.usage }));
+      // Verweise auf die gelöschte Datei lösen — sonst bliebe eine Lücke statt des Standards
+      const media = {};
+      for (const [k, v] of Object.entries(mediaMap)) {
+        const next = { sound: v?.sound === f.id ? null : v?.sound || null, image: v?.image === f.id ? null : v?.image || null };
+        if (next.sound || next.image) media[k] = next;
+      }
+      set({ media });
+    } catch (err) {
+      tools?.flash?.(apiErrorText(t, err));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Section title={<>{t.alertMediaSection}<PremiumMark /></>}>
+      {!on ? (
+        <div><PremiumNote premium={premium} /></div>
+      ) : (
+        <>
+          <div>
+            <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_32px] gap-1.5 text-[10.5px] font-bold uppercase tracking-wider text-white/40">
+              <span>{t.alertMediaImage}</span>
+              <span>{t.alertMediaSound}</span>
+            </div>
+            <div className="space-y-2 mt-1.5">
+              {ALERT_KINDS.map((k) => {
+                const sel = mediaMap[k] || {};
+                return (
+                  <div key={k}>
+                    <p className="text-[12px] font-semibold text-white/75">{t.alertKindLabels[k]}</p>
+                    <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_32px] gap-1.5 mt-1">
+                      <select aria-label={`${t.alertKindLabels[k]} · ${t.alertMediaImage}`} className={mediaSelect}
+                        value={sel.image || ''} onChange={(e) => pick(k, 'image', e.target.value)}>
+                        <option value="">{t.alertMediaNoImage}</option>
+                        {images.map((f) => <option key={f.id} value={f.id}>{f.name || f.id}</option>)}
+                      </select>
+                      <select aria-label={`${t.alertKindLabels[k]} · ${t.alertMediaSound}`} className={mediaSelect}
+                        value={sel.sound || ''} onChange={(e) => pick(k, 'sound', e.target.value)}>
+                        <option value="">{t.alertMediaNone}</option>
+                        {sounds.map((f) => <option key={f.id} value={f.id}>{f.name || f.id}</option>)}
+                      </select>
+                      <button type="button" title={t.alertMediaPlay} aria-label={`${t.alertKindLabels[k]} · ${t.alertMediaPlay}`}
+                        onClick={() => playAlertSound(k, module.volume ?? 60, mediaUrl(sel.sound))}
+                        className="h-8 w-8 inline-flex items-center justify-center rounded-lg border border-white/10 text-white/60 hover:text-white hover:border-white/25 transition-colors">
+                        <Volume2 size={13} />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between gap-2">
+              <Label>{t.alertMediaFiles}</Label>
+              {lib?.usage && lib?.limits && (
+                <span className="text-[11px] text-white/45 tabular-nums">
+                  {t.alertMediaUsage(lib.usage.files, lib.limits.files, sizeText(lib.usage.bytes), sizeText(lib.limits.total))}
+                </span>
+              )}
+            </div>
+            {!files.length ? <Note>{t.alertMediaEmpty}</Note> : (
+              <ul className="mt-1.5 max-h-56 overflow-y-auto custom-scrollbar divide-y divide-white/[0.06]">
+                {files.map((f) => (
+                  <li key={f.id} className="flex items-center gap-2 py-1.5 text-[12px]">
+                    {f.kind === 'image'
+                      ? <ImageIcon size={13} className="shrink-0 text-white/45" />
+                      : <Music size={13} className="shrink-0 text-white/45" />}
+                    <span className="min-w-0 flex-1 truncate text-white/80">{f.name || f.id}</span>
+                    <span className="shrink-0 tabular-nums text-white/35">{sizeText(f.size)}</span>
+                    <button type="button" disabled={busy} onClick={() => remove(f)} title={t.alertMediaDelete} aria-label={`${t.alertMediaDelete}: ${f.name || f.id}`}
+                      className="shrink-0 h-7 w-7 inline-flex items-center justify-center rounded-md text-white/45 hover:text-red-300 disabled:text-white/20 transition-colors">
+                      <Trash2 size={13} />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <input ref={fileRef} type="file" accept={MEDIA_ACCEPT} multiple className="sr-only" onChange={upload} tabIndex={-1} />
+            <div className="mt-2.5">
+              <MiniButton icon={Upload} spin={false} disabled={busy} onClick={() => fileRef.current?.click()}>
+                {busy ? t.alertMediaUploading : t.alertMediaUpload}
+              </MiniButton>
+            </div>
+            <Note>{t.alertMediaNote}</Note>
+          </div>
+        </>
+      )}
+    </Section>
+  );
+}
+
+/* ── Subathon-Timer ───────────────────────────────────────────────────────── */
+
+const SUB_STATUS_TONE = { idle: 'text-white/50', running: 'text-green-300', paused: 'text-amber-300', ended: 'text-white/50' };
+/** Höchstwert einer Regel (wie RULE_MAX_S in subathonCore.js). */
+const SUB_RULE_MAX_S = 24 * 3600;
+const SUB_QUICK_MINUTES = [1, 5, 10, -1, -5];
+
+/** Uhrzeit eines Verlaufseintrags; ältere als ein Tag mit Datum. */
+function subLogTime(at, lang) {
+  const d = new Date(at);
+  const locale = lang === 'en' ? 'en-US' : 'de-DE';
+  const time = d.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
+  if (Date.now() - at < 20 * 3600 * 1000) return time;
+  return `${d.toLocaleDateString(locale, { day: '2-digit', month: '2-digit' })} ${time}`;
+}
+
+/**
+ * Drei Reiter: Steuerung (Start, Pause, Zeit, Spenden, Verlauf), Regeln (was wie viel bringt, Start, Obergrenze,
+ * Chat) und Aussehen (Anzeige; Platz und Farben hängt ModuleSettings darunter wie bei jeder Karte).
+ */
+function SubathonSettings({ module, set, tools, tab }) {
+  const t = useEditorText();
+  const rules = module.rules || {};
+  const cur = module.currency || '€';
+  const data = tools?.data || null;
+  const offsetRef = tools?.offsetRef;
+  const [manual, setManual] = useState(15);
+  const [amount, setAmount] = useState('');
+  const [donor, setDonor] = useState('');
+  const [happyMinutes, setHappyMinutes] = useState(30);
+  const [happyFactor, setHappyFactor] = useState(2);
+
+  const view = data || { status: 'idle', remainingMs: 0, endsAt: 0, elapsedMs: 0, addedMs: 0, capMs: 0, capReached: false, log: [] };
+  // Eigener Sekundentakt nur, solange der Timer oder eine Happy Hour läuft (die läuft auch in der Pause weiter)
+  const running = module.enabled && (view.status === 'running' || !!view.happy);
+  const [, tick] = useState(0);
+  useEffect(() => {
+    if (!running) return undefined;
+    const id = setInterval(() => tick((n) => n + 1), 500);
+    return () => clearInterval(id);
+  }, [running]);
+
+  if (tab === 'rules') {
+    const ruleMinutes = (k) => Math.round(((rules[k] ?? MODULE_DEFAULTS.subathon.rules[k]) / 60) * 100) / 100;
+    const setRule = (k, minutes) => {
+      const s = Math.round(Math.min(SUB_RULE_MAX_S, Math.max(0, (Number(minutes) || 0) * 60)));
+      set({ rules: { ...rules, [k]: s } });
+    };
+    return (
+      <>
+        <Section title={t.subRulesSection}>
+          <div className="space-y-2">
+            {SUBATHON_RULE_KEYS.map((k) => (
+              <div key={k} className="grid grid-cols-[minmax(0,1fr)_96px] items-center gap-2">
+                <Label htmlFor={`sub-rule-${k}`}>{t.subRuleLabels[k].replace('{cur}', cur)}</Label>
+                <div className="flex items-center gap-1.5">
+                  <Field id={`sub-rule-${k}`} type="number" min={0} step={0.5} value={ruleMinutes(k)}
+                    onChange={(e) => setRule(k, e.target.value)} />
+                  <span className="text-[11px] text-white/45">{t.subMinutes}</span>
+                </div>
+              </div>
+            ))}
+            <Note>{t.subRulesNote}</Note>
+          </div>
+          <div className="space-y-1">
+            <ToggleRow label={t.subCountResubs} description={t.subCountResubsNote}
+              checked={module.countResubs !== false} onChange={(v) => set({ countResubs: v })} />
+            <ToggleRow label={t.subCountGifts} description={t.subCountGiftsNote}
+              checked={module.countGifts !== false} onChange={(v) => set({ countGifts: v })} />
+          </div>
+          <div>
+            <Label>{t.subCurrency}</Label>
+            <Choice value={cur} cols={3} options={SUBATHON_CURRENCIES.map((c) => [c, c])} onChange={(v) => set({ currency: v })} />
+          </div>
+        </Section>
+
+        <Section title={t.subLimitsSection}>
+          <div>
+            <Label htmlFor="sub-start">{t.subStartMinutes}</Label>
+            <Field id="sub-start" type="number" min={1} className="mt-1.5" value={module.startMinutes ?? 60}
+              onChange={(e) => set({ startMinutes: Math.min(59940, Math.max(1, Math.round(Number(e.target.value) || 1))) })} />
+            <Note>{t.subStartNote}</Note>
+          </div>
+          <div>
+            <Label htmlFor="sub-cap">{t.subCapHours}</Label>
+            <Field id="sub-cap" type="number" min={0} className="mt-1.5" value={module.capHours ?? 0}
+              onChange={(e) => set({ capHours: Math.min(999, Math.max(0, Math.round(Number(e.target.value) || 0))) })} />
+            <Note>{t.subCapHoursNote}</Note>
+          </div>
+        </Section>
+
+        <Section title={t.subChatSection}>
+          <div className="space-y-1">
+            <ToggleRow label={t.subChatInfo} description={t.subChatInfoNote}
+              checked={module.chatInfo !== false} onChange={(v) => set({ chatInfo: v })} />
+            <ToggleRow label={t.subChatMods} description={t.subChatModsNote}
+              checked={module.chatMods !== false} onChange={(v) => set({ chatMods: v })} />
+            <Note>{t.subChatCommands}</Note>
+          </div>
+        </Section>
+      </>
+    );
+  }
+
+  if (tab === 'look') {
+    return (
+      <Section title={t.subDisplaySection}>
+        <div>
+          <Label htmlFor="sub-label">{t.subLabel}</Label>
+          <Field id="sub-label" className="mt-1.5" maxLength={30} value={module.label ?? ''} placeholder="Subathon"
+            onChange={(e) => set({ label: e.target.value })} />
+        </div>
+        <div className="space-y-1">
+          <ToggleRow label={t.subShowHead} description={t.subShowHeadNote}
+            checked={module.showHead !== false} onChange={(v) => set({ showHead: v })} />
+          <ToggleRow label={t.subShowLast} description={t.subShowLastNote}
+            checked={module.showLast !== false} onChange={(v) => set({ showLast: v })} />
+          <ToggleRow label={t.subShowPop} description={t.subShowPopNote}
+            checked={module.showPop !== false} onChange={(v) => set({ showPop: v })} />
+          <ToggleRow label={t.subShowCap} description={t.subShowCapNote}
+            checked={module.showCap !== false} onChange={(v) => set({ showCap: v })} />
+          <ToggleRow label={t.subHideIdle} description={t.subHideIdleNote}
+            checked={!!module.hideIdle} onChange={(v) => set({ hideIdle: v })} />
+        </div>
+      </Section>
+    );
+  }
+
+  if (tab !== 'main') return null;
+
+  /* ── Steuerung ── */
+  const now = Date.now() + (offsetRef?.current || 0);
+  const remaining = subathonRemaining(view, module, now);
+  const status = view.status === 'running' && remaining <= 0 ? 'ended' : view.status;
+  // Verstrichene Zeit läuft mit: was seit dem Abruf von der Restzeit abging, ist dazugekommen
+  const elapsed = (Number(view.elapsedMs) || 0) + (view.status === 'running' ? Math.max(0, (Number(view.remainingMs) || 0) - remaining) : 0);
+  const busy = !!tools?.busy;
+  const canAdd = module.enabled && status !== 'idle';
+  const canDonate = module.enabled && (status === 'running' || status === 'paused');
+  const action = (name, payload) => tools?.onAction(name, payload);
+  const premium = tools?.premium;
+  const happyLeft = canDonate && view.happy ? Math.max(0, Number(view.happy.until) - now) : 0;
+  const amountNum = Number(String(amount).replace(',', '.'));
+  const donationMs = amountNum > 0 ? Math.round(amountNum * (rules.donation ?? MODULE_DEFAULTS.subathon.rules.donation) * 1000) : 0;
+  const ot = OVERLAY_TEXTS.dict(t.lang);
+  const { num } = overlayFormat(t.lang);
+  const log = Array.isArray(view.log) ? view.log : [];
+
+  const submitDonation = async () => {
+    const ok = await tools?.onAction('donation', { amount: amountNum, name: donor.trim() });
+    if (ok) { setAmount(''); setDonor(''); }
+  };
+
+  return (
+    <>
+      <ChatWatchNote watch={tools?.watch} enabled={module.enabled} what="subathon" />
+
+      <Section title={t.subTimerSection}>
+        <div>
+          {!module.enabled ? <Note>{t.subOffNote}</Note> : (
+            <>
+              <div className="flex items-baseline justify-between gap-3">
+                <span className="text-[34px] font-extrabold leading-none tabular-nums text-white">
+                  {subathonClock(status === 'idle' ? subathonStartMs(module) : remaining)}
+                </span>
+                <span className={`text-[11px] font-bold uppercase tracking-wider ${SUB_STATUS_TONE[status] || ''}`}>
+                  {t.subStatusLabels[status]}
+                </span>
+              </div>
+              <Note>
+                {status === 'idle' && t.subStartsWith(subathonClock(subathonStartMs(module)))}
+                {(status === 'running' || status === 'paused') && t.subStats(subathonClock(elapsed), subathonDelta(view.addedMs || 0))}
+                {status === 'ended' && t.subRanFor(subathonClock(elapsed))}
+                {view.capMs > 0 && ` ${t.subCapInfo(subathonClock(view.capMs))}`}
+              </Note>
+              <div className="flex flex-wrap gap-1.5 mt-3">
+                {status === 'idle' && <MiniButton icon={Play} disabled={busy} onClick={() => action('start')}>{t.subStart}</MiniButton>}
+                {status === 'running' && <MiniButton icon={Pause} disabled={busy} onClick={() => action('pause')}>{t.subPause}</MiniButton>}
+                {status === 'paused' && <MiniButton icon={Play} disabled={busy} onClick={() => action('start')}>{t.subResume}</MiniButton>}
+                {status !== 'idle' && (
+                  <MiniButton icon={RotateCcw} disabled={busy}
+                    onClick={() => { if (window.confirm(t.subResetConfirm)) action('reset'); }}>
+                    {t.subReset}
+                  </MiniButton>
+                )}
+              </div>
+              {status === 'ended' && <Note>{t.subEndedNote}</Note>}
+              {view.capReached && status !== 'ended' && <Note>{t.subCapReachedNote}</Note>}
+            </>
+          )}
+        </div>
+      </Section>
+
+      {module.enabled && (
+        <Section title={t.subManualSection}>
+          <div>
+            <div className="flex flex-wrap gap-1.5">
+              {SUB_QUICK_MINUTES.map((m) => (
+                <MiniButton key={m} icon={m > 0 ? Plus : Minus} disabled={busy || !canAdd || (m < 0 && status === 'ended')}
+                  onClick={() => action('add', { seconds: m * 60 })}>
+                  {Math.abs(m)} {t.subMinutes}
+                </MiniButton>
+              ))}
+            </div>
+            <div className="flex items-end gap-1.5 mt-2.5">
+              <div className="min-w-0 flex-1">
+                <Label htmlFor="sub-manual">{t.subManualMinutes}</Label>
+                <Field id="sub-manual" type="number" min={1} className="mt-1.5" value={manual}
+                  onChange={(e) => setManual(Math.max(0, Math.round(Number(e.target.value) || 0)))} />
+              </div>
+              <MiniButton icon={Plus} disabled={busy || !canAdd || !manual} onClick={() => action('add', { seconds: manual * 60 })}>{t.subAdd}</MiniButton>
+              <MiniButton icon={Minus} disabled={busy || !canAdd || !manual || status === 'ended'} onClick={() => action('add', { seconds: -manual * 60 })}>{t.subSubtract}</MiniButton>
+            </div>
+            <Note>{t.subManualNote}</Note>
+          </div>
+        </Section>
+      )}
+
+      {module.enabled && (
+        <Section title={<>{t.subHappySection}<PremiumMark /></>}>
+          <div>
+            {!premium?.on ? <PremiumNote premium={premium} /> : happyLeft > 0 ? (
+              <>
+                <p className="text-[13px] font-bold text-white tabular-nums">
+                  {t.subHappyRunning(view.happy.factor, subathonClock(happyLeft).replace(/^0:/, ''))}
+                </p>
+                <div className="flex flex-wrap gap-1.5 mt-2.5">
+                  <MiniButton icon={Square} disabled={busy} onClick={() => action('happyStop')}>{t.subHappyStop}</MiniButton>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="min-w-0">
+                    <Label>{t.subHappyFactor}</Label>
+                    <Choice value={happyFactor} options={[[2, '×2'], [3, '×3']]} onChange={setHappyFactor} />
+                  </div>
+                  <div className="min-w-0">
+                    <Label htmlFor="sub-happy-minutes">{t.subHappyMinutes}</Label>
+                    <Field id="sub-happy-minutes" type="number" min={1} max={240} className="mt-1.5" value={happyMinutes}
+                      onChange={(e) => setHappyMinutes(Math.min(240, Math.max(0, Math.round(Number(e.target.value) || 0))))} />
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-1.5 mt-2.5">
+                  <MiniButton icon={Zap} disabled={busy || !canDonate || !(happyMinutes >= 1)}
+                    onClick={() => action('happy', { minutes: happyMinutes, factor: happyFactor })}>
+                    {t.subHappyStart}
+                  </MiniButton>
+                </div>
+                {!canDonate && <Note>{t.subHappyNeedsRun}</Note>}
+              </>
+            )}
+            <Note>{t.subHappyNote}</Note>
+          </div>
+        </Section>
+      )}
+
+      {module.enabled && (
+        <Section title={t.subDonationSection}>
+          <div>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="min-w-0">
+                <Label htmlFor="sub-amount">{t.subDonationAmount(cur)}</Label>
+                <Field id="sub-amount" type="number" min={0} step="0.01" className="mt-1.5" value={amount}
+                  onChange={(e) => setAmount(e.target.value)} />
+              </div>
+              <div className="min-w-0">
+                <Label htmlFor="sub-donor">{t.subDonationName}</Label>
+                <Field id="sub-donor" maxLength={40} className="mt-1.5" value={donor} onChange={(e) => setDonor(e.target.value)} />
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-2 mt-2.5">
+              <MiniButton icon={HandCoins} disabled={busy || !canDonate || !(amountNum > 0)} onClick={submitDonation}>{t.subDonationAdd}</MiniButton>
+              {donationMs > 0 && <span className="text-[11.5px] text-white/60 tabular-nums">{t.subDonationPreview(subathonDelta(donationMs))}</span>}
+            </div>
+            <Note>{t.subDonationNote}</Note>
+          </div>
+        </Section>
+      )}
+
+      {module.enabled && (
+        <Section title={t.subLogSection}>
+          <div>
+            {!log.length ? <Note>{t.subLogEmpty}</Note> : (
+              <ul className="max-h-72 overflow-y-auto custom-scrollbar -my-1 divide-y divide-white/[0.06]">
+                {log.map((e) => (
+                  <li key={e.id} className="flex items-baseline gap-2 py-1.5 text-[12px]">
+                    <span className="shrink-0 tabular-nums text-white/35">{subLogTime(e.at, t.lang)}</span>
+                    <span className="min-w-0 flex-1 truncate">
+                      {e.name && <b className="text-white">{e.name} </b>}
+                      <span className="text-white/55">{subathonWhat(e, ot, num, cur)}</span>
+                    </span>
+                    {e.capped && <span className="shrink-0 text-[10px] font-bold uppercase tracking-wider text-amber-300">{t.subLogCapped}</span>}
+                    {e.x > 1 && <span className="shrink-0 text-[10px] font-bold text-accent-soft">×{e.x}</span>}
+                    <span className={`shrink-0 tabular-nums font-bold ${e.ms < 0 ? 'text-red-300' : 'text-green-300'}`}>{subathonDelta(e.ms)}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </Section>
+      )}
+    </>
+  );
+}
+
 /* ── Einstellungen eines Moduls ───────────────────────────────────────────── */
 
 /** Reiter der Einstellungen. Ohne eigenen Eintrag: was das Modul tut / wie es aussieht. */
 /* [Reiter, Schlüssel des Namens in editorI18n.tabs] */
 const SETTING_TABS = {
   marbles: [['main', 'race'], ['reward', 'reward'], ['top', 'top'], ['look', 'look']],
+  subathon: [['main', 'control'], ['rules', 'rules'], ['look', 'look']],
 };
 const DEFAULT_SETTING_TABS = [['main', 'main'], ['look', 'look']];
 
@@ -1201,7 +1712,7 @@ const DEFAULT_SETTING_TABS = [['main', 'main'], ['look', 'look']];
  * Der Aufrufer hängt die Komponente per key ans Modul — beim Wechsel beginnt
  * sie also wieder auf dem ersten Reiter.
  */
-function ModuleSettings({ meta, module, onChange, warning, goalTools, raidTools, statsTools, sceneTools, alertTools }) {
+function ModuleSettings({ meta, module, onChange, warning, goalTools, raidTools, statsTools, sceneTools, alertTools, subathonTools }) {
   const t = useEditorText();
   const set = (patch) => onChange(patch);
   const tabs = SETTING_TABS[meta.kind] || DEFAULT_SETTING_TABS;
@@ -1236,6 +1747,7 @@ function ModuleSettings({ meta, module, onChange, warning, goalTools, raidTools,
       {main && meta.kind === 'stats' && <StatsSettings meta={meta} module={module} set={set} tools={statsTools} />}
       {main && meta.kind === 'raid' && <RaidSettings meta={meta} module={module} set={set} tools={raidTools} />}
       {main && meta.kind === 'alerts' && <AlertSettings meta={meta} module={module} set={set} tools={alertTools} />}
+      {meta.kind === 'subathon' && <SubathonSettings module={module} set={set} tools={subathonTools} tab={tab} />}
       {meta.kind === 'hype' && <HypeSettings meta={meta} module={module} set={set} tools={sceneTools} tab={tab} />}
       {meta.kind === 'storm' && <StormSettings meta={meta} module={module} set={set} tools={sceneTools} tab={tab} />}
       {meta.kind === 'plane' && <PlaneSettings meta={meta} module={module} set={set} tools={sceneTools} tab={tab} />}
@@ -1371,9 +1883,12 @@ function BarMenu({ label, icon: Icon, width = 340, mark, children }) {
  * Gemeinsames Design aller Karten. Stil und Ecken gelten immer für alle;
  * Farbe, Deckkraft und Glas für jedes Modul, das nicht „Eigenes Aussehen“ hat.
  */
-function ThemeMenu({ theme, set, ownCount }) {
+function ThemeMenu({ theme, set, ownCount, premium }) {
   const t = useEditorText();
   const ownNote = t.ownCountNote(ownCount);
+  // Jede Schrift in sich selbst zeigen — dafür alle auf einmal laden, aber erst, wenn das Menü offen ist
+  useFontLink(ALL_FONTS_HREF);
+  const fontOn = premium?.on ? theme.font : 'inter';
   return (
     <div className="p-3.5 space-y-4">
       <div>
@@ -1412,6 +1927,31 @@ function ThemeMenu({ theme, set, ownCount }) {
         {t.themeAppliesTo}
         {ownCount > 0 && ownNote}
       </Note>
+
+      {/* Abo-Extra: ohne Abo bleibt Inter gewählt, die anderen öffnen den Abo-Hinweis */}
+      <div>
+        <Label>{t.font}<PremiumMark /></Label>
+        <div className="grid grid-cols-2 gap-1.5 mt-1.5">
+          {OVERLAY_FONTS.map((f) => {
+            const active = fontOn === f.id;
+            const locked = !premium?.on && f.id !== 'inter';
+            return (
+              <button key={f.id} type="button" aria-pressed={active}
+                onClick={() => (locked ? (premium?.sales && premium.ask()) : set({ font: f.id }))}
+                title={locked ? (premium?.sales ? t.premiumLock : t.comingSoon) : undefined}
+                className={`flex items-center justify-between gap-1.5 px-2.5 h-9 rounded-lg border text-[13px] text-left transition-colors ${
+                  active ? 'bg-accent/15 text-white border-accent-soft/30' : 'bg-white/[0.03] border-white/10 hover:text-white'
+                } ${locked ? 'text-white/35' : 'text-white/70'}`}>
+                <span className="truncate font-semibold"
+                  style={{ fontFamily: fontFamilyOf(f.id) || undefined, fontSynthesis: f.single ? 'none' : undefined }}>{f.label}</span>
+                {locked && <Lock size={11} className="shrink-0 text-white/30" />}
+              </button>
+            );
+          })}
+        </div>
+        <Note>{t.fontNote}</Note>
+        <div className="mt-2"><PremiumNote premium={premium} /></div>
+      </div>
     </div>
   );
 }
@@ -1601,6 +2141,7 @@ export default function PollsPredictionsPage() {
   const [premiumModules, setPremiumModules] = useState([]);
   const [premiumOpen, setPremiumOpen] = useState(false);
   const [sceneBusy, setSceneBusy] = useState(false);
+  const [subathonBusy, setSubathonBusy] = useState(false);
   const [marbleSetup, setMarbleSetup] = useState(null);
   const [selected, setSelected] = useState('poll'); // hervorgehoben auf der Leinwand
   const [demoOn, setDemoOn] = useState(true);
@@ -1712,6 +2253,30 @@ export default function PollsPredictionsPage() {
     });
   }, [saveSoon]);
 
+  /* ── Community-Vorlage aus der Overlay-Galerie (?vorlage=u:<id>, StreamerTools/vorlagen) ── */
+  // Nach dem Laden der eigenen Einstellungen einmal das Design übernehmen (wie ein Klick im Design-Menü), die Angabe
+  // aus der Adresse nehmen und als Übernahme zählen
+  const vorlageDone = useRef(false);
+  useEffect(() => {
+    if (!loaded || !user || vorlageDone.current) return;
+    vorlageDone.current = true;
+    const params = new URLSearchParams(window.location.search);
+    const vorlageId = userVorlageId(params.get('vorlage'));
+    if (!vorlageId) return;
+    params.delete('vorlage');
+    const rest = params.toString();
+    window.history.replaceState(null, '', window.location.pathname + (rest ? `?${rest}` : ''));
+    getVorlage(vorlageId)
+      .then((v) => {
+        if (!v || v.tool !== 'twitch') return;
+        // Die Schrift gehört zum Abo — ohne bleibt die eigene stehen
+        const { font, ...rest } = v.style || {};
+        patchTheme(premium?.active && font ? { ...rest, font } : rest);
+        countVorlageUse(vorlageId).catch(() => {});
+      })
+      .catch(() => {});
+  }, [loaded, user, patchTheme, premium]);
+
   /* ── Sprache: Editor und Overlays sprechen dieselbe ─────────────────────── */
   // Wie bei der Win Challenge: beim ersten Laden gewinnt eine bewusst gewählte Sprache der Website (Adresse,
   // Speicher, vorher umgeschaltet), sonst die gespeicherte Overlay-Sprache. Jeder spätere Wechsel oben in der
@@ -1745,7 +2310,7 @@ export default function PollsPredictionsPage() {
         .then((d) => {
           if (!alive) return;
           clockOffset.current = d.serverNow - Date.now();
-          setLive({ poll: d.poll, prediction: d.prediction, goals: d.goals, raid: d.raid, stats: d.stats, scenes: d.scenes, alerts: d.alerts, notice: d.notice });
+          setLive({ poll: d.poll, prediction: d.prediction, goals: d.goals, raid: d.raid, stats: d.stats, scenes: d.scenes, alerts: d.alerts, subathon: d.subathon, notice: d.notice });
           setMarbleSetup(d.marbleSetup || null);
           if (d.chatWatch) setChatWatch(d.chatWatch);
           if (!d.connected) setConnected(false);
@@ -1830,7 +2395,7 @@ export default function PollsPredictionsPage() {
   const refreshLive = useCallback(async () => {
     const d = await api.getLive();
     clockOffset.current = d.serverNow - Date.now();
-    setLive({ poll: d.poll, prediction: d.prediction, goals: d.goals, raid: d.raid, stats: d.stats, scenes: d.scenes, alerts: d.alerts, notice: d.notice });
+    setLive({ poll: d.poll, prediction: d.prediction, goals: d.goals, raid: d.raid, stats: d.stats, scenes: d.scenes, alerts: d.alerts, subathon: d.subathon, notice: d.notice });
     setMarbleSetup(d.marbleSetup || null);
   }, []);
 
@@ -1873,6 +2438,36 @@ export default function PollsPredictionsPage() {
 
   /** Test-Alert der gewählten Art — läuft wie die Szenen-Probeläufe (erst speichern, dann Stand nachholen). */
   const testAlertKind = useCallback((kind) => runScene(() => api.testAlert(kind)), [runScene]);
+
+  /**
+   * Subathon-Steuerung. Erst den offenen Speichervorgang abschließen (sonst gilt ein eben eingeschaltetes Modul
+   * oder eine eben geänderte Regel am Server noch nicht), dann den Stand aus der Antwort übernehmen.
+   * @returns {Promise<boolean>} ob es geklappt hat
+   */
+  const subathonAction = useCallback(async (name, payload = {}) => {
+    setSubathonBusy(true);
+    try {
+      clearTimeout(saveTimer.current);
+      await api.saveConfig(configRef.current).catch(() => {});
+      const calls = {
+        start: () => api.subathonStart(),
+        pause: () => api.subathonPause(),
+        reset: () => api.subathonReset(),
+        add: () => api.subathonAdd(payload.seconds, payload.name),
+        donation: () => api.subathonDonation(payload.amount, payload.name),
+        happy: () => api.subathonHappy(payload.minutes, payload.factor),
+        happyStop: () => api.subathonHappyStop(),
+      };
+      const d = await calls[name]();
+      if (d && d.subathon) setLive((prev) => ({ ...prev, subathon: d.subathon }));
+      return true;
+    } catch (e) {
+      flash(apiErrorText(tRef.current, e));
+      return false;
+    } finally {
+      setSubathonBusy(false);
+    }
+  }, []);
 
   const grantReward = () => {
     try { sessionStorage.setItem(REWARD_FLAG, '1'); } catch { /* dann eben ohne Merker */ }
@@ -2062,8 +2657,13 @@ export default function PollsPredictionsPage() {
   }, [snapOn, gridOn, patchModule]);
 
   /* ── Anzeigedaten ───────────────────────────────────────────────────────── */
-  // Mit eingerechnetem Design — die Einstellungen unten lesen dagegen config.modules
-  const m = effectiveModules(config);
+  // Abo-Extras (Schrift, eigene Töne/Bilder, Happy Hour): Schalter für Schilder und Hinweise in den Einstellungen
+  const premiumInfo = { on: !!premium?.active, sales: salesVisible(), ask: () => setPremiumOpen(true) };
+  // Mit eingerechnetem Design — die Einstellungen unten lesen dagegen config.modules. Ohne Abo zeigt die Bühne,
+  // was die OBS-Quelle zeigt (der Server lässt die Abo-Extras dann weg).
+  const shownConfig = premiumInfo.on ? config : withoutPremium(config);
+  const m = effectiveModules(shownConfig);
+  useFontLink(fontHref(shownConfig.theme?.font));
   const now = Date.now() + clockOffset.current;
   // Die Vorschau spricht die Sprache der Overlays im Stream (config.language), nicht die des Editors
   const overlayLang = config.language;
@@ -2100,12 +2700,17 @@ export default function PollsPredictionsPage() {
   const alertLive = useAlertPlayer(live.alerts?.events, m.alerts, (ev) => {
     if (!ev.test) return;
     const mod = m.alerts;
-    if (mod.sound !== false) playAlertSound(ev.kind, mod.volume ?? 60);
+    if (mod.sound !== false) playAlertSound(ev.kind, mod.volume ?? 60, alertMediaOf(mod, ev.kind).sound);
     if (mod.tts) setTimeout(() => speakAlert(alertSpeech(ev, mod, overlayLang), overlayLang, mod.volume ?? 60), 700);
   });
   // Zum Ausrichten steht ein Beispiel auf der Bühne, solange nichts läuft (Demo-Daten an oder Modul ausgewählt)
   const alertDemo = demoOn || selected === 'alerts';
   const alertView = alertLive.visible || !alertDemo ? alertLive.current : demoAlert('sub', OVERLAY_TEXTS.dict(overlayLang));
+
+  // Subathon: der echte Stand, sobald das Modul an ist; sonst zum Ausrichten ein Beispiel (Demo-Daten an oder Modul
+  // ausgewählt). Beim ausgewählten Modul bleibt hideIdle außen vor, sonst verschwände die Karte beim Einrichten.
+  const subathonData = live.subathon || ((demoOn || selected === 'subathon') ? demoSubathon() : null);
+  const subathonView = toSubathonView(subathonData, selected === 'subathon' ? { ...m.subathon, hideIdle: false } : m.subathon);
 
   // Was auf der Leinwand liegt — dieselbe Reihenfolge wie die Modul-Liste
   const rendered = {
@@ -2116,6 +2721,11 @@ export default function PollsPredictionsPage() {
     streamStats: statsView && <StatsWidget data={statsView} module={m.streamStats} />,
     raidClip: raidView && <RaidClipWidget data={raidView} module={m.raidClip} preview />,
     alerts: alertView && <AlertWidget event={alertView} module={m.alerts} still={!alertLive.visible} />,
+    // key: beim Wechsel vom Beispiel zum echten Stand neu beginnen — sonst hielte die Karte den ganzen Verlauf
+    // für frisch gutgeschrieben und ließe die Summe als „+…“ aufspringen
+    subathon: subathonView && (
+      <SubathonWidget key={live.subathon ? 'live' : 'demo'} data={subathonView} module={m.subathon} offsetRef={clockOffset} />
+    ),
     marbleRun: marblesView && (
       <MarbleRunWidget data={marblesView} module={m.marbleRun} offsetRef={clockOffset} onResult={reportWinner} onPlacings={reportPlacings} />
     ),
@@ -2128,6 +2738,7 @@ export default function PollsPredictionsPage() {
     streamStats: !!statsView,
     raidClip: !!raidView,
     alerts: alertLive.visible || (alertDemo && !!alertView),
+    subathon: !!subathonView,
     marbleRun: !!marblesView,
   };
 
@@ -2160,6 +2771,11 @@ export default function PollsPredictionsPage() {
       if (mod.kinds?.follow !== false && chatWatch && chatWatch.followScope === false) return t.warnFollowScope;
       if (chatWatch && !chatWatch.botConfigured) return t.warnNoBotAlerts;
       return null;
+    }
+
+    if (id === 'subathon') {
+      if (!mod.enabled || !chatWatch || chatWatch.botConfigured) return null;
+      return t.warnNoBotSubathon;
     }
 
     if (id === 'raidClip' || id === 'streamStats') {
@@ -2346,6 +2962,7 @@ export default function PollsPredictionsPage() {
               theme={{ ...THEME_DEFAULTS, ...config.theme }}
               set={patchTheme}
               ownCount={THEMED_IDS.filter((id) => config.modules[id].ownLook).length}
+              premium={premiumInfo}
             />
           </BarMenu>
 
@@ -2528,6 +3145,16 @@ export default function PollsPredictionsPage() {
                   onTest: testAlertKind,
                   busy: sceneBusy,
                   lang: config.language,
+                  premium: premiumInfo,
+                  flash,
+                } : null}
+                subathonTools={activeMeta.kind === 'subathon' ? {
+                  watch: chatWatch,
+                  data: live.subathon || null,
+                  busy: subathonBusy,
+                  onAction: subathonAction,
+                  offsetRef: clockOffset,
+                  premium: premiumInfo,
                 } : null}
                 statsTools={activeMeta.kind === 'stats' ? {
                   onReset: resetStats,

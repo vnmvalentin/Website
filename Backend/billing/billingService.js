@@ -54,6 +54,22 @@ function periodEndMs(sub) {
   return Number(sec) * 1000;
 }
 
+// ── Einmalkäufe des Ladens (laden/) ─────────────────────────────────────────────────────────────────────────────
+// Bezahlseiten mit metadata.art = "laden" gehören nicht zum Abo: Sie hängen am Konto (nicht an der Twitch-ID) und
+// werden hier nur an den Laden weitergereicht — nach derselben EU-Prüfung (außerhalb: Zahlung erstatten).
+// Den Laden verbindet index.js (registriereEinmalkauf); ohne ihn bleiben solche Ereignisse liegen.
+let einmalkauf = null;
+function registriereEinmalkauf(fn) {
+  einmalkauf = typeof fn === "function" ? fn : null;
+}
+// Volle Erstattung (charge.refunded) oder Rückbuchung über die Bank (charge.dispute.created) → ({ paymentIntent, grund }).
+// Der Laden findet die Zahlung selbst; Abo-Zahlungen kennt er nicht (Abo beenden bleibt Handarbeit im Dashboard).
+let ruecknahme = null;
+function registriereRuecknahme(fn) {
+  ruecknahme = typeof fn === "function" ? fn : null;
+}
+const idVon = (x) => (typeof x === "string" ? x : x?.id || null);
+
 function createBillingService({ stripe, now = () => Date.now(), log = console } = {}) {
   const api = () => stripe || defaultStripe();
 
@@ -70,7 +86,11 @@ function createBillingService({ stripe, now = () => Date.now(), log = console } 
       client_reference_id: id,
       metadata: { twitch_id: id, twitch_login: String(twitchLogin || "") },
       subscription_data: { metadata: { twitch_id: id, plan: PLAN_PREMIUM } },
-      ...(existing ? { customer: existing } : {}),
+      // Stripe Tax rechnet die Umsatzsteuer aus der Rechnungsadresse heraus (Preis ist Endpreis: tax_behavior
+      // "inclusive" am Preis, siehe tools/setupStripe.js) und führt sie im Abo weiter. Ein schon bekannter Kunde
+      // braucht die neu eingegebene Adresse gespeichert, sonst lehnt Stripe die Steuerberechnung ab.
+      automatic_tax: { enabled: true },
+      ...(existing ? { customer: existing, customer_update: { address: "auto" } } : {}),
       billing_address_collection: "required",
       locale: "de",
       success_url: `${back}?abo=ok`,
@@ -122,7 +142,23 @@ function createBillingService({ stripe, now = () => Date.now(), log = console } 
     }
   }
 
+  /** Einmalkauf des Ladens: EU prüfen (sonst erstatten), erst bei bezahlt weiterreichen */
+  async function onLadenCheckout(session) {
+    const country = String(session.customer_details?.address?.country || "").toUpperCase();
+    if (!EU_COUNTRIES.has(country)) {
+      log.warn?.(`[billing] Ladenkauf aus ${country || "unbekanntem Land"} abgelehnt (nur DE/EU)`);
+      const pi = typeof session.payment_intent === "string" ? session.payment_intent : session.payment_intent?.id;
+      if (pi && session.payment_status === "paid") await api().refunds.create({ payment_intent: pi });
+      return;
+    }
+    // Zahlarten mit Verzögerung (z. B. Überweisung) kommen später als async_payment_succeeded
+    if (session.payment_status !== "paid") return;
+    if (!einmalkauf) throw new Error("Laden nicht verbunden");
+    await einmalkauf(session);
+  }
+
   async function onCheckoutCompleted(session) {
+    if (session.metadata?.art === "laden") return onLadenCheckout(session);
     const twitchId = session.client_reference_id || session.metadata?.twitch_id;
     if (!twitchId) return;
     const customer = typeof session.customer === "string" ? session.customer : session.customer?.id;
@@ -161,12 +197,20 @@ function createBillingService({ stripe, now = () => Date.now(), log = console } 
     const obj = event.data?.object;
     switch (event.type) {
       case "checkout.session.completed":
+      case "checkout.session.async_payment_succeeded":
         await onCheckoutCompleted(obj);
         break;
       case "customer.subscription.created":
       case "customer.subscription.updated":
       case "customer.subscription.deleted":
         onSubscriptionChanged(obj);
+        break;
+      case "charge.refunded":
+        // Nur volle Erstattungen nehmen den Kauf zurück; eine Teilerstattung (Kulanz) lässt ihn bestehen
+        if (obj?.refunded && ruecknahme) await ruecknahme({ paymentIntent: idVon(obj.payment_intent), grund: "erstattet" });
+        break;
+      case "charge.dispute.created":
+        if (ruecknahme) await ruecknahme({ paymentIntent: idVon(obj?.payment_intent), grund: "rueckbuchung" });
         break;
       default:
         break;
@@ -180,7 +224,12 @@ function createBillingService({ stripe, now = () => Date.now(), log = console } 
     return api().webhooks.constructEvent(rawBody, signature, env().webhookSecret);
   }
 
-  return { createCheckout, createPortal, handleEvent, parseWebhook };
+  return { createCheckout, createPortal, handleEvent, parseWebhook, api };
 }
 
-module.exports = { createBillingService, missingConfig, EU_COUNTRIES, PLAN_PREMIUM, periodEndMs };
+/** Stripe-Zugang ist eingerichtet, wenn Schlüssel, Webhook-Geheimnis und Adresse da sind (der Laden braucht keinen Abo-Preis) */
+const missingStripeConfig = () => missingConfig().filter((k) => k !== "STRIPE_PRICE_PREMIUM");
+
+module.exports = {
+  createBillingService, missingConfig, missingStripeConfig, EU_COUNTRIES, PLAN_PREMIUM, periodEndMs, registriereEinmalkauf, registriereRuecknahme, defaultStripe,
+};

@@ -12,11 +12,31 @@ import OverlayView from "../WinChallenge/OverlayView";
 import { STYLE_PRESETS } from "../WinChallenge/stylePresets";
 import { OVERLAY_TEMPLATES, CR_FONT_HREF } from "../ClashRoyale/WinTracker/overlayTheme";
 import { PollWidget, PredictionWidget, GoalWidget, StatsWidget } from "../StreamTool/OverlayWidgets";
-import { defaultConfig, effectiveModules, useDemoSim, paintDemo, toGoalView, toStatsView } from "../StreamTool/streamToolConfig";
+import { defaultConfig, effectiveModules, useDemoSim, paintDemo, toGoalView, toStatsView, THEME_DEFAULTS } from "../StreamTool/streamToolConfig";
 import { useFontLink } from "../../components/shell/useFontLink";
 import { WT_SETTINGS, WC_DOC, WC_TIMER_MS } from "./demoData";
+import CommunityVorlagen from "./vorlagen/CommunityVorlagen";
 
 const noop = () => {};
+
+/* ── Vorschau einer Community-Vorlage: dasselbe echte Overlay wie bei den fertigen Looks ── */
+const wtLookPreview = (style) => (
+  <Fit>
+    <OverlayPreview settings={{ ...WT_SETTINGS, ...style }} overlayKey={null}
+      moduleVisibility={{ deck: true, session: true }} onToggleModule={noop} onToggleProfile={noop} refreshSignal="" showcase />
+  </Fit>
+);
+const wcLookPreview = (style) => <Fit><OverlayView doc={{ ...WC_DOC, style }} timerMs={WC_TIMER_MS} /></Fit>;
+
+/** Twitch-Overlays: das gemeinsame Design an einer laufenden Beispiel-Umfrage (eine Simulation für alle Karten). */
+function TwitchCommunity() {
+  const sim = useDemoSim(true, 2);
+  const preview = (style) => {
+    const m = effectiveModules({ ...defaultConfig(), theme: { ...THEME_DEFAULTS, ...style } });
+    return sim.poll ? <Fit><PollWidget data={paintDemo(sim.poll, m.poll)} module={m.poll} /></Fit> : null;
+  };
+  return <CommunityVorlagen tool="twitch" renderPreview={preview} />;
+}
 
 /** Verkleinert ein Overlay mit fester Pixelbreite passend in seine Kachel (nie größer als 100 %). */
 export function Fit({ children }) {
@@ -135,6 +155,7 @@ export default function OverlayGalleryPage() {
             ))}
           </div>
         )}
+        {tab.id === "win-tracker" && <CommunityVorlagen tool="winTracker" renderPreview={wtLookPreview} />}
         {tab.id === "win-challenge" && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
             {STYLE_PRESETS.map((p) => (
@@ -144,7 +165,9 @@ export default function OverlayGalleryPage() {
             ))}
           </div>
         )}
+        {tab.id === "win-challenge" && <CommunityVorlagen tool="winChallenge" renderPreview={wcLookPreview} />}
         {tab.id === "twitch" && <TwitchWidgets />}
+        {tab.id === "twitch" && <TwitchCommunity />}
       </div>
     </Page>
   );

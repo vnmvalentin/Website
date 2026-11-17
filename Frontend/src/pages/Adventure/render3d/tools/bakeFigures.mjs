@@ -1,6 +1,8 @@
 // render3d/tools/bakeFigures.mjs — rechnet die Figuren der 3D-Ansicht einmalig in kleine Dateien um.
 //
-//   npm run adventure:figuren -- <Ordner mit den Quelldateien>
+//   npm run adventure:figuren -- <Ordner mit den Quelldateien> [name,name,…]
+//
+// Mit Namensliste werden nur diese Figuren neu gebacken (die Quellen der übrigen braucht es dann nicht).
 //
 // Quelle: KayKit „Character Pack: Skeletons“ und „Character Pack: Adventurers“ von Kay Lousberg (CC0), siehe
 // public/media/av3d/README.md. Die Originale sind je 3,5–4,8 MB groß (über 90 Animationen pro Figur) und gehören nicht
@@ -22,6 +24,11 @@ import zlib from "node:zlib";
 import { fileURLToPath } from "node:url";
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+import { FBXLoader } from "three/addons/loaders/FBXLoader.js";
+
+// Der FBX-Lader will Texturen als Bilder laden (geht nur im Browser) — hier reicht ein leerer Platzhalter, die Farben
+// kommen aus den PNG-Dateien (textures bei den Helden unten)
+THREE.TextureLoader.prototype.load = function () { return new THREE.Texture(); };
 
 const WALK_FRAMES = 8;
 const OUT_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), "../../../../../public/media/av3d");
@@ -37,6 +44,19 @@ const K = (out, file, clip, extra = {}) => ({ out, file: `kaykit/${file}.glb`, c
 const BLOB = (out, file) => ({ out, file: `monster/${file}.glb`, clip: "Walk", all: true, gain: 2.4 });
 const BIG = (out, file, clip = "Walk") => ({ out, file: `monster/${file}.glb`, clip, all: true, gain: 2.4 });
 const FLY = (out, file) => ({ out, file: `monster/${file}.glb`, clip: "Fast_Flying", idle: "Flying_Idle", all: true, gain: 2.4 });
+// Neue Welten ab Zyklus 2 (poly/, Quaternius auf poly.pizza, CC0): weitere Monster, die Roboter-Gegner und Mechs aus dem
+// „Ultimate Space Kit“, der „Animated Robot“. Mit Textur (Mechs, Sumpfwicht) gilt die Farbtafel, gain wirkt dann nicht.
+// measureAll: die ganze Figur zählt zur Höhe (der Automat trägt seinen Kopf als starres Teil — sonst wäre er dreimal zu groß)
+const P = (out, file, clip = "Walk", extra = {}) => ({ out, file: `poly/${file}.glb`, clip, all: true, gain: 2.4, measureAll: true, ...extra });
+const PFLY = (out, file) => P(out, file, "Fast_Flying", { idle: "Flying_Idle" });
+// Helden der neuen Kits (rpg/, Quaternius „RPG Characters – Nov 2020“, CC0, OpenGameArt): nur als FBX zu haben. Die Farben
+// stehen in einer Textur je Material (Körper, Waffe) — textures ordnet Materialnamen den PNG-Dateien zu. FBX zählt die
+// Texturhöhe von unten (flipV).
+// Requisiten (prop/, CC0, poly.pizza): starre Modelle ohne Skelett — nur ein Standbild (walkFrames 0). Die ganze Figur
+// zählt zur Höhe; gain wie bei den Monstern, Texturen (falls vorhanden) über die Farbtafel der GLB.
+const PROP = (out, file, extra = {}) => ({ out, file: `prop/${file}.glb`, static: true, all: true, gain: 1.8, measureAll: true, ...extra });
+const R = (out, file, clip, textures) => ({ out, file: `rpg/FBX/${file}.fbx`, fbx: true, clip, all: true, flipV: true, texGain: 1.9,
+  textures: Object.fromEntries(Object.entries(textures).map(([mat, png]) => [mat, `rpg/Textures/${png}.png`])) });
 
 export const FIGURES = [
   // Verlies und Helden
@@ -78,6 +98,37 @@ export const FIGURES = [
   BLOB("kobold", "606_OrcEnemy"),
   BIG("daemon", "572_Demon", "Run"),
   FLY("drache", "584_DragonEvolved"),
+  // Pilzwald (ab Zyklus 2)
+  P("stachelpilz", "MushnubEvolved"),
+  P("affenwicht", "Monkroose"),
+  // Sumpf
+  P("kroete", "Frog_b"),
+  P("riesenfrosch", "Frog_a", "Frog_Jump", { idle: "Frog_Idle" }),
+  PFLY("glub", "Glub"),
+  PFLY("glub_gross", "GlubEvolved"),
+  PFLY("krake", "Squidle"),
+  P("sumpfwicht", "EnemyLarge"),
+  // Uhrwerkturm
+  P("robo_laeufer", "RobotEnemy"),
+  P("robo_drohne", "RobotEnemyFlying"),
+  P("robo_kugel", "RobotEnemyLarge"),
+  P("robo_kanone", "RobotEnemyLegsGun"),
+  P("mech_gelb", "Mech_d"),
+  P("mech_orange", "Mech_b", "Run"),
+  P("automat", "AnimatedRobot", "Robot_Walking", { idle: "Robot_Idle" }),
+  P("hornschleim", "SlimeEnemy"),
+  // Begleiter der Jägerin (Quaternius, poly.pizza, CC0)
+  P("wolf", "Wolf", "Gallop"),
+  // Neue Gegner (auch Zyklus 1): Fuchs, Husky, Krabbe, Geschütz-Drohne
+  P("fuchs", "Fox", "Gallop"), P("husky", "Husky", "Gallop"), P("krabbe", "CrabEnemy"), P("robo_geschuetz", "RobotEnemyLargeGun"),
+  // Requisiten (prop/, CC0, poly.pizza): Kisten, Schreine, Altar, Fangeisen der Jägerin, Kristalle der Höhle
+  PROP("kiste", "Chest_a"), PROP("kiste_gross", "Chest_c"), PROP("kiste_rot", "Chest_d"), PROP("kiste_offen", "Chest_b"),
+  PROP("schrein", "Shrine_a"), PROP("altar", "Shrine_b"), PROP("fangeisen", "BearTrap_a"), PROP("kristall", "Crystal_a"), PROP("kristall2", "Crystal_b"),
+  // Helden der neuen Kits
+  R("held_moench", "Monk", "Run", { Monk_Texture: "Monk_Texture" }),
+  R("held_jaegerin", "Ranger", "Run", { Ranger_Texture: "Ranger_Texture", Bow_Texture: "Ranger_Bow_Texture" }),
+  R("held_klerikerin", "Cleric", "Run_Weapon", { Cleric_Texture: "Cleric_Texture", Cleric_Staff_Texture: "Cleric_Staff_Texture" }),
+  R("held_gelehrter", "Wizard", "Run_Weapon", { Wizard_Texture: "Wizard_Texture", Wizard_Staff_Texture: "Wizard_Staff_Texture" }),
 ];
 
 // ── GLB lesen ───────────────────────────────────────────────────────────────
@@ -172,10 +223,22 @@ function decodePng(buf) {
 
 // ── Backen ──────────────────────────────────────────────────────────────────
 const _v = new THREE.Vector3();
+const toLinear = (b) => { const c = b / 255; return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); };
 const byte = (linear) => Math.round(255 * Math.min(1, Math.max(0, linear <= 0.0031308 ? linear * 12.92 : 1.055 * Math.pow(linear, 1 / 2.4) - 0.055)));
 
-function colorOf(mesh, i, textured, atlas, gain = 1) {
-  const mat = mesh.material;
+function colorOf(mesh, i, textured, atlas, gain = 1, extra = {}) {
+  const mat = extra.matOf ? extra.matOf(i) : mesh.material;
+  // FBX: eine Textur je Material
+  const own = extra.atlases?.get(mat.name);
+  if (own && mesh.geometry.attributes.uv) {
+    const uv = mesh.geometry.attributes.uv;
+    const v = extra.flipV ? 1 - uv.getY(i) : uv.getY(i);
+    const x = Math.min(own.w - 1, Math.max(0, Math.floor(uv.getX(i) * own.w))), y = Math.min(own.h - 1, Math.max(0, Math.floor(v * own.h)));
+    const o = (y * own.w + x) * 3;
+    // texGain hellt im linearen Farbraum auf (die gemalten Texturen sind dunkler als die KayKit-Figuren)
+    const k = extra.texGain || 1;
+    return k === 1 ? [own.rgb[o], own.rgb[o + 1], own.rgb[o + 2]] : [0, 1, 2].map((c) => byte(toLinear(own.rgb[o + c]) * k));
+  }
   if (textured.has(mat.name) && atlas && mesh.geometry.attributes.uv) {
     const uv = mesh.geometry.attributes.uv;
     const x = Math.min(atlas.w - 1, Math.max(0, Math.floor(uv.getX(i) * atlas.w))), y = Math.min(atlas.h - 1, Math.max(0, Math.floor(uv.getY(i) * atlas.h)));
@@ -187,10 +250,26 @@ function colorOf(mesh, i, textured, atlas, gain = 1) {
   return [byte(c.r * gain), byte(c.g * gain), byte(c.b * gain)];
 }
 
+// Material je Ecke, wenn ein Netz mehrere Materialien hat (Gruppen über den Index)
+function materialLookup(mesh) {
+  if (!Array.isArray(mesh.material)) return null;
+  const geo = mesh.geometry, idx = geo.index, per = new Uint8Array(geo.attributes.position.count);
+  for (const gr of geo.groups) for (let k = gr.start; k < gr.start + gr.count; k++) per[idx ? idx.getX(k) : k] = gr.materialIndex;
+  return (i) => mesh.material[per[i]] || mesh.material[0];
+}
+
 async function bake(def, srcDir) {
-  const glb = readGlb(path.join(srcDir, def.file));
-  const { textured, atlas } = stripImages(glb);
-  const gltf = await parse(glb);
+  let textured = new Set(), atlas = null, gltf, atlases = null;
+  if (def.fbx) {
+    const buf = fs.readFileSync(path.join(srcDir, def.file));
+    const obj = new FBXLoader().parse(buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.length), "");
+    gltf = { scene: obj, animations: obj.animations };
+    atlases = new Map(Object.entries(def.textures).map(([mat, png]) => [mat, decodePng(fs.readFileSync(path.join(srcDir, png)))]));
+  } else {
+    const glb = readGlb(path.join(srcDir, def.file));
+    ({ textured, atlas } = stripImages(glb));
+    gltf = await parse(glb);
+  }
   const scene = gltf.scene;
 
   // Ausrüstung: starre Teile, die an Knochen hängen — nur die gewünschten bleiben (bei all: alle)
@@ -219,8 +298,7 @@ async function bake(def, srcDir) {
 
   const pose = (clip, t) => {
     mixer.stopAllAction();
-    mixer.clipAction(clip).play();
-    mixer.setTime(t);
+    if (clip) { mixer.clipAction(clip).play(); mixer.setTime(t); }
     scene.updateMatrixWorld(true);
     const pos = new Float32Array(count * 3);
     let v0 = 0;
@@ -236,11 +314,13 @@ async function bake(def, srcDir) {
     }
     return pos;
   };
-  const walkClip = clipNamed(def.clip);
+  // Starre Modelle: kein Gangbild, nur der Stand
+  const nWalk = def.static ? 0 : WALK_FRAMES;
+  const walkClip = def.static ? null : clipNamed(def.clip);
   const frames = [];
-  for (let f = 0; f < WALK_FRAMES; f++) frames.push(pose(walkClip, (walkClip.duration * f) / WALK_FRAMES));
-  frames.push(pose(clipNamed(def.idle || "Idle"), 0));
-  const idle = frames[WALK_FRAMES];
+  for (let f = 0; f < nWalk; f++) frames.push(pose(walkClip, (walkClip.duration * f) / nWalk));
+  frames.push(pose(def.static ? null : clipNamed(def.idle || "Idle"), 0));
+  const idle = frames[nWalk];
 
   // Farben, Dreiecke und die Frage "gehört die Ecke zum Körper?" (Waffen zählen nicht zur Körperhöhe)
   const colors = new Uint8Array(count * 3), body = new Uint8Array(count);
@@ -248,7 +328,8 @@ async function bake(def, srcDir) {
   let v0 = 0;
   for (const m of meshes) {
     const n = m.geometry.attributes.position.count;
-    for (let i = 0; i < n; i++) { colors.set(colorOf(m, i, textured, atlas, def.gain), (v0 + i) * 3); body[v0 + i] = m.isSkinnedMesh ? 1 : 0; }
+    const extra = { atlases, flipV: def.flipV, texGain: def.texGain, matOf: materialLookup(m) };
+    for (let i = 0; i < n; i++) { colors.set(colorOf(m, i, textured, atlas, def.gain, extra), (v0 + i) * 3); body[v0 + i] = def.measureAll || m.isSkinnedMesh ? 1 : 0; }
     const ix = m.geometry.index;
     for (let i = 0; i < (ix ? ix.count : n); i++) tris.push((ix ? ix.getX(i) : i) + v0);
     v0 += n;
@@ -271,7 +352,7 @@ async function bake(def, srcDir) {
   const seen = new Map();
   const q = (f, i) => `${Math.round(f[i * 3] * 4000)},${Math.round(f[i * 3 + 1] * 4000)},${Math.round(f[i * 3 + 2] * 4000)}`;
   for (let i = 0; i < count; i++) {
-    const key = `${q(idle, i)}|${q(frames[2], i)}|${q(frames[6], i)}|${colors[i * 3]},${colors[i * 3 + 1]},${colors[i * 3 + 2]}`;
+    const key = `${q(idle, i)}|${q(frames[2] || idle, i)}|${q(frames[6] || idle, i)}|${colors[i * 3]},${colors[i * 3 + 1]},${colors[i * 3 + 2]}`;
     let j = seen.get(key);
     if (j === undefined) { j = keepIdx.length; seen.set(key, j); keepIdx.push(i); }
     remap[i] = j;
@@ -287,7 +368,7 @@ async function bake(def, srcDir) {
   // Schreiben
   const box = { min: [Infinity, Infinity, Infinity], max: [-Infinity, -Infinity, -Infinity] };
   for (const f of frames) for (const i of keepIdx) for (let a = 0; a < 3; a++) { box.min[a] = Math.min(box.min[a], f[i * 3 + a]); box.max[a] = Math.max(box.max[a], f[i * 3 + a]); }
-  const meta = { name: def.out, source: def.file, clip: def.clip, duration: +walkClip.duration.toFixed(3), walkFrames: WALK_FRAMES, verts, tris: index.length / 3, box };
+  const meta = { name: def.out, source: def.file, clip: def.clip || "stand", duration: walkClip ? +walkClip.duration.toFixed(3) : 1, walkFrames: nWalk, verts, tris: index.length / 3, box };
   let text = Buffer.from(JSON.stringify(meta), "utf8");
   if (text.length % 4) text = Buffer.concat([text, Buffer.alloc(4 - (text.length % 4), 0x20)]);
   const posBytes = frames.length * verts * 6, colBytes = Math.ceil((verts * 3) / 4) * 4;
@@ -309,10 +390,14 @@ if (!srcDir || !fs.existsSync(srcDir)) {
   process.exit(2);
 }
 fs.mkdirSync(OUT_DIR, { recursive: true });
-let total = 0;
+const only = process.argv[3] ? new Set(process.argv[3].split(",")) : null;
+if (only) for (const name of only) if (!FIGURES.some((d) => d.out === name)) { console.error(`Unbekannte Figur: ${name}`); process.exit(2); }
+let total = 0, done = 0;
 for (const def of FIGURES) {
+  if (only && !only.has(def.out)) continue;
   const r = await bake(def, srcDir);
+  done++;
   total += r.bytes;
   console.log(`${r.name.padEnd(20)} ${String(r.verts).padStart(5)} Ecken (vorher ${r.before}), ${String(r.tris).padStart(5)} Dreiecke, ${(r.bytes / 1024).toFixed(0).padStart(4)} KB · ${r.clip} ${r.duration} s`);
 }
-console.log(`${FIGURES.length} Figuren, zusammen ${(total / 1024).toFixed(0)} KB → ${OUT_DIR}`);
+console.log(`${done} Figuren, zusammen ${(total / 1024).toFixed(0)} KB → ${OUT_DIR}`);

@@ -4,6 +4,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import './overlayWidgets.css';
 import { useOverlayText } from './overlayI18n';
+import { fontFamilyOf, fontIsSingle } from './streamToolConfig';
 
 export const STAGE_W = 1920;
 export const STAGE_H = 1080;
@@ -42,6 +43,10 @@ export function cardStyle(module, width) {
     style.borderRadius = module.radius;
     style['--stw-r'] = `${module.radius}px`;
   }
+  // Eigene Schrift aus dem gemeinsamen Design (Abo-Extra); Inter steht schon im Stylesheet
+  const font = fontFamilyOf(module.font);
+  if (font) style.fontFamily = font;
+  if (fontIsSingle(module.font)) style.fontSynthesis = 'none';
   return style;
 }
 

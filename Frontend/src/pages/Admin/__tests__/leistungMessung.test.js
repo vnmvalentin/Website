@@ -5,7 +5,7 @@ import assert from "node:assert/strict";
 import { istSpielseite, wirdGemessen, clsAus, inpAus, neuerAbschnitt, zaehleBild } from "../../../utils/leistungMessung.js";
 
 test("Spielseiten: Spiele ja, Clash Royale nur der Minigame-Hub", () => {
-  for (const p of ["/adventures", "/garden", "/seed-runners/raum/ABC", "/worldflip/spiel", "/clash-royale", "/lights-out", "/connect4/XYZ"]) {
+  for (const p of ["/adventures", "/garden", "/seed-runners/raum/ABC", "/worldflip/spiel", "/clash-royale", "/lights-out", "/spieleabend/XYZ"]) {
     assert.equal(istSpielseite(p), true, p);
   }
   for (const p of ["/", "/fun", "/clash", "/clash-royale/win-tracker", "/clash-royale/turnier/5", "/gardening", "/profile"]) {

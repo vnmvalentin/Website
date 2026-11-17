@@ -210,4 +210,6 @@ const WIRKLICH_GUT = [
     'Du bist im Bett genau so gut, wie du es dir schon immer eingebildet hast — diesmal wirklich.',
 ];
 
-module.exports = [...NUTZLOS, ...NSFW, ...WIRKLICH_GUT];
+// NSFW nur in Kanälen mit Altersbeschränkung (commands/funLines.js) — Discords Regeln für Apps und die Bot-Listen
+// verlangen das, sonst darf der Bot nicht ins Verzeichnis.
+module.exports = { safe: [...NUTZLOS, ...WIRKLICH_GUT], nsfw: NSFW };

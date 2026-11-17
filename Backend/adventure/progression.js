@@ -2,7 +2,7 @@
 // wird (Kits, zusätzliche Items im Kistenpool, Schwierigkeit, Startgeschenke). Einzige Quelle: das Frontend bekommt
 // die Tabelle über /api/adventure/profile und rechnet nichts davon selbst.
 
-const KIT_IDS = ["default", "knight", "ninja", "wizard", "bestmod", "cyber", "gh0stqq"];
+const KIT_IDS = ["default", "knight", "ninja", "wizard", "bestmod", "cyber", "gh0stqq", "moench", "jaegerin", "nekromantin", "alchemist"];
 
 const UNLOCK_TRACK = [
   { level: 1, kind: "kit", id: "default", label: "Kit: Abenteurer" },
@@ -14,12 +14,17 @@ const UNLOCK_TRACK = [
   { level: 6, kind: "kit", id: "wizard", label: "Kit: Magier" },
   { level: 7, kind: "items", ids: ["gewitterkrone", "sternenkanone"], label: "Items: Gewitterkrone, Sternenkanone" },
   { level: 8, kind: "items", ids: ["granatgurt", "seelenernte"], label: "Granatgurt und Seelenernte" },
+  // Neue Kits (November 2026) auf Stufen, die bisher nur Items brachten — wer schon darüber ist, hat sie sofort
+  { level: 8, kind: "kit", id: "moench", label: "Kit: Mönch" },
   { level: 9, kind: "kit", id: "bestmod", label: "Kit: Giftmischer" },
   { level: 10, kind: "perk", id: "startItems", value: 1, label: "Startgeschenk: 1 Item zu Beginn jedes Laufs" },
   { level: 11, kind: "items", ids: ["phoenixfeder"], label: "Item: Phönixfeder" },
+  { level: 11, kind: "kit", id: "jaegerin", label: "Kit: Jägerin" },
   { level: 12, kind: "kit", id: "cyber", label: "Kit: Tüftler" },
   { level: 13, kind: "items", ids: ["meteorsplitter", "zeitkristall"], label: "Items: Meteorsplitter, Zeitkristall" },
+  { level: 14, kind: "kit", id: "alchemist", label: "Kit: Alchemist" },
   { level: 15, kind: "kit", id: "gh0stqq", label: "Kit: Steinbrecher" },
+  { level: 16, kind: "kit", id: "nekromantin", label: "Kit: Nekromantin" },
   { level: 17, kind: "perk", id: "startItems", value: 2, label: "Startgeschenk: 2 Items zu Beginn" },
   { level: 20, kind: "title", id: "legende", label: "Titel: Legende" },
 ];

@@ -12,18 +12,20 @@ import { createPortal } from "react-dom";
 import { useShell } from "../shellContext.js";
 import { usePrefs } from "../prefs.js";
 import { useTableKeeper } from "./tableKeeperContext.js";
+import TableMirror from "./TableMirror.jsx";
 // Erst mit dem Tisch laden (nach theme.css der Hülle): sonst gewinnt dort .ss-paper { position: relative } über die
 // Meldungen und Blätter am Tisch
 import "./table.css";
 
 /**
- * @param {{ zirkel: string, oppMask?: string, oppAway?: boolean, oppCrown?: boolean, oppCracked?: boolean, seated?: boolean, quiet?: boolean,
+ * @param {{ zirkel: string, oppMask?: string, oppAway?: boolean, oppCrown?: boolean, oppCracked?: boolean, seated?: boolean, quiet?: boolean, mirror?: boolean,
  *   onFallback?: () => void, children: (room: any) => React.ReactNode }} props
  *   onFallback: der Browser kann den Tisch nicht darstellen — am bisherigen Tisch weiterspielen
  *   seated: sitzt jemand gegenüber? (Hauptmenü, Lobby ohne Gast: nein — der Platz bleibt leer)
  *   quiet: keine Lade- oder Fehlermeldung (das Hauptmenü steht schon, bevor der Tisch fertig ist)
+ *   mirror: Bedien-Spiegelung für Tastatur und Screenreader (TableMirror) — aus, wo die Seite selbst DOM ist (Menü, Buch)
  */
-export default function TableHost({ zirkel, oppMask, oppAway, oppCrown = false, oppCracked = false, seated = true, quiet = false, onFallback, children }) {
+export default function TableHost({ zirkel, oppMask, oppAway, oppCrown = false, oppCracked = false, seated = true, quiet = false, mirror = true, onFallback, children }) {
   const { showTip } = useShell();
   const prefs = usePrefs();
   const keeper = useTableKeeper();
@@ -61,6 +63,7 @@ export default function TableHost({ zirkel, oppMask, oppAway, oppCrown = false, 
         <p className="st-wait">{state === "kein-webgl" ? "Dieser Browser kann den Tisch im Kerzenlicht nicht darstellen – es geht am bisherigen Tisch weiter." : state === "fehler" ? "Der Tisch konnte nicht geladen werden – es geht am bisherigen Tisch weiter." : "Der Tisch wird gedeckt …"}</p>
       )}
       {ready && children(room)}
+      {ready && mirror && <TableMirror room={room} />}
     </>,
     root,
   );

@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { MOTHER_WITCH_IMG } from '../data/motherWitchAssets';
 import ChunkyButton from '../ui/ChunkyButton';
 import { playSound } from '../ui/sound';
-import elixirIcon from '../../../assets/clashRoyale/ui/elixir_1.png';
+import elixirIcon from '../../../assets/clashRoyale/ui/elixir_1.webp';
 
 const MOTHER_WITCH_VISIT_I18N = {
   de: {

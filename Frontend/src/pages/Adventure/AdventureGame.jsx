@@ -16,6 +16,7 @@ import Achievements from "./screens/Achievements.jsx";
 import History from "./screens/History.jsx";
 import FlatSprite from "./ui/FlatSprite.jsx";
 import { HelpDialog, FeedbackDialog, ConfirmDialog } from "./screens/Dialogs.jsx";
+import { aktualisiereSpiegel } from "./kontoStand.js";
 
 function TwitchGlyph({ className }) {
   return (
@@ -55,6 +56,7 @@ export default function AdventureGame() {
       if (!user) guestId(true); // nach einem Logout wieder als Gast
       const p = await api.profile();
       setProfile(p);
+      aktualisiereSpiegel(p); // Läufe, Erfolge, Bestwerte fürs Konto der Website (kontoStand.js)
       setMenuKey((k) => k + 1);
       setError(null);
     } catch (e) {
@@ -173,7 +175,7 @@ export default function AdventureGame() {
       {view === "history" && <History onBack={() => setView("menu")} />}
       {view === "unlocks" && <Unlocks profile={profile} onBack={() => setView("menu")} />}
       {view === "codex" && <Codex profile={profile} onBack={() => setView("menu")} />}
-      {view === "run" && run && <RunScreen key={run.runId} run={run} onFinished={onFinished} onQuit={onQuit} />}
+      {view === "run" && run && <RunScreen key={run.runId} run={run} depthBest={profile?.depthBest || 0} onFinished={onFinished} onQuit={onQuit} />}
       {view === "end" && result && <EndScreen result={result} onAgain={() => { setKitMode(result.mode || "normal"); setView("kits"); }} onMenu={() => setView("menu")} />}
 
       {error && view === "menu" && (

@@ -5,5 +5,5 @@
 //   GEN_FINGERPRINT     nur gen/      — der Generator allein
 //   ENGINE_FINGERPRINT  sim/, gen/, level/ — Läufe auf prozeduralen Leveln (der Generator bestimmt das Level)
 export const SIM_FINGERPRINT = '0def1f8ccd83035c';
-export const GEN_FINGERPRINT = '286a899b4a68fe14';
-export const ENGINE_FINGERPRINT = 'b236209ea34d2e98';
+export const GEN_FINGERPRINT = '96afd2c06a6b8c47';
+export const ENGINE_FINGERPRINT = 'f5387f23afd5307c';

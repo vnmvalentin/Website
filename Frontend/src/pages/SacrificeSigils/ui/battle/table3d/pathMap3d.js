@@ -502,6 +502,11 @@ export function createPathMap(scene, { iconPaths, maxAniso }) {
       const hits = raycaster.intersectObjects(tokens.map((tk) => tk.base), false);
       return hits.length ? { ...hits[0].object.userData.node } : null;
     },
+    /** Sichtbare Marken (nicht im Nebel) — für die Bedien-Spiegelung am Tisch (Tastatur, Screenreader). */
+    marks() {
+      if (!root.visible || !data) return [];
+      return tokens.filter((tk) => !tk.fog).map((tk) => ({ lv: tk.lv, st: tk.st, type: tk.node.type, option: !!tk.option, onRoute: tk.seal.visible, world: tk.group.position }));
+    },
     /** Bildschirmposition (NDC) über einer Marke — für die Vorschau. */
     nodeNdc(lv, st, camera) {
       const tk = tokens.find((x) => x.lv === lv && x.st === st);

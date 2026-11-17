@@ -1,11 +1,10 @@
 // discord/bot/commands/ausrede.js
-const AUSREDEN = require('./data/ausreden');
+const { pickLine } = require('./funLines');
+const { botText } = require('../botText');
 
 async function handleAusrede(interaction) {
-    const ausrede = AUSREDEN[Math.floor(Math.random() * AUSREDEN.length)];
-
     await interaction.reply({
-        content: ausrede,
+        content: pickLine('ausrede', botText(interaction).lang, interaction.channel),
     });
 }
 

@@ -10,6 +10,8 @@
 //
 // Aufruf (Backend): npm run cr:badges -- [--profile 120] [--quelle https://…/api/clash/scout] [--tags TAG1,TAG2]
 //                  npm run cr:badges -- --nur-liste   (keine Profile abrufen, nur Fehlendes aus badges/_liste.json laden)
+//                  npm run cr:badges -- --angleichen  (nur von Hand abgelegte Bilder auf die Größe der übrigen bringen,
+//                                                      siehe angleichen() unten — nichts aus dem Netz)
 // Lokal geht die Clash-API selbst nicht (Schlüssel an die Server-IP gebunden) — deshalb standardmäßig über die Live-
 // Seite. Achtung: Jeder Profilabruf dort setzt das Profil 7 Tage auf die Beobachtungsliste (scoutRoutes → watch).
 const fs = require("fs");
@@ -45,7 +47,67 @@ const fileName = (name) => String(name).trim().replace(/\s+/g, "_");
 const keyOf = (b) => (b.maxLevel > 1 && b.level ? `${fileName(b.name)}__${b.level}` : fileName(b.name));
 const safe = (k) => /^[A-Za-z0-9_-]+$/.test(k);
 
+// ── Angleichen ───────────────────────────────────────────────────────────────────────────────────────────────────
+// Supercell lässt um jedes Abzeichen rund ein Drittel transparenten Rand (gemessen 17.11.2026: Inhalt 54–75 % der
+// Bildbreite, CRL 64 %). Von Hand abgelegte Bilder (Screenshots, Nutzerdateien) sind meist eng zugeschnitten (86–92 %)
+// und wirkten auf der Seite daneben deutlich größer. Solche Bilder werden hier auf FILL gebracht: Inhalt ohne
+// Transparenz ausschneiden, auf FILL × SIZE verkleinern, mittig auf SIZE × SIZE setzen. Das Original wandert nach
+// badges/originale/ (liegt nicht im Bilder-Glob der Seite). Nimmt auch .png unter dem API-Namen an (→ .webp).
+const FILL = 0.65;
+const HAND_MADE = 0.8; // so viel füllt kein Supercell-Bild
+const NOT_BADGES = /^(crl|league2v2|crown-league-\d+|yearly_badge_.+)$/; // Symbole für andere Seiten, keine Abzeichen
+
+/** Kasten um alle nicht (fast) durchsichtigen Pixel und dessen Anteil an der längeren Bildseite */
+async function contentBox(input) {
+  const { data, info } = await sharp(input).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+  let x0 = info.width, y0 = info.height, x1 = -1, y1 = -1;
+  for (let y = 0; y < info.height; y++) {
+    for (let x = 0; x < info.width; x++) {
+      if (data[(y * info.width + x) * 4 + 3] > 24) {
+        if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y;
+      }
+    }
+  }
+  if (x1 < 0) return null;
+  const box = { left: x0, top: y0, width: x1 - x0 + 1, height: y1 - y0 + 1 };
+  return { box, fill: Math.max(box.width, box.height) / Math.max(info.width, info.height) };
+}
+
+async function angleichen() {
+  const ORIG = path.join(OUT, "originale");
+  fs.mkdirSync(ORIG, { recursive: true });
+  const inner = Math.round(SIZE * FILL);
+  let done = 0;
+  for (const f of fs.readdirSync(OUT).filter((n) => /\.(webp|png)$/i.test(n)).sort()) {
+    const key = f.replace(/\.(webp|png)$/i, "");
+    if (!safe(key) || /^Mastery/.test(key) || NOT_BADGES.test(key)) continue;
+    const file = path.join(OUT, f);
+    const png = /\.png$/i.test(f);
+    // Erst in den Speicher: unter Windows hält sharp eine gelesene Datei offen, das Überschreiben schlüge dann fehl
+    const src = fs.readFileSync(file);
+    const m = await contentBox(src);
+    if (!m) continue;
+    // Supercell-Kopien (128 px, normaler Rand) bleiben, wie sie sind
+    if (!png && m.fill <= HAND_MADE) continue;
+    const buf = await sharp(src).extract(m.box)
+      .resize(inner, inner, { fit: "inside", background: { r: 0, g: 0, b: 0, alpha: 0 } }).png().toBuffer();
+    const meta = await sharp(buf).metadata();
+    const left = Math.floor((SIZE - meta.width) / 2), top = Math.floor((SIZE - meta.height) / 2);
+    const out = await sharp(buf)
+      .extend({ left, top, right: SIZE - meta.width - left, bottom: SIZE - meta.height - top, background: { r: 0, g: 0, b: 0, alpha: 0 } })
+      .webp({ quality: 88 }).toBuffer();
+    const backup = path.join(ORIG, f);
+    if (!fs.existsSync(backup)) fs.copyFileSync(file, backup);
+    if (png) fs.unlinkSync(file);
+    fs.writeFileSync(path.join(OUT, `${key}.webp`), out);
+    done += 1;
+    console.log(`${f}: Inhalt ${Math.round(m.fill * 100)} % → ${Math.round(FILL * 100)} %${png ? " (als .webp)" : ""}`);
+  }
+  console.log(`${done} Bilder angeglichen, Originale in ${path.relative(process.cwd(), ORIG)}`);
+}
+
 (async () => {
+  if (process.argv.includes("--angleichen")) return angleichen();
   fs.mkdirSync(OUT, { recursive: true });
   const seen = new Map(); // key → Bild-Adresse
   // Bisher gesammelte Liste übernehmen — so bleibt sie über mehrere Läufe vollständig

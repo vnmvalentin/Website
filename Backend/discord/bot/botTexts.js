@@ -4,14 +4,16 @@
 // getBotLanguage in database/db.js). Was Admins selbst eingeben (Begrüßungstext, Embed-Titel, Button-Beschriftungen,
 // Ticket-Felder) bleibt unangetastet.
 //
-// Nicht hier: die Spaß-Befehle (/superkraft, /ausrede, /magische_miesmuschel, /ship, /connect3 …) — die bleiben
-// vorerst deutsch. Befehlsnamen bleiben in jeder Sprache gleich (Discord registriert sie global).
+// Die Spaß-Befehle stehen unter `fun`; ihre langen Satzlisten (/superkraft, /ausrede) je Sprache in commands/data/.
+// Befehlsnamen und -beschreibungen sind keine Bot-Texte: Die zeigt Discord in der Sprache der App des Lesers
+// (commandDefs.js).
 //
 // Aufbau wie im Frontend (src/i18n/core.js): Deutsch vollständig, Englisch mit denselben Schlüsseln; der Test
 // Frontend/src/pages/Discord/__tests__/botText.test.js prüft das.
 // Reine Daten ohne Abhängigkeiten (lädt keine Datenbank) — nachgeschlagen wird über botText.js.
 
 const de = {
+    lang: 'de',
     locale: 'de-DE',
     unknown: 'Unbekannt',
 
@@ -34,6 +36,53 @@ const de = {
         disabled: '❌ Dieser Command ist auf diesem Server deaktiviert.',
         onlyIn: (channelId) => `❌ Diese Commands sind nur in <#${channelId}> erlaubt!`,
         failed: '❌ Da ist etwas schiefgelaufen.',
+    },
+
+    // Spaß-Befehle (commands/pp.js, iq.js, aussehen.js, groesse.js, gewicht.js, coinflip.js, allstats.js, ship.js,
+    // magische_miesmuschel.js, connect3.js). Die Sätze von /superkraft und /ausrede stehen in commands/data/.
+    fun: {
+        pp: (cm) => `Dein PP ist **${cm}cm** groß.`,
+        iq: (name, iq) => `**${name}**'s IQ liegt bei **${iq}**.`,
+        looks: (name, score) => `**${name}** ist eine **${score}/10**.`,
+        height: (cm) => `Du bist **${cm}cm** groß.`,
+        weight: (kg) => `Du wiegst **${kg}kg**.`,
+        heads: 'Kopf',
+        tails: 'Zahl',
+        coin: (side, emoji) => `🪙 Die Münze landet auf... **${side}** ${emoji}`,
+        allStatsTitle: (name) => `📊 **Alle Stats von ${name}**`,
+        statLabels: { iq: 'IQ', height: 'Größe', weight: 'Gewicht', pp: 'PP', looks: 'Aussehen' },
+        shipSelf: '🚢 Man kann sich nicht mit sich selbst shippen!',
+        shipTitle: 'Ship-Ergebnis',
+        conchTitle: 'Magische Miesmuschel',
+        // Ja und Nein gleich oft (je zehn) — eine Muschel, die erkennbar öfter „Ja“ sagt, ist als Orakel wertlos
+        conchAnswers: [
+            'Ja!', 'Definitiv ja!', 'Die Zeichen deuten auf Ja.', 'Ganz sicher!', 'Zweifellos!',
+            'Sehr wahrscheinlich.', 'Ja, vertrau mir!', 'Ohne Frage — ja!', 'Darauf kannst du wetten.', 'Meine Quellen sagen Ja.',
+            'Nein!', 'Eher nicht.', 'Auf keinen Fall!', 'Die Zeichen deuten auf Nein.', 'Meine Quellen sagen Nein.',
+            'Sehr unwahrscheinlich.', 'Ich bezweifle es stark.', 'Ganz sicher nicht.', 'Vergiss es.', 'Das wird nichts.',
+        ],
+        c3NotSelf: '❌ Du kannst nicht gegen dich selbst spielen!',
+        c3NotBot: '❌ Du kannst nicht gegen einen Bot spielen!',
+        c3Gone: '❌ Dieses Spiel existiert nicht mehr.',
+        c3NotYourTurn: '❌ Du bist gerade nicht dran!',
+        c3ColumnFull: '❌ Diese Spalte ist voll!',
+        c3Turn: (emoji, player) => `${emoji} ${player} ist am Zug!`,
+        c3Won: (emoji, player) => `🏆 ${emoji} ${player} **hat gewonnen!** Glückwunsch!`,
+        c3Draw: '🤝 **Unentschieden!**',
+    },
+
+    // Begrüßung, wenn der Bot einem Server hinzugefügt wird (onboarding.js)
+    setup: {
+        title: 'Danke fürs Hinzufügen!',
+        intro: (server) => `Ich bin jetzt auf **${server}**. Eingerichtet wird alles im Dashboard auf der Website — Befehle lernen musst du dafür nicht.`,
+        steps: [
+            'Dashboard öffnen und mit Discord anmelden — dieser Server ist dort schon ausgewählt.',
+            'Unter **Allgemein** steht der Einrichtungs-Check. Dort stellst du auch meine Sprache um (gerade: Deutsch).',
+            'Einschalten, was du brauchst: Begrüßung, Rollen-Buttons, Tickets, Twitch-Meldungen, Punkte und mehr.',
+        ],
+        footer: 'Slash-Befehle wie /serverstats oder /daily gehen sofort. Rollen vergeben kann ich nur, wenn meine Rolle über ihnen steht.',
+        dashboardButton: 'Dashboard öffnen',
+        featuresButton: 'Alle Funktionen',
     },
 
     // Rollen-Buttons (interactionCreate.js)
@@ -264,6 +313,7 @@ const de = {
 };
 
 const en = {
+    lang: 'en',
     locale: 'en-US',
     unknown: 'Unknown',
 
@@ -283,6 +333,49 @@ const en = {
         disabled: '❌ This command is disabled on this server.',
         onlyIn: (channelId) => `❌ These commands are only allowed in <#${channelId}>!`,
         failed: '❌ Something went wrong.',
+    },
+
+    fun: {
+        pp: (cm) => `Your PP is **${cm}cm** long.`,
+        iq: (name, iq) => `**${name}**'s IQ is **${iq}**.`,
+        looks: (name, score) => `**${name}** is a **${score}/10**.`,
+        height: (cm) => `You are **${cm}cm** tall.`,
+        weight: (kg) => `You weigh **${kg}kg**.`,
+        heads: 'Heads',
+        tails: 'Tails',
+        coin: (side, emoji) => `🪙 The coin lands on... **${side}** ${emoji}`,
+        allStatsTitle: (name) => `📊 **All stats of ${name}**`,
+        statLabels: { iq: 'IQ', height: 'Height', weight: 'Weight', pp: 'PP', looks: 'Looks' },
+        shipSelf: '🚢 You can\'t ship someone with themselves!',
+        shipTitle: 'Ship result',
+        conchTitle: 'Magic Conch',
+        conchAnswers: [
+            'Yes!', 'Definitely yes!', 'Signs point to yes.', 'Absolutely!', 'Without a doubt!',
+            'Very likely.', 'Yes, trust me!', 'No question — yes!', 'You can bet on it.', 'My sources say yes.',
+            'No!', 'Probably not.', 'No way!', 'Signs point to no.', 'My sources say no.',
+            'Very unlikely.', 'I strongly doubt it.', 'Definitely not.', 'Forget it.', 'Not going to happen.',
+        ],
+        c3NotSelf: '❌ You can\'t play against yourself!',
+        c3NotBot: '❌ You can\'t play against a bot!',
+        c3Gone: '❌ This game no longer exists.',
+        c3NotYourTurn: '❌ It\'s not your turn!',
+        c3ColumnFull: '❌ This column is full!',
+        c3Turn: (emoji, player) => `${emoji} ${player}, it's your turn!`,
+        c3Won: (emoji, player) => `🏆 ${emoji} ${player} **wins!** Congratulations!`,
+        c3Draw: '🤝 **Draw!**',
+    },
+
+    setup: {
+        title: 'Thanks for adding me!',
+        intro: (server) => `I'm on **${server}** now. Everything is set up in the dashboard on the website — no commands to learn.`,
+        steps: [
+            'Open the dashboard and sign in with Discord — this server is already selected there.',
+            'Under **General** you\'ll find the setup check. That\'s also where you switch my language (currently: English).',
+            'Turn on what you need: welcome messages, role buttons, tickets, Twitch alerts, points and more.',
+        ],
+        footer: 'Slash commands like /serverstats or /daily work right away. I can only hand out roles that sit below my own role.',
+        dashboardButton: 'Open dashboard',
+        featuresButton: 'All features',
     },
 
     roles: {
@@ -446,7 +539,8 @@ const en = {
         balance: (m) => `Balance: ${m}`,
         rocketTitle: '🚀 Rocket',
         rocketCashed: (name, x, gain) => `🟩 **${name}** cashed out at ${x} · +${gain}`,
-        rocketOpen: (ts) => `Launch <t:${ts}:R> · Board with \`/rakete\``,
+        // Englische Discord-Apps zeigen den Befehl als /rocket (commandDefs.js)
+        rocketOpen: (ts) => `Launch <t:${ts}:R> · Board with \`/rocket bet\``,
         rocketHint: 'Press "Cash out" before it explodes!',
         rocketExploded: 'The rocket exploded.',
         cashOutButton: 'Cash out',

@@ -23,11 +23,11 @@ import ratingIcon from '../../../assets/clashRoyale/leagues/rating.webp';
 // Scheibe und Band blau/rot. In keiner Asset-Quelle vorhanden (RoyaleAPI-CDN, cr-api-assets,
 // cr-assets-png) — aus rating.webp umgefärbt, Farben nach einem In-Game-Screenshot abgeglichen.
 import ratingLeagueIcon from '../../../assets/clashRoyale/leagues/rating_league.webp';
-import spookyChessBadge from '../../../assets/clashRoyale/ui/spooky-chess.webp';
-import challengeClassicBadge from '../../../assets/clashRoyale/ui/challenge-classic.webp';
-import challengeGrandBadge from '../../../assets/clashRoyale/ui/challenge-grand.webp';
-import crownSeriesBadge from '../../../assets/clashRoyale/ui/CR_CrownSeriesIcon.png';
-import tourneyTrophyBadge from '../../../assets/clashRoyale/ui/tourney_trophy.webp';
+import spookyChessBadge from '../../../assets/clashRoyale/modes/spooky-chess.webp';
+import challengeClassicBadge from '../../../assets/clashRoyale/modes/challenge-classic.webp';
+import challengeGrandBadge from '../../../assets/clashRoyale/modes/challenge-grand.webp';
+import crownSeriesBadge from '../../../assets/clashRoyale/modes/CR_CrownSeriesIcon.webp';
+import globalTournamentBadge from '../../../assets/clashRoyale/modes/global-tournament.webp';
 import crlBadge from '../../../assets/clashRoyale/badges/crl.webp';
 
 // RoyaleAPI hostet die Embleme noch unter der alten 10-stufigen Nummerierung (die 3 inzwischen
@@ -69,12 +69,13 @@ export const seasonalBadgeUrl = (mode) => SEASONAL_BADGES[mode] || null;
 
 // Abzeichen der Challenges (Win-Tracker trackMode "c:<key>"): Schwert im grünen bzw. goldenen Kranz
 // für Classic/Grand, das CRL-Wappen für die 20-Win-Challenge (läuft als CRL-Challenge).
-// Crown Series (Duel + Grand Duel Weekend): Crown-Series-Logo, Global Tournament: Turnierpokal.
+// Crown Series (Duel + Grand Duel Weekend): Crown-Series-Logo, Global Tournament: dessen Symbol aus dem Spiel.
 const CHALLENGE_BADGES = {
   classic: challengeClassicBadge, grand: challengeGrandBadge, '20win': crlBadge,
-  duel: crownSeriesBadge, grandduel: crownSeriesBadge, global: tourneyTrophyBadge,
+  duel: crownSeriesBadge, grandduel: crownSeriesBadge, global: globalTournamentBadge,
 };
-export const challengeBadgeUrl = (key) => CHALLENGE_BADGES[key] || challengeClassicBadge;
+// fallback: was bei unbekanntem Schlüssel kommt (Stats-Kämpfe nehmen dann das Symbol ihres Modus, also null)
+export const challengeBadgeUrl = (key, fallback = challengeClassicBadge) => CHALLENGE_BADGES[key] || fallback;
 
 // Crown-Series-Ligen (crown-league-01 … 13.webp, geschnitten aus CR_CrownSeriesLeaguesRegular.png
 // und CR_KingLeagues.png): 1–8 die unteren Ligen, 9–13 King's League I–V. Die API liefert die Liga

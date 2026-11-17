@@ -4,7 +4,9 @@ import React, { useEffect, useRef } from "react";
 import * as THREE from "three";
 import { ChevronLeft, ChevronRight, Shuffle } from "lucide-react";
 import { createAvatar } from "../scene/avatars.js";
-import { SKIN_COLORS, SKIN_FACES, SKIN_HATS, randomSkin } from "../skins.js";
+import { Link } from "react-router-dom";
+import { LADEN_HUETE, SKIN_COLORS, SKIN_FACES, SKIN_HATS, randomSkin, waehlbareHuete } from "../skins.js";
+import { ladenSichtbar, useLadenBesitz } from "../../../utils/ladenBesitz.js";
 
 function SkinPreview({ skin }) {
   const canvasRef = useRef(null);
@@ -85,8 +87,13 @@ function SkinPreview({ skin }) {
   return <canvas ref={canvasRef} className="wf-skin-canvas" aria-hidden="true" />;
 }
 
-function Stepper({ label, names, value, onChange }) {
-  const step = (d) => onChange((value + d + names.length) % names.length);
+// erlaubt: wählbare Indizes (Hüte: ohne nicht gekaufte aus dem Laden); ohne Angabe alle
+function Stepper({ label, names, value, onChange, erlaubt = null }) {
+  const liste = erlaubt || names.map((_, i) => i);
+  const step = (d) => {
+    const pos = Math.max(0, liste.indexOf(value));
+    onChange(liste[(pos + d + liste.length) % liste.length]);
+  };
   return (
     <div className="wf-stepper">
       <span className="wf-label">{label}</span>
@@ -101,6 +108,8 @@ function Stepper({ label, names, value, onChange }) {
 
 /** @param {{ skin: {c: number, h: number, f: number}, onChange: (skin: object) => void }} props */
 export default function SkinEditor({ skin, onChange }) {
+  const besitz = useLadenBesitz("worldflip"); // gekaufte Hüte aus dem Laden
+  const fehlen = Object.entries(LADEN_HUETE).filter(([, id]) => !besitz.has(id)).map(([h]) => SKIN_HATS[h]);
   return (
     <section className="wf-card p-5">
       <div className="flex items-center justify-between mb-3">
@@ -118,11 +127,16 @@ export default function SkinEditor({ skin, onChange }) {
               ))}
             </div>
           </div>
-          <Stepper label="Hut" names={SKIN_HATS} value={skin.h} onChange={(h) => onChange({ ...skin, h })} />
+          <Stepper label="Hut" names={SKIN_HATS} value={skin.h} erlaubt={waehlbareHuete(besitz)} onChange={(h) => onChange({ ...skin, h })} />
           <Stepper label="Gesicht" names={SKIN_FACES} value={skin.f} onChange={(f) => onChange({ ...skin, f })} />
         </div>
       </div>
       <p className="wf-faint text-sm mt-3">So sehen dich die anderen online am Tisch.</p>
+      {fehlen.length > 0 && ladenSichtbar() && (
+        <p className="wf-faint text-sm mt-1">
+          {fehlen.join(" und ")} gibt es im <Link to="/laden" className="underline underline-offset-2">Laden</Link>, für Worldflip und den Spieleabend.
+        </p>
+      )}
     </section>
   );
 }

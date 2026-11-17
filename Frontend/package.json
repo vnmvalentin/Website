@@ -21,7 +21,8 @@
     "garden:art": "node src/pages/GardenGame/tools/farmArt.js",
     "garden:art:uebernehmen": "node src/pages/GardenGame/tools/farmArtUebernehmen.js",
     "preview": "vite preview",
-    "flick:tricks": "node src/pages/FlickSoccer/tools/trickGen.mjs"
+    "flick:tricks": "node src/pages/FlickSoccer/tools/trickGen.mjs",
+    "twitch-ext:build": "vite build --config twitch-extension/vite.config.js && node twitch-extension/scripts/pack.mjs"
   },
   "dependencies": {
     "@tailwindcss/vite": "^4.1.13",

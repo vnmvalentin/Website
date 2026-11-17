@@ -12,6 +12,8 @@
 
 const { cardIdByOfficialName, ELIXIR_COST } = require('../core/cards');
 const { normalizeTag, parseBattleTimeMs, roundsResult, resultOf } = require('../lib/crApi');
+const { classifyBattle } = require('../lib/challengeModes');
+const { modeInfo } = require('../lib/gameModes');
 
 const num = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
 const str = (v) => (typeof v === 'string' ? v : '');
@@ -247,8 +249,10 @@ function shapeSide(p, cap) {
 /**
  * Battlelog. Der abgefragte Spieler steht immer an team[0] — die API garantiert das nicht (siehe fetchBattlelog in
  * lib/crApi.js), deshalb wird per Tag gesucht.
+ * @param {Array<{eventTag: string, title: string}>|null} [events]  bekannte Events (GET /events, gemerkt in
+ *   scoutRoutes.js): Titel des Events und — darüber — welche Challenge ein Kampf war (Classic, Grand, 20 Win …)
  */
-function shapeBattles(rawLog, selfTag, cap) {
+function shapeBattles(rawLog, selfTag, cap, events = null) {
   const self = normalizeTag(selfTag);
   if (!Array.isArray(rawLog)) return [];
   // Höchstlevel notfalls aus dem Log selbst (25 Kämpfe × 16 Karten enthalten praktisch immer eine gewöhnliche Karte)
@@ -268,16 +272,34 @@ function shapeBattles(rawLog, selfTag, cap) {
     // Server: Spieler in Liga 4 hatte 3 und 4). Nur Ranked; andere Modi tragen das Feld auch, dort ohne Bedeutung.
     const rawLeague = group === 'ranked' ? num(b.leagueNumber) : null;
     const league = rawLeague >= 1 && rawLeague <= 7 ? rawLeague : null;
+    // 2v2-Liga und gewöhnliches 2v2 teilen Kampftyp und Modus („TeamVsTeam“) — nur arena.rawName („2v2League_202609…“)
+    // verrät die Liga (wie isLeague2v2Arena im Win Tracker). Der Anzeigename der Arena ist dort „Competitive“.
+    const league2v2 = group === '2v2' && /^2v2League/i.test(str(b.arena?.rawName));
+    // Classic, Grand und 20 Win teilen Kampftyp und Modus — nur der eventTag (→ Titel aus /events) unterscheidet sie
+    // (lib/challengeModes.js). Der Titel ist zugleich der Name des Events im Spiel. Beides geht beim Aufbereiten
+    // verloren, wenn es hier nicht mitgespeichert wird: der Verlauf kennt den eventTag nicht.
+    const eventTag = str(b.eventTag);
+    const event = eventTag && Array.isArray(events) ? str(events.find((e) => e?.eventTag === eventTag)?.title) : '';
+    const challenge = classifyBattle({
+      type, gameMode: modeName, eventTag, isLadderTournament: b.isLadderTournament === true, challengeTitle: str(b.challengeTitle),
+    }, events || []);
+    // Siege des Laufs vor dem Kampf: in Challenges und Crown Series team.startingTrophies, das bei 0 fehlt (geprüft
+    // 16.11.2026). Global Tournament ungeprüft — dort nur, was die API ausdrücklich liefert.
+    const winsBefore = num(b.challengeWinCountBefore)
+      ?? (challenge && challenge !== 'global' ? (num(me.startingTrophies) ?? 0) : null);
     return {
       t: parseBattleTimeMs(b.battleTime),
       type,
       mode: modeName,
       group,
       ...(league ? { league } : null),
+      ...(league2v2 ? { league2v2 } : null),
       arena: str(b.arena?.name),
       result: roundsResult(me, opp) || resultOf(me, opp),
       rounds: roundCount > 1 ? me.rounds.map((r, i) => ({ f: num(r?.crowns) || 0, a: num(opp.rounds?.[i]?.crowns) || 0 })) : null,
-      challengeWins: num(b.challengeWinCountBefore),
+      ...(event ? { event } : null),
+      ...(challenge ? { challenge } : null),
+      challengeWins: winsBefore,
       challengeTitle: str(b.challengeTitle),
       team: teamRaw.map((p) => shapeSide(p, useCap)),
       opponent: oppRaw.map((p) => shapeSide(p, useCap)),
@@ -472,8 +494,21 @@ function rankedDecks(battles) {
   return [...newest.values()];
 }
 
+/**
+ * Name und Symbol des Modus an Kämpfe hängen (Index lib/gameModes.js): `modeName` { en, de }, `modeIcon` = Symbol-
+ * Schlüssel des Spiels. Beim Ausliefern statt beim Speichern, damit auch gemerkte Kämpfe den aktuellen Index nutzen.
+ * Modi, die schon die Kampfgruppe benennt (Ranked, Trophäenstraße …), bekommen nichts.
+ */
+function nameModes(battles) {
+  if (!Array.isArray(battles)) return [];
+  return battles.map((b) => {
+    const info = b && b.mode ? modeInfo(b.mode) : null;
+    return info ? { ...b, modeName: { en: info.en, de: info.de }, ...(info.icon ? { modeIcon: info.icon } : null) } : b;
+  });
+}
+
 module.exports = {
-  rankedDecks, battleNames, shapeCatalog,
+  rankedDecks, battleNames, shapeCatalog, nameModes,
   levelCap, shapeCard, shapePlayer, shapeBattles, shapeClan, shapeRiverRace, shapeWarLog,
   shapePlayerRanking, shapeClanRanking, shapeClanSearch, modeGroup,
 };

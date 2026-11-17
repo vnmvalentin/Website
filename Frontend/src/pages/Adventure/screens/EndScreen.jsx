@@ -11,6 +11,8 @@ import { ItemIcon, UpgradeIcon } from "../ui/icons.jsx";
 import { WEAPONS, TALENTS } from "../data/weapons.js";
 import { fmtTime } from "../engine/util.js";
 import KillCurve from "../ui/KillCurve.jsx";
+import ErgebnisTeilen from "../../../components/ErgebnisTeilen.jsx";
+import { adventureErgebnis } from "../ergebnis.js";
 
 export default function EndScreen({ result, onAgain, onMenu }) {
   const kit = KITS[result.kitId] || KITS.default;
@@ -40,7 +42,7 @@ export default function EndScreen({ result, onAgain, onMenu }) {
           </div>
 
           <dl className="mt-6 grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
-            {[["Welten", result.stagesCleared], ["Bosse", result.stats.bossesKilled], ["Kills", result.stats.kills.toLocaleString("de-DE")], ["Stufe", result.level],
+            {[...(result.loop > 0 ? [["Tiefe", result.stagesCleared + 1]] : [["Welten", result.stagesCleared]]), ["Bosse", result.stats.bossesKilled], ["Kills", result.stats.kills.toLocaleString("de-DE")], ["Stufe", result.level],
               ["Schaden", Math.round(result.stats.damageDealt).toLocaleString("de-DE")], ["Erlitten", Math.round(result.stats.damageTaken).toLocaleString("de-DE")],
               ["Gold", result.stats.goldCollected.toLocaleString("de-DE")], ["Items", result.stats.itemsCollected],
               ["Beste Serie", (result.stats.bestStreak || 0).toLocaleString("de-DE")], ["Kills pro Min.", result.time >= 10 ? Math.round(result.stats.kills / (result.time / 60)).toLocaleString("de-DE") : "–"],
@@ -83,6 +85,12 @@ export default function EndScreen({ result, onAgain, onMenu }) {
                   </div>
                 )}
                 {s.isRecord && s.score === undefined && <p className="mt-3 av-gold flex items-center gap-2"><Trophy size={15} /> Neuer persönlicher Rekord</p>}
+                {/* Tiefe (ab Zyklus 2): Bestenliste „Am weitesten gekommen“ */}
+                {s.depth > 6 && (
+                  s.isDepthRecord || s.depth >= s.depthBest
+                    ?<p className="mt-2 flex items-center gap-2" style={{ color: "#c39bff" }}><Trophy size={15} /> Neue Bestmarke: Tiefe {s.depth}</p>
+                    : <p className="mt-2 av-dim av-num">Tiefe {s.depth} · deine Bestmarke: {s.depthBest}</p>
+                )}
                 {result.mode === "daily" && s.dailyBest != null && (
                   <p className="mt-2 av-dim av-num">Tageslauf · dein Bestwert heute: <span className="av-gold">{s.dailyBest.toLocaleString("de-DE")}</span></p>
                 )}
@@ -109,6 +117,8 @@ export default function EndScreen({ result, onAgain, onMenu }) {
           <div className="mt-6 grid sm:grid-cols-2 gap-3">
             <button className="av-btn av-btn-lg" onClick={onAgain}><Play size={20} fill="currentColor" /> Nächster Lauf</button>
             <button className="av-btn av-btn-stone av-btn-lg" onClick={onMenu}><Home size={19} /> Hauptmenü</button>
+            <ErgebnisTeilen className="av-btn av-btn-stone sm:col-span-2"
+              ergebnis={() => adventureErgebnis(result, { kit: kit.name, schwierigkeit: DIFFICULTIES[result.difficulty]?.name })} />
           </div>
         </div>
       </div>

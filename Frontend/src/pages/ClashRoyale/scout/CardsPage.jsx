@@ -16,8 +16,8 @@ import { SITE_URL } from '../constants';
 import { CrBattle, CrCards, CrCrown, CrElixir, CrSearch, CrSkull, CrSword } from '../ui/CrIcons';
 import searchImg from '../../../assets/clashRoyale/ui/search.webp';
 import swordImg from '../../../assets/clashRoyale/ui/sword.webp';
-import scrollImg from '../../../assets/clashRoyale/ui/icon_daily_task_scroll_opened.png';
-import cardsImg from '../../../assets/clashRoyale/ui/cards.png';
+import scrollImg from '../../../assets/clashRoyale/ui/icon_daily_task_scroll_opened.webp';
+import cardsImg from '../../../assets/clashRoyale/ui/cards.webp';
 import bannerArt from '../../../assets/clashRoyale/bg/battle_healer.webp';
 import ScoutFrame from './ScoutFrame';
 import { Banner, Bar, CardArt, DeckLine, Panel, ScoutCard, Seg, SortControl, Stat } from './parts';
@@ -48,7 +48,7 @@ export function CardsPage() {
   const [rarity, setRarity] = useState('all');
   const [minUsage, setMinUsage] = useState('0');
   const [view, setView] = useState('grid');
-  const [sort, setSort] = useState({ by: 'name', dir: 'asc' });
+  const [sort, setSort] = useState({ by: 'rarity', dir: 'asc' });
   const [text, setText] = useState('');
 
   const list = useMemo(() => {
@@ -123,10 +123,14 @@ export function CardsPage() {
               return (
                 <ScoutCard key={c.id} card={localCard(c.id)} link level={false}>
                   <span className="block mt-1 text-center text-[13px] font-semibold leading-tight text-white">{c.name}</span>
-                  <span className="flex items-center justify-center gap-1 text-[11.5px] crs-muted crs-num">
-                    <CrElixir size={12} />{ELIXIR_COST[c.id] ?? '–'}
-                    {m && <> · {fmtPct(m.usage, lang)} · <span style={{ color: m.winRate >= 0.5 ? GOOD : BAD }}>{fmtPct(m.winRate, lang)}</span></>}
-                  </span>
+                  {/* Nur die zwei wichtigen Werte: Nutzung und Siegquote (Elixier steht in der Tabellenansicht) */}
+                  {meta && (
+                    <span className="flex items-center justify-center gap-1 text-[11.5px] crs-muted crs-num">
+                      {m ? <>
+                        <span title={t.usage}>{fmtPct(m.usage, lang)}</span> · <span title={t.winRate} style={{ color: m.winRate >= 0.5 ? GOOD : BAD }}>{fmtPct(m.winRate, lang)}</span>
+                      </> : '–'}
+                    </span>
+                  )}
                 </ScoutCard>
               );
             })}

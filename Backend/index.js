@@ -32,7 +32,7 @@ const createDiscordRouter = require("./discord/api/index");
 const { createClashRoyaleRouter, registerClashRoyaleSocket, initLobbyPersistence } = require("./clashRoyale/routes/clashRoyaleRoutes");
 // CR-Lobbys überleben einen Neustart: vor dem ersten Socket laden, beim Beenden speichern
 initLobbyPersistence();
-const { registerConnect4Socket } = require("./connect4/socket");
+const { registerSpieleabendSocket } = require("./spieleabend/socket");
 const { registerGuessWhoSocket } = require("./clashRoyale/guessWhoRoutes");
 const { registerSeedRunnersSocket } = require("./seedRunners/socket");
 const { registerSacrificeSigilsSocket } = require("./sacrificeSigils/socket");
@@ -56,6 +56,8 @@ const createCrPresetRouter = require("./clashRoyale/routes/crPresetRoutes");
 const createTournamentRouter = require("./clashRoyale/tournament/routes");
 const { registerTournamentSocket } = require("./clashRoyale/tournament/matchRoom");
 const createStreamToolRouter = require("./streamTool/routes/streamToolRoutes");
+const createStreamerZentraleRouter = require("./streamerZentrale/routes");
+const createVorlagenRouter = require("./overlayVorlagen/routes");
 const { registerLiveBadgesSocket } = require("./lib/liveBadges");
 const { createUsedByRouter } = require("./routes/usedByRoutes");
 const { createLiveRouter } = require("./routes/liveRoutes");
@@ -71,10 +73,27 @@ const { weltUebersicht } = require("./garden/world/lobby");
 const { getActiveLobbiesForAdmin: crLobbiesFuerAdmin } = require("./clashRoyale/core/lobbies");
 const { createOgRouter } = require("./og/ogRoutes");
 const { createActivityRouter } = require("./activity/activityRoutes");
-const { createProfileRouter, buildProfile: buildPublicProfile } = require("./profile/profileRoutes");
+const { createVisitenkarten } = require("./profile/profileRoutes");
+const { createPushStore } = require("./push/pushStore");
+const { createPushVersand } = require("./push/pushVersand");
+const { createPushRouter } = require("./push/pushRoutes");
+const { createLiveWaechter } = require("./push/ausloeser");
+const { meldeMitteilung, verbindeMitteilungen } = require("./lib/mitteilungen");
+const { createGlockeStore } = require("./glocke/glockeStore");
+const { createGlockeRouter } = require("./glocke/glockeRoutes");
+const { createFeedbackStore } = require("./feedback/feedbackStore");
+const { createEinladungStore } = require("./einladung/einladungStore");
+const { createEinladungDienst } = require("./einladung/einladungDienst");
+const { createEinladungRouter } = require("./einladung/einladungRoutes");
+const { createMitspielenStore } = require("./mitspielen/mitspielenStore");
+const { createMitspielenRouter, discordWebhook: mitspielenDiscord, spielNameVon } = require("./mitspielen/mitspielenRoutes");
 const { createProfileStore } = require("./profile/profileStore");
 const { previousDay: seedRunnersPreviousDay } = require("./seedRunners/daily");
 const { createBillingRouter, createBillingWebhook } = require("./billing/billingRoutes");
+const { registriereEinmalkauf, registriereRuecknahme, missingStripeConfig, defaultStripe } = require("./billing/billingService");
+const { createLadenStore } = require("./laden/ladenStore");
+const { createLadenDienst } = require("./laden/ladenDienst");
+const { createLadenRouter } = require("./laden/ladenRoutes");
 const {
     saveAllFarmsOnExit, initGardenFarmsStore, farmStates,
     scheduleFarmsSave: scheduleFarmsSaveFuerMigration,
@@ -110,8 +129,10 @@ const io = new Server(server, {
         origin: ALLOWED_ORIGINS, 
         credentials: true
     },
-    path: "/socket.io" 
+    path: "/socket.io"
 });
+// Grenzen je Besucher-Adresse (lib/socketBremse.js): offene und neue Verbindungen, Ereignis-Fluten je Verbindung
+require("./lib/socketBremse").schuetzeSocketServer(io);
 
 // --- Middleware ---
 app.use(
@@ -146,6 +167,14 @@ app.use((req, res, next) => {
     (angemeldet ? formGross : formKlein)(req, res, next);
   });
 });
+
+// Twitch-Erweiterung „Win Tracker“ (twitchExtension/, Ausbauplan „twitch-erweiterung“): eigene CORS-Regel für
+// https://<client-id>.ext-twitch.tv — muss VOR cors() stehen, das beantwortet Vorab-Anfragen sonst selbst.
+// Ohne TWITCH_EXT_SECRET antwortet sie mit 503 (not_configured).
+app.use("/api/twitch-ext", require("./twitchExtension/routes").createTwitchExtRouter({
+  secret: process.env.TWITCH_EXT_SECRET,
+  clientId: process.env.TWITCH_EXT_CLIENT_ID,
+}));
 
 app.use(
   cors({
@@ -386,7 +415,11 @@ function kontoStatistik(days) {
   const heute = kontoTagVon(Date.now());
   const von = kontoTagPlus(heute, -(span - 1));
   const ohne = [STREAMER_TWITCH_ID ? kontoStore.kontoVonLink("twitch", STREAMER_TWITCH_ID) : null];
-  return { von, bis: heute, zahlen: kontoStore.zahlen(), wiederkehr: kontoStore.wiederkehr({ von, bis: heute, heute, ohne }) };
+  return {
+    von, bis: heute, zahlen: kontoStore.zahlen(), wiederkehr: kontoStore.wiederkehr({ von, bis: heute, heute, ohne }),
+    einladungen: einladungStore.zahlen(), // { angenommen, bestaetigt } (einladung/)
+    laden: ladenStore.summen(), // { unterstuetzer?: { anzahl, cent }, artikel?: { anzahl, cent } } (laden/)
+  };
 }
 
 // Jetzt existiert 'io' bereits und kann sicher übergeben werden!
@@ -394,16 +427,29 @@ app.use("/api/admin", createAdminRouter({ requireAuth, STREAMER_TWITCH_ID, io, l
 
 // Andere Routen
 app.use("/api/bingo", createBingoRouter({ requireAuth }));
-app.use("/", createGiveawayRouter({ requireAuth, STREAMER_TWITCH_ID, io }));
+app.use("/", createGiveawayRouter({ requireAuth, STREAMER_TWITCH_ID, io, discordClient, kontoStore }));
 app.use("/api/winchallenge", createWinchallengeRouter({ requireAuth }));
 app.use("/api/polls", createPollRouter({ requireAuth, STREAMER_TWITCH_ID, io }));
 app.use("/api/adventure", createAdventureRouter({ requireAuth, optionalAuth }));
 // Feedback geht ohne Login direkt in einen Discord-Kanal — ohne Grenze ließe er sich fluten
-app.use("/api/feedback", bremseMiddleware({ fensterMs: 10 * 60_000, max: 5, meldung: "Zu viele Nachrichten. Bitte etwas später erneut." }), createFeedbackRouter());
-app.use("/api/garden", createGardenGameRouter({ requireAuth }));
+// Feedback (Fenster im Kopf): gespeichert, nach Discord, im Admin beantwortbar → Glocke + Mitteilung des Absenders.
+// Die Bremse fürs Absenden sitzt jetzt im Router (sonst bremste sie auch die Admin-Liste).
+const feedbackStore = createFeedbackStore();
+app.use("/api/feedback", createFeedbackRouter({
+  store: feedbackStore, optionalKonto, requireAuth, istBetreiber,
+  kontoAnsicht: (kontoId) => kontoStore.ansicht(kontoId), melde: meldeMitteilung,
+}));
+// ladenBesitzt: Hüte aus dem Laden (Spur D) — ladenDienst entsteht weiter unten, abgefragt wird erst bei Anfragen
+app.use("/api/garden", createGardenGameRouter({ requireAuth, ladenBesitzt: (kontoId, id) => ladenDienst.besitzt(kontoId, id) }));
 // sessions/saveSessionsToFile sind nur noch für die alte Discord-Übernahme da (migrateFromSessions): die lief beim
 // Sitzungs-Umzug oben schon für alle — hier gibt es nichts mehr zu übernehmen.
-app.use("/api/discord", createDiscordRouter({ requireAuth, discordClient, sessions: Object.create(null), saveSessionsToFile: () => {} }));
+// requireKonto: Das Dashboard des Bots geht auch mit Discord- und Gastkonten (Ausbauplan „discord-verzeichnis“); ihre
+// Discord-Verknüpfung hängt am Konto und zieht beim Zusammenführen mit bzw. verschwindet mit dem Konto.
+app.use("/api/discord", createDiscordRouter({ requireAuth, requireKonto, discordClient, sessions: Object.create(null), saveSessionsToFile: () => {} }));
+kontoStore.beobachte({
+  zusammengefuehrt: (ziel, quelle) => require("./discord/linkStore").kontoUmziehen(ziel, quelle),
+  geloescht: (kontoId) => require("./discord/linkStore").kontoLoeschen(kontoId),
+});
 // Streamer-Konfiguration VOR dem allgemeinen Clash-Router mounten (spezifischerer Pfad)
 app.use("/api/clash/streamer", createCrStreamerRouter({ requireAuth }));
 app.use("/api/clash/profile", createCrProfileRouter({ requireAuth }));
@@ -411,7 +457,17 @@ app.use("/api/clash/profile", createCrProfileRouter({ requireAuth }));
 app.use("/api/clash/friends", createCrFriendRouter({ requireAuth }));
 app.use("/api/clash/presets", createCrPresetRouter({ requireAuth }));
 // Stats-Seiten unter /clash (Spieler, Clans, Ranglisten, Meta) — öffentlich, clashRoyale/scout/
-app.use("/api/clash/scout", createScoutRouter({ requireAuth, optionalAuth }));
+// requireKonto/kontoGibtEs: Discord-Erinnerungen der Clan-Zentrale (scout/clanAlerts.js), für jedes Konto
+app.use("/api/clash/scout", createScoutRouter({
+  requireAuth, optionalAuth, requireKonto, kontoGibtEs: (id) => Boolean(kontoStore.ansicht(id)),
+  // Abruf-Kontingent je Konto statt je Adresse — nur mit Twitch oder Discord, Gastkonten kann jedes Skript anlegen
+  kontoFuerKontingent: (req) => {
+    const s = sessionStore.get(req.cookies?.session);
+    const kontoId = s?.kontoId || (s?.twitchId ? kontoStore.kontoVonLink("twitch", s.twitchId) : null);
+    const konto = kontoId ? kontoStore.ansicht(kontoId) : null;
+    return konto && !konto.gast ? kontoId : null;
+  },
+}));
 // Tagesrunde der CR-Ratespiele: Bestenliste (clashRoyale/daily/, Frontend /clash/heute)
 app.use("/api/clash/heute", require("./clashRoyale/daily/dailyRoutes").createDailyRouter({ requireAuth, optionalAuth }));
 // Turniere der CR-Minigames (Plan: docs/clash-royale/PLANUNG_TURNIER.md)
@@ -429,13 +485,103 @@ app.use("/api/cr-wintracker", createCrWinTrackerRouter({
   isAdmin: (req) => !!STREAMER_TWITCH_ID && String(req.twitchId) === String(STREAMER_TWITCH_ID),
 }));
 app.use("/api/stream-tool", createStreamToolRouter({ requireAuth }));
+// Streamer-Zentrale: Stand aller Streamer-Werkzeuge des Nutzers (nur lesen), streamerZentrale/
+app.use("/api/streamer-zentrale", createStreamerZentraleRouter({ requireAuth }));
+// Community-Vorlagen der Overlay-Galerie (teilen, übernehmen, melden), overlayVorlagen/
+app.use("/api/vorlagen", createVorlagenRouter({
+  requireAuth, optionalAuth,
+  isAdmin: (req) => !!STREAMER_TWITCH_ID && String(req.twitchId) === String(STREAMER_TWITCH_ID),
+}));
 // Viewer Games: Chat-Quiz-Overlay (Pixel-/Zoom-Raten, Zuschauer raten mit !tipp), clashRoyale/viewerGames/
 app.use("/api/cr-viewer-games", createCrViewerGamesRouter({ requireAuth, ircStatus: getIrcStatus }));
 // Abo (Stripe): Stand, Bezahlseite, Kundenportal. Wer frei ist, entscheidet billing/entitlements.js
 app.use("/api/billing", createBillingRouter({ requireAuth }));
 app.use("/api/used-by", createUsedByRouter());
 // Ist der eigene Kanal live? (Hinweis in der Kopfzeile, Player der Startseite)
-app.use("/api/live", createLiveRouter({ userId: STREAMER_TWITCH_ID }));
+const liveRouter = createLiveRouter({ userId: STREAMER_TWITCH_ID });
+app.use("/api/live", liveRouter);
+
+// Mitteilungen (Web-Push, push/): Website als App. Andockstelle für alle Bereiche ist lib/mitteilungen.js
+// (meldeMitteilung); verbunden wird der Versand nur hier. Von selbst verschickt werden „Stream ist live“ (Wächter,
+// jede Minute) und „Neue Updates“ (statusWatch/postUpdates.js nach dem Frontend-Deploy).
+const pushStore = createPushStore();
+const pushVersand = createPushVersand({ store: pushStore });
+// Glocke (glocke/): persönliche Nachrichten (an `konten`) landen dort und gehen zusätzlich als Mitteilung raus
+const glockeStore = createGlockeStore();
+setInterval(() => { try { glockeStore.raeumeAuf(); } catch (e) { console.error("[glocke] Aufräumen:", e.message); } }, 24 * 3600_000).unref();
+verbindeMitteilungen(async (nachricht) => {
+  if (Array.isArray(nachricht.konten) && nachricht.konten.length) glockeStore.lege(nachricht);
+  if (nachricht.nurGlocke) return null;
+  return pushVersand.sende(nachricht);
+});
+app.use("/api/glocke", createGlockeRouter({
+  store: glockeStore, optionalKonto, requireKonto,
+  // Offener Stream-Raum (mitspielen/, weiter unten angelegt) — die Glocke zeigt „Jetzt mitspielen“
+  mitspielen: () => {
+    const r = mitspielenStore.raum();
+    return r ? { spiel: r.spiel, spielName: spielNameVon(r.spiel), modus: r.modus } : null;
+  },
+}));
+app.use("/api/push", createPushRouter({ store: pushStore, versand: pushVersand, optionalKonto }));
+if (STREAMER_TWITCH_ID) {
+  createLiveWaechter({ zustand: () => liveRouter.zustand(), store: pushStore, melde: meldeMitteilung }).start();
+}
+kontoStore.beobachte({
+  zusammengefuehrt: (ziel, quelle) => {
+    pushStore.kontoUmziehen(ziel, quelle);
+    glockeStore.kontoUmziehen(ziel, quelle);
+    feedbackStore.kontoUmziehen(ziel, quelle);
+  },
+  geloescht: (kontoId) => {
+    pushStore.kontoLoesen(kontoId);
+    glockeStore.kontoLoeschen(kontoId);
+    feedbackStore.kontoLoesen(kontoId);
+  },
+});
+
+// Einladungslinks (einladung/): Code je Konto, neues Konto nimmt an, zählt beim Wiederkommen an einem zweiten Tag →
+// Abzeichen für beide (konto/erfolge.js, Bereich „website“), Hinweis in Glocke + Mitteilung
+const einladungStore = createEinladungStore();
+const einladungDienst = createEinladungDienst({ store: einladungStore, kontoStore, melde: meldeMitteilung });
+app.use("/api/einladung", createEinladungRouter({ dienst: einladungDienst, requireKonto }));
+kontoStore.beobachte({
+  aktiv: (kontoId, tag) => einladungDienst.aktiv(kontoId, tag),
+  zusammengefuehrt: (ziel, quelle) => einladungStore.zusammenfuehren(ziel, quelle),
+  geloescht: (kontoId) => einladungStore.loesche(kontoId),
+});
+
+// „Jetzt mitspielen“ (mitspielen/): Stream-Raum im Admin setzen, Seite /mitspielen, Warteschlange mit Aufruf über
+// Glocke + Mitteilung, Klartext für den Chat-Befehl !mitspielen (Streamer.bot), optional Discord-Webhook
+const mitspielenStore = createMitspielenStore();
+app.use("/api/mitspielen", createMitspielenRouter({
+  store: mitspielenStore, optionalKonto, requireKonto, requireAuth, istBetreiber,
+  kontoAnsicht: (kontoId) => kontoStore.ansicht(kontoId), melde: meldeMitteilung,
+  liveZustand: () => liveRouter.zustand(),
+  discordPost: mitspielenDiscord(process.env.DISCORD_MITSPIELEN_WEBHOOK_URL),
+}));
+kontoStore.beobachte({
+  zusammengefuehrt: (ziel, quelle) => { mitspielenStore.kontoUmziehen(ziel, quelle); mitspielenStore.kontoWeg(quelle); },
+  geloescht: (kontoId) => mitspielenStore.kontoWeg(kontoId),
+});
+
+// Laden (laden/): Unterstützen (Einmalbeitrag → Abzeichen, Dankesliste) und Kosmetik der Spiele. Bezahlt wird über
+// Stripe; der Abo-Webhook reicht Käufe mit metadata.art = "laden" hierher. Sichtbar erst, wenn die Website den
+// Verkauf freigibt (Frontend: salesVisible() in config/legal.js).
+const ladenStore = createLadenStore();
+const ladenDienst = createLadenDienst({ store: ladenStore, kontoStore, stripe: defaultStripe, melde: meldeMitteilung });
+registriereEinmalkauf((session) => ladenDienst.abschliessen(session));
+registriereRuecknahme((r) => ladenDienst.ruecknahme(r));
+app.use("/api/laden", createLadenRouter({
+  dienst: ladenDienst, store: ladenStore, optionalKonto, requireKonto,
+  eingerichtet: () => missingStripeConfig().length === 0,
+}));
+kontoStore.beobachte({
+  zusammengefuehrt: (ziel, quelle) => ladenStore.zusammenfuehren(ziel, quelle),
+  geloescht: (kontoId) => ladenStore.kontoLoeschen(kontoId),
+});
+// Unterstützer mit verknüpftem Discord bekommen auf dem eigenen Server eine Rolle (discord/bot/supporterRole.js) —
+// nur mit DISCORD_UNTERSTUETZER_GUILD_ID und DISCORD_UNTERSTUETZER_ROLE_ID in der .env
+require("./discord/bot/supporterRole").startSupporterRoleSync(discordClient, { ids: () => ladenDienst.discordIdsDerUnterstuetzer() });
 app.use("/api/chat-avatars", createChatAvatarRouter());
 // 3D-Stream-Szenen: Steuerpult (OBS-Link mit Key) und Figurbaukasten der Zuschauer
 app.use("/api/stream-scenes", createStreamScenesRouter({ requireAuth, STREAMER_TWITCH_ID }));
@@ -480,30 +626,17 @@ app.use("/api/og", createOgRouter({
       // Clash-Royale-Stats: Name aus dem Namens-Index (clashRoyale/scout/scoutStore.js), Karte aus der Kartenliste
       scoutPlayer: (tag) => require("./clashRoyale/scout/scoutStore").getPlayer(tag),
       card: (id) => require("./clashRoyale/core/cards").ALL_CARDS.find((c) => c.id === id) || null,
-      // Öffentliches Profil: nur eingeschaltete (byLogin liefert sonst null)
-      profile: (login) => {
-        const entry = publicProfileStore.byLogin(login);
-        return entry ? { login: entry.login, displayName: entry.displayName, sections: buildPublicProfile(entry.twitchId, publicProfileSources) } : null;
-      },
+      // Visitenkarte /u/<adresse>: nur eingeschaltete (sonst null)
+      profile: (adresse) => visitenkarten.karteZu(adresse),
     };
   },
 }));
 
-// Öffentliches Profil /u/<login> (profile/profileRoutes.js), opt-in unter /profile. Jede Quelle liefert einen Abschnitt
-// oder null; Fehler einer Quelle kosten nur ihren Abschnitt.
+// Visitenkarte /u/<adresse> (profile/), opt-in unter /profile, je Konto (Twitch, Discord oder Gast). Stufe, Abzeichen,
+// Bestwerte und Lieblingsspiel kommen aus dem Konto; die Twitch-Bereiche unten nur bei verknüpftem Twitch. Jede Quelle
+// liefert einen Abschnitt oder null; Fehler einer Quelle kosten nur ihren Abschnitt.
 const publicProfileStore = createProfileStore();
 const publicProfileSources = {
-  // Konto (konto/): Website-Stufe, Abzeichen, Spiele mit Fortschritt — nur das, nie Konto-ID, Discord oder Code
-  konto: (id) => {
-    const kontoId = kontoStore.kontoVonLink("twitch", id);
-    const k = kontoId ? kontoFuerBrowser(kontoStore.ansicht(kontoId)) : null;
-    if (!k || (!k.spiele.length && !k.erfolge.length)) return null;
-    return {
-      stufe: k.stufe,
-      spiele: k.spiele.map(({ spiel, name, xp }) => ({ spiel, name, xp })),
-      erfolge: k.erfolge.map(({ spiel, erfolg, name, text, erreicht }) => ({ spiel, erfolg, name, text, erreicht })),
-    };
-  },
   winTracker: (id) => {
     const wt = require("./clashRoyale/lib/winTrackerStore");
     const acc = wt.prepare("SELECT * FROM cr_wintracker_accounts WHERE user_id = ? ORDER BY is_active DESC, last_fetched DESC LIMIT 1").get(String(id));
@@ -539,7 +672,92 @@ const publicProfileSources = {
     return { level: require("./garden/core/skills").levelZuXp(s.xp), gold: s.gold || 0 };
   },
 };
-app.use("/api/public-profile", createProfileRouter({ requireAuth, store: publicProfileStore, getSources: () => publicProfileSources }));
+/** Twitch-ID zu einem Login (Visitenkarte: fremde Twitch-Namen sind als Adresse gesperrt). null = gibt es nicht. */
+async function twitchIdVonLogin(login) {
+  if (!/^[a-z0-9][a-z0-9_]{3,24}$/.test(login)) return null; // kann kein Twitch-Login sein
+  const token = await require("./lib/twitchFollowers").getAppToken();
+  if (!token) throw new Error("Twitch-App-Zugang fehlt");
+  const r = await fetch(`https://api.twitch.tv/helix/users?login=${encodeURIComponent(login)}`, {
+    headers: { "Client-ID": process.env.TWITCH_CLIENT_ID, Authorization: `Bearer ${token}` },
+    signal: AbortSignal.timeout(4000),
+  });
+  if (r.status === 400) return null;
+  if (!r.ok) throw new Error(`Twitch ${r.status}`);
+  return (await r.json())?.data?.[0]?.id || null;
+}
+// Admin-Reiter „Abos“ (billing/adminGrants.js): das Abo von Hand vergeben oder nehmen. Der Beschenkte bekommt einen
+// Hinweis in die Glocke (nur wenn er schon ein Konto auf der Website hat).
+app.use("/api/billing/admin", require("./billing/adminGrants").createAboAdminRouter({
+  requireAuth, istBetreiber,
+  twitchNutzer: async (login) => {
+    const token = await require("./lib/twitchFollowers").getAppToken();
+    if (!token) throw new Error("Twitch-App-Zugang fehlt");
+    const r = await fetch(`https://api.twitch.tv/helix/users?login=${encodeURIComponent(login)}`, {
+      headers: { "Client-ID": process.env.TWITCH_CLIENT_ID, Authorization: `Bearer ${token}` },
+      signal: AbortSignal.timeout(4000),
+    });
+    if (r.status === 400) return null;
+    if (!r.ok) throw new Error(`Twitch ${r.status}`);
+    const u = (await r.json())?.data?.[0];
+    return u ? { id: String(u.id), login: u.login, name: u.display_name || u.login } : null;
+  },
+  benachrichtige: (twitchId, { bis }) => {
+    const kontoId = kontoStore.kontoVonLink("twitch", twitchId);
+    if (!kontoId) return;
+    const datum = (lang) => new Date(bis).toLocaleDateString(lang, { day: "numeric", month: "long", year: "numeric" });
+    meldeMitteilung({
+      nurGlocke: true, konten: [kontoId], url: "/twitch-tools", tag: "abo-geschenkt",
+      titel: { de: "Du hast das Abo bekommen", en: "You received the subscription" },
+      text: {
+        de: bis ? `Bis zum ${datum("de-DE")} sind alle Abo-Funktionen der Twitch-Overlays für dich frei. Viel Spaß!` : "Alle Abo-Funktionen der Twitch-Overlays sind für dich frei. Viel Spaß!",
+        en: bis ? `All subscription features of the Twitch overlays are unlocked for you until ${datum("en-GB")}. Have fun!` : "All subscription features of the Twitch overlays are unlocked for you. Have fun!",
+      },
+    });
+  },
+}));
+
+const crApiFuerKarte = require("./clashRoyale/lib/crApi");
+const visitenkarten = createVisitenkarten({
+  store: publicProfileStore,
+  kontoAnsicht: (kontoId) => kontoFuerBrowser(kontoStore.ansicht(kontoId)),
+  getSources: () => publicProfileSources,
+  twitchIdVonLogin,
+  holeCrSpieler: crApiFuerKarte.isConfigured() ? (tag) => crApiFuerKarte.fetchPlayerSummary(tag) : null,
+  // Bekannte CR-Konten zur Auswahl: verknüpfte der CR-Minigames und die des Win Trackers (nur lesen, Revier Spur B)
+  crKontenVon: (twitchId) => [
+    ...(require("./clashRoyale/lib/crProfileStore").getProfile(twitchId)?.crAccounts || []),
+    ...require("./clashRoyale/lib/winTrackerStore")
+      .prepare("SELECT player_tag AS tag, player_name AS name FROM cr_wintracker_accounts WHERE user_id = ?").all(String(twitchId)),
+  ],
+});
+// Alte Twitch-Profile (bis 16.11.2026) einmal als Visitenkarte am Konto übernehmen — ihre Links bleiben gültig
+try {
+  const n = publicProfileStore.uebernimmAlte((twitchId, info) => kontoStore.kontoVonLink("twitch", twitchId)
+    || kontoStore.anmelden("twitch", twitchId, info, { bestand: true }).kontoId);
+  if (n) console.log(`[profile] ${n} alte Profile als Visitenkarte übernommen`);
+} catch (e) {
+  console.error("[profile] Übernahme alter Profile:", e.message);
+}
+// Konto zusammengeführt oder gelöscht → Karte zieht mit bzw. verschwindet
+kontoStore.beobachte({
+  zusammengefuehrt(ziel, quelle) {
+    const alt = publicProfileStore.karte(quelle);
+    publicProfileStore.zusammenfuehren(ziel, quelle);
+    visitenkarten.vergiss(alt?.adresse);
+  },
+  geloescht(kontoId) {
+    const alt = publicProfileStore.karte(kontoId);
+    publicProfileStore.loesche(kontoId);
+    visitenkarten.vergiss(alt?.adresse);
+  },
+});
+// Clan-Erinnerungen (clashRoyale/scout/clanAlerts.js, Anschluss clan-erinnerungen-konto von Spur B): ziehen beim
+// Zusammenführen mit um und verschwinden beim Löschen sofort (sonst erst bei der täglichen Aufräumrunde)
+kontoStore.beobachte({
+  zusammengefuehrt: (ziel, quelle) => require("./clashRoyale/scout/clanAlerts").defaultAlertStore().moveKonto(quelle, ziel),
+  geloescht: (kontoId) => require("./clashRoyale/scout/clanAlerts").defaultAlertStore().removeKonto(kontoId),
+});
+app.use("/api/public-profile", visitenkarten.router({ requireKonto }));
 
 // "Gerade los" auf der Startseite (activity/activityRoutes.js): nur Zahlen über ihrer Schwelle werden gezeigt.
 // Jede Quelle einzeln abgesichert — fällt eine aus, fehlt nur ihre Zahl.
@@ -624,8 +842,8 @@ io.on("connection", sicherVerbinden((socket) => {
     // Virtual Farm: dauerhafte 8-Plot-Welt (Slots, Anwesenheit, Positionen)
     registerGardenSocket(socket, io, getSessionFromSocket, farmStates);
 
-    // Connect4 (Vier Gewinnt) — Link-basierte 1v1-Räume
-    registerConnect4Socket(socket, io);
+    // Spieleabend — 3D-Zimmer mit Tisch und Brettspielen (ersetzt Connect 4), Räume per Link
+    registerSpieleabendSocket(socket, io);
 
     // Clash Royale „Wer bin ich?“ — 1v1-Klappbrett per Link (clashRoyale/guessWhoRoutes.js)
     registerGuessWhoSocket(socket, io);

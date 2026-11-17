@@ -10,11 +10,12 @@ const A = ({ to, children }) => <Link to={to} className="text-accent-soft hover:
 
 export default function Agb() {
   return (
-    <LegalPage title="Allgemeine Geschäftsbedingungen" description="AGB für das Premium-Abo auf vnmvalentin.de" path="/agb">
+    <LegalPage title="Allgemeine Geschäftsbedingungen" description="AGB für das Premium-Abo und Käufe im Laden auf vnmvalentin.de" path="/agb">
       <Section title="1. Geltungsbereich und Anbieter">
         <p>
-          Diese Bedingungen gelten für das kostenpflichtige Premium-Abo auf vnmvalentin.de. Die übrigen Werkzeuge und Spiele der
-          Website sind kostenlos und können ohne Abo genutzt werden.
+          Diese Bedingungen gelten für das kostenpflichtige Premium-Abo und für Einmalkäufe im Laden auf vnmvalentin.de
+          (Abschnitt 6). Die übrigen Werkzeuge und Spiele der Website sind kostenlos und können ohne Abo oder Kauf genutzt
+          werden.
         </p>
         <p>Vertragspartner ist:</p>
         <Operator />
@@ -54,7 +55,7 @@ export default function Agb() {
           Das Abo kostet {PREMIUM_PRICE} pro Monat.{" "}
           {LEGAL.kleinunternehmer
             ? "Als Kleinunternehmer im Sinne von § 19 Abs. 1 UStG berechnen wir keine Umsatzsteuer; der genannte Preis ist der Endpreis."
-            : "Der genannte Preis ist der Endpreis."}
+            : "Der genannte Preis ist der Endpreis und enthält die gesetzliche Umsatzsteuer."}
         </p>
         <p>
           Der Betrag wird monatlich im Voraus über Stripe eingezogen, erstmals bei Vertragsschluss. Welche Zahlungsarten zur
@@ -78,21 +79,50 @@ export default function Agb() {
         </p>
       </Section>
 
-      <Section title="6. Widerrufsrecht">
+      <Section title="6. Einmalkäufe im Laden">
+        <p>
+          Im <A to="/laden">Laden</A> können Sie die Website mit einem einmaligen Beitrag unterstützen („Unterstützung“) und
+          Designs für die Spiele kaufen („Designs“). Beides ist kein Abo; es wird nur einmal bezahlt.
+        </p>
+        <List
+          items={[
+            "Unterstützung: Sie erhalten das Abzeichen „Unterstützer“ in Ihrem Konto und, wenn Sie das wählen, einen Eintrag mit Ihrem Kontonamen auf der Dankesliste. Den Eintrag können Sie jederzeit wieder entfernen. Weitere Leistungen sind damit nicht verbunden.",
+            "Designs verändern nur das Aussehen im jeweiligen Spiel und bringen keinen Vorteil. Sie werden nach der Zahlung sofort in Ihrem Konto freigeschaltet und stehen zur Verfügung, solange das Spiel auf der Website angeboten wird.",
+          ]}
+        />
+        <p>
+          Käufe hängen an dem Konto der Website, mit dem Sie beim Kauf angemeldet sind (Twitch, Discord oder Gast), und sind
+          nicht übertragbar. Löschen Sie das Konto, entfallen Abzeichen und Designs.
+        </p>
+        <p>
+          Mit dem Klick auf „Zahlungspflichtig kaufen“ gelangen Sie zur Bezahlseite von Stripe. Der Vertrag kommt zustande,
+          sobald Sie die Bestellung dort abschließen und die Zahlung bestätigt wird. Die Einschränkung auf Rechnungsadressen
+          in Deutschland und der EU aus Abschnitt 3 gilt auch hier; bei einer Adresse außerhalb erstatten wir die Zahlung
+          vollständig.
+        </p>
+        <p>
+          Die Preise stehen im Laden und auf der Bezahlseite.{" "}
+          {LEGAL.kleinunternehmer
+            ? "Als Kleinunternehmer im Sinne von § 19 Abs. 1 UStG berechnen wir keine Umsatzsteuer; die genannten Preise sind Endpreise."
+            : "Die genannten Preise sind Endpreise und enthalten die gesetzliche Umsatzsteuer."}
+        </p>
+      </Section>
+
+      <Section title="7. Widerrufsrecht">
         <p>
           Verbraucherinnen und Verbrauchern steht ein Widerrufsrecht zu. Die Belehrung und ein Muster-Formular finden Sie unter{" "}
           <A to="/widerruf">Widerrufsrecht</A>.
         </p>
       </Section>
 
-      <Section title="7. Verfügbarkeit">
+      <Section title="8. Verfügbarkeit">
         <p>
           Wir bemühen uns um einen störungsfreien Betrieb, können eine ununterbrochene Verfügbarkeit aber nicht zusagen.
           Wartungsarbeiten, Störungen bei Twitch oder beim Hosting können die Nutzung vorübergehend einschränken.
         </p>
       </Section>
 
-      <Section title="8. Haftung">
+      <Section title="9. Haftung">
         <p>
           Wir haften unbeschränkt bei Vorsatz und grober Fahrlässigkeit sowie bei Schäden aus der Verletzung des Lebens, des
           Körpers oder der Gesundheit. Bei leichter Fahrlässigkeit haften wir nur bei Verletzung einer wesentlichen
@@ -101,7 +131,7 @@ export default function Agb() {
         </p>
       </Section>
 
-      <Section title="9. Schlussbestimmungen">
+      <Section title="10. Schlussbestimmungen">
         <p>
           Es gilt deutsches Recht. Gegenüber Verbraucherinnen und Verbrauchern gilt diese Rechtswahl nur, soweit ihnen dadurch
           nicht der Schutz zwingender Bestimmungen des Staates entzogen wird, in dem sie ihren gewöhnlichen Aufenthalt haben.

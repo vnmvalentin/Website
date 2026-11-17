@@ -28,8 +28,8 @@
 import React, { useEffect, useRef } from 'react';
 import CardFace from '../../ui/CardFace';
 import { CrStar } from '../../ui/CrIcons';
-import crownIcon from '../../../../assets/clashRoyale/ui/crown.png';
-import elixirIcon from '../../../../assets/clashRoyale/ui/elixir_1.png';
+import crownIcon from '../../../../assets/clashRoyale/ui/crown.webp';
+import elixirIcon from '../../../../assets/clashRoyale/ui/elixir_1.webp';
 import { avatarUrl } from '../../components/avatars';
 import { useRevealClock } from './useRevealClock';
 

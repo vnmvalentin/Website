@@ -8,6 +8,10 @@
 // Classic/Grand/20 Win (live geprüft 26.10.2026): Battle `type: "trail"`, gameMode bei allen drei
 // gleich ("Challenge_AllCards_EventDeck_NoSet"), challengeId/challengeTitle/challengeWinCountBefore
 // kommen NICHT. Unterscheidung allein über eventTag → Titel aus GET /events.
+// Die Siege des Runs stehen trotzdem im Battle, wie bei der Crown Series: team.startingTrophies = Siege
+// VOR dem Match (fehlt bei 0), Sieg: trophyChange 1, Niederlage: keins. Geprüft 16.11.2026 an 4.211
+// gespeicherten Challenge-Kämpfen der Stats-Seite (bis 19 Siege, also auch 20 Win): 3.612 Folgen passen
+// exakt, die 6 Abweichungen sind Sync-Lücken oder parallel gespielte Classic- und Grand-Runs.
 //
 // Crown Series (live geprüft 13.11.2026, 234 Duelle von 105 Spielern, erstes Duel Weekend):
 //   type "unknown", gameMode "Competitive_Multideck", arena "Arena_competitive",
@@ -110,18 +114,26 @@ function rulesOf(key, overrides) {
  * challenge_wins_before kleiner ist als die bisher gezählten Siege (Run abgebrochen/neu gestartet)
  * oder die Pause länger war als maxGapMs (Crown Series: neues Wochenende).
  * Ein Unentschieden zählt in Challenges als Niederlage.
+ * Manueller Session-Reset (resetMs): Matches davor zählen nicht mehr, ein laufender Run beginnt
+ * danach bei 0. Sonst hinge ein Run, dessen letzte Niederlage nie gesehen wurde (Sync-Lücke, Event
+ * vorbei), für immer fest — Classic/Grand/20 Win kennen kein Pausen-Ende. Das nächste Match nach dem
+ * Reset bringt die echten Siege ohnehin mit (challenge_wins_before). Ausnahme Crown Series: der Lauf
+ * ist dort der Wochenend-Stand des Spielers und bleibt über den Reset hinweg stehen.
  * @param {Array<{battle_time_ms: number, result: string, challenge_wins_before: number|null}>} rows
  * @param {string} key
  * @param {{maxLosses?: number, maxWins?: number, maxGames?: number}} [overrides]
+ * @param {number} [resetMs] Zeitpunkt des letzten manuellen Session-Resets (0 = keiner)
  * @returns {Array<{startMs: number, lastMs: number, wins: number, losses: number, finished: boolean, results: string}>}
  *          results = Ergebnisse der gesehenen Matches in Spielreihenfolge ("w"/"l")
  */
-function buildRuns(rows, key, overrides) {
+function buildRuns(rows, key, overrides, resetMs = 0) {
   const cfg = rulesOf(key, overrides);
   if (!cfg) return [];
+  const cutMs = isCrownSeries(key) ? 0 : (Number(resetMs) || 0);
   const runs = [];
   let cur = null;
   for (const r of rows || []) {
+    if (r.battle_time_ms < cutMs) continue;
     const before = Number.isInteger(r.challenge_wins_before) ? r.challenge_wins_before : null;
     const paused = cur && cfg.maxGapMs && r.battle_time_ms - cur.lastMs > cfg.maxGapMs;
     if (!cur || cur.finished || paused || (before !== null && before < cur.wins)) {
@@ -170,10 +182,15 @@ function challengeState(runs, key, sessionStartMs, overrides, nowMs = Date.now()
 
 const isChallengeKey = (key) => CHALLENGE_BY_KEY.has(key);
 
-/** Modi, bei denen team.startingTrophies die Siege des Laufs vor dem Match ist (Crown Series). */
-const countsWinsInStartingTrophies = (key) => key === 'duel' || key === 'grandduel';
+/** Crown Series (Duel + Grand Duel Weekend): Liga-Wahl, Lauf bleibt über den manuellen Reset stehen. */
+const isCrownSeries = (key) => key === 'duel' || key === 'grandduel';
+
+/** Modi, bei denen team.startingTrophies die Siege des Laufs vor dem Match ist: Crown Series und die
+ *  Challenges. Global Tournament nicht — dort lief noch keins, die Bedeutung ist ungeprüft. */
+const WINS_IN_STARTING_TROPHIES = new Set(['duel', 'grandduel', 'classic', 'grand', '20win']);
+const countsWinsInStartingTrophies = (key) => WINS_IN_STARTING_TROPHIES.has(key);
 
 module.exports = {
   CHALLENGES, CROWN_LEAGUE_COUNT, classifyBattle, buildRuns, challengeState, isChallengeKey,
-  countsWinsInStartingTrophies, grandDuelRules,
+  countsWinsInStartingTrophies, isCrownSeries, grandDuelRules,
 };

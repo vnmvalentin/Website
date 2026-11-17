@@ -3,6 +3,7 @@
 //
 // Der Strand ist statisch und wird einmal pro Feldbreite in ein Offscreen-Canvas gemalt —
 // Palmen, Wellen und Wolken jeden Frame neu zu zeichnen wäre pure Verschwendung.
+import { sauberZier, zierIstHut } from "./zier.js";
 import {
   WORLD_H, GROUND_Y, BALL_RADIUS, NET_RADIUS,
   BLOBBY_UPPER_SPHERE, BLOBBY_UPPER_RADIUS, BLOBBY_LOWER_SPHERE, BLOBBY_LOWER_RADIUS,
@@ -295,7 +296,7 @@ function blobHullPath(ctx, x, upperY, upperR, lowerY, lowerR) {
   ctx.closePath();
 }
 
-function drawBlob(ctx, b, color, ball, name, scale, mirror) {
+function drawBlob(ctx, b, color, ball, name, scale, mirror, zier = 0) {
   const upperY = b.y - BLOBBY_UPPER_SPHERE * scale;
   const upperR = BLOBBY_UPPER_RADIUS * scale;
   const lowerY = b.y + BLOBBY_LOWER_SPHERE * scale;
@@ -335,10 +336,12 @@ function drawBlob(ctx, b, color, ball, name, scale, mirror) {
   ctx.arc(b.x + dx * 10 * scale, eyeCy + dy * 7 * scale, 3.6 * scale, 0, TAU);
   ctx.fill();
 
+  if (zier) drawZier(ctx, zier, b.x, upperY, upperR, eyeCy, scale);
+
   if (name) {
     // Im gespiegelten Feld muss die Schrift zurückgedreht werden, sonst steht sie verkehrt
     ctx.save();
-    ctx.translate(b.x, upperY - upperR - 12);
+    ctx.translate(b.x, upperY - upperR - (zierIstHut(zier) ? 26 * scale : 12));
     if (mirror) ctx.scale(-1, 1);
     ctx.font = "bold 17px system-ui, sans-serif";
     ctx.textAlign = "center";
@@ -351,14 +354,74 @@ function drawBlob(ctx, b, color, ball, name, scale, mirror) {
   }
 }
 
+// Accessoires aus dem Laden (zier.js): 1 Sonnenbrille als Sportbrille quer über dem Auge, 2 Strohhut mit rotem Band
+function drawZier(ctx, zier, x, upperY, upperR, eyeCy, scale) {
+  if (zier === 1) {
+    const h = 11 * scale;
+    ctx.save();
+    ctx.beginPath();
+    ctx.ellipse(x, eyeCy, upperR * 1.02, h, 0, Math.PI * 1.08, Math.PI * 1.92);
+    ctx.ellipse(x, eyeCy + h * 0.35, upperR * 1.02, h * 0.9, 0, Math.PI * 0.08, Math.PI * 0.92);
+    ctx.closePath();
+    ctx.fillStyle = "#1b1f2a";
+    ctx.fill();
+    ctx.clip();
+    // Spiegelung: zwei schräge Streifen
+    ctx.fillStyle = "rgba(125, 205, 255, 0.55)";
+    for (const [ox, w] of [[-0.35, 5], [-0.12, 2.5]]) {
+      ctx.beginPath();
+      ctx.moveTo(x + ox * upperR * 2, eyeCy + h);
+      ctx.lineTo(x + ox * upperR * 2 + w * scale, eyeCy + h);
+      ctx.lineTo(x + ox * upperR * 2 + (w + 9) * scale, eyeCy - h);
+      ctx.lineTo(x + ox * upperR * 2 + 9 * scale, eyeCy - h);
+      ctx.closePath();
+      ctx.fill();
+    }
+    ctx.restore();
+    ctx.fillStyle = "#1b1f2a";
+    ctx.fillRect(x - upperR * 1.05, eyeCy - 2 * scale, 4 * scale, 4 * scale);
+    ctx.fillRect(x + upperR * 1.05 - 4 * scale, eyeCy - 2 * scale, 4 * scale, 4 * scale);
+  } else if (zier === 2) {
+    const brimY = upperY - upperR * 0.6;
+    const crownH = upperR * 0.7;
+    const crownW = upperR * 0.74;
+    ctx.fillStyle = "#c99b45";
+    ctx.beginPath();
+    ctx.ellipse(x, brimY + 1.8 * scale, upperR * 1.48, 7.5 * scale, 0, 0, TAU);
+    ctx.fill();
+    ctx.fillStyle = "#e8c873";
+    ctx.beginPath();
+    ctx.ellipse(x, brimY, upperR * 1.45, 7 * scale, 0, 0, TAU);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(x - crownW, brimY);
+    ctx.lineTo(x - crownW * 0.86, brimY - crownH);
+    ctx.quadraticCurveTo(x, brimY - crownH * 1.25, x + crownW * 0.86, brimY - crownH);
+    ctx.lineTo(x + crownW, brimY);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = "#d8343f";
+    ctx.fillRect(x - crownW * 0.97, brimY - crownH * 0.36, crownW * 1.94, crownH * 0.26);
+    // Flechtstruktur
+    ctx.strokeStyle = "rgba(150, 105, 40, 0.45)";
+    ctx.lineWidth = 1.2 * scale;
+    for (let k = -2; k <= 2; k += 1) {
+      ctx.beginPath();
+      ctx.moveTo(x + k * crownW * 0.32, brimY - crownH * 0.4);
+      ctx.lineTo(x + k * crownW * 0.3, brimY - crownH * 1.02);
+      ctx.stroke();
+    }
+  }
+}
+
 // Klassischer Volleyball: weißes Leder, drei geschwungene Panelbahnen, Nähte
 function drawBall(ctx, ball, rot) {
+  const r = ball.r || BALL_RADIUS;   // Riesenball (Partyregel) ist größer
   ctx.fillStyle = "rgba(58, 36, 12, 0.24)";
   ctx.beginPath();
-  ctx.ellipse(ball.x, GROUND_Y + 6, BALL_RADIUS * 0.78, 6, 0, 0, TAU);
+  ctx.ellipse(ball.x, GROUND_Y + 6, r * 0.78, 6, 0, 0, TAU);
   ctx.fill();
 
-  const r = BALL_RADIUS;
   ctx.save();
   ctx.translate(ball.x, ball.y);
   ctx.rotate(rot);
@@ -563,10 +626,15 @@ export function drawScene(ctx, w, opts) {
   for (const slot of [...slots].sort((a, b) => b - a)) {
     const b = w.blobs[slot];
     if (!b) continue;
-    drawBlob(ctx, b, SLOT_COLOR[slot].hex, w.ball, names[slot], b.scale || 1, mirror);
+    drawBlob(ctx, b, SLOT_COLOR[slot].hex, w.ball, names[slot], b.scale || 1, mirror, sauberZier(opts.ziers?.[slot]));
   }
 
   if (w.powerup) drawPowerup(ctx, w.powerup, w.bob, mirror);
   drawBall(ctx, w.ball, w.rot);
   if (w.ball.y < 0) drawBallMarker(ctx, w.ball, w.width);
+  // Doppelball: zweiter Ball, gegenläufig gedreht
+  if (w.ball2) {
+    drawBall(ctx, w.ball2, -w.rot);
+    if (w.ball2.y < 0) drawBallMarker(ctx, w.ball2, w.width);
+  }
 }

@@ -64,13 +64,85 @@ export const THEME_DEFAULTS = {
   opacity: 80,
   glass: true,
   radius: 12,
+  // Schrift aller Karten (OVERLAY_FONTS). Alles außer 'inter' gehört zum Abo — ohne Abo zeigt die Quelle Inter.
+  font: 'inter',
 };
+
+/**
+ * Schriften für die Karten (Abo-Extra), alle von Google Fonts. family = CSS-Name, query = Teil der Adresse
+ * (fonts.googleapis.com/css2?family=…). Inter lädt die Seite ohnehin (index.html).
+ */
+export const OVERLAY_FONTS = [
+  { id: 'inter', label: 'Inter', family: 'Inter', query: null },
+  { id: 'montserrat', label: 'Montserrat', family: 'Montserrat', query: 'Montserrat:wght@400;500;600;700;800;900' },
+  { id: 'poppins', label: 'Poppins', family: 'Poppins', query: 'Poppins:wght@400;500;600;700;800;900' },
+  { id: 'rubik', label: 'Rubik', family: 'Rubik', query: 'Rubik:wght@400;500;600;700;800;900' },
+  { id: 'nunito', label: 'Nunito', family: 'Nunito', query: 'Nunito:wght@400;600;700;800;900' },
+  { id: 'fredoka', label: 'Fredoka', family: 'Fredoka', query: 'Fredoka:wght@400;500;600;700' },
+  { id: 'space-grotesk', label: 'Space Grotesk', family: 'Space Grotesk', query: 'Space+Grotesk:wght@400;500;600;700' },
+  { id: 'oswald', label: 'Oswald', family: 'Oswald', query: 'Oswald:wght@400;500;600;700' },
+  // Nur eine Stärke — ohne single würde der Browser Fettschrift künstlich verbreitern (verschmiert)
+  { id: 'lilita', label: 'Lilita One', family: 'Lilita One', query: 'Lilita+One', single: true },
+  { id: 'jetbrains', label: 'JetBrains Mono', family: 'JetBrains Mono', query: 'JetBrains+Mono:wght@400;500;600;700;800' },
+];
+const FONT_BY_ID = Object.fromEntries(OVERLAY_FONTS.map((f) => [f.id, f]));
+
+/** CSS-Schriftliste einer Schrift-ID; null für Inter (die Karten haben sie schon im Stylesheet). */
+export function fontFamilyOf(id) {
+  const f = FONT_BY_ID[id];
+  return f && f.query ? `"${f.family}", Inter, system-ui, sans-serif` : null;
+}
+
+/** Hat die Schrift nur eine Stärke? Dann darf der Browser keine Fettschrift vortäuschen (font-synthesis: none). */
+export const fontIsSingle = (id) => !!FONT_BY_ID[id]?.single;
+
+/** Adresse der Schriftdatei für useFontLink; null, wenn nichts zu laden ist. */
+export function fontHref(id) {
+  const f = FONT_BY_ID[id];
+  return f && f.query ? `https://fonts.googleapis.com/css2?family=${f.query}&display=swap` : null;
+}
+
+/** Alle Schriften in einer Stärke — nur für die Auswahl im Design-Menü, wo jede Schrift sich selbst zeigt. */
+export const ALL_FONTS_HREF = `https://fonts.googleapis.com/css2?${OVERLAY_FONTS
+  .filter((f) => f.query)
+  .map((f) => `family=${f.family.replace(/ /g, '+')}${f.single ? '' : ':wght@600'}`)
+  .join('&')}&display=swap`;
+
+/** Adresse einer hochgeladenen Datei (Ton oder Bild eines Alerts, Backend/streamTool/lib/streamToolMedia.js). */
+export const mediaUrl = (id) => (typeof id === 'string' && /^[A-Za-z0-9_-]{16}$/.test(id) ? `/api/stream-tool/media/file/${id}` : null);
+
+/** Eigener Ton und eigenes Bild einer Alert-Art: { sound, image } als Adressen oder null. */
+export function alertMediaOf(module, kind) {
+  const m = module?.media?.[kind];
+  return { sound: mediaUrl(m?.sound), image: mediaUrl(m?.image) };
+}
+
+/**
+ * Konfiguration ohne die Abo-Extras — so, wie die OBS-Quelle sie ohne Abo bekommt (Backend: lib/premiumExtras.js).
+ * Der Editor zeigt damit in der Vorschau dasselbe wie der Stream. Die Szenen schaltet er selbst per Schloss.
+ */
+export function withoutPremium(config) {
+  if (!config) return config;
+  const out = { ...config, theme: { ...(config.theme || {}), font: 'inter' } };
+  const media = config.modules?.alerts?.media;
+  if (media && typeof media === 'object' && Object.keys(media).length) {
+    out.modules = { ...config.modules, alerts: { ...config.modules.alerts, media: {} } };
+  }
+  return out;
+}
 
 /**
  * Karten, die dem gemeinsamen Design folgen. Die Murmelbahn fehlt bewusst: sie
  * ist eine große Zeichenfläche mit eigener, höherer Deckkraft.
  */
-export const THEMED_IDS = ['poll', 'prediction', 'followerGoal', 'subGoal', 'streamStats', 'raidClip', 'alerts'];
+export const THEMED_IDS = ['poll', 'prediction', 'followerGoal', 'subGoal', 'streamStats', 'raidClip', 'alerts', 'subathon'];
+
+/**
+ * Regeln des Subathon-Timers in Sekunden: je Abo nach Stufe, je 100 Bits, je ganzer Währungseinheit einer Spende.
+ * Gleiche Schlüssel und Standardwerte wie RULE_KEYS/DEFAULT_RULES in Backend/streamTool/lib/subathonCore.js.
+ */
+export const SUBATHON_RULE_KEYS = ['sub1', 'sub2', 'sub3', 'bits100', 'donation'];
+export const SUBATHON_CURRENCIES = ['€', '$', '£'];
 
 /** Arten von Alerts — Reihenfolge wie im Editor. Gleiche Liste wie KINDS in Backend/streamTool/lib/alertsCore.js. */
 export const ALERT_KINDS = ['follow', 'sub', 'resub', 'gift', 'bits', 'raid'];
@@ -97,6 +169,7 @@ export function effectiveModules(config) {
       ...(mod.ownLook ? {} : { accent: theme.accent, opacity: theme.opacity, glass: theme.glass }),
       style: theme.style,
       radius: theme.radius,
+      font: theme.font,
     };
   }
   return out;
@@ -247,6 +320,8 @@ export const MODULE_DEFAULTS = {
     volume: 60,
     // Text vorlesen (Sprachausgabe des Rechners) — ob OBS Stimmen hat, hängt vom PC ab
     tts: false,
+    // Eigener Ton und eigenes Bild je Art (Abo-Extra): { follow: { sound: <Datei-ID>, image: <Datei-ID> }, … }
+    media: {},
     // Texte je Art. Platzhalter: {name} {amount} {months} {subs} {bits} {viewers} {tier}
     textFollow: '{name} folgt jetzt!',
     textSub: '{name} hat abonniert!',
@@ -254,6 +329,39 @@ export const MODULE_DEFAULTS = {
     textGift: '{name} verschenkt {subs}!',
     textBits: '{name} schickt {bits}!',
     textRaid: '{name} raidet mit {viewers}!',
+  },
+  // Countdown, den Abos, Bits und Spenden verlängern. Gesteuert im Editor (Start, Pause, Zeit, Spenden) oder per
+  // !subathon im Chat; der Stand liegt am Server (Backend/streamTool/lib/subathonCore.js).
+  subathon: {
+    ...BASE_MODULE,
+    enabled: false,
+    // 440 px breit -> oben rechts mit etwas Rand
+    x: 1420,
+    y: 50,
+    timer: false,
+    // Farbe der gutgeschriebenen Zeit („+5:00“)
+    colors: [CATEGORICAL[2]],
+    label: 'Subathon',
+    // Womit der Timer beim Start beginnt
+    startMinutes: 60,
+    // Höchstdauer insgesamt (gelaufen + übrig) in Stunden; 0 = keine
+    capHours: 0,
+    rules: { sub1: 300, sub2: 600, sub3: 1500, bits100: 60, donation: 60 },
+    countResubs: true,
+    countGifts: true,
+    currency: '€',
+    showHead: true,
+    // Letzte Verlängerung unter der Zeit
+    showLast: true,
+    // „+5:00“ springt kurz neben der Zeit auf
+    showPop: true,
+    // Obergrenze unter der Zeit nennen (nur wenn eine eingestellt ist)
+    showCap: true,
+    // Vor dem Start ausblenden statt die Startzeit zu zeigen
+    hideIdle: false,
+    // !subathon zeigt jedem die Restzeit; Mods steuern per Chat
+    chatInfo: true,
+    chatMods: true,
   },
 
   /* ── Szenen ──────────────────────────────────────────────────────────────
@@ -461,6 +569,7 @@ function mergeTheme(saved) {
   if (Number.isFinite(Number(saved.opacity))) t.opacity = Math.min(100, Math.max(0, Number(saved.opacity)));
   if (Number.isFinite(Number(saved.radius))) t.radius = Math.min(24, Math.max(0, Number(saved.radius)));
   if (typeof saved.glass === 'boolean') t.glass = saved.glass;
+  if (FONT_BY_ID[saved.font]) t.font = saved.font;
   return t;
 }
 
@@ -485,6 +594,9 @@ export function mergeConfig(saved) {
     }
     if (def.kinds) {
       merged.kinds = { ...def.kinds, ...(got?.kinds && typeof got.kinds === 'object' ? got.kinds : {}) };
+    }
+    if (def.rules) {
+      merged.rules = { ...def.rules, ...(got?.rules && typeof got.rules === 'object' ? got.rules : {}) };
     }
     modules[id] = merged;
   }
@@ -982,6 +1094,109 @@ export function alertTextParts(template, ev, t, num) {
     else if (piece) parts.push({ text: piece, isName: false });
   }
   return parts;
+}
+
+/* ── Subathon-Timer ───────────────────────────────────────────────────────── */
+
+/** Zeit wie im Overlay, immer mit Stunden: "3:05:09", "0:12:04". Gleich wie clockText in subathonCore.js. */
+export function subathonClock(ms) {
+  const total = Math.max(0, Math.floor((Number(ms) || 0) / 1000));
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const s = total % 60;
+  return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+}
+
+/** Gutgeschriebene Zeit: "+5:00", "-1:30", "+1:02:00". Gleich wie deltaText in subathonCore.js. */
+export function subathonDelta(ms) {
+  const v = Number(ms) || 0;
+  const sign = v < 0 ? '-' : '+';
+  const total = Math.round(Math.abs(v) / 1000);
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const s = total % 60;
+  return h > 0
+    ? `${sign}${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
+    : `${sign}${m}:${String(s).padStart(2, '0')}`;
+}
+
+/** Startzeit des Moduls in ms — dieselbe Prüfung wie startMsOf/capMsOf am Server. */
+export function subathonStartMs(module) {
+  const v = Number(module?.startMinutes);
+  const minutes = Number.isFinite(v) && v > 0 ? v : 60;
+  const start = Math.min(999 * 3600000, Math.max(60000, Math.round(minutes * 60000)));
+  const h = Number(module?.capHours);
+  const cap = Number.isFinite(h) && h > 0 ? Math.max(60000, Math.round(h * 3600000)) : 0;
+  return cap ? Math.min(start, cap) : start;
+}
+
+/** Restzeit jetzt. Läuft der Timer, rechnet die Seite zwischen zwei Abrufen selbst aus endsAt weiter. */
+export function subathonRemaining(data, module, now) {
+  if (!data) return 0;
+  if (data.status === 'running') return Math.max(0, (Number(data.endsAt) || 0) - now);
+  if (data.status === 'idle') return subathonStartMs(module);
+  return Math.max(0, Number(data.remainingMs) || 0);
+}
+
+/**
+ * Anzeigedaten der Karte; null = nichts zeigen. Die Restzeit selbst rechnet das Widget im Sekundentakt
+ * (subathonRemaining), damit nicht die ganze Seite jede Sekunde neu zeichnen muss.
+ */
+export function toSubathonView(data, module) {
+  if (!data) return null;
+  if (module.hideIdle && data.status === 'idle') return null;
+  const recent = Array.isArray(data.recent) ? data.recent : [];
+  return {
+    status: data.status,
+    endsAt: Number(data.endsAt) || 0,
+    remainingMs: Number(data.remainingMs) || 0,
+    elapsedMs: Number(data.elapsedMs) || 0,
+    capMs: Number(data.capMs) || 0,
+    capReached: !!data.capReached,
+    recent,
+    last: recent[recent.length - 1] || null,
+    color: module.colors?.[0] || module.accent,
+    // Happy Hour (Abo-Extra): ×2/×3 bis until — der Server schickt sie nur mit Abo
+    happy: data.happy && [2, 3].includes(Number(data.happy.factor)) && Number(data.happy.until) > 0
+      ? { factor: Number(data.happy.factor), until: Number(data.happy.until) }
+      : null,
+  };
+}
+
+/** Restzeit der Happy Hour in ms (0 = keine oder vorbei). */
+export function subathonHappyLeft(data, now) {
+  return data?.happy ? Math.max(0, data.happy.until - now) : 0;
+}
+
+/**
+ * Was eine Verlängerung war, als kurzer Text: "Abo · Stufe 2", "5 Geschenk-Abos", "500 Bits", "10 € Spende".
+ * @param {object} t  Texte aus overlayI18n (subWhat, tierWord, bitsWord)
+ */
+export function subathonWhat(entry, t, num, currency = '€') {
+  if (!entry) return '';
+  const n = Number(entry.amount) || 0;
+  const tier = entry.tier && entry.tier !== '1' ? ` · ${t.tierWord[entry.tier] || ''}` : '';
+  if (entry.kind === 'sub') return `${t.subWhat.sub}${tier}`;
+  if (entry.kind === 'resub') return `${t.subWhat.resub}${tier}`;
+  if (entry.kind === 'gift') return `${t.subWhat.gift(n, num(n))}${tier}`;
+  if (entry.kind === 'bits') return t.bitsWord(n, num(n));
+  if (entry.kind === 'donation') return t.subWhat.donation(t.subMoney(n, currency));
+  return t.subWhat.manual;
+}
+
+const SUBATHON_DEMO_T0 = Date.now();
+
+/** Beispiel-Stand für die Bühne im Editor und ?demo=1 (zählt von 4:12:30 herunter). */
+export function demoSubathon() {
+  return {
+    status: 'running',
+    endsAt: SUBATHON_DEMO_T0 + (4 * 3600 + 12 * 60 + 30) * 1000,
+    remainingMs: 0,
+    elapsedMs: 0,
+    capMs: 0,
+    capReached: false,
+    recent: [{ id: 'demo-gift', at: SUBATHON_DEMO_T0, kind: 'gift', name: 'Mika', amount: 5, tier: '1', ms: 1500000 }],
+  };
 }
 
 /** Beispiel-Alert für die Bühne im Editor (zum Ausrichten). */

@@ -202,6 +202,77 @@ html[data-low-gfx] *::after {
 html[data-low-gfx] .app-bg__orb { animation: none !important; will-change: auto; }
 
 /* ===================================================================
+   BARRIEREFREIHEIT (utils/barrierefrei.js, Einstellungen auf /barrierefreiheit)
+   =================================================================== */
+
+/* Fokusrahmen für die Tastatur auf allem, was man anspringen kann. In @layer base: Bauteile mit eigenem Fokus-Stil
+   (z. B. focus:outline-none + Rahmenfarbe an Eingabefeldern) überschreiben ihn weiterhin. */
+@layer base {
+  :where(a[href], button, summary, select, [role="button"], [role="switch"], [role="tab"], [role="option"],
+    input[type="checkbox"], input[type="radio"], input[type="range"], [tabindex]:not([tabindex="-1"])):focus-visible {
+    outline: 2px solid var(--color-accent-soft);
+    outline-offset: 2px;
+  }
+}
+
+/* „Zum Inhalt springen“ (Layout.jsx): erst sichtbar, wenn man mit Tab hineinkommt */
+.sprung-link {
+  position: fixed;
+  top: 0.5rem;
+  left: 0.5rem;
+  z-index: 100000;
+  padding: 0.6rem 1rem;
+  border-radius: 0.5rem;
+  background: var(--color-accent);
+  color: #fff;
+  font-size: 0.875rem;
+  font-weight: 600;
+  transform: translateY(-200%);
+}
+.sprung-link:focus { transform: none; outline: 2px solid #fff; outline-offset: 2px; }
+
+/* Wie im System: Einblenden beim Seitenwechsel ist automatische Bewegung — unter „reduzieren" weg.
+   Aufklappen nach einem Klick (dropdown-in) bleibt, das löst man selbst aus. */
+@media (prefers-reduced-motion: reduce) {
+  .page-fade { animation: none; }
+}
+
+/* „Bewegung reduzieren: Immer" — bewusst gewählt, deshalb für alles: Animationen und Übergänge springen ans Ende.
+   Verzögerungen bleiben (anders als im Sparmodus), damit nichts früher erscheint, als es soll. */
+html[data-bewegung="reduziert"] *,
+html[data-bewegung="reduziert"] *::before,
+html[data-bewegung="reduziert"] *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+}
+html[data-bewegung="reduziert"] .app-bg__orb { animation: none !important; }
+
+/* „Farben nicht allein": Links im Fließtext zusätzlich unterstrichen */
+html[data-farbhilfe] :is(main, footer) :is(p, li, dd, td) a[href] {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* „Mehr Kontrast" (eigene Wahl oder prefers-contrast: more): blasse Schrift, Ränder und Platzhalter kräftiger.
+   In @layer utilities und mit :where(), damit Hover-Farben (hover:text-white) weiterhin gewinnen. /10 und /15
+   bleiben: das ist reine Zierde (z. B. die große 404). */
+@layer utilities {
+  :where(html[data-kontrast="hoch"]) {
+    --color-line: rgb(255 255 255 / 0.3);
+  }
+  :where(html[data-kontrast="hoch"]) :is(.text-white\/20, .text-white\/25, .text-white\/30, .text-white\/35) { color: rgb(255 255 255 / 0.66); }
+  :where(html[data-kontrast="hoch"]) :is(.text-white\/40, .text-white\/45, .text-white\/50) { color: rgb(255 255 255 / 0.76); }
+  :where(html[data-kontrast="hoch"]) :is(.text-white\/55, .text-white\/60, .text-white\/65) { color: rgb(255 255 255 / 0.84); }
+  :where(html[data-kontrast="hoch"]) :is(.text-white\/70, .text-white\/75) { color: rgb(255 255 255 / 0.9); }
+  :where(html[data-kontrast="hoch"]) :is(.text-gray-400, .text-gray-500, .text-zinc-400, .text-zinc-500, .text-slate-400, .text-slate-500) { color: #d4d4dc; }
+  :where(html[data-kontrast="hoch"]) :is(.border-white\/5, .border-white\/10, .border-white\/\[0\.06\], .border-white\/\[0\.08\]) { border-color: rgb(255 255 255 / 0.3); }
+  :where(html[data-kontrast="hoch"]) :is(.border-white\/15, .border-white\/20) { border-color: rgb(255 255 255 / 0.4); }
+}
+html[data-kontrast="hoch"] ::placeholder { color: rgb(255 255 255 / 0.62) !important; }
+
+/* ===================================================================
    PANELS / OBERFLÄCHEN
    =================================================================== */
 .panel {
@@ -1117,7 +1188,7 @@ summary::-webkit-details-marker { display: none; }
   height: 42px;
   margin-top: -13px;
   border: none;
-  background: url("./assets/clashRoyale/ui/elixir_1.png") center / contain no-repeat;
+  background: url("./assets/clashRoyale/ui/elixir_1.webp") center / contain no-repeat;
   filter: drop-shadow(0 3px 2px rgba(2, 8, 20, 0.6));
   transition: transform 0.1s ease;
 }
@@ -1125,7 +1196,7 @@ summary::-webkit-details-marker { display: none; }
   width: 36px;
   height: 42px;
   border: none;
-  background: url("./assets/clashRoyale/ui/elixir_1.png") center / contain no-repeat;
+  background: url("./assets/clashRoyale/ui/elixir_1.webp") center / contain no-repeat;
 }
 .cr-elixir-slider:active::-webkit-slider-thumb { transform: scale(1.12); }
 .cr-elixir-slider:focus-visible::-webkit-slider-thumb { filter: drop-shadow(0 0 0 3px rgba(255, 201, 60, 0.8)); }

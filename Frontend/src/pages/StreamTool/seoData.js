@@ -15,7 +15,7 @@
 // Deutsch und Englisch (seit 16.11.2026): die englische Fassung hat wie bei der Win
 // Challenge eine eigene Adresse (?lang=en), siehe ST_ALTERNATES.
 
-import { BarChart3, TrendingUp, Target, Activity, Clapperboard } from 'lucide-react';
+import { BarChart3, TrendingUp, Target, Activity, Clapperboard, Bell, Hourglass } from 'lucide-react';
 
 export const ST_PATH = '/twitch-tools';
 
@@ -26,7 +26,7 @@ export const ST_ALTERNATES = [
   { hrefLang: 'x-default', path: ST_PATH },
 ];
 
-const ICONS = [BarChart3, TrendingUp, Target, Activity, Clapperboard];
+const ICONS = [BarChart3, TrendingUp, Target, Activity, Clapperboard, Bell, Hourglass];
 
 const ST_SEO = {
   de: {
@@ -43,7 +43,7 @@ const ST_SEO = {
       'Overlay, Twitch Prediction Overlay, Follower Ziel Overlay, Abo Ziel Overlay, Twitch Raid ' +
       'Clip Overlay, Stream Statistik Overlay, OBS Overlay Twitch, Bits pro Stream',
     heading: 'Twitch Overlays für OBS',
-    lead: 'Umfragen, Vorhersagen, Follower- und Abo-Ziele, Stream-Statistik und Raid-Clips live im Stream einblenden. Kostenlos, ohne Download, alles über eine einzige Browserquelle.',
+    lead: 'Umfragen, Vorhersagen, Alerts, Follower- und Abo-Ziele, Stream-Statistik, Raid-Clips und einen Subathon-Timer live im Stream einblenden. Kostenlos, ohne Download, alles über eine einzige Browserquelle.',
     platforms: 'Für Twitch · OBS, Streamlabs, XSplit · keine Kosten, kein Abo',
     modulesHeading: 'Diese Overlays gibt es',
     stepsHeading: 'Twitch-Overlays in OBS einrichten',
@@ -69,6 +69,14 @@ const ST_SEO = {
       {
         title: 'Raid-Clips',
         text: 'Raidet dich jemand, spielt das Overlay automatisch einen Clip des Raiders ab. Mindestzuschauerzahl, Zeitraum, Länge und Lautstärke stellst du selbst ein.',
+      },
+      {
+        title: 'Alerts',
+        text: 'Kurzer Hinweis im Stream bei Follow, Abo, Verlängerung, Geschenk-Abos, Bits und Raid — mit Ton, auf Wunsch vorgelesen und mit eigenen Texten. Kommen mehrere gleichzeitig, laufen sie nacheinander.',
+      },
+      {
+        title: 'Subathon-Timer',
+        text: 'Ein Countdown, den Abos, Geschenk-Abos, Bits und Spenden nach deinen Regeln verlängern, mit Obergrenze, Pause und Verlauf. Zuschauer fragen die Restzeit mit !subathon ab.',
       },
     ],
     steps: [
@@ -145,7 +153,7 @@ const ST_SEO = {
       'follower goal overlay, sub goal overlay, Twitch raid clip overlay, stream stats overlay, ' +
       'OBS overlay Twitch, bits per stream',
     heading: 'Twitch Overlays for OBS',
-    lead: 'Show polls, predictions, follower and sub goals, stream stats and raid clips live on stream. Free, no download, all through a single browser source.',
+    lead: 'Show polls, predictions, alerts, follower and sub goals, stream stats, raid clips and a subathon timer live on stream. Free, no download, all through a single browser source.',
     platforms: 'For Twitch · OBS, Streamlabs, XSplit · no cost, no subscription',
     modulesHeading: 'Available overlays',
     stepsHeading: 'Set up Twitch overlays in OBS',
@@ -170,6 +178,14 @@ const ST_SEO = {
       {
         title: 'Raid clips',
         text: "When someone raids you, the overlay automatically plays a clip from the raider. You set the minimum viewers, time range, length and volume yourself.",
+      },
+      {
+        title: 'Alerts',
+        text: 'A short notice on stream for follows, subs, resubs, gift subs, bits and raids — with sound, read out if you like and with your own texts. If several come in at once, they play one after another.',
+      },
+      {
+        title: 'Subathon timer',
+        text: 'A countdown that subs, gift subs, bits and donations extend by your rules, with a cap, pause and history. Viewers check the time left with !subathon.',
       },
     ],
     steps: [

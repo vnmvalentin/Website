@@ -81,8 +81,10 @@ test("Checkout: Twitch-ID geht mit, Rückweg zeigt auf die eigene Seite", async 
   assert.equal(p.subscription_data.metadata.twitch_id, "u9");
   assert.equal(p.line_items[0].price, "price_x");
   assert.equal(p.billing_address_collection, "required");
+  assert.deepEqual(p.automatic_tax, { enabled: true }, "Stripe Tax rechnet die Umsatzsteuer");
   assert.equal(p.success_url, "https://example.test/twitch-tools?abo=ok");
   assert.equal("customer" in p, false, "ohne bekannten Kunden legt Stripe einen neuen an");
+  assert.equal("customer_update" in p, false, "customer_update nur zusammen mit customer erlaubt");
 });
 
 test("Kauf aus Deutschland schaltet frei; doppelte Zustellung ändert nichts", async () => {
@@ -98,7 +100,9 @@ test("Kauf aus Deutschland schaltet frei; doppelte Zustellung ändert nichts", a
   assert.equal(st.until, NOW + 20 * DAY);
   // zweiter Kauf nutzt denselben Stripe-Kunden
   await svc.createCheckout({ twitchId: "u1", twitchLogin: "x" });
-  assert.equal(stripe.calls.find((c) => c[0] === "checkout")[1].customer, "cus_1");
+  const zweiter = stripe.calls.find((c) => c[0] === "checkout")[1];
+  assert.equal(zweiter.customer, "cus_1");
+  assert.deepEqual(zweiter.customer_update, { address: "auto" }, "Steuer braucht die Adresse am bekannten Kunden");
   // Portal kennt den Kunden
   assert.equal((await svc.createPortal({ twitchId: "u1" })).url, "https://stripe.test/portal");
   assert.equal((await svc.createPortal({ twitchId: "fremd" })).error, "no_customer");

@@ -11,20 +11,20 @@ import React, { useId } from "react";
 import FitText from "./FitText";
 import { CR_FONT } from "./overlayTheme";
 import crossIcon from "../../../assets/clashRoyale/ui/cancel.webp";
-import wreathClassic from "../../../assets/clashRoyale/ui/challenge-classic.webp";
-import wreathGrand from "../../../assets/clashRoyale/ui/challenge-grand.webp";
+import wreathClassic from "../../../assets/clashRoyale/modes/challenge-classic.webp";
+import wreathGrand from "../../../assets/clashRoyale/modes/challenge-grand.webp";
 import crlIcon from "../../../assets/clashRoyale/badges/crl.webp";
-import crownSeriesIcon from "../../../assets/clashRoyale/ui/CR_CrownSeriesIcon.png";
+import crownSeriesIcon from "../../../assets/clashRoyale/modes/CR_CrownSeriesIcon.webp";
 import { crownLeagueIconUrl } from "../data/leagueIcons";
-import tourneyTrophyIcon from "../../../assets/clashRoyale/ui/tourney_trophy.webp";
+import globalTournamentIcon from "../../../assets/clashRoyale/modes/global-tournament.webp";
 
 // Grüner Kranz für die Classic, goldener für Grand. Die 20-Win-Challenge läuft als CRL-Challenge:
 // dort ist das CRL-Wappen selbst das Abzeichen, die Siegzahl sitzt in einem Feld auf seiner Spitze.
 const WREATH = { classic: wreathClassic, grand: wreathGrand };
 // Modi, deren Symbol selbst das Abzeichen ist — die Siegzahl sitzt in einem Feld an seiner Unterkante:
 // CRL-Wappen (20 Win), Crown-Series-Logo bzw. das Abzeichen der gewählten Liga (Crown Series, Duel +
-// Grand Duel Weekend), Pokal (Global Tournament).
-const FIELD_ICON = { "20win": crlIcon, duel: crownSeriesIcon, grandduel: crownSeriesIcon, global: tourneyTrophyIcon };
+// Grand Duel Weekend), Global-Tournament-Symbol aus dem Spiel (bis 17.11.2026 der Turnierpokal).
+const FIELD_ICON = { "20win": crlIcon, duel: crownSeriesIcon, grandduel: crownSeriesIcon, global: globalTournamentIcon };
 
 // Niederlagen-Felder: 3 Stück à 18px füllen die 64px-Spalte; bei 4 (Grand Duels) oder 5 (Global
 // Tournament) werden sie schmaler, die Zeile bleibt 18px hoch (Kopf behält seine Höhe).

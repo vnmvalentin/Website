@@ -15,6 +15,7 @@ import { useWcShell } from "./ui/shellContext";
 import { buildWinChallengeJsonLd } from "./jsonLd";
 import OverlayView from "./OverlayView";
 import { STYLE_PRESETS } from "./stylePresets";
+import { getVorlage, markVorlageUsed as countVorlageUse, userVorlageId } from "../StreamerTools/vorlagen/vorlagenApi";
 import GameCoverPicker from "./ui/GameCoverPicker";
 import TimerPanel from "./ui/TimerPanel";
 import StreakBoxes from "./ui/StreakBoxes";
@@ -614,12 +615,28 @@ export default function WinChallenge() {
     if (!doc || vorlageDoneRef.current) return;
     vorlageDoneRef.current = true;
     const params = new URLSearchParams(window.location.search);
+    const dropParam = () => {
+      params.delete("vorlage");
+      const rest = params.toString();
+      window.history.replaceState(null, "", window.location.pathname + (rest ? `?${rest}` : ""));
+    };
     const preset = STYLE_PRESETS.find((p) => p.id === params.get("vorlage"));
-    if (!preset) return;
-    save({ ...doc, style: normalizeStyle({ ...doc.style, ...preset.style }) }, { flush: true });
-    params.delete("vorlage");
-    const rest = params.toString();
-    window.history.replaceState(null, "", window.location.pathname + (rest ? `?${rest}` : ""));
+    if (preset) {
+      save({ ...doc, style: normalizeStyle({ ...doc.style, ...preset.style }) }, { flush: true });
+      dropParam();
+      return;
+    }
+    // Community-Vorlage (?vorlage=u:<id>, StreamerTools/vorlagen): holen, übernehmen, als Übernahme zählen
+    const userId = userVorlageId(params.get("vorlage"));
+    if (!userId) return;
+    dropParam();
+    getVorlage(userId)
+      .then((v) => {
+        if (!v || v.tool !== "winChallenge") return;
+        save({ ...doc, style: normalizeStyle({ ...doc.style, ...v.style }) }, { flush: true });
+        countVorlageUse(userId).catch(() => {});
+      })
+      .catch(() => {});
   }, [doc]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const doFullReset = async () => {

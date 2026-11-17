@@ -124,5 +124,23 @@ export function generateWorld(seed, stageIndex, loop, biome) {
     camps.push({ x, y, size: rng.int(2, 4) });
   }
 
-  return { w: size, h: size, spawn, teleporter, bossSpot: null, obstacles, interactables, camps };
+  // Giftpfützen (Sumpf, biome.pools): eigener Zufall, damit die übrigen Welten Stein für Stein gleich bleiben. Sie
+  // halten Abstand zu Start, Teleporter, Kisten und Schreinen; durch Hindernisse dürfen sie teils hindurch.
+  const pools = [];
+  if (biome.pools) {
+    const pr = makeRng(hashSeed(seed, "pfuetzen", stageIndex, loop));
+    for (let i = 0; i < 400 && pools.length < POOL_COUNT; i++) {
+      const r = pr.range(80, 150);
+      const x = pr.range(margin, size - margin), y = pr.range(margin, size - margin);
+      if (keepClear.some((k) => dist(x, y, k.x, k.y) < k.r + r)) continue;
+      if (interactables.some((o) => dist(x, y, o.x, o.y) < r + 70)) continue;
+      if (pools.some((o) => dist(x, y, o.x, o.y) < o.r + r + 120)) continue;
+      pools.push({ x, y, r });
+    }
+  }
+
+  return { w: size, h: size, spawn, teleporter, bossSpot: null, obstacles, interactables, camps, pools };
 }
+
+/** So viele Giftpfützen hat ein Sumpf (wenn genug Platz ist) */
+export const POOL_COUNT = 26;

@@ -13,6 +13,7 @@
 //   Team          Reif in der Teamfarbe unter der Figur (2 gegen 2)
 import * as THREE from 'three';
 import { SKIN_COLORS, normalizeSkin } from '../skins.js';
+import { createSchlauch } from './schlauch.js';
 
 const hdr = (color, boost, extra = {}) => {
   const m = new THREE.MeshBasicMaterial({ color, ...extra });
@@ -21,6 +22,11 @@ const hdr = (color, boost, extra = {}) => {
   return m;
 };
 const std = (color, extra = {}) => new THREE.MeshStandardMaterial({ color, roughness: 0.6, ...extra });
+
+// Mittellinie eines Krakenarms (Hut 27), vom Ansatz am Kopf nach außen und unten; für alle Arme dieselbe
+const ARM_LINIE = [
+  [0.02, 0.03], [-0.02, 0.09], [-0.07, 0.15], [-0.125, 0.2], [-0.18, 0.235], [-0.225, 0.25], [-0.25, 0.235],
+].map(([y, z]) => new THREE.Vector3(0, y, z));
 
 // ── Hüte (Index wie skins.SKIN_HATS). Liefert die Gruppe und optional eine Funktion für Bewegung. ──
 function buildHat(kind, headColor) {
@@ -409,6 +415,101 @@ function buildHat(kind, headColor) {
     tick = (t) => {
       duck.rotation.z = Math.sin(t * 2.2) * 0.12;
     };
+  } else if (kind === 26) {
+    // Königskrone (Laden): Samtkappe, Hermelinrand, Goldreif mit Zacken und Steinen, Bügel mit Reichsapfel
+    const gold = std('#f2c14e', { metalness: 0.45, roughness: 0.32 });
+    const samt = std('#a3263a', { roughness: 0.8 });
+    const fell = std('#f6f3ea', { roughness: 0.9 });
+    const cap = new THREE.Mesh(new THREE.SphereGeometry(0.29, 18, 12, 0, Math.PI * 2, 0, Math.PI / 2), samt);
+    cap.scale.y = 1.15;
+    cap.position.y = 0.02;
+    const hermelin = new THREE.Mesh(new THREE.TorusGeometry(0.33, 0.07, 10, 28), fell);
+    hermelin.rotation.x = Math.PI / 2;
+    hermelin.position.y = -0.04;
+    g.add(cap, hermelin);
+    for (let i = 0; i < 10; i += 1) {
+      const a = (i / 10) * Math.PI * 2;
+      const tupf = new THREE.Mesh(new THREE.SphereGeometry(0.022, 6, 5), dark);
+      tupf.position.set(Math.sin(a) * 0.4, -0.02, Math.cos(a) * 0.4);
+      g.add(tupf);
+    }
+    const reif = new THREE.Mesh(new THREE.CylinderGeometry(0.31, 0.32, 0.14, 24, 1, true), gold);
+    reif.material.side = THREE.DoubleSide;
+    reif.position.y = 0.08;
+    g.add(reif);
+    const steine = ['#d8343f', '#2f7cf6', '#2fae66', '#d8343f', '#2f7cf6', '#2fae66'];
+    for (let i = 0; i < 6; i += 1) {
+      const a = (i / 6) * Math.PI * 2;
+      const zacke = new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.16, 4), gold);
+      zacke.position.set(Math.sin(a) * 0.3, 0.22, Math.cos(a) * 0.3);
+      const kugel = new THREE.Mesh(new THREE.SphereGeometry(0.03, 8, 6), gold);
+      kugel.position.set(Math.sin(a) * 0.3, 0.31, Math.cos(a) * 0.3);
+      const stein = new THREE.Mesh(new THREE.SphereGeometry(0.04, 10, 8), std(steine[i], { roughness: 0.2 }));
+      stein.scale.z = 0.5;
+      stein.position.set(Math.sin(a) * 0.325, 0.08, Math.cos(a) * 0.325);
+      stein.rotation.y = a;
+      g.add(zacke, kugel, stein);
+    }
+    for (const r of [0, Math.PI / 2]) {
+      const buegel = new THREE.Mesh(new THREE.TorusGeometry(0.28, 0.022, 6, 20, Math.PI), gold);
+      buegel.rotation.y = r;
+      buegel.position.y = 0.12;
+      buegel.scale.y = 0.9;
+      g.add(buegel);
+    }
+    const apfel = new THREE.Mesh(new THREE.SphereGeometry(0.06, 12, 10), gold);
+    apfel.position.y = 0.43;
+    const kreuzH = new THREE.Mesh(new THREE.BoxGeometry(0.025, 0.12, 0.025), gold);
+    kreuzH.position.y = 0.53;
+    const kreuzQ = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.025, 0.025), gold);
+    kreuzQ.position.y = 0.55;
+    g.add(apfel, kreuzH, kreuzQ);
+  } else if (kind === 27) {
+    // Krake (Laden): sitzt oben auf dem Kopf, schaut nach vorn, die Arme hängen herab und wackeln
+    const krake = new THREE.Group();
+    const lila = std('#c25bd6');
+    const hell = std('#e7a6f0');
+    const kopf = new THREE.Mesh(new THREE.SphereGeometry(0.24, 18, 14), lila);
+    kopf.scale.set(1, 1.15, 0.95);
+    kopf.position.y = 0.2;
+    krake.add(kopf);
+    for (const [x, y, z, r] of [[0.1, 0.36, -0.12, 0.04], [-0.13, 0.3, -0.1, 0.03], [0.16, 0.22, -0.14, 0.025], [-0.06, 0.42, -0.04, 0.025]]) {
+      const fleck = new THREE.Mesh(new THREE.SphereGeometry(r, 8, 6), hell);
+      fleck.position.set(x, y, z);
+      krake.add(fleck);
+    }
+    for (const x of [-0.09, 0.09]) {
+      const auge = new THREE.Mesh(new THREE.SphereGeometry(0.065, 12, 10), std('#ffffff'));
+      auge.position.set(x, 0.19, 0.18);
+      const pupille = new THREE.Mesh(new THREE.SphereGeometry(0.032, 10, 8), std('#14121a'));
+      pupille.position.set(x, 0.18, 0.235);
+      krake.add(auge, pupille);
+    }
+    const arme = [];
+    const armMat = std('#ffffff', { vertexColors: true });
+    for (let i = 0; i < 6; i += 1) {
+      const a = ((i + 0.5) / 6) * Math.PI * 2;
+      const arm = new THREE.Group();
+      arm.position.set(Math.sin(a) * 0.2, 0.04, Math.cos(a) * 0.2);
+      arm.rotation.y = a;
+      // ein Stück (schlauch.js): nach außen und unten gebogen, zur hellen Spitze dünner, die Spitze rollt sich leicht ein
+      const schlauch = createSchlauch({
+        punkte: ARM_LINIE.length,
+        rund: 8,
+        radius: (k) => 0.062 - k * 0.034,
+        farbe: (k) => (k > 0.74 ? '#e7a6f0' : '#c25bd6'),
+        material: armMat,
+      });
+      schlauch.setze(ARM_LINIE);
+      arm.add(schlauch.mesh);
+      krake.add(arm);
+      arme.push(arm);
+    }
+    g.add(krake);
+    tick = (t) => {
+      krake.position.y = Math.sin(t * 1.6) * 0.02;
+      arme.forEach((arm, i) => { arm.rotation.x = Math.sin(t * 2.4 + i * 1.1) * 0.25; });
+    };
   }
   return { group: g, tick };
 }
@@ -613,10 +714,12 @@ export function createAvatar(seat, skin, team = null) {
   face.extra.position.y = 1.84;
   inner.add(face.eyes, face.extra);
 
+  const hands = [];
   for (const x of [-0.5, 0.5]) {
     const hand = new THREE.Mesh(new THREE.SphereGeometry(0.14, 12, 10), headMat);
     hand.position.set(x, 0.98, 0.5);
     inner.add(hand);
+    hands.push(hand);
   }
 
   const hat = buildHat(look.h, headMat.color);
@@ -721,10 +824,14 @@ export function createAvatar(seat, skin, team = null) {
 
   const phase = seat * 1.7;
   const st = { active: false, nervous: false, hit: 0, cheer: false, hop: 0, lean: 0, shield: false, fog: false, frozen: false, away: false, gone: 0, targeted: false };
+  // Spieleabend (Chips): nur der Körper wird dicker; was auf ihm sitzt, rückt mit nach oben
+  const obenauf = [[head, head.position.y], [face.eyes, face.eyes.position.y], [face.extra, face.extra.position.y], [hat.group, hat.group.position.y], [crown, crown.position.y]];
 
   return {
     group,
     fan,
+    /** Die beiden Hände [rechte (x −0.5), linke (x +0.5)]; Ruhelage (±0.5, 0.98, 0.5). Der Spieleabend bewegt sie für Gesten. */
+    hands,
     color: `#${color.getHexString()}`,
     baseY: -0.62,
     bodyY: 1.3,
@@ -747,6 +854,23 @@ export function createAvatar(seat, skin, team = null) {
     },
     hit() { st.hit = 1; },
     hop() { st.hop = 1; },
+    /**
+     * Spieleabend: Körper breiter (breite, 1 = normal) und höher (hoehe); Kopf, Gesicht, Hut und Krone sitzen weiter
+     * obendrauf. Gibt zurück, um wie viel der Kopf gestiegen ist (Avatar-Einheiten).
+     */
+    setBauch(breite = 1, hoehe = 1) {
+      // richtig dick: feineres Gitter, sonst sieht man am Umriss die Kanten
+      if (breite > 1.5 && !body.userData.fein) {
+        body.geometry.dispose();
+        body.geometry = new THREE.CapsuleGeometry(0.46, 0.62, 10, 36);
+        body.userData.fein = true;
+      }
+      body.scale.set(breite, hoehe, breite);
+      body.position.y = 0.01 + 0.77 * hoehe; // Unterkante bleibt am Boden
+      const heben = 1.54 * (hoehe - 1);
+      for (const [o, y] of obenauf) o.position.y = y + heben;
+      return heben;
+    },
     /** Punkt über dem Platz (Weltkoordinaten) für das Namensschild — bleibt stehen, auch wenn die Figur weg ist. */
     plateWorld(out) {
       group.getWorldPosition(out);

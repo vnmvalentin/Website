@@ -13,6 +13,8 @@
     "cr:card-icons": "node clashRoyale/tools/cardIconSpiegel.js",
     "cr:card-stats": "node clashRoyale/tools/cardStatsSpiegel.js",
     "cr:badges": "node clashRoyale/tools/badgeSpiegel.js",
+    "cr:modes": "node clashRoyale/tools/gameModesSpiegel.js",
+    "cr:mode-images": "node clashRoyale/tools/modusBilder.js",
     "cr:badge-mastery": "node clashRoyale/tools/badgeMastery.js",
     "cr:card-colors": "node clashRoyale/tools/cardFarbenBauen.cjs",
     "billing:setup": "node billing/tools/setupStripe.js"
@@ -36,7 +38,8 @@
     "socket.io": "^4.8.3",
     "stripe": "^23.0.0",
     "tmi.js": "^1.8.5",
-    "uuid": "^14.0.0"
+    "uuid": "^14.0.0",
+    "web-push": "^3.6.7"
   },
   "allowScripts": {
     "better-sqlite3@12.10.0": true

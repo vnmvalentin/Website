@@ -59,6 +59,8 @@ function makeTextInteraction(message, args) {
         guild: message.guild,
         guildId: message.guildId,
         channelId: message.channelId,
+        // /superkraft, /ausrede: schlüpfrige Sätze nur in altersbeschränkten Kanälen (commands/funLines.js)
+        channel: message.channel,
         options: {
             getString: (name) => args[0] || null,
             getUser: (name) => {
@@ -86,6 +88,7 @@ function makeShipTextInteraction(message, user1, user2) {
         guild: message.guild,
         guildId: message.guildId,
         channelId: message.channelId,
+        channel: message.channel,
         options: {
             getUser: (name) => name === 'user1' ? user1 : user2,
         },

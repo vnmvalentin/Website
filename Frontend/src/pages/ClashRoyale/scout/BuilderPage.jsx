@@ -7,7 +7,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { ALL_CARDS } from '../data/cards';
 import { ELIXIR_COST } from '../data/cardElixir';
 import { CrElixir, CrRandom, CrSearch } from '../ui/CrIcons';
-import draftImg from '../../../assets/clashRoyale/ui/draft.webp';
+import draftImg from '../../../assets/clashRoyale/modes/draft.webp';
 import bannerArt from '../../../assets/clashRoyale/bg/chaos_draft_modes.webp';
 import ScoutFrame from './ScoutFrame';
 import { Banner, DeckRow, DeckShare, Panel, ScoutCard, Seg } from './parts';

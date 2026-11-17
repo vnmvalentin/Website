@@ -1,31 +1,31 @@
 // SiteDirectory.jsx — das Text-Verzeichnis der Website: je Bereich die ersten Einträge als Links, der Rest hinter
 // „Alle … ansehen". Steht auf der Startseite („Alles auf einen Blick") und als Fußzeile unter jeder Unterseite
-// (SiteFooter.jsx). Die Einträge kommen aus config/navigation.js — neue Unterseiten erscheinen von selbst.
+// (SiteFooter.jsx). Die Einträge kommen aus config/navigation.js — neue Unterseiten erscheinen von selbst; auf Englisch
+// mit den Texten aus config/navigationEnTexte.js.
 import React from "react";
 import { Link } from "react-router-dom";
 import { ArrowRight } from "lucide-react";
-import { getCategory } from "../config/navigation";
+import { kategorieFuer } from "../config/navigationEn";
+import { useLanguage } from "../i18n/language.js";
+import { HUELLE_TEXTE } from "./huelleTexte.js";
 
-const DIRECTORY = [
-  { key: "fun", label: "Browserspiele" },
-  { key: "clash-royale", label: "Clash Royale" },
-  { key: "tools", label: "Für Streamer" },
-  { key: "community", label: "Community" },
-];
+const DIRECTORY = ["fun", "clash-royale", "tools", "community"];
 const MAX_PER_COLUMN = 6;
 
 export default function SiteDirectory({ className = "" }) {
+  const { lang } = useLanguage({ supported: HUELLE_TEXTE.langs });
+  const t = HUELLE_TEXTE.dict(lang);
   return (
     <div className={`grid grid-cols-2 lg:grid-cols-4 gap-x-8 gap-y-10 ${className}`}>
-      {DIRECTORY.map((d) => {
-        const cat = getCategory(d.key);
+      {DIRECTORY.map((key) => {
+        const cat = kategorieFuer(key, lang);
         if (!cat) return null;
         const links = cat.links.filter((l) => l.to && !l.soon && !l.locked);
         const shown = links.slice(0, MAX_PER_COLUMN);
         return (
-          <div key={d.key} className="min-w-0">
+          <div key={key} className="min-w-0">
             <Link to={cat.to} className="font-display text-[15px] font-bold text-white hover:text-accent-soft transition-colors">
-              {d.label}
+              {t.verzeichnis[key] || cat.label}
             </Link>
             <ul className="mt-3">
               {shown.map((l) => (
@@ -37,8 +37,8 @@ export default function SiteDirectory({ className = "" }) {
               ))}
             </ul>
             {links.length > shown.length && (
-              <Link to={cat.to} className="group mt-2 inline-flex items-center gap-1.5 text-sm text-white/35 hover:text-white transition-colors">
-                Alle {links.length} ansehen
+              <Link to={cat.to} className="group mt-2 inline-flex items-center gap-1.5 text-sm text-white/50 hover:text-white transition-colors">
+                {t.alleAnsehen(links.length)}
                 <ArrowRight size={13} className="transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
               </Link>
             )}

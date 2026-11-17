@@ -21,7 +21,7 @@ import { useAuction2v2View } from './auction2v2/useAuction2v2View';
 import { hintTagLabel, hintTagCategory } from './auction2v2/hintLabels';
 import { teamStyle, teamChipClass } from '../lobby/teamStyle';
 import unknownCardImg from '../../../assets/clashRoyale/ui/UnknownCard.webp';
-import elixirIcon from '../../../assets/clashRoyale/ui/elixir_1.png';
+import elixirIcon from '../../../assets/clashRoyale/ui/elixir_1.webp';
 
 const I18N = {
   de: {

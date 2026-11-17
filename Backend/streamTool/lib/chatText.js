@@ -1,4 +1,4 @@
-// chatText.js — was der Chat-Bot für die Murmelbahn in den Twitch-Chat schreibt, auf Deutsch und Englisch.
+// chatText.js — was der Chat-Bot für Murmelbahn und Subathon-Timer in den Twitch-Chat schreibt, auf Deutsch und Englisch.
 //
 // Sprache = die Sprache der Overlays (config.language, gesetzt im Editor der Twitch-Overlays): Chat und Overlay lesen
 // dieselben Zuschauer. Die Befehle selbst (!murmel, !murmeltop) bleiben in jeder Sprache gleich — die Zuschauer haben
@@ -13,6 +13,19 @@ const TEXTS = {
     top: (entries) => `Murmel-Bestenliste: ${entries}`,
     topEmpty: "Noch hat niemand ein Murmelrennen gewonnen.",
     rewardTitle: "Murmelrennen starten",
+    // Subathon-Timer (!subathon). time = "3:05:09", delta = "+5:00"
+    subathon: {
+      running: (time) => `Subathon: noch ${time} auf der Uhr.`,
+      paused: (time) => `Der Subathon ist pausiert — noch ${time} übrig.`,
+      ended: (time) => `Der Subathon ist vorbei — er lief ${time}.`,
+      idle: "Der Subathon hat noch nicht begonnen.",
+      added: (delta, time) => `${delta} — jetzt ${time} auf der Uhr.`,
+      capped: (time) => `Die Obergrenze ist erreicht — ${time} auf der Uhr.`,
+      started: (time) => `Der Subathon läuft — ${time} auf der Uhr.`,
+      pausedNow: (time) => `Subathon angehalten bei ${time}.`,
+      happyOn: (factor, minutes) => `Happy Hour! ${minutes} Minuten lang zählen Abos, Bits und Spenden ×${factor}.`,
+      happyOff: "Die Happy Hour ist vorbei.",
+    },
   },
   en: {
     open: (cmd) => `The marble run is open — type ${cmd} to join.`,
@@ -23,6 +36,18 @@ const TEXTS = {
     topEmpty: "Nobody has won a marble race yet.",
     // gleich wie rewardDefaultTitle im Editor (Frontend/src/pages/StreamTool/editorI18n.js)
     rewardTitle: "Start marble race",
+    subathon: {
+      running: (time) => `Subathon: ${time} left on the clock.`,
+      paused: (time) => `The subathon is paused — ${time} left.`,
+      ended: (time) => `The subathon is over — it ran for ${time}.`,
+      idle: "The subathon hasn't started yet.",
+      added: (delta, time) => `${delta} — now ${time} on the clock.`,
+      capped: (time) => `The cap is reached — ${time} on the clock.`,
+      started: (time) => `The subathon is on — ${time} on the clock.`,
+      pausedNow: (time) => `Subathon paused at ${time}.`,
+      happyOn: (factor, minutes) => `Happy hour! For ${minutes} minutes, subs, bits and donations count ×${factor}.`,
+      happyOff: "The happy hour is over.",
+    },
   },
 };
 

@@ -18,6 +18,10 @@ const raids = require("../lib/streamToolRaids");
 const stats = require("../lib/streamToolStats");
 const scenes = require("../lib/streamToolScenes");
 const alerts = require("../lib/streamToolAlerts");
+const subathon = require("../lib/streamToolSubathon");
+const media = require("../lib/streamToolMedia");
+const { stripPremium } = require("../lib/premiumExtras");
+const presence = require("../../streamerZentrale/presence");
 const { premiumStatus, isPremium } = require("../../billing/entitlements");
 
 const CLIENT_ID = process.env.TWITCH_CLIENT_ID || "";
@@ -269,18 +273,26 @@ const PREMIUM_MODULE_IDS = Object.values(scenes.IDS);
 
 /**
  * Konfiguration, wie die OBS-Quelle sie bekommt. Ohne Abo sind die Abo-Module darin
- * ausgeschaltet — das Flugzeug etwa fliegt allein aus der Konfiguration heraus und käme
- * sonst am Backend vorbei. Gespeichert bleibt die Einstellung: mit Abo ist alles wieder da.
+ * ausgeschaltet und eigene Schrift sowie eigene Alert-Töne/-Bilder fehlen (lib/premiumExtras.js) —
+ * das Flugzeug etwa fliegt allein aus der Konfiguration heraus und käme sonst am Backend vorbei.
+ * Gespeichert bleibt die Einstellung: mit Abo ist alles wieder da.
  */
 function overlayConfigOf(row) {
   const config = parseConfig(row.config);
-  if (!config || !config.modules || isPremium(row.user_id)) return config;
-  const modules = { ...config.modules };
-  for (const id of PREMIUM_MODULE_IDS) {
-    if (modules[id] && modules[id].enabled) modules[id] = { ...modules[id], enabled: false };
-  }
-  return { ...config, modules };
+  if (!config || isPremium(row.user_id)) return config;
+  return stripPremium(config, PREMIUM_MODULE_IDS);
 }
+
+/** Meldungen beim Hochladen eigener Töne und Bilder. Codes übersetzt der Editor (editorI18n.js, apiErrors). */
+const MEDIA_MESSAGES = {
+  premium_needed: "Eigene Töne und Bilder gehören zum Abo.",
+  media_type: "Diese Datei geht nicht — erlaubt sind PNG, JPG, GIF, WebP, MP3, OGG und WAV.",
+  media_too_big: "Die Datei ist zu groß (Bilder bis 3 MB, Töne bis 2 MB).",
+  media_quota: "Dein Speicher ist voll — lösch erst eine andere Datei.",
+};
+const MEDIA_STATUS = { premium_needed: 403, media_type: 415, media_too_big: 413, media_quota: 409 };
+// Ein Request je Datei, roh (kein JSON) — der Typ wird an den ersten Bytes erkannt (lib/streamToolMedia.js)
+const rawUpload = express.raw({ type: () => true, limit: media.LIMITS.image });
 
 // ── Ziel-Einstellungen: Änderungen sofort sichtbar machen ────────────────────
 // Die Ziel-Zahlen werden nur alle 30 Sekunden geholt (siehe fetchGoals). Wer im
@@ -306,8 +318,8 @@ function invalidateGoals(row) {
   updateCache.run(JSON.stringify(cache), 0, row.user_id);
 }
 
-/** Module, die den Chat-Bot brauchen: Raid-Clips (Raids), Statistik (Cheers, Abos), Szenen und Alerts. */
-const CHAT_MODULE_IDS = [raids.MODULE_ID, stats.MODULE_ID, ...scenes.CHAT_IDS, alerts.MODULE_ID];
+/** Module, die den Chat-Bot brauchen: Raid-Clips (Raids), Statistik (Cheers, Abos), Szenen, Alerts und Subathon. */
+const CHAT_MODULE_IDS = [raids.MODULE_ID, stats.MODULE_ID, ...scenes.CHAT_IDS, alerts.MODULE_ID, subathon.MODULE_ID];
 
 /** Alerts fürs Overlay. Ein Fehler hier darf den Rest der Antwort nicht kosten. */
 async function collectAlerts(row) {
@@ -318,6 +330,26 @@ async function collectAlerts(row) {
     return null;
   }
 }
+
+/** Subathon-Timer fürs Overlay (dashboard: mit Verlauf). Ein Fehler hier darf den Rest der Antwort nicht kosten. */
+function collectSubathon(row, dashboard = false) {
+  try {
+    return dashboard ? subathon.collectDashboard(row) : subathon.collect(row);
+  } catch (e) {
+    console.warn("[stream-tool] Subathon:", e.message);
+    return null;
+  }
+}
+
+/** Meldungen der Subathon-Steuerung. Codes übersetzt der Editor (editorI18n.js, apiErrors). */
+const SUBATHON_MESSAGES = {
+  subathon_module_off: "Schalte das Modul „Subathon-Timer“ erst ein.",
+  subathon_not_running: "Der Subathon läuft gerade nicht — erst starten.",
+  subathon_bad_amount: "Bitte eine gültige Zahl angeben.",
+  subathon_no_rule: "Spenden verlängern den Timer gerade nicht — stell bei den Regeln eine Zeit je Einheit ein.",
+  premium_needed: "Die Happy Hour gehört zum Abo.",
+  no_settings: "Keine Einstellungen gefunden.",
+};
 
 // Der Beitrittsbefehl der Murmelbahn gehört dazu: der Bot führt ihn in einem
 // eigenen Index, der beim Abgleich der Kanäle neu gebaut wird.
@@ -370,6 +402,7 @@ function chatWatchStatus(row) {
     raidEnabled: !!config?.modules?.[raids.MODULE_ID]?.enabled,
     statsEnabled: !!config?.modules?.[stats.MODULE_ID]?.enabled,
     alertsEnabled: !!config?.modules?.[alerts.MODULE_ID]?.enabled,
+    subathonEnabled: !!config?.modules?.[subathon.MODULE_ID]?.enabled,
     // Follow-Alerts lesen die Follower-Liste — ältere Verbindungen haben das Recht evtl. noch nicht
     followScope: String(row.scopes || "").split(" ").includes(alerts.FOLLOW_SCOPE),
     botConfigured: !!irc.configured,
@@ -492,7 +525,7 @@ module.exports = function createStreamToolRouter({ requireAuth } = {}) {
     const row = getOrCreate(String(req.twitchId));
     if (!decryptToken(row.token_enc)) {
       // Test-Alerts gehen auch ohne Twitch-Verbindung — so lässt sich das Aussehen vorab einrichten
-      return res.json({ connected: false, poll: null, prediction: null, goals: null, raid: null, stats: null, scenes: null, alerts: await collectAlerts(row), chatWatch: chatWatchStatus(row), notice: null, serverNow: Date.now() });
+      return res.json({ connected: false, poll: null, prediction: null, goals: null, raid: null, stats: null, scenes: null, alerts: await collectAlerts(row), subathon: collectSubathon(row, true), chatWatch: chatWatchStatus(row), notice: null, serverNow: Date.now() });
     }
     const data = await syncFromTwitch(row);
     const fresh = getByUser.get(String(req.twitchId));
@@ -505,6 +538,7 @@ module.exports = function createStreamToolRouter({ requireAuth } = {}) {
       stats: stats.statsModuleOf(fresh) ? stats.currentStats(fresh.user_id) : null,
       scenes: await collectScenes(fresh),
       alerts: await collectAlerts(fresh),
+      subathon: collectSubathon(fresh, true),
       // Murmelbahn: Bestenliste und Stand der Belohnungs-Erkennung
       marbleSetup: scenes.marbleSetup(fresh),
       // Mitgeschickt, weil der Chat-Bot einen Kanal erst nach ein paar Sekunden
@@ -646,6 +680,78 @@ module.exports = function createStreamToolRouter({ requireAuth } = {}) {
     res.json({ ok: true });
   });
 
+  // ── Subathon-Timer ────────────────────────────────────────────────────────
+  // Antwort: der neue Stand samt Verlauf, damit das Dashboard nicht auf den nächsten Takt warten muss.
+  const subathonAction = (fn) => (req, res) => {
+    getOrCreate(String(req.twitchId));
+    const result = fn(String(req.twitchId), req.body || {});
+    if (result.error) {
+      const code = SUBATHON_MESSAGES[result.error] ? result.error : "failed";
+      return res.status(400).json({ error: SUBATHON_MESSAGES[result.error] || "Das hat nicht geklappt.", code });
+    }
+    res.json({ ok: true, subathon: result.subathon });
+  };
+
+  router.post("/subathon/start", requireAuth, subathonAction((id) => subathon.startTimer(id)));
+  router.post("/subathon/pause", requireAuth, subathonAction((id) => subathon.pauseTimer(id)));
+  router.post("/subathon/reset", requireAuth, subathonAction((id) => subathon.resetTimer(id)));
+  /** ± Zeit von Hand. body: { seconds, name? } — negativ zieht ab, nie unter null. */
+  router.post("/subathon/add", requireAuth, subathonAction((id, body) => subathon.addManual(id, body.seconds, body.name)));
+  /** Spende eintragen. body: { amount, name? } — Zeit nach der Regel „je Einheit“. */
+  router.post("/subathon/donation", requireAuth, subathonAction((id, body) => subathon.addDonation(id, body.amount, body.name)));
+  /** Happy Hour (Abo-Extra). body: { minutes: 1–240, factor: 2|3 } */
+  router.post("/subathon/happy", requireAuth, subathonAction((id, body) => subathon.startHappyHour(id, body.minutes, body.factor)));
+  router.post("/subathon/happy/stop", requireAuth, subathonAction((id) => subathon.stopHappyHour(id)));
+
+  // ── Eigene Töne und Bilder der Alerts (Abo-Extra) ─────────────────────────
+  router.get("/media", requireAuth, (req, res) => {
+    const userId = String(req.twitchId);
+    res.json({ media: media.list(userId), usage: media.usage(userId), limits: media.LIMITS, premium: isPremium(userId) });
+  });
+
+  /** Eine Datei, roh im Body. Kopf x-file-name (URI-kodiert) = Anzeigename. */
+  router.post("/media", requireAuth, (req, res, next) => {
+    if (!isPremium(String(req.twitchId))) {
+      return res.status(403).json({ error: MEDIA_MESSAGES.premium_needed, code: "premium_needed" });
+    }
+    rawUpload(req, res, (err) => {
+      if (err) {
+        const code = err.type === "entity.too.large" ? "media_too_big" : "media_type";
+        return res.status(MEDIA_STATUS[code]).json({ error: MEDIA_MESSAGES[code], code });
+      }
+      next();
+    });
+  }, (req, res) => {
+    let name = "";
+    try { name = decodeURIComponent(String(req.get("x-file-name") || "")); } catch { /* Name ist Zugabe */ }
+    const result = media.save(String(req.twitchId), Buffer.isBuffer(req.body) ? req.body : Buffer.alloc(0), name);
+    if (result.error) return res.status(MEDIA_STATUS[result.error]).json({ error: MEDIA_MESSAGES[result.error], code: result.error });
+    res.json({ ok: true, media: result.media, usage: media.usage(String(req.twitchId)) });
+  });
+
+  router.delete("/media/:id", requireAuth, (req, res) => {
+    const userId = String(req.twitchId);
+    if (!media.remove(userId, String(req.params.id))) return res.status(404).json({ error: "Nicht gefunden", code: "not_found" });
+    res.json({ ok: true, usage: media.usage(userId) });
+  });
+
+  /**
+   * Öffentlich wie die Overlay-Route: die OBS-Quelle lädt Ton und Bild ohne Anmeldung. Die ID ist nicht erratbar
+   * und ändert sich nie — deshalb darf der Browser die Datei für immer behalten.
+   */
+  router.get("/media/file/:id", (req, res) => {
+    const file = media.fileOf(req.params.id);
+    if (!file) return res.status(404).end();
+    res.set({
+      "Content-Type": file.mime,
+      "Cache-Control": "public, max-age=31536000, immutable",
+      "X-Content-Type-Options": "nosniff",
+      "Content-Security-Policy": "default-src 'none'; sandbox",
+      "Cross-Origin-Resource-Policy": "same-site",
+    });
+    res.sendFile(file.path);
+  });
+
   /** Laufende Szene sofort beenden (Probelauf abbrechen, Rennen absagen). */
   router.delete("/scenes/:key", requireAuth, (req, res) => {
     getOrCreate(String(req.twitchId));
@@ -683,6 +789,8 @@ module.exports = function createStreamToolRouter({ requireAuth } = {}) {
     res.set("Cache-Control", "no-store, must-revalidate");
     const row = getByOverlayKey.get(String(req.params.overlayKey || ""));
     if (!row) return res.status(403).json({ error: "Ungültiger Overlay-Link", code: "invalid_overlay" });
+    // Streamer-Zentrale: die OBS-Quelle ist da (nur Speicher, höchstens einmal pro Minute in die Datenbank)
+    try { presence.seen("twitch", row.user_id); } catch { /* Zentrale ist Zugabe */ }
 
     const data = await syncFromTwitch(row);
     res.json({
@@ -695,6 +803,7 @@ module.exports = function createStreamToolRouter({ requireAuth } = {}) {
       stats: stats.statsModuleOf(row) ? stats.currentStats(row.user_id) : null,
       scenes: await collectScenes(row),
       alerts: await collectAlerts(row),
+      subathon: collectSubathon(row),
       serverNow: Date.now(),
     });
   });

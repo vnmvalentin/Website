@@ -11,6 +11,7 @@ import { openItemChoice } from "./levelup.js";
 import { recalcStats } from "./stats.js";
 import { ITEMS } from "../data/items.js";
 import { ascPrice } from "./ascension.js";
+import { twPrice } from "./twists.js";
 import { EQUIPMENT } from "../data/equipment.js";
 import { enemyPoolFor } from "../data/biomes.js";
 import { ENEMIES } from "../data/enemies.js";
@@ -49,7 +50,7 @@ export function priceOf(g, obj) {
   const info = INTERACT_INFO[obj.type];
   if (!info.base) return 0;
   const mult = obj.type === "luckShrine" ? Math.pow(1.5, obj.uses) : 1;
-  return Math.round(chestPrice(info.base, g.coeff) * mult * ascPrice(g));
+  return Math.round(chestPrice(info.base, g.coeff) * mult * ascPrice(g) * twPrice(g));
 }
 
 function findTarget(g) {

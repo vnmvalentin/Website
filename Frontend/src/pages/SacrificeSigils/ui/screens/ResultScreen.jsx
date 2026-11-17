@@ -8,6 +8,9 @@ import { de } from "../../i18n/de.js";
 import { sound } from "../../audio/sound.js";
 import { particles } from "../anim/particles.js";
 import { Crown } from "../icons/GameIcons.jsx";
+import { getZirkel } from "../../engine/zirkel/index.js";
+import ErgebnisTeilen from "../../../../components/ErgebnisTeilen.jsx";
+import { duellErgebnis } from "../../ergebnis.js";
 
 function strongest(stats) {
   const entries = Object.entries(stats?.damageByCard || {});
@@ -38,6 +41,16 @@ export default function ResultScreen({ view, you, names, onRematch, onExit, rema
             </button>
           )}
           {onExit && <button type="button" className="ss-btn" onClick={onExit}>Zum Hauptmenü</button>}
+          {won && (
+            <ErgebnisTeilen className="ss-btn inline-flex items-center gap-2"
+              ergebnis={() => {
+                const best = strongest(view.players[you].stats);
+                return duellErgebnis({
+                  siege: view.wins, ich: you, stats: view.players[you].stats, zirkel: getZirkel(view.settings?.zirkel)?.name,
+                  staerkste: best ? CARDS[best.id]?.name : "", aufgabe: view.endReason === "surrender",
+                });
+              }} />
+          )}
         </div>
         {waitingRematch && !myRematch && <p className="mt-2 text-[var(--wax-red)]">Der Gegner will eine Revanche.</p>}
       </div>

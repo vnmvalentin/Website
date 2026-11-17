@@ -23,6 +23,8 @@ import GoalBanner, { GOAL_MS } from "./components/GoalBanner.jsx";
 import ReplayTag from "./components/ReplayTag.jsx";
 import FinalWhistle from "./components/FinalWhistle.jsx";
 import RematchSetup from "./components/RematchSetup.jsx";
+import ErgebnisTeilen from "../../components/ErgebnisTeilen.jsx";
+import { flickErgebnis } from "./ergebnis.js";
 import DiscPreview from "./components/DiscPreview.jsx";
 import Countdown from "./components/Countdown.jsx";
 import { useFlickShell } from "./ui/shellContext.js";
@@ -739,6 +741,13 @@ export default function FlickRoom() {
                 </button>
                 <button type="button" className="fk-btn fk-btn-ghost" onClick={leave}><Home size={16} /> Menü</button>
               </>
+            )}
+            {!spectator && winner === seat && (
+              <ErgebnisTeilen className="fk-btn fk-btn-ghost"
+                ergebnis={() => flickErgebnis({
+                  score: match.score, team: seat, winner, modus: locked ? "turnier" : "online",
+                  aufgabe: room.forfeit !== null && room.forfeit !== undefined,
+                })} />
             )}
             {!locked && !spectator && (!room.seats[0] || !room.seats[1]) && (
               <p className="fk-faint text-[13px] w-full mt-1">Dein Gegner ist weg. Teile den Link für einen neuen.</p>

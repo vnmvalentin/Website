@@ -5,6 +5,7 @@ import { ELIXIR_COST } from '../data/cardElixir';
 import { cardKey } from './analysis';
 import { CARD_ATTRS } from '../data/bingoAttributes';
 import { leagueIconUrl, leagueName, ULTIMATE_CHAMPION_LEAGUE } from '../data/leagueIcons';
+import { isLeague2v2 } from '../data/modeArt';
 
 export const CARD_BY_ID = Object.fromEntries(ALL_CARDS.map((c) => [c.id, c]));
 
@@ -78,6 +79,11 @@ export const rankedBadge = (league) => (league > ULTIMATE_CHAMPION_LEAGUE ? leag
 export const rankedName = (league, lang) => OLD_LEAGUE_NAMES[league] || leagueName(league, lang);
 /** Zählt die Liga Medaillen (statt Stufen)? */
 export const hasMedals = (league) => league >= ULTIMATE_CHAMPION_LEAGUE;
+
+/** Name des Modus eines Kampfes: Titel des Events im Spiel, sonst der Name aus dem Modus-Index des Servers
+ *  (Backend lib/gameModes.js) in der Sprache der Seite. '' = Modus, den schon die Kampfgruppe benennt. */
+export const battleModeName = (b, lang) => b?.event || b?.challengeTitle || b?.modeName?.[lang] || b?.modeName?.en
+  || (isLeague2v2(b) ? (lang === 'en' ? '2v2 League' : '2v2-Liga') : '');
 
 /** Sortieren mit Richtung: by liefert den Vergleichswert, Namen entscheiden bei Gleichstand. */
 export function sortBy(list, value, dir, name = (x) => x.name || '') {

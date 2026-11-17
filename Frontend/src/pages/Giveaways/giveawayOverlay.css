@@ -1,0 +1,216 @@
+/* OBS-Overlay der Giveaways (GiveawayOverlay.jsx). Durchsichtig, flache dunkle Karten wie die Twitch-Overlays —
+   kein Leuchten, keine Verläufe in der Schrift. Bewegung nur als Zugabe: der Ablauf hängt an Timern im Code. */
+html.gwo-transparent, html.gwo-transparent body, html.gwo-transparent #root { background: transparent !important; }
+
+.gwo-root {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  font-family: Inter, Roboto, system-ui, sans-serif;
+  color: #fff;
+}
+.gwo-stage {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform-origin: top left;
+}
+
+.gwo-card {
+  background: rgba(16, 16, 20, 0.88);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 14px;
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.45);
+}
+.gwo-kicker {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #a78bfa;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+/* Karte zum laufenden Giveaway, unten links */
+.gwo-slot-card {
+  position: absolute;
+  left: 60px;
+  bottom: 60px;
+  animation: gwo-in 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.gwo-running {
+  width: 520px;
+  padding: 18px 22px 18px;
+  border-left: 5px solid #8b5cf6;
+}
+.gwo-title {
+  margin: 8px 0 0;
+  font-size: 26px;
+  font-weight: 800;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+.gwo-prize {
+  margin: 6px 0 0;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 16px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.75);
+}
+.gwo-prize svg { color: #fbbf24; flex: none; }
+.gwo-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 14px;
+  font-size: 15px;
+  font-weight: 700;
+}
+.gwo-join {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  background: #8b5cf6;
+  color: #fff;
+}
+.gwo-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: rgba(255, 255, 255, 0.7);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Der große Moment in der Mitte */
+.gwo-slot-show {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  transition: opacity 0.6s ease, transform 0.6s ease;
+}
+.gwo-slot-show.is-leaving { opacity: 0; transform: translate(-50%, -46%); }
+.gwo-show {
+  position: relative;
+  width: 900px;
+  padding: 34px 44px 38px;
+  text-align: center;
+  overflow: hidden;
+  border-top: 6px solid #8b5cf6;
+  animation: gwo-pop 0.55s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.gwo-show .gwo-kicker { justify-content: center; font-size: 16px; }
+.gwo-rolling-label {
+  margin: 18px 0 0;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.55);
+}
+.gwo-rolling {
+  margin: 10px 0 0;
+  min-height: 84px;
+  font-size: 68px;
+  font-weight: 900;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.gwo-sub {
+  margin: 14px 0 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 20px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.72);
+}
+.gwo-winners {
+  list-style: none;
+  margin: 18px 0 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 14px 22px;
+}
+.gwo-winners li {
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 22px 10px 10px;
+  border-radius: 12px;
+  background: rgba(251, 191, 36, 0.12);
+  border: 1px solid rgba(251, 191, 36, 0.35);
+  animation: gwo-pop 0.5s cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+.gwo-winners img, .gwo-noavatar {
+  width: 64px;
+  height: 64px;
+  border-radius: 10px;
+  object-fit: cover;
+  flex: none;
+}
+.gwo-noavatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.1);
+  color: #fbbf24;
+}
+.gwo-winners b {
+  font-size: 44px;
+  font-weight: 900;
+  color: #fde68a;
+  max-width: 640px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.gwo-winners.is-many b { font-size: 30px; }
+.gwo-winners.is-many img, .gwo-winners.is-many .gwo-noavatar { width: 44px; height: 44px; }
+
+/* Konfetti: flache Rechtecke, fallen einmal durch die Karte */
+.gwo-confetti { position: absolute; inset: 0; pointer-events: none; }
+.gwo-confetti i {
+  position: absolute;
+  top: -20px;
+  width: 10px;
+  height: 16px;
+  border-radius: 2px;
+  background: #8b5cf6;
+  opacity: 0;
+  animation-name: gwo-fall;
+  animation-timing-function: cubic-bezier(0.3, 0.2, 0.6, 1);
+  animation-fill-mode: forwards;
+}
+.gwo-confetti i:nth-child(3n) { background: #fbbf24; }
+.gwo-confetti i:nth-child(3n + 1) { background: #34d399; }
+.gwo-confetti i:nth-child(4n) { width: 8px; height: 8px; }
+
+@keyframes gwo-in {
+  from { opacity: 0; transform: translateY(18px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes gwo-pop {
+  0% { opacity: 0; transform: scale(0.9); }
+  60% { opacity: 1; transform: scale(1.02); }
+  100% { opacity: 1; transform: scale(1); }
+}
+@keyframes gwo-fall {
+  0% { opacity: 1; transform: translateY(0) rotate(0deg); }
+  100% { opacity: 0; transform: translateY(460px) rotate(540deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .gwo-confetti { display: none; }
+}

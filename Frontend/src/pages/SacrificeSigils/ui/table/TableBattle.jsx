@@ -23,6 +23,7 @@ import { de, errorText } from "../../i18n/de.js";
 import { sound } from "../../audio/sound.js";
 import { useShell } from "../shellContext.js";
 import { usePrefs } from "../prefs.js";
+import { isTouch, helpFor } from "./touch.js";
 import { baseDesc, baseName, headLabel, headName, totemText } from "../common/totemText.js";
 import "./table.css";
 
@@ -378,9 +379,10 @@ export default function TableBattle({ room, view, display, anim, you, send, time
       case "bones": return T(`${de.costs.bones.name}: ${me.bones}`, de.costs.bones.desc);
       case "third": return T(`${de.costs[third].name}: ${third === "salt" ? me.salt || 0 : me.wax}`, de.costs[third].desc);
       case "deck": return pick.pile === "main"
-        ? T(`${de.ui.drawMain}: ${me.deckSize ?? 0} Karten`, needDraw ? "Anklicken: eine Karte ziehen." : null)
-        : T(de.sides[me.sideType]?.name || de.ui.drawSide, "Geht nie aus.", needDraw ? "Anklicken: eine Karte ziehen." : null);
-      case "seal": return T(de.ui.endTurn, "Stempel anklicken oder Leertaste.", `${de.ui.hand}: ${me.hand.length}/${HAND_LIMIT}`);
+        ? T(`${de.ui.drawMain}: ${me.deckSize ?? 0} Karten`, needDraw ? `${isTouch() ? "Antippen" : "Anklicken"}: eine Karte ziehen.` : null)
+        : T(de.sides[me.sideType]?.name || de.ui.drawSide, "Geht nie aus.", needDraw ? `${isTouch() ? "Antippen" : "Anklicken"}: eine Karte ziehen.` : null);
+      // Mit dem Finger hat ein Antippen den Zug schon beendet — dann keine Erklärung hinterher
+      case "seal": return isTouch() ? null : T(de.ui.endTurn, "Stempel anklicken oder Leertaste.", `${de.ui.hand}: ${me.hand.length}/${HAND_LIMIT}`);
       case "hammer": return T(de.ui.hammer, "Einmal pro Zug eine eigene Karte zerstören (gibt Knochen, kein Blut).");
       case "item": return T(de.items[pick.id].name, de.items[pick.id].desc);
       case "oppItem": return T(`${names[top]}: ${opp.itemCount ?? (opp.items || []).length} Items`);
@@ -619,11 +621,15 @@ export default function TableBattle({ room, view, display, anim, you, send, time
           onClose={() => setPaused(false)}
           onSurrender={you !== null && live.phase !== "over" ? () => send({ type: "surrender" }) : null}
           onFallback={onFallback}
-          help={<>
+          help={helpFor(<>
             Stapel anklicken: ziehen · Karte anklicken: nehmen, dann Feld wählen · eigene Karten anklicken: opfern ·
             Siegelstempel oder Leertaste: Zug beenden · Rechtsklick (oder lange drücken): Karte ansehen bzw. Auswahl zurücklegen ·
             Rechtsklick auf den Tisch oder Taste G: Geste
-          </>}
+          </>, <>
+            Stapel antippen: ziehen · Karte antippen: nehmen, dann Feld antippen · eigene Karten antippen: opfern ·
+            Siegelstempel antippen: Zug beenden · Karte lange drücken: ansehen · lange auf den Tisch drücken: Auswahl
+            zurücklegen bzw. Geste · Gegenstand antippen: was er bedeutet
+          </>)}
         />
       )}
     </>

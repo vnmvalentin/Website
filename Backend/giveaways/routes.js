@@ -1,253 +1,163 @@
-const express = require("express");
-const { readJson, writeJsonAtomic } = require("../lib/jsonFile");
-const path = require("path");
-const { nanoid } = require("nanoid");
-const liveBadges = require("../lib/liveBadges");
+// giveaways/routes.js — Giveaways des Kanals (Community-Seite /Giveaways und OBS-Overlay /overlay/giveaway).
+//
+//   GET    /api/giveaways                    öffentlich: laufende und vergangene (ohne IDs der Teilnehmer)
+//   GET    /api/giveaways/buehne             öffentlich: was das OBS-Overlay zeigt
+//   GET    /api/giveaways/mein               angemeldet: wo bin ich dabei
+//   GET    /api/giveaways/:id/pruefen        angemeldet: wie stehe ich zu den Bedingungen
+//   POST   /api/giveaways/:id/join | leave   angemeldet (Twitch)
+//   POST   /api/giveaways                    Betreiber: anlegen
+//   DELETE /api/giveaways/:id                Betreiber
+//   POST   /api/giveaways/:id/ziehen         Betreiber: jetzt ziehen (im Stream)
+//   POST   /api/giveaways/:id/neu            Betreiber: einen Gewinner neu ziehen { index }
+//   GET|PUT /api/giveaways/einstellungen     Betreiber: Discord-Kanal, Status von Twitch/Bot
+//
+// Die Logik steht in dienst.js (Abläufe) und core.js (Regeln), gespeichert wird in store.js (data/giveaways.db).
+'use strict';
 
-/* ================= FETCH ================= */
+const express = require('express');
+const liveBadges = require('../lib/liveBadges');
+const { createGiveawayStore } = require('./store');
+const { createGiveawayDienst, echteAbhaengigkeiten, setzeAktiv } = require('./dienst');
 
-async function safeFetch(...args) {
-  if (typeof globalThis.fetch === "function") {
-    return globalThis.fetch(...args);
-  }
-  const mod = await import("node-fetch");
-  return mod.default(...args);
-}
+const TAKT_MS = 30 * 1000;
 
-/* ================= KONFIG ================= */
-
-const GIVEAWAYS_PATH = path.join(__dirname, "../data/giveaways.json");
-const DISCORD_GIVEAWAY_WEBHOOK_URL =
-  process.env.DISCORD_GIVEAWAY_WEBHOOK_URL || "";
-
-/* ================= HELPER ================= */
-
-// Über lib/jsonFile.js: atomar, und eine kaputte Datei wird nie mit [] überschrieben
-function loadGiveaways() {
-  return readJson(GIVEAWAYS_PATH, []);
-}
-
-function saveGiveaways(list) {
-  writeJsonAtomic(GIVEAWAYS_PATH, list);
-}
-
-function normalizeGiveaway(raw = {}) {
-  const quantity = Math.max(1, parseInt(raw.quantity || 1, 10));
-
-  const endDate =
-    typeof raw.endDate === "number"
-      ? raw.endDate
-      : Date.parse(raw.endDate || Date.now());
-
-  return {
-    id: raw.id || nanoid(10),
-    title: raw.title || "",
-    prize: raw.prize || "",
-    quantity,
-    requirements: Array.isArray(raw.requirements) ? raw.requirements : [],
-    endDate,
-    createdAt: raw.createdAt || Date.now(),
-    createdBy: raw.createdBy || "",
-    participants: raw.participants || {},
-    winners: raw.winners || [],
-    discordNotified: !!raw.discordNotified,
-  };
-}
-
-// Vollpayload nur an die, die die Giveaway-Seite offen haben — alle anderen
-// bekommen über liveBadges nur zwei Booleans für den Punkt in der Navigation.
-// Früher ging die komplette Teilnehmerliste an JEDE verbundene Socket.
-const broadcastGiveaways = (io) => {
-    if (!io) return;
-    const list = loadGiveaways().map(normalizeGiveaway); // Deine normalize Funktion nutzen!
-    const now = Date.now();
-    // Wir senden das gleiche Format wie beim GET Endpoint
-    io.to(liveBadges.ROOM_GIVEAWAYS).emit("giveaways_update", {
-        active: list.filter((g) => g.endDate > now),
-        expired: list.filter((g) => g.endDate <= now),
-    });
-    liveBadges.broadcast(io);
+/** Fehlertexte (Deutsch); die Seite übersetzt nach code (Frontend/src/pages/Giveaways/giveawayTexts.js). */
+const MESSAGES = {
+  not_found: 'Giveaway nicht gefunden.',
+  closed: 'Dieses Giveaway ist schon vorbei.',
+  way_closed: 'Auf diesem Weg kann man hier nicht mitmachen.',
+  conditions: 'Noch nicht alle Bedingungen erfüllt.',
+  title_missing: 'Bitte einen Titel eingeben.',
+  bad_end: 'Das Ende muss mindestens eine Minute und höchstens 60 Tage in der Zukunft liegen.',
+  already_drawn: 'Hier wurde schon gezogen.',
+  not_drawn: 'Hier wurde noch nicht gezogen.',
+  no_candidates: 'Es ist niemand mehr übrig, der gezogen werden kann.',
+  bad_channel: 'Diesen Discord-Kanal kennt der Bot nicht.',
+  owner_only: 'Nur der Kanalbetreiber darf das.',
 };
+const STATUS = { not_found: 404, owner_only: 403 };
 
-/* ================= GIVEAWAY FINALIZE ================= */
+const fehler = (res, code, extra = {}) =>
+  res.status(STATUS[code] || 400).json({ error: MESSAGES[code] || 'Das hat nicht geklappt.', code, ...extra });
 
-async function maybeFinalizeGiveaway(giveaway) {
-  const now = Date.now();
+/** Profilbild nur von Twitch übernehmen — alles andere würde fremde Adressen ins Overlay holen. */
+const twitchAvatar = (v) => (/^https:\/\/static-cdn\.jtvnw\.net\/[\w./-]+$/.test(String(v || '')) ? String(v) : '');
 
-  if (giveaway.winners.length > 0) return giveaway;
-  if (!giveaway.endDate || giveaway.endDate > now) return giveaway;
-
-  const participantIds = Object.keys(giveaway.participants || {});
-  const maxWinners = Math.min(giveaway.quantity, participantIds.length);
-
-  const shuffled = [...participantIds].sort(() => Math.random() - 0.5);
-  const winners = shuffled.slice(0, maxWinners);
-
-  giveaway.winners = winners;
-
-  if (DISCORD_GIVEAWAY_WEBHOOK_URL && !giveaway.discordNotified) {
-    const names = winners.map(
-      (id) => giveaway.participants[id]?.displayName || id
-    );
-
-    const content =
-      `🎁 **Giveaway beendet**\n` +
-      `**${giveaway.title}**\n` +
-      `Gewinn: ${giveaway.prize || "-"}\n` +
-      `Gewinner (${names.length}): ${names.map((n) => `**${n}**`).join(", ")}`;
-
-    try {
-      await safeFetch(DISCORD_GIVEAWAY_WEBHOOK_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content }),
-      });
-      giveaway.discordNotified = true;
-    } catch (e) {
-      console.error("Discord Webhook Fehler:", e);
-    }
-  }
-
-  return giveaway;
+/** Anzeigename: der aus dem Browser nur, wenn er zum Login passt (Twitch erlaubt nur andere Groß-/Kleinschreibung). */
+function anzeigename(req) {
+  const login = String(req.twitchLogin || '');
+  const wunsch = String((req.body && req.body.displayName) || '').trim().slice(0, 40);
+  return wunsch && login && wunsch.toLowerCase() === login.toLowerCase() ? wunsch : (login || wunsch || String(req.twitchId));
 }
 
-/* ================= HINTERGRUND-JOB ================= */
-
-// Jetzt akzeptiert die Funktion 'io' als Parameter
-async function finalizeExpiredGiveaways(io) {
-  let list = loadGiveaways().map(normalizeGiveaway);
-  let changed = false;
-
-  for (let i = 0; i < list.length; i++) {
-    const before = JSON.stringify(list[i]);
-    list[i] = await maybeFinalizeGiveaway({ ...list[i] });
-    if (before !== JSON.stringify(list[i])) {
-      changed = true;
-    }
-  }
-
-  if (changed) {
-    saveGiveaways(list);
-    console.log("[Giveaways] Automatisch finalisiert");
-    // WICHTIG: Live-Update an alle senden, wenn ein Gewinner gezogen wurde!
-    if (io) broadcastGiveaways(io); 
-  }
-}
-
-/* ================= ROUTER ================= */
-
-module.exports = function createGiveawayRouter({
-  requireAuth,
-  STREAMER_TWITCH_ID,
-  io, // IO wird hier empfangen
-} = {}) {
+/**
+ * @param {object} opts
+ * @param {Function} opts.requireAuth
+ * @param {string} opts.STREAMER_TWITCH_ID
+ * @param {object} [opts.io]
+ * @param {object} [opts.discordClient]
+ * @param {object} [opts.kontoStore]
+ * @param {object} [opts.dienst]   nur für Tests: fertiger Dienst (sonst mit echten Abhängigkeiten)
+ * @param {boolean} [opts.ohneTakt] nur für Tests
+ */
+module.exports = function createGiveawayRouter({ requireAuth, STREAMER_TWITCH_ID, io, discordClient, kontoStore, dienst: testDienst, ohneTakt } = {}) {
   const router = express.Router();
+  const operatorId = String(STREAMER_TWITCH_ID || '');
 
-  // START INTERVAL HIER (damit 'io' verfügbar ist)
-  // Vorherigen globalen setInterval Code löschen und hier einfügen:
-  const intervalId = setInterval(() => {
-    finalizeExpiredGiveaways(io).catch(console.error);
-  }, 60 * 1000);
+  const sende = (payload) => {
+    if (!io) return;
+    io.to(liveBadges.ROOM_GIVEAWAYS).emit('giveaways_update', payload);
+    liveBadges.broadcast(io);
+  };
+  let store = null;
+  let dienst = testDienst;
+  if (!dienst) {
+    store = createGiveawayStore();
+    dienst = createGiveawayDienst(echteAbhaengigkeiten({ store, operatorId, discordClient, kontoStore, sende }));
+    // Punkt in der Navigation: wer bei offenen Giveaways schon dabei ist
+    if (typeof liveBadges.setzeGiveawayQuelle === 'function') liveBadges.setzeGiveawayQuelle(() => store.offeneTeilnahmen());
+  }
+  setzeAktiv(dienst);
 
-  /* ---------- GET LIST ---------- */
+  if (!ohneTakt) {
+    const timer = setInterval(() => { dienst.takt().catch((e) => console.error('[giveaways] Takt:', e.message)); }, TAKT_MS);
+    if (typeof timer.unref === 'function') timer.unref();
+  }
 
-  router.get("/api/giveaways", async (_req, res) => {
-    const list = loadGiveaways().map(normalizeGiveaway);
-    const now = Date.now();
+  const nurBetreiber = (req, res, next) => (operatorId && String(req.twitchId) === operatorId ? next() : fehler(res, 'owner_only'));
 
-    res.json({
-      active: list.filter((g) => g.endDate > now),
-      expired: list.filter((g) => g.endDate <= now),
-    });
+  router.get('/api/giveaways', (_req, res) => {
+    res.json(dienst.oeffentlich());
   });
 
-  /* ---------- CREATE ---------- */
-
-  router.post("/api/giveaways", requireAuth, (req, res) => {
-    if (String(req.twitchId) !== String(STREAMER_TWITCH_ID)) {
-      return res.status(403).json({ error: "Nur Streamer erlaubt." });
-    }
-
-    const { title, prize, quantity, endDate, requirements } = req.body;
-
-    if (!title || !endDate) {
-      return res.status(400).json({ error: "Titel & Enddatum fehlen." });
-    }
-
-    const list = loadGiveaways();
-    list.push(
-      normalizeGiveaway({
-        id: nanoid(10),
-        title,
-        prize,
-        quantity,
-        requirements,
-        endDate,
-        createdBy: req.twitchId,
-      })
-    );
-
-    saveGiveaways(list);
-    broadcastGiveaways(io); // <--- LIVE
-    res.status(201).json({ ok: true });
+  router.get('/api/giveaways/buehne', (_req, res) => {
+    res.set('Cache-Control', 'no-store');
+    res.json(dienst.buehne());
   });
 
-  /* ---------- DELETE ---------- */
-
-  router.delete("/api/giveaways/:id", requireAuth, (req, res) => {
-    if (String(req.twitchId) !== String(STREAMER_TWITCH_ID)) {
-      return res.status(403).json({ error: "Nur Streamer erlaubt." });
-    }
-
-    const list = loadGiveaways();
-    const idx = list.findIndex((g) => g.id === req.params.id);
-
-    if (idx === -1) {
-      return res.status(404).json({ error: "Nicht gefunden." });
-    }
-
-    list.splice(idx, 1);
-    saveGiveaways(list);
-    broadcastGiveaways(io); // <--- LIVE
-    res.json({ ok: true });
+  router.get('/api/giveaways/mein', requireAuth, (req, res) => {
+    const id = String(req.twitchId);
+    // Auch per Chat oder (verknüpftem) Discord eingetragen zählt — die Twitch-ID steht dann mit in der Zeile
+    res.json({ dabei: dienst.meine(id), betreiber: id === operatorId });
   });
 
-  /* ---------- JOIN ---------- */
-
-  router.post("/api/giveaways/:id/join", requireAuth, (req, res) => {
-    const list = loadGiveaways().map(normalizeGiveaway);
-    const g = list.find((x) => x.id === req.params.id);
-
-    if (!g || g.endDate <= Date.now()) {
-      return res.status(400).json({ error: "Giveaway beendet." });
-    }
-
-    g.participants[req.twitchId] = {
-      id: req.twitchId,
-      displayName: req.body.displayName,
-      profileImageUrl: req.body.profileImageUrl,
-    };
-
-    saveGiveaways(list);
-    broadcastGiveaways(io); // <--- LIVE
-    res.json({ ok: true });
+  router.get('/api/giveaways/einstellungen', requireAuth, nurBetreiber, (_req, res) => {
+    res.json(dienst.status());
   });
 
-  /* ---------- LEAVE ---------- */
+  router.put('/api/giveaways/einstellungen', requireAuth, nurBetreiber, (req, res) => {
+    const r = dienst.setzeDiscord({ guildId: req.body?.guildId || '', channelId: req.body?.channelId || '' });
+    if (r.error) return fehler(res, r.error);
+    res.json(dienst.status());
+  });
 
-  router.post("/api/giveaways/:id/leave", requireAuth, (req, res) => {
-    const list = loadGiveaways().map(normalizeGiveaway);
-    const g = list.find((x) => x.id === req.params.id);
+  router.get('/api/giveaways/:id/pruefen', requireAuth, async (req, res) => {
+    const r = await dienst.pruefe(String(req.params.id), { twitchId: String(req.twitchId) });
+    if (r.error) return fehler(res, r.error);
+    res.json(r);
+  });
 
-    if (!g || g.endDate <= Date.now()) {
-      return res.status(400).json({ error: "Giveaway beendet." });
-    }
+  router.post('/api/giveaways', requireAuth, nurBetreiber, async (req, res) => {
+    const r = await dienst.anlegen(req.body, req.twitchId);
+    if (r.error) return fehler(res, r.error);
+    res.status(201).json(r);
+  });
 
-    delete g.participants[req.twitchId];
-    saveGiveaways(list);
-    broadcastGiveaways(io); // <--- LIVE
-    res.json({ ok: true });
+  router.delete('/api/giveaways/:id', requireAuth, nurBetreiber, async (req, res) => {
+    const r = await dienst.loeschen(String(req.params.id));
+    if (r.error) return fehler(res, r.error);
+    res.json(r);
+  });
+
+  router.post('/api/giveaways/:id/join', requireAuth, async (req, res) => {
+    const r = await dienst.mitmachen(String(req.params.id), {
+      twitchId: String(req.twitchId),
+      name: anzeigename(req),
+      avatar: twitchAvatar(req.body && req.body.profileImageUrl),
+    }, 'website');
+    if (r.error) return fehler(res, r.error, r.ergebnisse ? { ergebnisse: r.ergebnisse } : {});
+    res.json({ ok: true, neu: r.neu });
+  });
+
+  router.post('/api/giveaways/:id/leave', requireAuth, (req, res) => {
+    const r = dienst.austragen(String(req.params.id), String(req.twitchId));
+    if (r.error) return fehler(res, r.error);
+    res.json(r);
+  });
+
+  router.post('/api/giveaways/:id/ziehen', requireAuth, nurBetreiber, async (req, res) => {
+    const r = await dienst.ziehe(String(req.params.id));
+    if (r.error) return fehler(res, r.error);
+    res.json(r);
+  });
+
+  router.post('/api/giveaways/:id/neu', requireAuth, nurBetreiber, async (req, res) => {
+    const r = await dienst.zieheNeu(String(req.params.id), req.body && req.body.index);
+    if (r.error) return fehler(res, r.error);
+    res.json(r);
   });
 
   return router;
 };
+
+module.exports.MESSAGES = MESSAGES;

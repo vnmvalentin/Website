@@ -84,6 +84,7 @@
 .lo-btn.is-primary { background: #a3271b; border-color: #a3271b; color: #fff; }
 .lo-btn.is-primary:hover { background: #bd3022; border-color: #bd3022; }
 .lo-btn.is-big { padding: 14px 28px; font-size: 16px; }
+.lo-btn.is-share { display: inline-flex; align-items: center; gap: 8px; }
 
 .lo-settings {
   display: flex;

@@ -9,6 +9,11 @@ import { useCoop, loadName } from './useCoop';
 import './theme.css';
 import { useFontLink } from '../../components/shell/useFontLink';
 import BackToSite from '../../components/shell/BackToSite';
+import ErgebnisTeilen from '../../components/ErgebnisTeilen';
+import { lightsOutErgebnis } from './ergebnis';
+import { meldeAenderung } from '../../utils/spielstand';
+import { zaehleFlucht } from './kontoStand';
+import { lightsOutKonto } from './konto';
 
 const FONT_HREF = 'https://fonts.googleapis.com/css2?family=Special+Elite&display=swap';
 const PREFS_KEY = 'lo:prefs';
@@ -27,6 +32,7 @@ function readJson(key, fallback) {
 }
 function writeJson(key, value) {
   try { localStorage.setItem(key, JSON.stringify(value)); } catch { /* privates Fenster */ }
+  if (key !== PREFS_KEY) meldeAenderung('lights-out'); // Fortschritt geht ans Konto (kontoStand.js)
 }
 
 const reducedMotion = () => {
@@ -426,6 +432,13 @@ export default function LightsOut() {
 
   useFontLink(FONT_HREF);
 
+  // Fortschritt am Konto: kam ein Stand vom Konto (anderes Gerät, erste Anmeldung), das Menü neu füllen
+  lightsOutKonto.useAnbindung((s) => {
+    setReached(clampLevel(s?.level));
+    if (Array.isArray(s?.notes)) setFound(s.notes);
+    if (Number(s?.best) > 0) setBest(Number(s.best));
+  });
+
   const setPrefs = useCallback((patch) => {
     setPrefsState((p) => {
       const next = { ...p, ...patch };
@@ -541,6 +554,10 @@ export default function LightsOut() {
           }
           setResult(r);
           setScreen('end');
+          if (r.result === 'escaped') {
+            zaehleFlucht({ koop: true });
+            meldeAenderung('lights-out');
+          }
           // Alle erwischt: dieselbe Karte noch einmal
           if (r.result === 'wiped' && c.isHost) setTimeout(() => coopRef.current.startLevel(r.level, r.seed), 3500);
           return;
@@ -564,6 +581,8 @@ export default function LightsOut() {
         }
         setResult(r);
         const sum = total + r.time;
+        zaehleFlucht();
+        meldeAenderung('lights-out');
         if (full) {
           setBest((old) => {
             if (old && old <= sum) return old;
@@ -717,6 +736,10 @@ export default function LightsOut() {
                 </>
               )}
               {finished && !coop.isHost && <p className="lo-note">Der Host entscheidet, wie es weitergeht.</p>}
+              {finished && (
+                <ErgebnisTeilen className="lo-btn is-share"
+                  ergebnis={() => lightsOutErgebnis({ ebenen: LEVELS.length, notizen: found.length, notizenAlle: ALL_NOTES.length, koopSpieler: coopRun?.players?.length || 0 })} />
+              )}
               <button type="button" className="lo-btn" onClick={toMenu}>Raum verlassen</button>
             </div>
           </div>
@@ -738,6 +761,10 @@ export default function LightsOut() {
                 onClick={() => (finished ? start(0, 0, true, { intro: true }) : start(result.level, run.total, run.full))}>
                 {finished ? 'Neues Spiel' : 'Nochmal'}
               </button>
+              {finished && (
+                <ErgebnisTeilen className="lo-btn is-share"
+                  ergebnis={() => lightsOutErgebnis({ ebenen: LEVELS.length, zeit: run.full ? run.total + result.time : null, bestzeit: best, notizen: found.length, notizenAlle: ALL_NOTES.length })} />
+              )}
               <button type="button" className="lo-btn" onClick={toMenu}>Hauptmenü</button>
             </div>
           </div>

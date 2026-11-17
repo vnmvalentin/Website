@@ -194,4 +194,6 @@ const NSFW = [
     'Ich musste erst klären, ob ich geil oder einfach nur müde bin. War Ersteres.',
 ];
 
-module.exports = [...ABSURD, ...NSFW];
+// NSFW nur in Kanälen mit Altersbeschränkung (commands/funLines.js) — Discords Regeln für Apps und die Bot-Listen
+// verlangen das, sonst darf der Bot nicht ins Verzeichnis.
+module.exports = { safe: ABSURD, nsfw: NSFW };

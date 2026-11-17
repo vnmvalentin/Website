@@ -89,6 +89,12 @@ module.exports = {
             return handleTicketModalSubmit(interaction);
         }
 
+        // ── Button: Giveaway „Teilnehmen“ (Backend/giveaways/discordPost.js) ──
+        if (interaction.isButton() && interaction.customId.startsWith('gw_join:')) {
+            return require('../../../giveaways/discordPost').handleGiveawayButton(interaction)
+                .catch(e => console.error('[Giveaways] Knopf:', e));
+        }
+
         // ── Button: Punkte-System (Rakete aussteigen, Duell annehmen) ─────────
         if (interaction.isButton() && interaction.customId.startsWith('lp_')) {
             return handleLoyaltyButton(interaction).catch(e => console.error('[Punkte] Knopf:', e));

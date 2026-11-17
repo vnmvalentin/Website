@@ -9,14 +9,15 @@ import React, { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { ArrowRight, ExternalLink } from "lucide-react";
 import { useTilt } from "../utils/useTilt";
+import { useBarrierefrei } from "../utils/barrierefrei.js";
 
 const MAX_TILT = 5; // Grad — bewusst wenig, die Karte soll reagieren, nicht kippen
 const PARALLAX = [6, 4]; // Pixel Bildverschiebung an der Kante
 const ROTATE_MS = 3200;
 
+// System-Einstellung oder „Bewegung reduzieren: Immer" auf /barrierefreiheit (utils/barrierefrei.js)
 function useReducedMotion() {
-  const [reduced] = useState(() => typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches);
-  return reduced;
+  return useBarrierefrei().bewegungReduziert;
 }
 
 /** Mehrere Bilder: nacheinander überblenden (läuft nur, solange die Karte sichtbar ist) */

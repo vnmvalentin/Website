@@ -71,7 +71,7 @@ export function SectionHeading({ title, id, to, linkLabel = "Alle ansehen", clas
     <div className={`flex items-baseline justify-between gap-4 mb-4 md:mb-5 ${className}`}>
       <h2 id={id} className="font-display text-lg md:text-xl font-bold text-white tracking-tight">{title}</h2>
       {to && (
-        <Link to={to} className="group shrink-0 inline-flex items-center gap-1.5 text-sm text-white/45 hover:text-white transition-colors">
+        <Link to={to} className="group shrink-0 inline-flex items-center gap-1.5 text-sm text-white/55 hover:text-white transition-colors">
           {linkLabel}
           <ArrowRight size={14} className="transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
         </Link>
@@ -96,7 +96,7 @@ export function Card({ as: Tag = "div", className = "", children, ...rest }) {
  */
 export function EmptyState({ children, action, className = "" }) {
   return (
-    <div className={`text-center py-14 px-4 rounded-lg border border-dashed border-line bg-white/[0.02] text-sm text-white/45 ${className}`}>
+    <div className={`text-center py-14 px-4 rounded-lg border border-dashed border-line bg-white/[0.02] text-sm text-white/55 ${className}`}>
       <p>{children}</p>
       {action && <div className="mt-4 flex justify-center">{action}</div>}
     </div>
@@ -123,7 +123,7 @@ export function Section({ title, icon: Icon, kicker, description, actions, class
             {Icon && <Icon size={18} className="text-accent-soft shrink-0" />}
             {title}
           </h2>
-          {description && <p className="mt-1 text-xs text-white/45 leading-relaxed max-w-2xl">{description}</p>}
+          {description && <p className="mt-1 text-xs text-white/55 leading-relaxed max-w-2xl">{description}</p>}
         </div>
         {actions && <div className="shrink-0 flex items-center gap-2">{actions}</div>}
       </div>

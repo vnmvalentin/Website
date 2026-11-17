@@ -18,6 +18,8 @@ import {
   POWERUP_RADIUS, POWERUP_TYPES, teamOf,
 } from "./physics";
 import { SLOT_COLOR, POWERUP_COLOR, drawGlyph } from "./render";
+import { setzeZier } from "./zier3d.js";
+import { sauberZier } from "./zier.js";
 
 const COURT_HALF_DEPTH = 240;   // nur Optik: so tief ist das Feld nach vorn und hinten
 const TAU = Math.PI * 2;
@@ -386,6 +388,12 @@ export function createBlobby3D(canvas, { width }) {
   );
   scene.add(ball);
   const ballShadow = makeShadow();
+  // Doppelball: zweiter Ball (gleiche Form und Farbe), nur sichtbar, wenn es ihn gibt
+  const ball2 = new THREE.Mesh(ball.geometry, ball.material);
+  ball2.visible = false;
+  scene.add(ball2);
+  const ball2Shadow = makeShadow();
+  ball2Shadow.visible = false;
 
   // Powerup: Kugel in seiner Farbe + Sinnbild als Schild, das immer zur Kamera schaut
   const powerupTex = Object.fromEntries(POWERUP_TYPES.map((t) => [t, own(powerupTexture(t))]));
@@ -419,7 +427,7 @@ export function createBlobby3D(canvas, { width }) {
     b.label = sprite;
   }
 
-  function render(w, { slots, names, mySlot, mirror, dt }) {
+  function render(w, { slots, names, ziers, mySlot, mirror, dt }) {
     const k = 1 - Math.exp(-(dt || 16) / 220);
     const active = new Set(slots);
 
@@ -462,17 +470,31 @@ export function createBlobby3D(canvas, { width }) {
       b.shadow.scale.set(BLOBBY_LOWER_RADIUS * 2.6 * scale * s, BLOBBY_LOWER_RADIUS * 1.6 * scale * s, 1);
 
       setLabel(b, names?.[slot] || "");
+      setzeZier(b, sauberZier(ziers?.[slot]));
     }
 
     // Ball: Drehung um die Tiefenachse, wie in 2D
     const bx = w.ball.x - half;
     const by = toY(w.ball.y);
+    // Riesenball (Partyregel): Kugel und Schatten wachsen mit
+    const br = w.ballR || BALL_RADIUS;
+    ball.scale.setScalar(br / BALL_RADIUS);
     ball.position.set(bx, by, 0);
     ball.rotation.z = -w.rot;
-    const ballAir = Math.max(0, by - BALL_RADIUS);
+    const ballAir = Math.max(0, by - br);
     const bs = Math.max(0.3, 1 - ballAir / 900);
     ballShadow.position.set(bx, 1, 0);
-    ballShadow.scale.set(BALL_RADIUS * 2.4 * bs, BALL_RADIUS * 1.8 * bs, 1);
+    ballShadow.scale.set(br * 2.4 * bs, br * 1.8 * bs, 1);
+    ball2.visible = ball2Shadow.visible = !!w.ball2;
+    if (w.ball2) {
+      const b2x = w.ball2.x - half, b2y = toY(w.ball2.y);
+      ball2.scale.setScalar(br / BALL_RADIUS);
+      ball2.position.set(b2x, b2y, 0);
+      ball2.rotation.z = w.rot;
+      const s2 = Math.max(0.3, 1 - Math.max(0, b2y - br) / 900);
+      ball2Shadow.position.set(b2x, 1, 0);
+      ball2Shadow.scale.set(br * 2.4 * s2, br * 1.8 * s2, 1);
+    }
 
     // Pfeiler und Netz auf die aktuelle Höhe bringen
     const top = toY(w.netTop);
@@ -533,7 +555,7 @@ export function createBlobby3D(canvas, { width }) {
   }
 
   function dispose() {
-    for (const b of Object.values(blobs)) setLabel(b, "");
+    for (const b of Object.values(blobs)) { setLabel(b, ""); setzeZier(b, 0); }
     for (const d of disposables) d.dispose?.();
     renderer.dispose();
   }

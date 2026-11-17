@@ -6,7 +6,7 @@ const fetch = (...args) => import("node-fetch").then(({ default: fetch }) => fet
 const CLIENT_ID = process.env.DISCORD_CLIENT_ID;
 const CLIENT_SECRET = process.env.DISCORD_CLIENT_SECRET;
 const REDIRECT_URI = process.env.DISCORD_REDIRECT_URI;
-// Die Verknüpfung hängt an der Twitch-ID, nicht an der Sitzung (Begründung in ../linkStore.js)
+// Die Verknüpfung hängt an der Twitch-ID bzw. ohne Twitch am Konto, nicht an der Sitzung (Begründung in ../linkStore.js)
 const links = require("../linkStore");
 
 // Nur interne Pfade als Rücksprungziel erlauben (kein Open Redirect)
@@ -18,12 +18,12 @@ function safeReturnPath(value, fallback = "/discord-bot") {
 
 // Schutz gegen untergeschobene Verknüpfungen (OAuth-CSRF): Ohne Prüfwert im `state` konnte
 // ein präparierter Callback-Link einem eingeloggten Nutzer ein FREMDES Discord-Konto anhängen.
-// Der Prüfwert hängt an der Twitch-ID, gilt 10 Minuten und nur einmal.
+// Der Prüfwert hängt am Schlüssel der Verknüpfung (Twitch-ID oder Konto, req.linkKey), gilt 10 Minuten und nur einmal.
 const STATE_TTL_MS = 10 * 60 * 1000;
 // Mehrere je Nutzer: Dashboard holt den Link schon beim Laden, das Profil beim Klick —
 // zwei offene Seiten dürfen sich nicht gegenseitig den Prüfwert wegnehmen.
 const STATES_PER_USER = 5;
-const pendingStates = new Map(); // twitchId -> [{ nonce, until }]
+const pendingStates = new Map(); // linkKey -> [{ nonce, until }]
 
 function issueState(twitchId, returnTo) {
     const now = Date.now();
@@ -61,20 +61,20 @@ module.exports = function({ requireAuth, sessions, saveSessionsToFile }) {
 
     // Verknüpfung dieses Nutzers. Steckt sie noch in einer alten Sitzung, zieht sie hier um.
     const linkOf = (req) => {
-        if (links.migrateFromSessions(req.twitchId, sessions)) saveSessionsToFile(sessions);
-        return links.getLink(req.twitchId);
+        if (req.twitchId && links.migrateFromSessions(req.twitchId, sessions)) saveSessionsToFile(sessions);
+        return links.getLink(req.linkKey);
     };
 
     router.get("/login-url", requireAuth, (req, res) => {
         const returnTo = safeReturnPath(req.query.returnTo);
-        const url = `https://discord.com/api/oauth2/authorize?client_id=${CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&response_type=code&scope=identify%20guilds&state=${encodeURIComponent(issueState(req.twitchId, returnTo))}`;
+        const url = `https://discord.com/api/oauth2/authorize?client_id=${CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&response_type=code&scope=identify%20guilds&state=${encodeURIComponent(issueState(req.linkKey, returnTo))}`;
         res.json({ url });
     });
 
     router.get("/callback", requireAuth, async (req, res) => {
         const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
         const { code } = req.query;
-        const checked = consumeState(req.twitchId, req.query.state);
+        const checked = consumeState(req.linkKey, req.query.state);
         if (!checked) return res.redirect(`${frontendUrl}/discord-bot?error=auth_failed`);
         const returnTo = checked;
         if (!code) return res.redirect(`${frontendUrl}${returnTo}?error=no_code`);
@@ -97,7 +97,7 @@ module.exports = function({ requireAuth, sessions, saveSessionsToFile }) {
             const discordUser = await userResponse.json();
 
             if (!discordUser || !discordUser.id) throw new Error("Discord hat kein Konto geliefert");
-            links.setLink(req.twitchId, {
+            links.setLink(req.linkKey, {
                 accessToken: tokens.access_token, refreshToken: tokens.refresh_token, userId: discordUser.id,
                 // Das Zugriffstoken läuft ab (meist nach 7 Tagen) — guilds.js erneuert es rechtzeitig
                 expiresAt: tokens.expires_in ? Date.now() + Number(tokens.expires_in) * 1000 : 0,
@@ -107,7 +107,7 @@ module.exports = function({ requireAuth, sessions, saveSessionsToFile }) {
                     : null,
             });
             // Reste alter Art aus den Sitzungen räumen
-            if (links.migrateFromSessions(req.twitchId, sessions)) saveSessionsToFile(sessions);
+            if (req.twitchId && links.migrateFromSessions(req.twitchId, sessions)) saveSessionsToFile(sessions);
             res.redirect(`${frontendUrl}${returnTo}`);
         } catch (e) {
             console.error("Discord Auth Fehler:", e);
@@ -130,8 +130,8 @@ module.exports = function({ requireAuth, sessions, saveSessionsToFile }) {
     });
 
     router.post("/unlink", requireAuth, (req, res) => {
-        links.removeLink(req.twitchId);
-        if (links.migrateFromSessions(req.twitchId, sessions)) saveSessionsToFile(sessions);
+        links.removeLink(req.linkKey);
+        if (req.twitchId && links.migrateFromSessions(req.twitchId, sessions)) saveSessionsToFile(sessions);
         res.json({ success: true });
     });
 

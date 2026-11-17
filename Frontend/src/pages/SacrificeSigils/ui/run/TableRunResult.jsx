@@ -13,6 +13,9 @@ import { de } from "../../i18n/de.js";
 import { sound } from "../../audio/sound.js";
 import { useShell } from "../shellContext.js";
 import { stageModel } from "../table/stageModel.js";
+import { getZirkel } from "../../engine/zirkel/index.js";
+import ErgebnisTeilen from "../../../../components/ErgebnisTeilen.jsx";
+import { moorErgebnis } from "../../ergebnis.js";
 
 /** Wie im Podest der Szene (scene/tableRoom.js: PODIUM_X): Platz 1 Mitte, 2 links, 3 rechts. */
 const PODIUM_X = [0, -17, 17];
@@ -136,6 +139,15 @@ function ResultAtTable({ room, game, onExit, onFallback }) {
   return (
     <>
       <button type="button" className="st-menu-btn" onClick={() => setPaused(true)} aria-label="Menü (Esc)">Menü</button>
+      {myPlace && myPlace <= 3 && (
+        <ErgebnisTeilen className="st-menu-btn is-teilen" mitSymbol={false}
+          ergebnis={() => moorErgebnis({
+            platz: myPlace, spieler: P.length, siegel: P[you].seals, siegelMax: rv.settings.seals, stats: P[you].stats,
+            zirkel: getZirkel(zirkel)?.name,
+          })}>
+          Ergebnis teilen
+        </ErgebnisTeilen>
+      )}
       {notice && <div className="st-toast ss-paper" role="status">{notice}</div>}
       {detail && <CardDetail card={detail} onClose={() => setDetail(null)} />}
       {paused && (

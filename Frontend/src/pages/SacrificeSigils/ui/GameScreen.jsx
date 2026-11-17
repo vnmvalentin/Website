@@ -8,6 +8,7 @@ import { cleanFigureMask, cleanMask, maskFromText } from "./table/masks.js";
 import PathResultBanner from "./path/PathResultBanner.jsx";
 import { particles, centerOf } from "./anim/particles.js";
 import { usePrefs, useNewTable } from "./prefs.js";
+import { useWideEnough } from "./table/useAtTable.js";
 import { useShell } from "./shellContext.js";
 import { sound } from "../audio/sound.js";
 import { de } from "../i18n/de.js";
@@ -17,6 +18,7 @@ import ExtrasScreen from "./screens/ExtrasScreen.jsx";
 import PathScreen from "./path/PathScreen.jsx";
 import InterludeScreen from "./screens/InterludeScreen.jsx";
 import ResultScreen from "./screens/ResultScreen.jsx";
+import { zaehleDuell } from "../kontoStand.js";
 import { TableStage } from "./battle/table3d/tableStage.js";
 
 /**
@@ -51,8 +53,8 @@ export default function GameScreen({ game, extra, pauseExtra, onBattleAction, on
   // Der Tisch im Kerzenlicht ist Standard (seit 14.11.2026), aber nur im 1-gegen-1 ohne Sonderaufbau (die
   // Moorwanderung bringt eine eigene Kopfzeile und einen Aktions-Haken mit und bleibt vorerst am bisherigen Tisch;
   // das Tutorial läuft seit Phase 5 am Tisch, mit Erzähler-Blatt und seinem Knopf im Pausenmenü).
-  // Hochkant (Handy) ist der neue Tisch noch nicht eingerichtet (Plan, Phase 7) — dort bleibt der bisherige.
-  const wideEnough = typeof window === "undefined" || window.innerWidth >= window.innerHeight * 1.2;
+  // Hochkant bleibt der bisherige Tisch (Entscheidung Phase 7); wer das Gerät dreht, wechselt sofort.
+  const wideEnough = useWideEnough();
   // Ausweichen für dieses Match: der Browser kann den Tisch nicht darstellen, oder im Pausenmenü abgewählt
   const [tableFailed, setTableFailed] = useState(false);
   // (Das Tutorial läuft seit Phase 5 am Tisch: sein Knopf steht dort im Pausenmenü, die Hinweise auf dem Erzähler-Blatt.)
@@ -217,6 +219,12 @@ export default function GameScreen({ game, extra, pauseExtra, onBattleAction, on
     const id = setTimeout(() => setWalkHold(false), WALK_HOLD_MS);
     return () => { clearTimeout(id); setWalkHold(false); };
   }, [myRoute, tableWanted, prefs.reduceMotion]);
+  // Statistik am Konto: ein beendetes Match einmal zählen (je Seed; Revanche = neuer Seed)
+  useEffect(() => {
+    if (view?.phase !== "over" || you === null || you === undefined || view.winner === null || view.winner === undefined) return;
+    zaehleDuell({ seed: view.seed, modus: game.mode, gewonnen: view.winner === you });
+  }, [view?.phase, view?.seed, view?.winner, you, game.mode]);
+
   if (!view) return <p className="text-center ss-dim py-20">Der Tisch wird gedeckt …</p>;
   const names = view.players.map((p) => p.name);
   const phase = view.phase;

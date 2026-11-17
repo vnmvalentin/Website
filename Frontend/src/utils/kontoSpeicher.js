@@ -17,6 +17,9 @@
 //
 //   meldeErfolge("flick-soccer", ["erstes-tor"]);   // jederzeit, auch ohne Anmeldung (wird dann nachgereicht).
 //                                                   // Die IDs müssen in Backend/konto/erfolge.js stehen.
+//   meldeBestwerte("lights-out", { "schnellste-flucht": 83_250 });   // Wert dieses Laufs oder der lokale Bestwert;
+//                                                   // das Konto behält je Wert den besten (Visitenkarte /u/). IDs,
+//                                                   // Art (zeit in ms | zahl) und Richtung in Backend/konto/bestwerte.js.
 //
 // Der Stand ist JSON, höchstens 64 KB. Server: PUT/GET /api/konto/stand/:spiel mit Versionszähler — hat ein anderes
 // Gerät inzwischen gespeichert, wird zusammengeführt statt überschrieben.
@@ -25,6 +28,8 @@ import { entscheideAbgleich, sichereXp } from "./kontoAbgleich.js";
 
 const BUENDELN_MS = 4000;
 const OFFENE_ERFOLGE = "kontoErfolgeOffen";
+const OFFENE_BESTWERTE = "kontoBestwerteOffen";
+const BESTWERTE_JE_ID = 5; // ohne Anmeldung gemerkte Werte je Bestwert (der Server sucht den besten heraus)
 
 async function anfrage(pfad, { method = "GET", body, keepalive = false } = {}) {
   const res = await fetch(`/api/konto${pfad}`, {
@@ -181,7 +186,61 @@ export async function meldeErfolge(spiel, ids) {
   return r.data.neu || [];
 }
 
-// Nach einer Anmeldung: gemerkte Abzeichen nachreichen
+// ── Bestwerte ────────────────────────────────────────────────────────────────────────────────────────────────────
+
+function liesOffen(schluessel) {
+  try {
+    const o = JSON.parse(localStorage.getItem(schluessel) || "{}");
+    return o && typeof o === "object" && !Array.isArray(o) ? o : {};
+  } catch {
+    return {};
+  }
+}
+
+function merkeBestwerteOffen(spiel, werte) {
+  try {
+    const o = liesOffen(OFFENE_BESTWERTE);
+    const s = o[spiel] && typeof o[spiel] === "object" ? o[spiel] : {};
+    for (const [id, wert] of Object.entries(werte)) s[id] = [...(Array.isArray(s[id]) ? s[id] : []), wert].slice(-BESTWERTE_JE_ID);
+    o[spiel] = s;
+    localStorage.setItem(OFFENE_BESTWERTE, JSON.stringify(o));
+  } catch { /* ohne Speicher gehen sie beim nächsten Melden mit */ }
+}
+
+/**
+ * Meldet Bestwerte als { id: zahl } (Zeiten in Millisekunden). Ohne Anmeldung werden sie im Browser gemerkt und nach
+ * der nächsten Anmeldung nachgereicht. Schlechtere Werte als der gespeicherte ignoriert der Server.
+ * @returns {Promise<string[]>} die IDs, die ein neuer Bestwert wurden (leer ohne Anmeldung)
+ */
+export async function meldeBestwerte(spiel, werte) {
+  const sauber = Object.fromEntries(Object.entries(werte && typeof werte === "object" ? werte : {})
+    .filter(([id, w]) => typeof id === "string" && id && Number.isFinite(Number(w))));
+  if (!Object.keys(sauber).length) return [];
+  if (!getKontoZustand().konto) {
+    merkeBestwerteOffen(spiel, sauber);
+    return [];
+  }
+  const r = await anfrage(`/bestwerte/${spiel}`, { method: "POST", body: { werte: sauber } }).catch(() => null);
+  if (!r?.ok) {
+    if (!r || r.status >= 500 || r.status === 401 || r.status === 429) merkeBestwerteOffen(spiel, sauber);
+    return [];
+  }
+  return r.data.neu || [];
+}
+
+/** Gemerkte Bestwerte in Runden senden: Runde i trägt je ID den i-ten gemerkten Wert */
+async function bestwerteNachreichen(offen) {
+  for (const [spiel, ids] of Object.entries(offen)) {
+    const listen = Object.entries(ids || {}).filter(([, l]) => Array.isArray(l));
+    const runden = Math.max(0, ...listen.map(([, l]) => l.length));
+    for (let i = 0; i < runden; i++) {
+      const werte = Object.fromEntries(listen.filter(([, l]) => i < l.length).map(([id, l]) => [id, l[i]]));
+      await meldeBestwerte(spiel, werte);
+    }
+  }
+}
+
+// Nach einer Anmeldung: gemerkte Abzeichen und Bestwerte nachreichen
 if (typeof window !== "undefined") {
   let gesendetFuer = null;
   subscribeKonto(() => {
@@ -189,8 +248,14 @@ if (typeof window !== "undefined") {
     if (!konto || konto.id === gesendetFuer) return;
     gesendetFuer = konto.id;
     const offen = offeneErfolge();
-    if (!Object.keys(offen).length) return;
-    try { localStorage.removeItem(OFFENE_ERFOLGE); } catch { /* egal */ }
-    for (const [spiel, ids] of Object.entries(offen)) meldeErfolge(spiel, ids);
+    if (Object.keys(offen).length) {
+      try { localStorage.removeItem(OFFENE_ERFOLGE); } catch { /* egal */ }
+      for (const [spiel, ids] of Object.entries(offen)) meldeErfolge(spiel, ids);
+    }
+    const bestwerte = liesOffen(OFFENE_BESTWERTE);
+    if (Object.keys(bestwerte).length) {
+      try { localStorage.removeItem(OFFENE_BESTWERTE); } catch { /* egal */ }
+      bestwerteNachreichen(bestwerte).catch(() => { /* beim nächsten Melden wieder */ });
+    }
   });
 }

@@ -8,6 +8,7 @@ import SEO from "../../../../components/SEO";
 import Card from "../card/Card.jsx";
 import { COLLECTIBLE, resolveCard } from "../../engine/cards.js";
 import { usePrefs, setPrefs, useNewTable } from "../prefs.js";
+import { useWideEnough } from "../table/useAtTable.js";
 import { sound } from "../../audio/sound.js";
 import { de } from "../../i18n/de.js";
 
@@ -22,8 +23,8 @@ const SEO_PROPS = {
 export default function HomeScreen() {
   const newTable = useNewTable();
   const [failed, setFailed] = useState(false);
-  // Hochkant (Handy) ist der Tisch noch nicht eingerichtet (Plan, Phase 7)
-  const wideEnough = typeof window === "undefined" || window.innerWidth >= window.innerHeight * 1.2;
+  // Hochkant bleibt der flache Weg (Phase 7); Drehen wechselt sofort
+  const wideEnough = useWideEnough();
   if (newTable && wideEnough && !failed) {
     return (
       <>

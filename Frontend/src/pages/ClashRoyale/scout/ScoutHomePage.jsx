@@ -7,10 +7,10 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { CrInfo } from '../ui/CrIcons';
 import { MEDAL_ICON_URL } from '../data/leagueIcons';
-import trophyImg from '../../../assets/clashRoyale/ui/trophy.png';
-import cardsImg from '../../../assets/clashRoyale/ui/cards.png';
-import battleImg from '../../../assets/clashRoyale/ui/battle.png';
-import crownSeriesImg from '../../../assets/clashRoyale/ui/CR_CrownSeriesIcon.png';
+import trophyImg from '../../../assets/clashRoyale/ui/trophy.webp';
+import cardsImg from '../../../assets/clashRoyale/ui/cards.webp';
+import battleImg from '../../../assets/clashRoyale/ui/battle.webp';
+import crownSeriesImg from '../../../assets/clashRoyale/modes/CR_CrownSeriesIcon.webp';
 import kingImg from '../../../assets/clashRoyale/ui/king_blue.webp';
 // Dunkles, ruhiges Motiv: das Podest rechts im Banner bleibt darauf gut lesbar (evergreen war dort zu bunt)
 import bannerArt from '../../../assets/clashRoyale/bg/goblinstein.webp';

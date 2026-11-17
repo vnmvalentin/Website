@@ -1931,7 +1931,35 @@ Lauffläche. Wandkehren bleiben selten (0,3 je Level), weil die enge Bauweise ih
 Offen: Stampfer, Taktblöcke, Schattenläufer; Wandkehren häufiger; Tagesrennen/Lobby auf die Lauflinie umstellen (eigene
 Generator-Version, Stichtag) — erst nach Abnahme durch den Nutzer.
 
-## 18. ÜBERGABE — Stand 14.11.2026 (hier weiterlesen, Abschnitt 17 hat die Einzelheiten)
+### 17g. Lauflinie in den Rennen: Generator-Version 5 (16.11.2026)
+
+**Rückmeldung (Abnahme 16.11.2026):** Abwechslung, Härte, Wenden, Flut und Boost „passt“; „Ja, in die Rennen“.
+
+- **Welttyp hängt an der Version:** `gen/index.js weltParams` baut ab `LAUF_AB_GV` (5, gen/generator.js) den Welttyp `lauf`,
+  davor `pfad`. Die Parameter bleiben `gen: 'pfad'` (heißt seitdem nur „Zufallslevel aus Seed + Biom + gv“) — Räume, Vorrat,
+  Favoriten, Verlauf und Server-Prüfung laufen unverändert weiter. Eingefrorene Versionen bekommen ihre Parameter von dort,
+  gv 1–4 bleiben also Pfad.
+- **Version 5** nach 16r: `GEN_VERSION` / `PFAD_GEN_VERSION` = 5, eingefroren in `archiv/pfad-v5` (baut die Lauflinie),
+  in `client/generatorArchiv.js` eingetragen, Wächter-Referenzen golden-1/golden-2/archiv-probe (treffen zufällig die drei
+  Großformen Strom, Aufstieg, Abstieg).
+- **Tagesrennen:** Stichtag `GV5_TAGESRENNEN_AB` (Frontend) = `GV5_AB` (Backend daily.js) = **2026-11-20**. Der Deploy muss
+  davor liegen — sonst bauen alter und neuer Server dieselben Tage verschieden. Verschiebt er sich, das Datum an beiden
+  Stellen verschieben. Lobby-Runden und eingetippte Seeds bauen ab dem Deploy die Lauflinie.
+- **Vorrat:** `vorratWorker.js kennzahlenLauf` zählt an den Schritten der Strecken (`istSchlicht`), dazu Strecken und
+  Kettenlauf; `levelVorrat.js GUETE_LAUF` fängt nur Ausreißer (Kettenlauf gescheitert, mehr als zwei Strecken zu wenig,
+  > 25 % schlichte Schritte, Folge > 3, < 10 Zug-Arten). Gemessen an 16 langen Leveln: 6–20 % schlicht, Folge ≤ 2, 11–14
+  Zug-Arten, Kettenlauf 16/16, Bauzeit 1,6–6 s (Pfad 3–16 s). Tages-Level einer älteren Version baut der Vorrat nicht vor
+  (bis zum Stichtag also die Browser selbst, aus dem Archiv).
+- **Titel:** `lauf/namen.js` — Leitidee = Großform (`lauf-strom|hoch|runter` → Strom/Aufstieg/Abstieg), Autor `lauflinie`;
+  Ergebnis, Verlauf und Favoriten zeigen „Aufstieg · Lauflinie“ (vorher stand dort „Prototyp“).
+- **Geprüft:** Backend seedRunners 220/220, darunter ein echter Läufer-Lauf durch ein Lauf-Level, den die Server-Prüfung
+  bestätigt, und derselbe Test für ein Pfad-Level aus dem Archiv (gv 4); Browser: Tagesrennen mit gv 5 über einen Prüfserver
+  (echter Router, echte Prüfung) — Level im Browser in 3,3 s gebaut, Bot ohne Tod in 54,7 s im Ziel, „Bestätigt: Platz 1“.
+
+## 18. ÜBERGABE — Stand 14.11.2026, Nachtrag 16.11.2026 (hier weiterlesen, Abschnitt 17 hat die Einzelheiten)
+
+**Nachtrag 16.11.2026:** Die Lauflinie ist abgenommen und als Generator-Version 5 in den Rennen (17g). Der Pfad bleibt für
+gv 1–4 im Archiv. Was unten unter „Was als Nächstes ansteht“ Punkt 1 und 5 heißt, ist damit erledigt.
 
 **Auftrag des Nutzers:** Seed Runners wird kaum noch gespielt, weil die Level eintönig waren. Ziel: jedes Level wie ein
 selbst gebautes, hart, abwechslungsreich, eigene Bewegung statt Warten. Drei Hebel sind freigegeben (nicht erneut fragen):

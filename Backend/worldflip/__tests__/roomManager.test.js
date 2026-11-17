@@ -35,6 +35,17 @@ test('Raum anlegen, beitreten, starten: jeder sieht nur die eigene Hand', async 
   assert.equal(JSON.stringify(va).includes('hands'), false);
 });
 
+test('Option „Ziehen, bis es passt“ gilt für die Partie im Raum', async () => {
+  const { m, last } = await setup();
+  const { code } = m.create('a', { name: 'Anna', token: tok('a'), settings: { players: 2 } });
+  assert.equal(last('a').settings.drawUntil, false);
+  assert.equal(m.setSettings('a', { settings: { drawUntil: true } }).ok, true);
+  assert.equal(last('a').settings.drawUntil, true);
+  m.join('b', { code, name: 'Ben', token: tok('b') });
+  m.start('a');
+  assert.equal(last('a').game.drawUntil, true);
+});
+
 test('Ohne Bots braucht es zwei Menschen', async () => {
   const { m } = await setup();
   m.create('a', { name: 'Anna', token: tok('a'), settings: { bots: false } });

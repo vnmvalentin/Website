@@ -26,6 +26,8 @@ import { loadStage, updateStage } from "./stage.js";
 import { updateFx } from "./fx.js";
 import { xpToNext } from "./stats.js";
 import { makeRng, hashSeed } from "./util.js";
+import { depthOf, activeTwist, TWISTS } from "./twists.js";
+import { updateWorldMechanics } from "./worldMechanics.js";
 
 export const SNAPSHOT_VERSION = 1;
 export const TICK = 1 / 60;
@@ -84,6 +86,7 @@ export function stepGame(g, dt, input) {
   updateDirector(g, dt);
   updateHorde(g, dt);
   updateEnemies(g, dt);
+  updateWorldMechanics(g); // Besonderheiten neuer Welten (Friedhof: Gräber)
   updateAllies(g, dt);
   updateProjectiles(g, dt);
   updateHazards(g, dt);
@@ -144,6 +147,8 @@ export function hudState(g) {
     level: p.level, xp: p.xp, xpNext: xpToNext(p.level), gold: Math.floor(p.gold),
     time: g.time, coeff: g.coeff, tier,
     stageName: g.biome.name, stageIndex: g.stageIndex, loop: g.loop, stagesCleared: g.stagesCleared,
+    // Tiefe über alle Zyklen und die Wendung des Zyklus (engine/twists.js)
+    depth: depthOf(g), twist: activeTwist(g) ? TWISTS[activeTwist(g)].name : null,
     kills: g.stats.kills, streak: g.streak.n,
     items: p.itemOrder.filter((id) => p.items[id] > 0 && ITEMS[id]).map((id) => ({ id, n: p.items[id] })),
     weapons: p.weaponOrder.filter((id) => p.weapons[id]).map((id) => ({ id, level: p.weapons[id] })),

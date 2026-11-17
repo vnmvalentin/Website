@@ -80,6 +80,23 @@ const de = {
   alertTest: 'Test',
   alertQuote: (s) => `„${s}“`,
   demoAlertMessage: { resub: 'Schon über ein Jahr dabei!', bits: 'Viel Glück im nächsten Match!' },
+
+  // Subathon-Timer — Zustand und was eine Verlängerung war
+  subStatus: { idle: 'Startet gleich', running: 'Läuft', paused: 'Pause', ended: 'Vorbei' },
+  subWhat: {
+    sub: 'Abo',
+    resub: 'Verlängerung',
+    gift: (n, shown) => (n === 1 ? 'Geschenk-Abo' : `${shown} Geschenk-Abos`),
+    donation: (money) => `${money} Spende`,
+    manual: 'Zeit angepasst',
+  },
+  subMoney: (amount, currency) =>
+    `${Number(amount || 0).toLocaleString('de-DE', { minimumFractionDigits: Number.isInteger(Number(amount)) ? 0 : 2, maximumFractionDigits: 2 })} ${currency}`,
+  subCap: (time) => `Obergrenze ${time}`,
+  subCapReached: 'Obergrenze erreicht',
+  // Happy Hour (Abo-Extra): Band unter der Zeit
+  subHappy: (factor) => `Happy Hour ×${factor}`,
+  subHappyLeft: (time) => `noch ${time}`,
 };
 
 const en = {
@@ -147,6 +164,21 @@ const en = {
   alertTest: 'Test',
   alertQuote: (s) => `“${s}”`,
   demoAlertMessage: { resub: 'Over a year already!', bits: 'Good luck in the next match!' },
+
+  subStatus: { idle: 'Starting soon', running: 'Running', paused: 'Paused', ended: 'Over' },
+  subWhat: {
+    sub: 'Sub',
+    resub: 'Resub',
+    gift: (n, shown) => (n === 1 ? 'Gift sub' : `${shown} gift subs`),
+    donation: (money) => `${money} donation`,
+    manual: 'Time adjusted',
+  },
+  subMoney: (amount, currency) =>
+    `${currency}${Number(amount || 0).toLocaleString('en-US', { minimumFractionDigits: Number.isInteger(Number(amount)) ? 0 : 2, maximumFractionDigits: 2 })}`,
+  subCap: (time) => `Cap ${time}`,
+  subCapReached: 'Cap reached',
+  subHappy: (factor) => `Happy hour ×${factor}`,
+  subHappyLeft: (time) => `${time} left`,
 };
 
 export const OVERLAY_TEXTS = defineMessages({ de, en });

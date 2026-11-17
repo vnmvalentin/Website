@@ -3,7 +3,7 @@
 Jede `.bin` ist eine fertig gerechnete Figur: acht Schritte einer Gangart und die stehende Figur als starre Körper,
 Farben als Punktfarben, keine Texturen. Geladen von `src/pages/Adventure/render3d/figures3d.js`, erzeugt von
 `src/pages/Adventure/render3d/tools/bakeFigures.mjs` (dort stehen das Dateiformat und die Liste der Figuren).
-Welche Figur welchen Gegner darstellt, steht in `CAST` / `BOSS_CAST` / `HEROES` in `render3d/scene3d.js`.
+Welche Figur welchen Gegner darstellt, steht in `CAST` / `BOSS_CAST` / `HEROES` in `render3d/cast.js`.
 
 Alle Quellen sind **CC0** (gemeinfrei). Die Originale liegen nicht im Projekt.
 
@@ -61,6 +61,71 @@ des Zeichners auf Google Drive war am 13.11.2026 wegen Abruf-Limit nicht erreich
 | daemon | 572_Demon.glb | https://poly.pizza/m/LnfIziKv4o |
 | drache | 584_DragonEvolved.glb | https://poly.pizza/m/LlwD0QNUPj |
 
+### Neue Welten ab Zyklus 2 — Quaternius auf poly.pizza (November 2026)
+
+Weitere Figuren von Quaternius, auf poly.pizza jeweils als „Public Domain (CC0)“ geführt (Monster aus „Ultimate
+Monsters“, Roboter-Gegner und Mechs aus dem „Ultimate Space Kit“, dazu der „Animated Robot“). Geladen am 17.11.2026 als
+`https://static.poly.pizza/<uuid>.glb`, Quellordner `poly/` (Dateiname = Spalte 2). Bei diesen Figuren zählt beim Backen
+die ganze Figur zur Höhe (`measureAll`), weil manche Teile starr sind (Kopf des Automaten).
+
+| Datei | Quelldatei | Seite | Rolle |
+|---|---|---|---|
+| stachelpilz | MushnubEvolved.glb | https://poly.pizza/m/0SZyA6MV51 | Pilzwald: Stachelpilz |
+| affenwicht | Monkroose.glb | https://poly.pizza/m/j4rVPvxyLg | Pilzwald: Moosaffe |
+| kroete | Frog_b.glb (Frog) | https://poly.pizza/m/37wofOCOzG | Sumpf: Giftkröte |
+| riesenfrosch | Frog_a.glb (Frog) | https://poly.pizza/m/9Z2V8fpazF | Sumpf: Riesenfrosch (hüpft: Frog_Jump) |
+| glub | Glub.glb | https://poly.pizza/m/x59pqJscry | Sumpf: Moorglub |
+| glub_gross | GlubEvolved.glb | https://poly.pizza/m/Z9lddNpM1M | Sumpf: Glubältester |
+| krake | Squidle.glb | https://poly.pizza/m/54QyRcsogk | Sumpf: Tintenkrake |
+| sumpfwicht | EnemyLarge.glb | https://poly.pizza/m/UgBmRVnQ9h | Sumpf: Sumpfwicht |
+| robo_laeufer | RobotEnemy.glb | https://poly.pizza/m/1gNo5ezvmr | Uhrwerkturm: Blechknecht |
+| robo_drohne | RobotEnemyFlying.glb | https://poly.pizza/m/lF3jeRJwiH | Uhrwerkturm: Surrdrohne |
+| robo_kugel | RobotEnemyLarge.glb | https://poly.pizza/m/mPDR0L5uKx | Uhrwerkturm: Schildwerk |
+| robo_kanone | RobotEnemyLegsGun.glb | https://poly.pizza/m/lFZfDh2hzP | Uhrwerkturm: Bolzenwerfer |
+| mech_gelb | Mech_d.glb (Mech) | https://poly.pizza/m/4UvIHxnoSR | Uhrwerkturm: Messingmech |
+| mech_orange | Mech_b.glb (Mech) | https://poly.pizza/m/D5wW2jDO42 | Uhrwerkturm: Dampfmech |
+| automat | AnimatedRobot.glb | https://poly.pizza/m/QCm7qe9uNJ | Uhrwerkturm: Boss Uhrwerkkoloss |
+| hornschleim | SlimeEnemy.glb | https://poly.pizza/m/eSLKTsbl7F | Uhrwerkturm: Ölschleim (entfärbt) |
+
+Die Biene („Bee Enemy“) ließ sich nicht backen (fiel auf null Dreiecke zusammen) und ist nicht dabei.
+
+| wolf | Wolf.glb (Wolf) | https://poly.pizza/m/P1gU3Qkr9r | Begleiter der Jägerin (Wolfsrudel); Gegner Gruft-, Glut-, Waldwolf |
+| fuchs | Fox.glb (Fox) | https://poly.pizza/m/Bc97C66HKi | Gegner Wüstenfuchs |
+| husky | Husky.glb (Husky) | https://poly.pizza/m/wcWiuEqwzq | Gegner Schneewolf |
+| robo_geschuetz | RobotEnemyLargeGun.glb | https://poly.pizza/m/mWojM4i2IH | Gegner Geschützwerk (Uhrwerkturm) |
+
+Die Krabbe („Crab Enemy“) fällt beim Backen wie die Biene auf null Dreiecke zusammen (gleiches Monster-Skelett) und ist
+nicht dabei.
+
+### Requisiten — starre Modelle (prop/, `static` in bakeFigures.mjs: nur ein Standbild)
+
+Auf poly.pizza jeweils „Public Domain (CC0)“, geladen am 17.11.2026; Quellordner `prop/`. Aufstellung in `cast.js PROPS`.
+
+| Datei | Quelldatei | Seite | Rolle |
+|---|---|---|---|
+| kiste | Chest_a.glb (Quaternius) | https://poly.pizza/m/O72u4Drp8k | Kiste |
+| kiste_gross | Chest_c.glb (Quaternius) | https://poly.pizza/m/eEcIqgJzJ1 | große Kiste |
+| kiste_rot | Chest_d.glb (Quaternius) | https://poly.pizza/m/RfSBvgcZUD | Ausrüstungskiste |
+| kiste_offen | Chest_b.glb (Quaternius) | https://poly.pizza/m/IbCTSkyWDT | geöffnete Kisten |
+| schrein | Shrine_a.glb (Kay Lousberg) | https://poly.pizza/m/tFxdxO5clk | Schreine (Edelstein darüber im Zeichner) |
+| altar | Shrine_b.glb (Kay Lousberg) | https://poly.pizza/m/Qq8M5LSXQ2 | Opferaltar |
+| fangeisen | BearTrap_a.glb (Quaternius) | https://poly.pizza/m/UTau9hyAnm | Fangeisen der Jägerin |
+| kristall, kristall2 | Crystal_a/_b.glb (iPoly3D) | https://poly.pizza/m/WzWPKHFMkL, https://poly.pizza/m/dxCmHfpqc5 | Kristalle der Kristallhöhle |
+
+### Helden der neuen Kits — Quaternius „RPG Characters – Nov 2020“
+
+https://opengameart.org/node/126989 („LowPoly RPG Characters“, CC0 1.0 laut `License.txt` im Paket, geladen am
+17.11.2026 als `rpg_characters_-_nov_2020.zip`). Nur als FBX zu haben: `bakeFigures.mjs` liest es mit dem FBXLoader von
+three.js und nimmt die Farben aus den PNG-Texturen des Pakets (`textures`, V-Achse gespiegelt, `texGain` hellt auf).
+Quellordner `rpg/` = die Ordner `FBX/` und `Textures/` aus dem Zip.
+
+| Datei | Quelldatei | Kit |
+|---|---|---|
+| held_moench | FBX/Monk.fbx + Textures/Monk_Texture.png | Mönch |
+| held_jaegerin | FBX/Ranger.fbx + Ranger_Texture, Ranger_Bow_Texture | Jägerin |
+| held_klerikerin | FBX/Cleric.fbx + Cleric_Texture, Cleric_Staff_Texture | Nekromantin (lila getönt) |
+| held_gelehrter | FBX/Wizard.fbx + Wizard_Texture, Wizard_Staff_Texture | Alchemist |
+
 ## Neu erzeugen
 
 1. Einen Quellordner anlegen:
@@ -68,7 +133,12 @@ des Zeichners auf Google Drive war am 13.11.2026 wegen Abruf-Limit nicht erreich
    - `kaykit/assets/` — die Waffen der Skelette aus `addons/kaykit_character_pack_skeletons/Assets/gltf/`
      (je `.gltf` + `.bin`): Skeleton_Blade, _Axe, _Staff, _Crossbow, _Shield_Large_A, _Shield_Small_A
    - `monster/` — die `.glb` der Tabelle oben, benannt wie in der Spalte „Quelldatei“
+   - `poly/` — die `.glb` der Tabelle „Neue Welten ab Zyklus 2“ (und Wolf, Fuchs, Husky), benannt wie in der Spalte „Quelldatei“
+   - `prop/` — die `.glb` der Requisiten-Tabelle
+   - `rpg/` — die Ordner `FBX/` und `Textures/` aus Quaternius' „RPG Characters – Nov 2020“
 2. Im Ordner `Frontend`: `npm run adventure:figuren -- <Quellordner>`
+   (nur einzelne Figuren: `npm run adventure:figuren -- <Quellordner> stachelpilz,automat` — dann braucht es nur
+   deren Quellen; die übrigen Dateien bleiben unverändert)
 
 Eine neue Figur ist ein Eintrag in `FIGURES` (Quelldatei, Gangart, Ausrüstung) und ein Eintrag in der Besetzung
 (`src/pages/Adventure/render3d/cast.js`).

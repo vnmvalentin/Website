@@ -7,11 +7,12 @@ import { LEGAL } from "../../config/legal";
 
 export default function Widerruf() {
   return (
-    <LegalPage title="Widerrufsrecht" description="Widerrufsbelehrung und Muster-Widerrufsformular für das Premium-Abo." path="/widerruf">
+    <LegalPage title="Widerrufsrecht" description="Widerrufsbelehrung und Muster-Widerrufsformular für das Premium-Abo und Käufe im Laden." path="/widerruf">
       <Section title="Widerrufsbelehrung">
         <p>
-          Verbraucherinnen und Verbrauchern steht beim Abschluss des Premium-Abos ein Widerrufsrecht nach Maßgabe der folgenden
-          Belehrung zu.
+          Verbraucherinnen und Verbrauchern steht beim Abschluss des Premium-Abos und bei Käufen im Laden ein Widerrufsrecht
+          nach Maßgabe der folgenden Belehrung zu. Für Käufe im Laden gilt zusätzlich der Abschnitt „Vorzeitiges Erlöschen des
+          Widerrufsrechts“.
         </p>
       </Section>
 
@@ -47,6 +48,21 @@ export default function Widerruf() {
         </p>
       </Section>
 
+      {/* Wortlaut passt zum Haken im Kauf-Fenster des Ladens (pages/Website/ladenTexte.js) — nur gemeinsam ändern */}
+      <Section title="Vorzeitiges Erlöschen des Widerrufsrechts (Käufe im Laden)">
+        <p>
+          Unterstützungen und Designs aus dem Laden sind digitale Inhalte, die nicht auf einem körperlichen Datenträger
+          geliefert werden. Das Widerrufsrecht erlischt, wenn wir mit der Vertragserfüllung begonnen haben, nachdem Sie
+          ausdrücklich zugestimmt haben, dass wir vor Ablauf der Widerrufsfrist mit der Vertragserfüllung beginnen, und Sie Ihre
+          Kenntnis davon bestätigt haben, dass Sie durch Ihre Zustimmung mit Beginn der Vertragserfüllung Ihr Widerrufsrecht
+          verlieren (§ 356 Abs. 5 BGB).
+        </p>
+        <p>
+          Diese Zustimmung geben Sie vor jedem Kauf mit einem Haken im Kauf-Fenster. Freigeschaltet wird direkt nach der
+          Zahlung; die Zustimmung steht auch auf dem Beleg, den Sie per E-Mail erhalten.
+        </p>
+      </Section>
+
       <Section title="Muster-Widerrufsformular">
         <p>(Wenn Sie den Vertrag widerrufen wollen, dann füllen Sie bitte dieses Formular aus und senden Sie es zurück.)</p>
         <div className="rounded-md border border-white/10 bg-white/[0.03] p-4 space-y-3 text-white/80">
@@ -55,15 +71,15 @@ export default function Widerruf() {
           <p>E-Mail: <Mail /></p>
           <p>
             Hiermit widerrufe(n) ich/wir (*) den von mir/uns (*) abgeschlossenen Vertrag über die Erbringung der folgenden
-            Dienstleistung: Premium-Abo auf vnmvalentin.de
+            Dienstleistung (*) / den Kauf der folgenden digitalen Inhalte (*): Premium-Abo (*) / Kauf im Laden (*) auf vnmvalentin.de
           </p>
           <p>Bestellt am (*):</p>
           <p>Name des/der Verbraucher(s):</p>
-          <p>Twitch-Name des Kontos, an dem das Abo hängt:</p>
+          <p>Name des Kontos, an dem das Abo oder der Kauf hängt:</p>
           <p>Anschrift des/der Verbraucher(s):</p>
           <p>Unterschrift des/der Verbraucher(s) (nur bei Mitteilung auf Papier):</p>
           <p>Datum:</p>
-          <p className="text-xs text-white/45">(*) Unzutreffendes streichen.</p>
+          <p className="text-xs text-white/55">(*) Unzutreffendes streichen.</p>
         </div>
       </Section>
     </LegalPage>

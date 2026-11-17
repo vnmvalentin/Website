@@ -1,4 +1,5 @@
 // discord/bot/commands/ship.js
+const { botText } = require('../botText');
 
 function generateShipName(name1, name2) {
     const half1 = name1.substring(0, Math.ceil(name1.length / 2));
@@ -19,7 +20,7 @@ async function handleShip(interaction) {
     const user2 = interaction.options.getUser('user2');
 
     if (user1.id === user2.id) {
-        return interaction.reply({ content: '🚢 Man kann sich nicht mit sich selbst shippen!' });
+        return interaction.reply({ content: botText(interaction).fun.shipSelf });
     }
 
     const percent = Math.floor(Math.random() * 101);
@@ -29,7 +30,7 @@ async function handleShip(interaction) {
 
     await interaction.reply({
         content: [
-            `${emoji} **Ship-Ergebnis**`,
+            `${emoji} **${botText(interaction).fun.shipTitle}**`,
             ``,
             `👤 **${user1.displayName || user1.username}** + **${user2.displayName || user2.username}**`,
             ``,

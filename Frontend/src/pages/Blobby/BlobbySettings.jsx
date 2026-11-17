@@ -2,7 +2,7 @@
 // (solange der Host wartet). Die Werte gehen 1:1 als `settings` an den Server, der sie
 // nochmal prüft.
 import React from "react";
-import { normalizeSettings } from "./settings";
+import { normalizeSettings, PARTY_RULES, PARTY_LABELS } from "./settings";
 
 function Row({ label, hint, children }) {
   return (
@@ -49,15 +49,34 @@ export default function BlobbySettings({ value, onChange, disabled = false }) {
       </Row>
       )}
 
-      <Row label="Ballberührungen" hint="Klassisch verliert man ab der vierten">
+      <Row label="Ballberührungen" hint={s.party.includes("doppelball") ? "Mit zwei Bällen zählt niemand mit" : "Klassisch verliert man ab der vierten"}>
         <Choice active={s.maxTouches === 0} disabled={disabled} onClick={() => set({ maxTouches: 0 })}>Frei</Choice>
-        <Choice active={s.maxTouches === 3} disabled={disabled} onClick={() => set({ maxTouches: 3 })}>Max. 3</Choice>
+        <Choice active={s.maxTouches === 3} disabled={disabled || s.party.includes("doppelball")} onClick={() => set({ maxTouches: 3 })}>Max. 3</Choice>
       </Row>
 
       <Row label="Powerups" hint={beach ? "Über dem Netz anspringen, mit E zünden" : "Über dem Pfeiler anspringen, per Leertaste zünden"}>
         <Choice active={!s.powerups} disabled={disabled} onClick={() => set({ powerups: false })}>Aus</Choice>
         <Choice active={s.powerups} disabled={disabled} onClick={() => set({ powerups: true })}>An</Choice>
       </Row>
+
+      {/* Partyregeln und König des Strandes nur auf dem klassischen Feld */}
+      {!beach && (
+      <Row label="Partyregeln" hint="Frei kombinierbar: zweiter Ball, Wind (wechselt je Aufschlag), Riesenball, Mini-Netz">
+        {PARTY_RULES.map((r) => (
+          <Choice key={r} active={s.party.includes(r)} disabled={disabled}
+            onClick={() => set({ party: s.party.includes(r) ? s.party.filter((x) => x !== r) : [...s.party, r] })}>
+            {PARTY_LABELS[r]}
+          </Choice>
+        ))}
+      </Row>
+      )}
+
+      {!beach && (
+      <Row label="König des Strandes" hint="Partien bis 7: der Sieger bleibt, wer zuschaut, rückt der Reihe nach">
+        <Choice active={!s.koenig} disabled={disabled} onClick={() => set({ koenig: false })}>Aus</Choice>
+        <Choice active={s.koenig} disabled={disabled} onClick={() => set({ koenig: true })}>An</Choice>
+      </Row>
+      )}
     </div>
   );
 }

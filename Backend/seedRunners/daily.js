@@ -43,8 +43,11 @@ const GV2_AB = '2026-09-28';
 const GV3_AB = '2026-10-03';
 // Ab diesem Tag Generator-Version 4 (Frontend GV4_TAGESRENNEN_AB)
 const GV4_AB = '2026-10-04';
+// Ab diesem Tag Generator-Version 5 = Lauflinie (Frontend GV5_TAGESRENNEN_AB). Der Deploy muss VOR diesem Tag liegen, sonst
+// wechselt nach dem Deploy das Level schon gespielter Tage — verschiebt er sich, das Datum an beiden Stellen verschieben.
+const GV5_AB = '2026-11-20';
 const dailyParams = (dateKey) => (dateKey >= PFAD_AB
-  ? { seed: `daily-${dateKey}`, length: 'long', speedClass: 'super', biome: 'random', gen: 'pfad', gv: dateKey >= GV4_AB ? 4 : dateKey >= GV3_AB ? 3 : dateKey >= GV2_AB ? 2 : 1 }
+  ? { seed: `daily-${dateKey}`, length: 'long', speedClass: 'super', biome: 'random', gen: 'pfad', gv: dateKey >= GV5_AB ? 5 : dateKey >= GV4_AB ? 4 : dateKey >= GV3_AB ? 3 : dateKey >= GV2_AB ? 2 : 1 }
   : { seed: `daily-${dateKey}`, length: 'medium', speedClass: 'normal', biome: 'random' });
 
 /** Ist dies das Tages-Level eines Tages? Gibt den Datumsschlüssel zurück oder null. */

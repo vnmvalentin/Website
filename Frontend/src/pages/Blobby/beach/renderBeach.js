@@ -13,6 +13,8 @@ import {
   labelTexture, blobGeometry, makePalm, canvasTexture, powerupTexture,
 } from "../render3d";
 import { SLOT_COLOR } from "../render";
+import { setzeZier } from "../zier3d.js";
+import { sauberZier } from "../zier.js";
 import { isLowGfx } from "../../../utils/lowGfx";
 import {
   COURTS, NET_TOP, NET_RADIUS, BALL_RADIUS, UPPER_SPHERE, UPPER_RADIUS, LOWER_RADIUS, teamOf, POWERUP_TYPES,
@@ -321,7 +323,7 @@ export function createBeach3D(canvas, { mode }) {
    *              third = Ansicht von hinten statt aus den Augen
    * @returns     Lage des Balls im Bild (für den Pfeil am Rand) — dasselbe Objekt jedes Mal
    */
-  function render(st, { slots, names, mySlot, look: myLook, punch: hitNow, third = false, dt = 16 }) {
+  function render(st, { slots, names, ziers, mySlot, look: myLook, punch: hitNow, third = false, dt = 16 }) {
     time += dt;
     const k = 1 - Math.exp(-dt / 160);
     const active = new Set(slots);
@@ -369,6 +371,7 @@ export function createBeach3D(canvas, { mode }) {
       b.shadow.position.set(src.x, 0.9, src.z);
       b.shadow.scale.set(LOWER_RADIUS * 2.6 * s, LOWER_RADIUS * 2.6 * s, 1);
       setLabel(b, slot === mySlot ? "" : names?.[slot] || "");
+      setzeZier(b, sauberZier(ziers?.[slot]));
     }
 
     // Ball mit Rollbewegung passend zur Flugrichtung
@@ -495,7 +498,7 @@ export function createBeach3D(canvas, { mode }) {
   }
 
   function dispose() {
-    for (const b of Object.values(blobs)) setLabel(b, "");
+    for (const b of Object.values(blobs)) { setLabel(b, ""); setzeZier(b, 0); }
     for (const d of disposables) d.dispose?.();
     renderer.dispose();
   }

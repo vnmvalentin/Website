@@ -267,7 +267,8 @@ export function drawLedWall(ctx, t, s) {
   ctx.fillStyle = spooky ? 'rgba(255,190,110,0.85)' : xmas ? 'rgba(255,214,120,0.95)' : 'rgba(255,255,255,0.6)';
   ctx.font = `800 36px ${FONT}`;
   spacing(ctx, 16);
-  ctx.fillText(spooky ? 'HAPPY HALLOWEEN' : xmas ? 'FROHE WEIHNACHTEN' : 'GLEICH LIVE', w / 2, 250);
+  // Weihnachts-Thema ohne Weihnachtsgruß: läuft die ganze Winterzeit über
+  ctx.fillText(spooky ? 'HAPPY HALLOWEEN' : 'GLEICH LIVE', w / 2, 250);
   ctx.fillStyle = spooky ? '#ff8a1e' : '#fff';
   ctx.font = `900 168px ${FONT}`;
   spacing(ctx, 10);

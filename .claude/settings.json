@@ -32,6 +32,20 @@
       "PowerShell(Get-NetTCPConnection -LocalPort 3001 -State Listen -ErrorAction SilentlyContinue | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue }; Start-Sleep -Milliseconds 300; \"done\")",
       "Bash(npm ls *)",
       "Bash(node _shot_temp.js \"http://localhost:5174/banned-cards/overlay/LBXetgElDUcLULkK\" \"C:\\\\Users\\\\valen\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\c--Users-valen-VisualStudio-WebsiteProjekt\\\\8b26dc0d-a629-434d-9456-0ab3adf0c0bd\\\\scratchpad\\\\overlay_test.png\")"
+    ],
+    "deny": [
+      "WebFetch(domain:royaleapi.com)",
+      "WebFetch(domain:www.royaleapi.com)",
+      "WebFetch(domain:clash.royaleapi.com)",
+      "WebFetch(domain:cdn.royaleapi.com)",
+      "WebFetch(domain:cdns3.royaleapi.com)",
+      "WebFetch(domain:help.royaleapi.com)",
+      "WebFetch(domain:blog.royaleapi.com)",
+      "WebFetch(domain:proxy.royaleapi.dev)",
+      "Bash(*royaleapi.com*)",
+      "Bash(*royaleapi.dev*)",
+      "PowerShell(*royaleapi.com*)",
+      "PowerShell(*royaleapi.dev*)"
     ]
   }
 }

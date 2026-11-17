@@ -39,6 +39,12 @@ const GENERAL = [
   { id: "kolosse5", name: "Riesentöter", desc: "Fälle 5 Kolosse in einem Lauf.", test: (r, x) => x.giants >= 5 },
   { id: "sechsWaffen", name: "Wandelndes Arsenal", desc: "Trage sechs Waffen gleichzeitig.", test: (r, x) => (x.weapons || []).length >= 6 },
   { id: "segen", name: "Gesegnet", desc: "Baue alles aus und wähle einen Segen.", test: (r, x) => x.boons >= 1 },
+  // Tiefe (November 2026, „av-meta“): nach dem Sieg weiterreisen. Sechs Welten je Zyklus — gezählt an den vom Server
+  // geprüften geschafften Welten (Tiefe = geschaffte Welten + 1). Am Test-Bot: Sieger enden meist in Zyklus 2–3.
+  { id: "zyklus3", name: "Dritter Zyklus", desc: "Erreiche Zyklus 3.", test: (r) => r.stagesCleared >= 12 },
+  { id: "tiefe15", name: "Tiefer als tief", desc: "Erreiche Tiefe 15.", test: (r) => r.stagesCleared >= 14 },
+  { id: "zyklus4", name: "Vierter Zyklus", desc: "Erreiche Zyklus 4.", test: (r) => r.stagesCleared >= 18 },
+  { id: "tiefe20", name: "Bodenlos", desc: "Erreiche Tiefe 20.", test: (r) => r.stagesCleared >= 19 },
 ];
 
 // Pro Kit drei Erfolge, jeder schaltet eine Farbvariante dieses Kits frei

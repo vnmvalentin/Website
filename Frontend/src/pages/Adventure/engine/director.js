@@ -13,6 +13,7 @@ import { ENEMIES } from "../data/enemies.js";
 import { enemyPoolFor } from "../data/biomes.js";
 import { spawnEnemy, pickElite } from "./enemies.js";
 import { ascEliteChance } from "./ascension.js";
+import { twHorde, twGiantEvery, twEliteChance, loopHordeCap, loopRateCap } from "./twists.js";
 import { collectObstacles } from "./grid.js";
 
 const PACK = { futter: [7, 13], kaempfer: [2, 4], brocken: [1, 1], spezial: [1, 2] };
@@ -27,13 +28,14 @@ export function initDirector() {
 
 // So viele Gegner sollen gleichzeitig hinter dem Spieler her sein
 export function hordeTarget(g) {
-  return Math.min(700, 40 + 36 * (g.stageTime / 60) + 74 * g.stagesCleared + 80 * g.loop);
+  // (ab Zyklus 2 darf die Horde über 700 hinaus wachsen, Zyklus-Druck in engine/twists.js; „Menschenflut“ ×1,5)
+  return Math.min(loopHordeCap(g), 40 + 36 * (g.stageTime / 60) + 74 * g.stagesCleared + 80 * g.loop) * twHorde(g);
 }
 
 // So viele kommen pro Sekunde nach — das ist im Gleichgewicht auch die Kill-Rate, die der Spieler schaffen muss.
 // Die Beute hängt an dieser Rate, nicht an der Stärke des Spielers: wer alles sofort wegräumt, bekommt nicht mehr.
 export function spawnRate(g) {
-  return Math.min(50, 2.7 + 1.3 * (g.stageTime / 60) + 4.5 * g.stagesCleared + 6 * g.loop) * (0.7 + 0.3 * g.difficulty.rate);
+  return Math.min(loopRateCap(g), 2.7 + 1.3 * (g.stageTime / 60) + 4.5 * g.stagesCleared + 6 * g.loop) * (0.7 + 0.3 * g.difficulty.rate) * twHorde(g);
 }
 
 const blockers = [];
@@ -87,7 +89,7 @@ function spawnPack(g, room, counts, target, pool) {
   const id = g.rng.weighted(pool[tier]);
   const def = ENEMIES[id];
 
-  const eliteChance = Math.min(0.5, (0.1 + 0.04 * s + 0.1 * L) * ascEliteChance(g));
+  const eliteChance = Math.min(0.5, (0.1 + 0.04 * s + 0.1 * L) * ascEliteChance(g) * twEliteChance(g));
   const elite = tier !== "futter" && g.coeff >= 1.5 && counts.elite < 2 + s + L && g.rng.chance(eliteChance) ? pickElite(g) : null;
 
   let n = g.rng.int(PACK[tier][0], PACK[tier][1]);
@@ -196,10 +198,10 @@ export function updateDirector(g, dt) {
 
   if (dir.giantT <= 0) {
     const cap = 1 + g.loop + (g.stagesCleared >= 3 ? 1 : 0);
-    dir.giantT = g.boss || counts.giant >= cap || !spawnGiant(g, pool) ? 15 : GIANT_EVERY;
+    dir.giantT = g.boss || counts.giant >= cap || !spawnGiant(g, pool) ? 15 : GIANT_EVERY * twGiantEvery(g);
   }
 
-  const target = Math.min(900, hordeTarget(g) * push * (blood ? 2.5 : 1) * (g.curse ? 1.2 : 1));
+  const target = Math.min(Math.max(900, loopHordeCap(g) * 1.3), hordeTarget(g) * push * (blood ? 2.5 : 1) * (g.curse ? 1.2 : 1));
   let room = Math.min(Math.floor(dir.budget), Math.floor(target) - alive);
   for (let packs = 0; room > 0 && packs < 5; packs++) {
     const n = spawnPack(g, room, counts, target, pool);

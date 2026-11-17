@@ -138,18 +138,23 @@
 
 .wf-panel { background: rgb(23 22 29 / 0.9); border: 1px solid var(--wf-line-2); border-radius: 8px; }
 
-/* Weltenrad oben in der Mitte: dreht sich wie die Welt (die aktuelle liegt unten), Ringe = Ladung */
-.wf-wheelbox { position: absolute; top: 8px; left: 50%; translate: -50% 0; width: 148px; height: 148px; padding: 8px; border-radius: 50%; background: rgb(23 22 29 / 0.82); border: 1px solid var(--wf-line-2); pointer-events: auto; }
-.wf-wheel { width: 100%; height: 100%; display: block; }
-.wf-wheel-spin { transition: transform 1500ms cubic-bezier(0.65, 0, 0.35, 1); }
-/* Welt-Tafel oben links: Name, Gesetz (gilt immer) und nächstes Ereignis (bei voller Ladung) */
-.wf-world { position: absolute; top: 10px; left: 10px; padding: 10px 14px 12px; width: min(360px, calc(50% - 96px)); font-size: 13px; line-height: 1.35; }
-.wf-world-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 6px; }
-.wf-world-name { font-weight: 900; font-size: 26px; line-height: 1; text-transform: uppercase; letter-spacing: -0.01em; color: var(--wf-w); }
+/* Leiste oben in der Mitte: links die Welt und ihr Gesetz (passiv, gilt immer), in der Mitte die Ladungs-Türme,
+   rechts das nächste Ereignis (aktiv, bei voller Ladung). Zentriert über left/right + margin, damit offsetLeft stimmt
+   (GameTable rückt Namensschilder und Partner-Tafel darunter). */
+.wf-worldbar { position: absolute; top: 8px; left: 0; right: 0; margin-inline: auto; width: min(840px, calc(100% - 16px)); display: grid; grid-template-columns: 1fr auto 1fr; gap: 6px; align-items: stretch; }
+.wf-wb-side { padding: 9px 13px 11px; font-size: 13px; line-height: 1.35; min-width: 0; }
+.wf-wb-side p { margin: 0; }
+.wf-wb-side b { text-transform: uppercase; font-weight: 800; color: var(--wf-w); }
+.wf-wb-label { display: block; font-style: normal; font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--wf-faint); margin-bottom: 3px; }
+.wf-wb-event .wf-world-head { align-items: baseline; margin-bottom: 4px; }
+.wf-wb-event .wf-wb-label { margin-bottom: 0; }
+.wf-wb-count { font-weight: 800; font-size: 15px; color: var(--wf-w); }
+.wf-wb-towers { display: flex; align-items: center; justify-content: center; padding: 8px 12px 6px; }
+.wf-towers { width: 132px; height: auto; display: block; }
+.wf-wb-timer { grid-column: 1 / -1; margin-top: 0; }
+.wf-world-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 5px; }
+.wf-world-name { font-weight: 900; font-size: 24px; line-height: 1; text-transform: uppercase; letter-spacing: -0.01em; color: var(--wf-w); }
 .wf-world-dir { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 600; color: var(--wf-dim); white-space: nowrap; }
-.wf-world-row { display: grid; grid-template-columns: 96px 1fr; gap: 8px; padding: 5px 0; border-top: 1px solid var(--wf-line); }
-.wf-world-row i { font-style: normal; font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--wf-faint); padding-top: 2px; }
-.wf-world-row b { text-transform: uppercase; font-weight: 800; color: var(--wf-w); }
 .wf-timer { height: 3px; background: var(--wf-surface-3); border-radius: 2px; overflow: hidden; margin-top: 7px; }
 .wf-timer > i { display: block; height: 100%; background: var(--wf-cream); transition: width 250ms linear; }
 /* Partnerhand oben rechts (2 gegen 2): Gegenstück zur Welt-Tafel */
@@ -175,14 +180,22 @@
   .wf-mate-cards { gap: 3px; }
   .wf-mate-cards > span { width: 27px; }
 }
+/* Handy: Türme links, Gesetz und Ereignis rechts untereinander */
 @media (max-width: 760px) {
-  .wf-wheelbox { left: auto; right: 8px; translate: 0 0; width: 92px; height: 92px; padding: 5px; }
-  .wf-world { width: calc(100% - 116px); padding: 8px 10px; font-size: 12px; }
-  .wf-world-name { font-size: 19px; }
-  .wf-world-row { grid-template-columns: 1fr; gap: 0; }
+  .wf-worldbar { top: 6px; width: calc(100% - 12px); gap: 4px; grid-template-columns: auto 1fr; grid-template-areas: "t l" "t e" "x x"; }
+  .wf-wb-law { grid-area: l; }
+  .wf-wb-event { grid-area: e; }
+  .wf-wb-towers { grid-area: t; padding: 6px 7px 4px; }
+  .wf-wb-timer { grid-area: x; }
+  .wf-towers { width: 78px; }
+  .wf-wb-side { padding: 6px 9px 7px; font-size: 11.5px; line-height: 1.3; }
+  .wf-world-head { margin-bottom: 3px; }
+  .wf-world-name { font-size: 17px; }
+  .wf-world-dir-text { display: none; }
+  .wf-wb-label { font-size: 9.5px; margin-bottom: 1px; }
+  .wf-wb-law .wf-wb-label { display: none; }
   .wf-splash { top: 30%; }
 }
-@media (prefers-reduced-motion: reduce) { .wf-wheel-spin { transition: none; } }
 
 /* Großes Feld quer über die Mitte: ein Weltereignis wird ausgelöst */
 .wf-splash { position: absolute; left: 0; right: 0; top: 34%; pointer-events: none !important; display: flex; justify-content: center; }
@@ -227,6 +240,7 @@
 /* Erklärung der Karte unter dem Zeiger */
 .wf-tip { position: absolute; left: 50%; bottom: calc(31% + 54px); translate: -50% 0; padding: 7px 12px; max-width: min(440px, calc(100% - 24px)); text-align: center; font-size: 14px; pointer-events: none !important; }
 .wf-tip b { font-weight: 800; text-transform: uppercase; margin-right: 6px; }
+.wf-tip-burst { display: block; margin-top: 3px; font-weight: 700; color: var(--wf-cream); }
 @media (max-width: 640px) { .wf-tip { bottom: calc(28% + 48px); font-size: 13px; } }
 
 .wf-status { display: inline-flex; align-items: center; gap: 4px; padding: 2px 7px 2px 5px; border-radius: 4px; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.03em; white-space: nowrap; }

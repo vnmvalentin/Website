@@ -1,0 +1,116 @@
+/* Subathon-Timer der Twitch-Overlays (OverlaySubathon.jsx). Grundlage ist .stw-card aus overlayWidgets.css:
+   Hintergrund, Deckkraft, Glas und Ecken kommen von dort bzw. aus dem gemeinsamen Design. Bewusst flach: kein
+   Leuchten, keine Verläufe in der Schrift — die Zeit soll im Stream aus der Entfernung lesbar sein. */
+.stw-sth { padding: 20px 26px 22px; }
+.stw-sth-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 4px;
+}
+.stw-c .stw-sth-head { align-items: baseline; }
+.stw-sth-head .stw-chip { margin-left: auto; }
+
+.stw-sth-clock {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  min-width: 0;
+}
+.stw-sth-time {
+  font-size: 64px;
+  font-weight: 800;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.stw-sth[data-status="paused"] .stw-sth-time { color: rgba(255, 255, 255, 0.62); }
+.stw-sth[data-status="ended"] .stw-sth-time { color: rgba(255, 255, 255, 0.45); }
+
+/* „+5:00“ neben der Zeit — erscheint und verschwindet per Timer im Code, die Bewegung ist nur Zugabe */
+.stw-sth-pop {
+  font-size: 26px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  animation: stw-sth-pop 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+}
+@keyframes stw-sth-pop {
+  from { opacity: 0; transform: translateY(10px) scale(0.9); }
+  to { opacity: 1; transform: none; }
+}
+
+/* Happy Hour (Abo-Extra): ruhiges Band mit Farbkante, Restzeit rechts */
+.stw-sth-happy {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 10px 0 0;
+  padding: 7px 12px;
+  border-left: 4px solid;
+  border-radius: min(6px, var(--stw-r, 6px));
+  background: rgba(255, 255, 255, 0.08);
+  font-size: 15px;
+  line-height: 1.3;
+  white-space: nowrap;
+}
+.stw-sth-happy b {
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.stw-sth-happy span {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.stw-sth-cap {
+  margin: 4px 0 0;
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.5);
+}
+.stw-sth-cap.is-reached { color: #fbbf24; }
+
+.stw-sth-last {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  font-size: 16px;
+  line-height: 1.3;
+}
+.stw-sth-name {
+  flex: 0 1 auto;
+  max-width: 45%;
+  font-weight: 800;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.stw-sth-what {
+  flex: 1 1 0;
+  min-width: 0;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.65);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.stw-sth-delta {
+  flex: none;
+  margin-left: auto;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.stw-sth-delta.is-minus,
+.stw-sth-pop.is-minus { color: rgba(255, 255, 255, 0.55); }

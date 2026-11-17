@@ -45,11 +45,27 @@ function collectOpenItems() {
     .filter((p) => new Date(p?.endDate).getTime() > now)
     .map((p) => new Set(Object.keys(p?.votes || {})));
 
-  const giveaways = readJsonArray(GIVEAWAYS_FILE)
-    .filter((g) => Number(g?.endDate) > now)
-    .map((g) => new Set(Object.keys(g?.participants || {})));
+  // Giveaways liegen seit November 2026 in data/giveaways.db — giveaways/routes.js setzt dafür eine Quelle.
+  // Ohne Quelle (Tests, alter Stand) gilt weiter die JSON-Datei.
+  let giveaways;
+  try {
+    giveaways = giveawayQuelle
+      ? giveawayQuelle()
+      : readJsonArray(GIVEAWAYS_FILE)
+        .filter((g) => Number(g?.endDate) > now)
+        .map((g) => new Set(Object.keys(g?.participants || {})));
+  } catch (e) {
+    console.error("[liveBadges] Giveaways nicht lesbar:", e.message);
+    giveaways = [];
+  }
 
   return { polls, giveaways };
+}
+
+let giveawayQuelle = null;
+/** @param {() => Array<Set<string>>} fn  je offenem Giveaway die Twitch-IDs, die schon dabei sind */
+function setzeGiveawayQuelle(fn) {
+  giveawayQuelle = typeof fn === "function" ? fn : null;
 }
 
 /** @returns {{polls: boolean, giveaways: boolean}} */
@@ -97,6 +113,7 @@ module.exports = {
   broadcast,
   badgesFor,
   collectOpenItems,
+  setzeGiveawayQuelle,
   ROOM_POLLS,
   ROOM_GIVEAWAYS,
   ROOM_BADGES,

@@ -6,7 +6,7 @@
 // Daten: /api/clash/scout/crown (Backend: scout/scoutCrown.js, gesammelt mit der Meta-Auswertung).
 import React, { useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import crownSeriesImg from '../../../assets/clashRoyale/ui/CR_CrownSeriesIcon.png';
+import crownSeriesImg from '../../../assets/clashRoyale/modes/CR_CrownSeriesIcon.webp';
 import bannerArt from '../../../assets/clashRoyale/bg/skeleton_king.webp';
 import { CrElixir } from '../ui/CrIcons';
 import ScoutFrame from './ScoutFrame';
@@ -20,22 +20,27 @@ const VIEWS = ['zusammengestellt', 'sets', 'decks'];
 const GOOD = '#7ee79a';
 const BAD = '#ff8f91';
 
-/** Ein Deck im Set: Nummer, Rundensiegquote, Ø Elixier, das Deck und die Spiel-Knöpfe. */
+/**
+ * Ein Deck im Set: Nummer, Ø Elixier, Rundensiegquote und Kopieren-Menü neben dem Deck (4×2 wie im Spiel, Karten so
+ * groß wie bei den Meta Decks). Ist die Fläche zu schmal, stehen die Angaben in einer Zeile über dem Deck.
+ */
 function SetDeck({ n, deck }) {
   const { t, lang } = useScoutText();
   const cards = expandDeck(deck.cards);
   const { avgElixir } = deckStats(cards);
   return (
-    <div className="crs-setdeck">
-      <div className="flex items-baseline justify-between gap-2 mb-2">
-        <span className="font-cr text-[1.05rem] text-white">{t.duelDeck(n)}</span>
-        <span className="flex items-center gap-3 text-xs crs-muted crs-num">
-          {avgElixir !== null && <span className="inline-flex items-center gap-1"><CrElixir size={14} />{fmtDec(avgElixir, lang)}</span>}
-          {deck.uses > 0 && <span><b style={{ color: deck.winRate >= 0.5 ? GOOD : BAD }}>{fmtPct(deck.winRate, lang)}</b> · {t.roundsN(fmtNum(deck.uses, lang))}</span>}
-        </span>
+    <div className="crs-setdeck crs-setdeck--side">
+      <div className="crs-setdeck-body">
+        <div className="crs-setdeck-info">
+          <span className="font-cr text-[1.05rem] text-white">{t.duelDeck(n)}</span>
+          <span className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs crs-muted crs-num">
+            {avgElixir !== null && <span className="inline-flex items-center gap-1"><CrElixir size={14} />{fmtDec(avgElixir, lang)}</span>}
+            {deck.uses > 0 && <span><b style={{ color: deck.winRate >= 0.5 ? GOOD : BAD }}>{fmtPct(deck.winRate, lang)}</b> · {t.roundsN(fmtNum(deck.uses, lang))}</span>}
+          </span>
+          <DeckShare cards={cards} />
+        </div>
+        <DeckGrid cards={cards} size="md" level={false} />
       </div>
-      <DeckGrid cards={cards} size="md" level={false} />
-      <DeckShare cards={cards} className="mt-2.5" />
     </div>
   );
 }
@@ -123,7 +128,7 @@ export default function CrownSeriesPage() {
           {view === 'decks' && (
             <div className="flex flex-col gap-2.5">
               {crown.decks.filter((d) => d.uses > 0).slice(0, 40).map((d, i) => (
-                <DeckLine key={d.key} cards={expandDeck(d.cards)} rank={i + 1} level={false}
+                <DeckLine key={d.key} cards={expandDeck(d.cards)} rank={i + 1} level={false} wide
                   figures={[
                     { value: fmtPct(d.winRate, lang), label: t.roundWinRate, tone: d.winRate >= 0.5 ? GOOD : BAD },
                     { value: fmtNum(d.uses, lang), label: t.roundsLabel },

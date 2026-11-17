@@ -4,6 +4,7 @@ import { BOSSES } from "../../data/bosses.js";
 import { enemyHpMult, enemyDmgMult } from "../difficulty.js";
 import { bossFrame } from "./common.js";
 import { ascBossHp } from "../ascension.js";
+import { twBossHp } from "../twists.js";
 import * as necromancer from "./necromancer.js";
 import * as slimeKing from "./slimeKing.js";
 import * as spiderQueen from "./spiderQueen.js";
@@ -14,12 +15,17 @@ import * as thunderwing from "./thunderwing.js";
 import * as fallenKnight from "./fallenKnight.js";
 import * as pharaoh from "./pharaoh.js";
 import * as lavaWurm from "./lavaWurm.js";
+import * as witwe from "./witwe.js";
+import * as frostwyrm from "./frostwyrm.js";
+import * as myzelkoenig from "./myzelkoenig.js";
+import * as moorhexe from "./moorhexe.js";
+import * as uhrwerkkoloss from "./uhrwerkkoloss.js";
 
-const BEHAVIOUR = { necromancer, slimeKing, spiderQueen, sandColossus, yetiAncient, minotaurLord, thunderwing, fallenKnight, pharaoh, lavaWurm };
+const BEHAVIOUR = { necromancer, slimeKing, spiderQueen, sandColossus, yetiAncient, minotaurLord, thunderwing, fallenKnight, pharaoh, lavaWurm, witwe, frostwyrm, myzelkoenig, moorhexe, uhrwerkkoloss };
 
 export function spawnBoss(g, id, x, y) {
   const def = BOSSES[id];
-  const hp = def.hp * 1.5 * enemyHpMult(g.coeff) * (1 + 0.25 * g.loop) * ascBossHp(g);
+  const hp = def.hp * 1.5 * enemyHpMult(g.coeff) * (1 + 0.25 * g.loop) * ascBossHp(g) * twBossHp(g);
   const e = {
     uid: g.nextUid++, type: id, bossId: id, name: def.name, isBoss: true, ai: "boss",
     x, y, r: def.r, hp, maxHp: hp, dmg: def.dmg * enemyDmgMult(g.coeff, g.difficulty), speed: def.speed,

@@ -1,11 +1,10 @@
 // discord/bot/commands/superkraft.js
-const SUPERKRAEFTE = require('./data/superkraefte');
+const { pickLine } = require('./funLines');
+const { botText } = require('../botText');
 
 async function handleSuperkraft(interaction) {
-    const kraft = SUPERKRAEFTE[Math.floor(Math.random() * SUPERKRAEFTE.length)];
-
     await interaction.reply({
-        content: kraft,
+        content: pickLine('superkraft', botText(interaction).lang, interaction.channel),
     });
 }
 

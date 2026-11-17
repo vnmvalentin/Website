@@ -50,6 +50,12 @@ const routesToPrerender = [
   '/clash/ranglisten',
   '/clash/crown-series',
   '/clash/baukasten',
+  // Produktseiten der Streamer-Werkzeuge (Ausbauplan „produktseiten“, StreamerTools/productTexts.js)
+  '/tools/win-tracker',
+  '/tools/win-challenge',
+  '/tools/twitch-overlays',
+  // Einstiegsseite des Discord-Bots (Ausbauplan „discord-verzeichnis“, Discord/landingTexts.js)
+  '/tools/discord-bot',
 ];
 
 // Unterseiten, die das Vorrendern selbst über die Links einer fertigen Seite findet — wie ein Suchmaschinen-Crawler.
@@ -64,6 +70,8 @@ const SITEMAP_RULES = [
   { re: /^\/clash\/(karten|decks|ranglisten|crown-series|baukasten|heute)$/, priority: 0.8 },
   { re: /^\/clash\/karten\/./, priority: 0.6 },
   { re: /^\/clash\/decks\/./, priority: 0.5 },
+  // Produktseiten: deutsch und ?lang=en
+  { re: /^\/tools\/(win-tracker|win-challenge|twitch-overlays|discord-bot)$/, priority: 0.8 },
 ];
 
 // ── Live-Daten der Stats-Seiten ─────────────────────────────────────────────
@@ -85,7 +93,8 @@ let liveQueue = Promise.resolve();
 async function fetchLive(pathAndQuery) {
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
-      const res = await fetch(DOMAIN + pathAndQuery, { signal: AbortSignal.timeout(20000) });
+      // Eigene Kennung: Skript-Kennungen wie Nodes „node“ weist die Stats-Schnittstelle ab (scoutRoutes.js, SCRIPT_UA)
+      const res = await fetch(DOMAIN + pathAndQuery, { headers: { 'user-agent': 'vnmvalentin-prerender' }, signal: AbortSignal.timeout(20000) });
       if (res.status === 429) { await sleep(25000); continue; }
       return { status: res.status, contentType: res.headers.get('content-type') || 'application/json', body: Buffer.from(await res.arrayBuffer()) };
     } catch { /* Netz weg oder Zeit abgelaufen — noch einmal */ }
@@ -130,7 +139,8 @@ function extendSitemap(routes) {
     }
   }
   if (!entries.length) return;
-  xml = xml.replace('</urlset>', `\n  <!-- ── Beim Vorrendern ergänzt (Frontend/prerender.js) ── -->\n${entries.join('\n')}\n</urlset>`);
+  // Ohne Kommentar-Marke: dist/ bleibt kommentarfrei (scripts/kommentareEntfernen.js)
+  xml = xml.replace('</urlset>', `${entries.join('\n')}\n</urlset>`);
   fs.writeFileSync(file, xml);
   console.log(`🗺️ Sitemap: ${entries.length} Einträge ergänzt`);
 }

@@ -11,7 +11,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { ArrowDown, ArrowUp } from 'lucide-react';
 import { CrBattle, CrElixir, CrRandom, CrTrophy } from '../ui/CrIcons';
 import { MEDAL_ICON_URL } from '../data/leagueIcons';
-import trophyImg from '../../../assets/clashRoyale/ui/trophy.png';
+import trophyImg from '../../../assets/clashRoyale/ui/trophy.webp';
 import bannerArt from '../../../assets/clashRoyale/bg/prince_victory.webp';
 import ScoutFrame from './ScoutFrame';
 import { Banner, CardPicker, ClanBadge, ClanLink, DeckGrid, DeckShare, LoadState, Panel, PickedCards, PlayerLink, Seg } from './parts';

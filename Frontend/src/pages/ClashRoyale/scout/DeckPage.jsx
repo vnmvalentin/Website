@@ -29,6 +29,8 @@ export default function DeckPage() {
   const deck = data?.deck;
   // Plätze kommen mit der Auswertung (alle 6 h) — eine ältere hat noch keine, dann ohne Platz-Kästchen statt lauter Striche
   const hasRanks = !!data?.players?.some((p) => typeof p.rank === 'number');
+  // Plätze kommen live aus der Weltrangliste (wie /clash/rangliste); nur wenn die API hängt, die der Auswertung
+  const rankHint = data?.ranksLive ? t.playedByRank : t.playedByRankOld;
   // Matchups (45 Tage): eigene Zahlen des Decks oder die seines Typs; die Karten-Bilanz nur aus eigenen Zahlen
   const mu = data?.matchups || null;
   const muCards = mu?.scope === 'deck' ? mu.cards : null;
@@ -75,7 +77,7 @@ export default function DeckPage() {
                   <div className={`crs-playedby${hasRanks ? '' : ' crs-playedby--plain'}`}>
                     {data.players.map((p) => (
                       <PlayerLink key={p.tag} tag={p.tag} className="crs-playedby-item"
-                        name={<>{hasRanks && <span className={`crs-playedby-n${p.rank && p.rank <= 3 ? ` crs-rank--${p.rank}` : ''}`} title={t.playedByRank}>{p.rank ? `#${fmtNum(p.rank, lang)}` : '–'}</span>}<b>{p.name || `#${p.tag}`}</b>{p.clan && <small>{p.clan}</small>}</>} />
+                        name={<>{hasRanks && <span className={`crs-playedby-n${p.rank && p.rank <= 3 ? ` crs-rank--${p.rank}` : ''}`} title={rankHint}>{p.rank ? `#${fmtNum(p.rank, lang)}` : '–'}</span>}<b>{p.name || `#${p.tag}`}</b>{p.clan && <small>{p.clan}</small>}</>} />
                     ))}
                   </div>
                 </Panel>

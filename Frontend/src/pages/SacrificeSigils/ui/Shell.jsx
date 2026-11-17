@@ -9,11 +9,14 @@ import MaskPicker from "./table/MaskPicker.jsx";
 import { TableKeeper } from "./table/TableKeeper.jsx";
 import { sound } from "../audio/sound.js";
 import { particles } from "./anim/particles.js";
-import { usePrefs, setPrefs, SPEED_OPTIONS, systemPrefersReducedMotion } from "./prefs.js";
+import { usePrefs, setPrefs, useNewTable, SPEED_OPTIONS, systemPrefersReducedMotion } from "./prefs.js";
+import { useWideEnough } from "./table/useAtTable.js";
+import { isLowGfx } from "../../../utils/lowGfx.js";
 import { de } from "../i18n/de.js";
 import "./theme.css";
 import { useFontLink } from "../../../components/shell/useFontLink";
 import BackToSite from "../../../components/shell/BackToSite";
+import { ssKonto } from "../konto.js";
 
 const FONT_HREF = "https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=IM+Fell+English:ital@0;1&family=IM+Fell+English+SC&display=swap";
 
@@ -82,14 +85,22 @@ function SettingsPopover({ onClose }) {
           <button key={v} type="button" onClick={() => setPrefs({ speed: v })} aria-pressed={prefs.speed === v} className={`px-3 py-1 min-h-[44px] min-w-[44px] border ${prefs.speed === v ? "bg-[#8e1b1b] text-[#f7e6d0] border-[#5c0f0f]" : "border-[#a8966c]"}`}>{String(v).replace(".", ",")}×</button>
         ))}
       </div>
-      <label className="flex items-center gap-2 text-sm">
-        <input type="checkbox" checked={prefs.table3d !== false} onChange={(e) => setPrefs({ table3d: e.target.checked })} /> Tisch in 3D (Kerzenlicht)
-      </label>
-      <label className="flex items-center gap-2 text-sm">
-        <input type="checkbox" checked={!!prefs.oldTable} onChange={(e) => setPrefs({ oldTable: e.target.checked })} /> Bisheriger Tisch (flach, ohne Gestalt)
-      </label>
-      {/* Masken gibt es nur am Tisch im Kerzenlicht (Standard) */}
-      {!prefs.oldTable && <MaskPicker />}
+      {/* Sparmodus (Browser ohne Grafikkarte, utils/lowGfx.js): immer der flache Tisch ohne 3D — sonst rechnet der
+          Prozessor jedes Bild selbst und alles ruckelt (Phase 7) */}
+      {isLowGfx() ? (
+        <p className="text-sm opacity-80">Sparmodus: Dein Browser zeichnet ohne Grafikkarte. Damit nichts ruckelt, spielst du am flachen Tisch ohne 3D.</p>
+      ) : (
+        <>
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" checked={prefs.table3d !== false} onChange={(e) => setPrefs({ table3d: e.target.checked })} /> Tisch in 3D (Kerzenlicht)
+          </label>
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" checked={!!prefs.oldTable} onChange={(e) => setPrefs({ oldTable: e.target.checked })} /> Bisheriger Tisch (flach, ohne Gestalt)
+          </label>
+          {/* Masken gibt es nur am Tisch im Kerzenlicht (Standard) */}
+          {!prefs.oldTable && <MaskPicker />}
+        </>
+      )}
       <label className="flex items-center gap-2 text-sm">
         <input type="checkbox" checked={prefs.tipsOff} onChange={(e) => setPrefs({ tipsOff: e.target.checked })} /> Tutorial-Hinweise ausblenden
       </label>
@@ -108,11 +119,19 @@ export default function Shell() {
   const [tension, setTension] = useState(0);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [muted, setMuted] = useState(sound.settings.muted);
+  // Hochkant auf dem flachen Tisch, obwohl der Tisch im Kerzenlicht gewünscht wäre (nicht Sparmodus, nicht abgewählt)
+  const newTable = useNewTable();
+  const wideEnough = useWideEnough();
+  const rotateHint = newTable && !wideEnough && !prefs.rotateHintOff;
+  const coarse = typeof window !== "undefined" && !!window.matchMedia?.("(pointer: coarse)").matches;
 
   useEffect(() => sound.subscribe((s) => setMuted(s.muted)), []);
 
   // Schriften einmal laden (per <link>, wie in der Seed-Runners-Hülle)
   useFontLink(FONT_HREF);
+
+  // Duelle und Moorwanderungen am Konto (kontoStand.js)
+  ssKonto.useAnbindung();
 
   // Audio erst nach der ersten Interaktion; Ambient läuft, solange die Hülle offen ist
   useEffect(() => {
@@ -169,7 +188,9 @@ export default function Shell() {
       el.style.setProperty("--light-y", `${cur.y.toFixed(1)}%`);
       raf = requestAnimationFrame(loop);
     };
-    if (!prefs.reduceMotion) raf = requestAnimationFrame(loop);
+    // Sparmodus (ohne Grafikkarte): ruhiges Licht — jedes Flackern malt sonst den ganzen Holztisch neu (gemessen
+    // mit Software-Grafik: Bildzeit im Mittel 61 statt 43 ms, Phase 7)
+    if (!prefs.reduceMotion && !isLowGfx()) raf = requestAnimationFrame(loop);
     window.addEventListener("pointermove", onMove, { passive: true });
     return () => {
       cancelAnimationFrame(raf);
@@ -193,7 +214,7 @@ export default function Shell() {
       <div ref={rootRef} className={`ss-game ${prefs.reduceMotion ? "ss-reduced" : ""} ${tension >= 4 ? "ss-tense" : ""}`}>
         <div ref={bgRef} className="ss-table-bg" aria-hidden />
         {/* 3D-Tisch für alle Spielphasen; die Bildschirme melden per useTableStage, was sie zeigen */}
-        {prefs.table3d !== false && <Table3DLayer reduced={prefs.reduceMotion} />}
+        {prefs.table3d !== false && !isLowGfx() && <Table3DLayer reduced={prefs.reduceMotion} />}
         <header className="ss-content ss-topbar">
           <div className="max-w-[1500px] mx-auto px-3 md:px-5 h-14 flex items-center gap-3 md:gap-6">
             <Link to="/sacrifice-and-sigils" className="ss-title text-lg md:text-xl whitespace-nowrap" title="Hauptmenü">
@@ -217,6 +238,13 @@ export default function Shell() {
             </div>
           </div>
         </header>
+        {/* Hochkant bleibt der flache Tisch (Phase 7): ein leiser Hinweis, wie man an den Tisch im Kerzenlicht kommt */}
+        {rotateHint && (
+          <div className="ss-content ss-rotate-hint" role="note">
+            <span>{coarse ? de.ui.rotateHintPhone : de.ui.rotateHintWindow}</span>
+            <button type="button" className="ss-rotate-hint-off ss-focus" onClick={() => setPrefs({ rotateHintOff: true })}>{de.ui.rotateHintOff}</button>
+          </div>
+        )}
         {/* außerhalb der Leiste: am Tisch ist die Leiste ausgeblendet, die Einstellungen öffnet dann das Menü am Tisch */}
         {settingsOpen && <SettingsPopover onClose={() => setSettingsOpen(false)} />}
         <main className="ss-content">
@@ -234,6 +262,11 @@ export default function Shell() {
         )}
         <canvas ref={canvasRef} className="fixed inset-0 w-full h-full pointer-events-none z-[70]" aria-hidden />
         {tip && <Tooltip tip={tip} />}
+        {/* Kommt die Erklärung vom Tastatur-Fokus am Tisch (TableMirror), liest ein Screenreader sie nach dem Ziel vor.
+            Die Zone steht immer da — neu eingefügte Live-Zonen werden oft nicht angesagt. */}
+        <div className="ss-sr-only" aria-live="polite">
+          {tip && typeof document !== "undefined" && document.activeElement?.closest?.(".st-mirror") ? tip.content : null}
+        </div>
       </div>
     </ShellContext.Provider>
   );

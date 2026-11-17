@@ -42,7 +42,9 @@ export const BLOBBY_SPEED = 4.5;
 const BLOBBY_JUMP_ACCELERATION = 15.1;
 const BLOBBY_JUMP_BUFFER = 0.44;
 const GRAVITATION = 0.88;
-const BALL_GRAVITATION = 0.287;
+export const BALL_GRAVITATION = 0.287;
+// Riesenball schwebt (wie im Server: Schwerkraft ×0,72) — nur für das Auffüllen von Paketlücken
+export const GIANT_BALL_GRAVITY = 0.72;
 // BALL_COLLISION_VELOCITY steht bewusst NICHT mehr hier: Der Abpraller wird nur noch im
 // Server gerechnet, und dort geht seit BLOB_MOMENTUM_TRANSFER auch die Anfahrgeschwindigkeit
 // des Blobs ein. Eine Kopie hier wäre eine stille Falschaussage.
@@ -145,18 +147,19 @@ export function blobBlobCollision(a, sa, b, sb) {
   }
 }
 
-export function integrateBall(ball) {
-  ball.vy += BALL_GRAVITATION;
+export function integrateBall(ball, g = BALL_GRAVITATION, wind = 0) {
+  ball.vy += g;
+  ball.vx += wind;
   ball.x += ball.vx;
   ball.y += ball.vy;
 }
 
 // Pfeiler, Seitenwände, Boden — läuft im Server nach der Blob-Kollision, hier genauso
-export function ballWorldCollision(ball, width, netX, netTop) {
+export function ballWorldCollision(ball, width, netX, netTop, R = BALL_RADIUS) {
   const dx = ball.x - netX;
   const dy = ball.y - netTop;
   const d = Math.hypot(dx, dy);
-  if (d < BALL_RADIUS + NET_RADIUS) {
+  if (d < R + NET_RADIUS) {
     const nx = d < 1e-6 ? 0 : dx / d;
     const ny = d < 1e-6 ? -1 : dy / d;
     const dot = ball.vx * nx + ball.vy * ny;
@@ -164,37 +167,37 @@ export function ballWorldCollision(ball, width, netX, netTop) {
       ball.vx = (ball.vx - 2 * dot * nx) * NET_DAMPING;
       ball.vy = (ball.vy - 2 * dot * ny) * NET_DAMPING;
     }
-    ball.x = netX + nx * (BALL_RADIUS + NET_RADIUS);
-    ball.y = netTop + ny * (BALL_RADIUS + NET_RADIUS);
+    ball.x = netX + nx * (R + NET_RADIUS);
+    ball.y = netTop + ny * (R + NET_RADIUS);
   } else if (ball.y > netTop) {
-    if (ball.x < netX && ball.x + BALL_RADIUS > netX - NET_RADIUS) {
-      ball.x = netX - NET_RADIUS - BALL_RADIUS;
+    if (ball.x < netX && ball.x + R > netX - NET_RADIUS) {
+      ball.x = netX - NET_RADIUS - R;
       if (ball.vx > 0) ball.vx = -ball.vx;
-    } else if (ball.x >= netX && ball.x - BALL_RADIUS < netX + NET_RADIUS) {
-      ball.x = netX + NET_RADIUS + BALL_RADIUS;
+    } else if (ball.x >= netX && ball.x - R < netX + NET_RADIUS) {
+      ball.x = netX + NET_RADIUS + R;
       if (ball.vx < 0) ball.vx = -ball.vx;
     }
   }
 
-  if (ball.x - BALL_RADIUS < 0 && ball.vx < 0) {
+  if (ball.x - R < 0 && ball.vx < 0) {
     ball.vx = -ball.vx;
-    ball.x = BALL_RADIUS;
-  } else if (ball.x + BALL_RADIUS > width && ball.vx > 0) {
+    ball.x = R;
+  } else if (ball.x + R > width && ball.vx > 0) {
     ball.vx = -ball.vx;
-    ball.x = width - BALL_RADIUS;
+    ball.x = width - R;
   }
 
-  if (ball.y + BALL_RADIUS >= GROUND_Y) {
-    ball.y = GROUND_Y - BALL_RADIUS;
+  if (ball.y + R >= GROUND_Y) {
+    ball.y = GROUND_Y - R;
     ball.vx = 0;
     ball.vy = 0;
   }
 }
 
-// Ball ohne Blob-Kollision, ein kompletter Frame
-export function stepBallFree(ball, width, netX, netTop) {
-  integrateBall(ball);
-  ballWorldCollision(ball, width, netX, netTop);
+// Ball ohne Blob-Kollision, ein kompletter Frame. p: Partyregeln { r, g, wind } (Riesenball, Wind)
+export function stepBallFree(ball, width, netX, netTop, p = {}) {
+  integrateBall(ball, p.g, p.wind);
+  ballWorldCollision(ball, width, netX, netTop, p.r);
 }
 
 // Ball-gegen-Blob wird im Client NICHT mehr gerechnet.

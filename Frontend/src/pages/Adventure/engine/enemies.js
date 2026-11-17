@@ -9,7 +9,9 @@ import { lightning, floatText, burst } from "./fx.js";
 import { updateBoss, spiderQueen } from "./bosses/index.js";
 import { dist, dist2, distToSegment, clamp } from "./util.js";
 import { ascEnemyHp } from "./ascension.js";
+import { twEnemyHp, twEnemySpeed, loopEnemySpeed } from "./twists.js";
 import { enemyGrid, markGridDirty, collectObstacles } from "./grid.js";
+import { sporeCloud } from "./worldMechanics.js";
 
 export function spawnEnemy(g, id, x, y, opts = {}) {
   const def = ENEMIES[id];
@@ -33,7 +35,9 @@ export function spawnEnemy(g, id, x, y, opts = {}) {
   if (opts.minion) { hp *= 0.6; reward *= 0.3; }
   if (opts.split) { hp *= 0.35; r *= 0.75; reward *= 0.25; }
   if (g.curse) { hp *= 1.3; dmg *= 1.2; } // Fluchschrein aktiv
-  hp *= ascEnemyHp(g);
+  hp *= ascEnemyHp(g) * twEnemyHp(g);
+  // Ab Zyklus 2: Wendung und Zyklus-Druck (engine/twists.js)
+  speed *= twEnemySpeed(g) * loopEnemySpeed(g);
   const e = {
     uid: g.nextUid++, type: id, name: opts.champion ? `Champion: ${def.name}` : opts.giant ? `Koloss: ${def.name}` : def.name, ai: def.ai, tier, giant: !!opts.giant,
     x, y, r, hp, maxHp: hp, dmg, speed,
@@ -165,13 +169,37 @@ function updateAi(g, e, dt, tgt) {
       } else if (e.state === "rest" && e.t > 0.8) { e.state = "move"; e.atkCd = 2; }
       break;
 
+    // Rudel: jeder Wolf hat seinen Platz auf einem Kreis um dich (verteilt über die laufende Nummer, der Kreis dreht sich
+    // langsam), springt nach kurzer Ansage an und zieht sich danach zurück. Die Bahn ist so lang wie der Sprung (aimLen).
+    case "pack":
+      if (e.state === "move") {
+        const a = ((e.uid * 2.39996) % (Math.PI * 2)) + g.time * 0.45;
+        const ring = def.ring || 170;
+        moveToward(e, tgt.x + Math.cos(a) * ring, tgt.y + Math.sin(a) * ring, sp, dt);
+        e.facing = tgt.x < e.x ? -1 : 1;
+        if (e.atkCd <= 0 && d < ring + 110) { e.state = "aim"; e.t = 0; e.aimAngle = ang; e.aimLen = def.lungeDist; }
+      } else if (e.state === "aim") {
+        if (e.t < 0.25) e.aimAngle = ang; // zielt, dann ist die Bahn fest
+        if (e.t > 0.45) { e.state = "charge"; e.t = 0; e.hitDuringCharge = false; e.attackAnimT = 0; }
+      } else if (e.state === "charge") {
+        e.vx += Math.cos(e.aimAngle) * def.lungeSpeed;
+        e.vy += Math.sin(e.aimAngle) * def.lungeSpeed;
+        if (!e.hitDuringCharge && p.alive && dist2(e.x, e.y, p.x, p.y) < (e.r + p.r) * (e.r + p.r)) {
+          e.hitDuringCharge = true;
+          hurtPlayer(g, e.dmg * 1.1, { effect: def.effect || affixEffect(e), source: e });
+        }
+        if (e.t > def.lungeDist / def.lungeSpeed) { e.state = "rest"; e.t = 0; }
+      } else if (e.state === "rest" && e.t > 0.45) { e.state = "move"; e.atkCd = def.lungeEvery * g.rng.range(0.8, 1.3); }
+      break;
+
     case "exploder":
       if (e.state === "move") {
         moveToward(e, tgt.x, tgt.y, sp, dt);
         if (d < 80) {
           e.state = "fuse"; e.t = 0;
-          addHazard(g, { shape: "circle", x: e.x, y: e.y, r: 100, delay: 0.75, dmg: e.dmg * 1.6, effect: "burn", color: "#ff7a2e", follow: e.uid,
-            onResolve: (gg) => { if (!e.dead) killEnemy(gg, e); } });
+          // Wirkung und Farbe aus den Stammdaten (Standard Feuer); cloud hinterlässt eine Fläche (Bovist: Sporen)
+          addHazard(g, { shape: "circle", x: e.x, y: e.y, r: 100, delay: 0.75, dmg: e.dmg * 1.6, effect: def.effect || "burn", color: def.blastColor || "#ff7a2e", follow: e.uid,
+            onResolve: (gg, h) => { if (def.cloud === "spores") sporeCloud(gg, h.x, h.y, 90, 2.5); if (!e.dead) killEnemy(gg, e); } });
         }
       } else if (e.state === "fuse") {
         moveToward(e, tgt.x, tgt.y, sp * 0.25, dt);
@@ -312,8 +340,8 @@ function updateAi(g, e, dt, tgt) {
         e.attackAnimT = 0;
         const lead = p.moving ? 70 : 0;
         const tx = clamp(tgt.x + Math.cos(p.moveAngle) * lead, 40, g.world.w - 40), ty = clamp(tgt.y + Math.sin(p.moveAngle) * lead, 40, g.world.h - 40);
-        addHazard(g, { shape: "circle", x: tx, y: ty, r: 80, delay: 1.3, dmg: e.dmg * 1.3, effect: def.effect, color: "#ff7a2e", lob: { x: e.x, y: e.y - 30 },
-          onResolve: (gg, h) => burst(gg, h.x, h.y, "#ff9a3c", 12, 220) });
+        addHazard(g, { shape: "circle", x: tx, y: ty, r: 80, delay: 1.3, dmg: e.dmg * 1.3, effect: def.effect, color: def.blastColor || "#ff7a2e", lob: { x: e.x, y: e.y - 30 },
+          onResolve: (gg, h) => burst(gg, h.x, h.y, def.blastColor || "#ff9a3c", 12, 220) });
       }
       break;
     }
@@ -322,7 +350,7 @@ function updateAi(g, e, dt, tgt) {
       moveToward(e, tgt.x, tgt.y, sp, dt);
   }
 
-  if ((e.ai !== "charger" || e.state !== "charge") && e.state !== "roll") contact(g, e, e.ai === "brute" ? 0.5 : 1);
+  if (!((e.ai === "charger" || e.ai === "pack") && e.state === "charge") && e.state !== "roll") contact(g, e, e.ai === "brute" ? 0.5 : 1);
 
   // Elite-Eigenschaften, jede mit eigenem Zähler (ein Champion kann zwei haben)
   for (const a of e.affixes) {

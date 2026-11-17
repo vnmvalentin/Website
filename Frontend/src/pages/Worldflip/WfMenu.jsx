@@ -71,12 +71,19 @@ export default function WfMenu() {
                 ))}
               </div>
             </div>
-            <div className="flex items-center justify-between gap-3 mb-5">
+            <div className="flex items-center justify-between gap-3 mb-3">
               <span>Handkarten</span>
               <div className="wf-seg">
                 {RULES.HAND_SIZES.map((n) => (
                   <button key={n} type="button" aria-pressed={prefs.handSize === n} onClick={() => updatePrefs({ handSize: n })}>{n}</button>
                 ))}
+              </div>
+            </div>
+            <div className="flex items-center justify-between gap-3 mb-5">
+              <span>Ziehen</span>
+              <div className="wf-seg">
+                <button type="button" aria-pressed={!prefs.drawUntil} onClick={() => updatePrefs({ drawUntil: false })}>Eine Karte</button>
+                <button type="button" aria-pressed={prefs.drawUntil} onClick={() => updatePrefs({ drawUntil: true })}>Bis es passt</button>
               </div>
             </div>
             <button type="button" className="wf-btn wf-btn-lg w-full" onClick={() => navigate("/worldflip/spiel")}><Play size={18} />Spielen</button>

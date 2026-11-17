@@ -106,6 +106,50 @@ test('Battlelog: Ranked-Kämpfe tragen die Liga der API, andere Modi nicht', () 
   assert.deepEqual(log.map((b) => [b.group, b.league ?? null]), [['ranked', 4], ['ranked', null], ['ladder', null]]);
 });
 
+test('Battlelog: 2v2-Liga nur an der Arena-Kennung erkannt, gewöhnliches 2v2 nicht', () => {
+  const two = (time, arena) => battle(time,
+    [side('2PP', 'Ich', DECK_A, 2), side('3QQ', 'Partner', DECK_B, 2)], [side('8YY', 'B', DECK_B, 1), side('9GG', 'C', DECK_A, 1)],
+    { type: 'trail', gameMode: { name: 'TeamVsTeam' }, arena });
+  const log = shape.shapeBattles([
+    two('20261116T180000.000Z', { name: 'Legendary Arena', rawName: 'Arena_L' }),
+    two('20260920T180000.000Z', { name: 'Competitive', rawName: '2v2League_202609Arena2' }),
+  ], '2PP', 16);
+  assert.deepEqual(log.map((b) => [b.group, b.league2v2 ?? false]), [['2v2', false], ['2v2', true]]);
+});
+
+test('Battlelog: Challenges über den Event-Titel erkannt, Siege vorher aus startingTrophies (fehlt bei 0)', () => {
+  // So kommen Classic/Grand/20 Win aus der API (geprüft 16.11.2026): Kampftyp trail, ein gemeinsamer Modus
+  const ch = (time, eventTag, start, extra = {}) => battle(time,
+    [side('2PP', 'Ich', DECK_A, 1, start === null ? {} : { startingTrophies: start })], [side('8YY', 'B', DECK_B, 0)],
+    { type: 'trail', gameMode: { name: 'Challenge_AllCards_EventDeck_NoSet' }, eventTag, ...extra });
+  const events = [{ eventTag: '#GRAND', title: 'Grand Challenge' }, { eventTag: '#CLASSIC', title: 'Classic Challenge' }];
+  const log = shape.shapeBattles([
+    ch('20261116T180000.000Z', '#GRAND', 5),
+    ch('20261116T170000.000Z', '#CLASSIC', null),
+    ch('20261116T160000.000Z', '#WEG', 3), // Event nicht (mehr) bekannt
+  ], '2PP', 16, events);
+  assert.deepEqual(log.map((b) => [b.event ?? null, b.challenge ?? null, b.challengeWins]),
+    [['Grand Challenge', 'grand', 5], ['Classic Challenge', 'classic', 0], [null, null, null]]);
+  // ohne Event-Liste (ältere Aufrufer) bleibt alles wie bisher
+  const [plain] = shape.shapeBattles([ch('20261116T180000.000Z', '#GRAND', 5)], '2PP', 16);
+  assert.deepEqual([plain.event, plain.challenge, plain.challengeWins], [undefined, undefined, null]);
+});
+
+test('Modus-Index: offizielle Namen DE/EN, Hand-Einträge, Gruppen-Modi ohne Namen', () => {
+  const { modeInfo } = require('../../lib/gameModes');
+  assert.deepEqual(modeInfo('Overtime_Friendly'), { en: 'Sudden Death Battle', de: 'Kronen-K.o.-Kampf', icon: 'suddendeath' });
+  assert.equal(modeInfo('Draft_Competitive').icon, 'triple_draft');
+  assert.equal(modeInfo('Chaos_1v1_MegaDraft_S3').en, 'Mega Draft');
+  assert.equal(modeInfo('Challenge_AllCards_EventDeck_NoSet').icon, 'challenge');
+  assert.equal(modeInfo('202610_Event_Spooky_Chess').en, 'Spooky Chess'); // unbekannt: lesbarer Rohname
+  for (const plain of ['Ranked1v1_NewArena2', 'Ladder', 'Friendly', 'Tournament', 'TeamVsTeam', 'Competitive_Multideck', '']) {
+    assert.equal(modeInfo(plain), null, plain);
+  }
+  const [named, ranked] = shape.nameModes([{ mode: 'MirrorDeck_Friendly' }, { mode: 'Ranked1v1_NewArena2' }]);
+  assert.deepEqual([named.modeName, named.modeIcon], [{ en: 'Mirror Battle', de: 'Spiegelkampf' }, 'mirror']);
+  assert.equal(ranked.modeName, undefined);
+});
+
 test('Battlelog: der abgefragte Spieler steht vorn, auch wenn die API ihn im 2v2 an zweiter Stelle liefert', () => {
   const raw = [battle('20261113T180000.000Z',
     [side('AAA', 'Partner', DECK_B, 1), side('2PP', 'Ich', DECK_A, 1, { trophyChange: 30 })],
@@ -297,16 +341,16 @@ function fakeApi(responses) {
   };
 }
 
-async function withServer(api, fn) {
+async function withServer(api, fn, opts = {}) {
   const app = express();
-  const router = createScoutRouter({ api, store, meta: false, crawlSpacingMs: 0 });
+  const router = createScoutRouter({ api, store, meta: false, crawlSpacingMs: 0, ...opts });
   app.use('/s', router);
   const server = http.createServer(app);
   await new Promise((resolve) => { server.listen(0, '127.0.0.1', resolve); });
   const base = `http://127.0.0.1:${server.address().port}/s`;
   try {
-    await fn(async (p) => {
-      const res = await fetch(base + p);
+    await fn(async (p, init) => {
+      const res = await fetch(base + p, init);
       return { status: res.status, body: await res.json() };
     }, router);
   } finally {
@@ -330,6 +374,33 @@ test('Route Spieler: Profil + Kämpfe, zweiter Aufruf kommt aus dem Zwischenspei
     // der Gegner aus dem Kampf ist jetzt über seinen Namen auffindbar
     const s = await get('/search?q=suchm&clans=0');
     assert.equal(s.body.players[0].tag, '8YY');
+  });
+});
+
+test('Route Spieler: Event-Titel aus /events landen am Kampf und bleiben gemerkt, Kämpfe tragen den Modusnamen', async () => {
+  const grand = battle('20261116T180000.000Z', [side('YVC', 'Ich', DECK_A, 1, { startingTrophies: 4 })], [side('8YY', 'B', DECK_B, 0)],
+    { type: 'trail', gameMode: { name: 'Challenge_AllCards_EventDeck_NoSet' }, eventTag: '#2PRCRPQL' });
+  const mirror = battle('20261116T170000.000Z', [side('YVC', 'Ich', DECK_A, 1)], [side('8YY', 'B', DECK_B, 0)],
+    { type: 'friendly', gameMode: { name: 'MirrorDeck_Friendly' } });
+  const api = fakeApi({
+    '/players/%23YVC': { tag: '#YVC', name: 'Ich', trophies: 9000, cards: DECK_A },
+    '/players/%23YVC/battlelog': [grand, mirror],
+  });
+  let eventCalls = 0;
+  api.fetchEvents = async () => { eventCalls += 1; return [{ eventTag: '#2PRCRPQL', title: 'Grand Challenge' }]; };
+  await withServer(api, async (get) => {
+    const { body } = await get('/player/YVC');
+    const [g, m] = body.battles;
+    assert.deepEqual([g.event, g.challenge, g.challengeWins, g.modeName.en], ['Grand Challenge', 'grand', 4, 'Challenge']);
+    assert.deepEqual([m.modeName.de, m.modeIcon, m.event], ['Spiegelkampf', 'mirror', undefined]);
+    assert.equal(eventCalls, 1);
+  });
+  assert.equal(store.getValue('eventTitles').value['#2PRCRPQL'].title, 'Grand Challenge');
+  // Ein neu gestarteter Server ohne laufendes Event kennt den Titel noch
+  api.fetchEvents = async () => [];
+  await withServer(api, async (get) => {
+    const { body } = await get('/player/YVC');
+    assert.equal(body.battles[0].event, 'Grand Challenge');
   });
 });
 
@@ -401,6 +472,208 @@ test('Rangliste mit Decks: Bekanntes hängt an, Unbekanntes wird nachgeladen und
   });
 });
 
+test('Rangliste folgt dem Profil: neues Deck steht sofort in der Liste; anderer Medaillenstand = Deck gilt als veraltet', async (t) => {
+  const responses = {
+    '/locations/57000249/pathoflegend/players': { items: [{ tag: '#PPP', name: 'Wechsler', rank: 1, eloRating: 2500 }] },
+    '/players/%23PPP': { tag: '#PPP', name: 'Wechsler', trophies: 9000, cards: DECK_A, currentPathOfLegendSeasonResult: { leagueNumber: 7, trophies: 2500, rank: 1 } },
+    '/players/%23PPP/battlelog': [battle('20261114T180000.000Z', [side('PPP', 'Wechsler', DECK_A, 2)], [side('YYY', 'X', DECK_B, 1)])],
+  };
+  const api = fakeApi(responses);
+  t.mock.timers.enable({ apis: ['Date'], now: Date.now() });
+  await withServer(api, async (get) => {
+    assert.equal((await get('/ranking/players?loc=57000249')).body.items[0].deck, undefined);
+    // Profil geöffnet → dieselbe (noch zwischengespeicherte) Rangliste zeigt das Deck ohne eigenen Abruf
+    await get('/player/PPP');
+    t.mock.timers.tick(11 * 1000);
+    let row = (await get('/ranking/players?loc=57000249')).body.items[0];
+    assert.equal(row.deck[0].id, 'knight');
+    assert.equal(row.deckStale, undefined);
+    assert.equal(api.calls.filter((c) => c.includes('/locations/')).length, 1);
+
+    // Spieler spielt mit anderem Deck weiter: neue Rangliste zeigt einen anderen Medaillenstand
+    responses['/locations/57000249/pathoflegend/players'] = { items: [{ tag: '#PPP', name: 'Wechsler', rank: 1, eloRating: 2530 }] };
+    responses['/players/%23PPP/battlelog'] = [battle('20261114T190000.000Z', [side('PPP', 'Wechsler', DECK_B, 2)], [side('YYY', 'X', DECK_A, 1)])];
+    t.mock.timers.tick(6 * 60 * 1000); // Rangliste abgelaufen → alter Stand sofort, neuer im Hintergrund
+    await get('/ranking/players?loc=57000249');
+    await new Promise((r) => { setImmediate(r); });
+    t.mock.timers.tick(11 * 1000);
+    row = (await get('/ranking/players?loc=57000249')).body.items[0];
+    assert.equal(row.score, 2530);
+    assert.equal(row.deckStale, undefined); // erst vor 6 Minuten geprüft: noch nicht nachfragen
+    t.mock.timers.tick(10 * 60 * 1000);
+    row = (await get('/ranking/players?loc=57000249')).body.items[0];
+    assert.equal(row.deckStale, true);
+    // Nachladen holt das neue Deck und merkt den Stand — danach gilt es wieder als aktuell
+    const loaded = await get('/decks?tags=PPP');
+    assert.equal(loaded.body.decks.PPP[0].id, 'mega-knight');
+    t.mock.timers.tick(11 * 1000);
+    row = (await get('/ranking/players?loc=57000249')).body.items[0];
+    assert.equal(row.deck[0].id, 'mega-knight');
+    assert.equal(row.deckStale, undefined);
+    // Ohne neuen Medaillenstand bleibt es dabei, auch Stunden später
+    t.mock.timers.tick(5 * 3600 * 1000);
+    await get('/ranking/players?loc=57000249');
+    await new Promise((r) => { setImmediate(r); });
+    t.mock.timers.tick(11 * 1000);
+    assert.equal((await get('/ranking/players?loc=57000249')).body.items[0].deckStale, undefined);
+  });
+});
+
+test('Rangliste: nach Ablauf geht der alte Stand sofort raus, der neue kommt im Hintergrund; bei gestörter API bleibt der alte', async (t) => {
+  const responses = { '/locations/57000006/rankings/clans': { items: [{ tag: '#QQQ', name: 'Alt', rank: 1, clanScore: 100 }] } };
+  const api = fakeApi(responses);
+  t.mock.timers.enable({ apis: ['Date'], now: Date.now() });
+  await withServer(api, async (get) => {
+    assert.equal((await get('/ranking/clans?loc=57000006')).body.items[0].name, 'Alt');
+    responses['/locations/57000006/rankings/clans'] = { items: [{ tag: '#QQQ', name: 'Neu', rank: 1, clanScore: 100 }] };
+    t.mock.timers.tick(6 * 60 * 1000);
+    assert.equal((await get('/ranking/clans?loc=57000006')).body.items[0].name, 'Alt');
+    await new Promise((r) => { setImmediate(r); });
+    assert.equal((await get('/ranking/clans?loc=57000006')).body.items[0].name, 'Neu');
+    assert.equal(api.calls.length, 2);
+    // API gestört: der letzte Stand bleibt sichtbar
+    responses['/locations/57000006/rankings/clans'] = new Error('Royale API HTTP 503');
+    t.mock.timers.tick(6 * 60 * 1000);
+    const r = await get('/ranking/clans?loc=57000006');
+    assert.equal(r.status, 200);
+    assert.equal(r.body.items[0].name, 'Neu');
+    // … bis er endgültig zu alt ist
+    t.mock.timers.tick(40 * 60 * 1000);
+    assert.equal((await get('/ranking/clans?loc=57000006')).status, 502);
+  });
+});
+
+// ── Schutz vor Scrapern ──────────────────────────────────────────────────────
+// Anfragen „von außen“ tragen den Kopf, den nginx anhängt — ohne ihn gelten sie als Dienst auf demselben Rechner.
+const BROWSER_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
+const from = (ip, ua = BROWSER_UA) => ({ headers: { 'x-forwarded-for': ip, 'user-agent': ua } });
+
+test('Schutz: Skript-Kennungen werden abgewiesen, Browser, Suchmaschinen und eigene Werkzeuge nicht', async () => {
+  await withServer(fakeApi({}), async (get) => {
+    const scripts = ['python-requests/2.32.3', 'curl/8.9.1', 'axios/1.7.2', 'node', 'Go-http-client/2.0', 'Scrapy/2.11.2 (+https://scrapy.org)',
+      'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/131.0.0.0 Safari/537.36'];
+    for (const ua of scripts) {
+      const r = await get('/status', from('203.0.113.7', ua));
+      assert.deepEqual([r.status, r.body.key], [403, 'scriptBlocked'], ua);
+    }
+    for (const ua of [BROWSER_UA, 'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)', 'vnmvalentin-prerender']) {
+      assert.equal((await get('/status', from('203.0.113.7', ua))).status, 200, ua);
+    }
+    // Dienst auf demselben Rechner (kein nginx-Kopf): Nodes fetch meldet sich als „node“ und kommt trotzdem durch
+    assert.equal((await get('/status')).status, 200);
+  });
+});
+
+test('Schutz: neue Spieler- und Clan-Abrufe kosten Kontingent je Adresse, Zwischengespeichertes nicht', async () => {
+  const api = fakeApi({
+    '/players/%23J9J': { tag: '#J9J', name: 'Schonda', cards: DECK_A },
+    '/players/%23J9J/battlelog': [],
+  });
+  await withServer(api, async (get) => {
+    const a = (p) => get(p, from('198.51.100.1'));
+    const b = (p) => get(p, from('198.51.100.2'));
+    assert.equal((await b('/player/J9J')).status, 200); // B legt das Profil in den Zwischenspeicher
+    assert.equal((await a('/player/2PL')).status, 404); // unbekannte Tags: je ein neuer Abruf
+    assert.equal((await a('/player/2PQ')).status, 404);
+    const limited = await a('/player/2PG');
+    assert.deepEqual([limited.status, limited.body.key, limited.body.login], [429, 'rateLimited', true]);
+    assert.ok(limited.body.retryAt > Date.now() && limited.body.retryAt <= Date.now() + 60_000); // Ende des 1-Minuten-Fensters
+    const callsBefore = api.calls.length;
+    assert.equal((await a('/player/J9J')).status, 200); // frisch im Zwischenspeicher → kostet nichts
+    assert.equal((await a('/clan/L9L')).status, 429); // Clans zählen mit
+    assert.equal((await a('/clan/L9L/war')).status, 429);
+    assert.equal(api.calls.length, callsBefore); // Abgewiesenes erreicht die API nicht
+    assert.equal((await b('/player/2PG')).status, 404); // andere Adresse, eigenes Kontingent
+    // Suche: Spieler aus dem eigenen Index weiter, Clans erst wieder mit Kontingent
+    const s = await a('/search?q=schonda');
+    assert.equal(s.status, 200);
+    assert.equal(s.body.players[0].tag, 'J9J');
+    assert.deepEqual(s.body.clans, []);
+    assert.equal(api.calls.length, callsBefore + 2); // nur die beiden Abrufe für B
+  }, { limits: { lookups: [{ fensterMs: 60_000, max: 2 }] } });
+});
+
+test('Schutz: Tagesgrenze meldet sich eigens; Konten mit Twitch/Discord haben ihr eigenes Kontingent', async () => {
+  const opts = {
+    limits: { lookups: [{ fensterMs: 60_000, max: 10 }, { fensterMs: 24 * 3600_000, max: 2 }], accountLookups: [{ fensterMs: 60_000, max: 1 }] },
+    kontoFuerKontingent: (req) => req.headers['x-test-konto'] || null,
+  };
+  await withServer(fakeApi({}), async (get) => {
+    const anon = (p) => get(p, from('198.51.100.20'));
+    const konto = (p) => get(p, { headers: { ...from('198.51.100.20').headers, 'x-test-konto': 'k1' } });
+    assert.equal((await anon('/player/2PU')).status, 404);
+    assert.equal((await anon('/player/2PV')).status, 404);
+    const day = await anon('/player/2PC');
+    assert.deepEqual([day.status, day.body.key, day.body.login], [429, 'dailyLimit', true]);
+    assert.ok(day.body.retryAt > Date.now() + 23 * 3600_000); // erst morgen wieder — kein „kurz warten“
+    // Dieselbe Adresse, aber angemeldet: eigenes Kontingent; erschöpft fehlt der Hinweis aufs Anmelden
+    assert.equal((await konto('/player/2PC')).status, 404);
+    const full = await konto('/player/2PJ');
+    assert.deepEqual([full.status, full.body.key, full.body.login], [429, 'rateLimited', undefined]);
+  }, opts);
+});
+
+test('Schutz: /decks lädt nur für Ranglisten-Spieler nach, im Rahmen des Kontingents', async () => {
+  const log = (tag) => [battle('20261113T180000.000Z', [side(tag, 'X', DECK_A, 2)], [side('8YY', 'Y', DECK_B, 1)])];
+  const api = fakeApi({
+    '/locations/57000120/pathoflegend/players': { items: [{ tag: '#P9P', name: 'Erste', rank: 1 }, { tag: '#U9U', name: 'Zweite', rank: 2 }] },
+    '/players/%23P9P/battlelog': log('P9P'),
+    '/players/%23U9U/battlelog': log('U9U'),
+    '/players/%23G9G/battlelog': log('G9G'),
+  });
+  await withServer(api, async (get) => {
+    const g = (p) => get(p, from('198.51.100.9'));
+    assert.deepEqual((await g('/decks?tags=G9G')).body.decks, {}); // beliebiger Tag: kein Abruf
+    await g('/ranking/players?loc=57000120');
+    const r = await g('/decks?tags=P9P,U9U,G9G');
+    assert.equal(r.body.decks.P9P[0].id, 'knight');
+    assert.equal(r.body.decks.U9U, undefined); // Ranglisten-Spieler, aber Kontingent (1) aufgebraucht
+    assert.equal(r.body.decks.G9G, undefined); // steht in keiner Rangliste
+    assert.deepEqual(api.calls.filter((c) => c.includes('battlelog')), ['/players/%23P9P/battlelog']);
+  }, { limits: { decks: [{ fensterMs: 60_000, max: 1 }] } });
+});
+
+test('Schutz: gemeinsames Kontingent aller Besucher ohne Konto — viele Adressen zusammen, Konten unberührt', async () => {
+  const opts = {
+    limits: { global: [{ fensterMs: 60_000, max: 2 }] },
+    kontoFuerKontingent: (req) => req.headers['x-test-konto'] || null,
+  };
+  await withServer(fakeApi({}), async (get) => {
+    // Jede Anfrage aus einer anderen Adresse: je Adresse wäre nichts erreicht
+    assert.equal((await get('/player/2PU', from('198.51.100.31'))).status, 404);
+    assert.equal((await get('/player/2PV', from('198.51.100.32'))).status, 404);
+    const voll = await get('/player/2PC', from('198.51.100.33'));
+    assert.deepEqual([voll.status, voll.body.key, voll.body.login], [429, 'rateLimited', true]);
+    const konto = await get('/player/2PC', { headers: { ...from('198.51.100.33').headers, 'x-test-konto': 'k7' } });
+    assert.equal(konto.status, 404, 'mit Konto zählt das gemeinsame Kontingent nicht');
+  }, opts);
+});
+
+test('Schutz: bei Überlast bekommen Besucher ohne Konto sofort „busy“, Zwischengespeichertes und Konten nicht', async () => {
+  const last = { an: false, ueberlastet() { return this.an; } };
+  const api = fakeApi({
+    '/players/%23J8J': { tag: '#J8J', name: 'Warm', cards: DECK_A },
+    '/players/%23J8J/battlelog': [],
+  });
+  const opts = { last, kontoFuerKontingent: (req) => req.headers['x-test-konto'] || null };
+  await withServer(api, async (get) => {
+    const anon = (p) => get(p, from('198.51.100.41'));
+    assert.equal((await anon('/player/J8J')).status, 200);
+    last.an = true;
+    const calls = api.calls.length;
+    const r = await anon('/player/2PL');
+    assert.deepEqual([r.status, r.body.key], [503, 'busy']);
+    assert.equal((await anon('/player/J8J/battles')).status, 503);
+    assert.equal((await anon('/search?q=warm')).status, 503);
+    assert.equal(api.calls.length, calls, 'Abgewiesenes erreicht die API nicht');
+    assert.equal((await anon('/player/J8J')).status, 200, 'frisch im Zwischenspeicher');
+    assert.equal((await anon('/status')).status, 200);
+    assert.equal((await get('/player/2PL', { headers: { ...from('198.51.100.41').headers, 'x-test-konto': 'k8' } })).status, 404);
+    last.an = false;
+    assert.equal((await anon('/player/2PQ')).status, 404);
+  }, opts);
+});
+
 test('Sammler: merkt die Rangliste im Namens-Index, speichert Auswertung und Deck-Einzelheiten; Route /deck liefert sie', async () => {
   const logs = {};
   // 30 Spieler, jeder mit zwei Kämpfen Deck A gegen Deck B (A gewinnt den ersten) → 60 Kämpfe
@@ -429,6 +702,125 @@ test('Sammler: merkt die Rangliste im Namens-Index, speichert Auswertung und Dec
       assert.equal(r.body.players[0].rank, 1); // Platz aus der Rangliste
       const none = await get('/deck?karten=knight,zap');
       assert.deepEqual([none.body.deck, none.body.vsDecks], [null, []]);
+    });
+  } finally {
+    Date.now = realNow;
+  }
+});
+
+test('Route /deck: „Gespielt von“ zeigt den aktuellen Platz der Weltrangliste, nicht den der Auswertung', async () => {
+  const logs = {};
+  const top = Array.from({ length: 30 }, (_, i) => ({ tag: `#${'2PYLQGRJCU'[i % 10]}${'89PYL'[Math.floor(i / 10)]}2`, name: `Top${i}`, rank: i + 1, eloRating: 3000 - i }));
+  top.forEach((p, i) => {
+    const tag = p.tag.slice(1);
+    logs[`/players/%23${tag}/battlelog`] = [0, 1].map((k) => battle(`20261113T${String(10 + (i % 10)).padStart(2, '0')}${String(k * 30 + Math.floor(i / 10)).padStart(2, '0')}00.000Z`,
+      [side(tag, p.name, DECK_A, k === 0 ? 2 : 0)], [side(`V${tag}`, `Gegner${i}`, DECK_B, 1)]));
+  });
+  // Seit der Auswertung: Top5 und Top7 sind vorbeigezogen, Top1 ist aus der Rangliste gefallen
+  const live = [top[5], top[7], top[0], ...top.filter((_, i) => ![0, 1, 5, 7].includes(i))].map((p, i) => ({ ...p, rank: i + 1 }));
+  const api = fakeApi({ '/locations/global/pathoflegend/players': { items: live } });
+  api.crApiGetSafe = async (p) => (p.startsWith('/locations/global/pathoflegend/players') ? { items: top } : logs[p] || null);
+  const realNow = Date.now;
+  Date.now = () => Date.UTC(2026, 10, 14);
+  try {
+    await withServer(api, async (get, router) => {
+      const snap = await router.crawler.run();
+      const a = snap.decks.find((d) => d.cards.some((c) => c.id === 'hog-rider'));
+      const r = await get(`/deck?karten=${a.key}`);
+      assert.equal(r.body.ranksLive, true);
+      assert.deepEqual(r.body.players.map((p) => [p.name, p.rank]), [
+        ['Top5', 1], ['Top7', 2], ['Top0', 3], ['Top2', 4], ['Top3', 5], ['Top4', 6], ['Top6', 7],
+        ['Top8', 8], ['Top9', 9], ['Top10', 10], ['Top11', 11], ['Top1', null],
+      ]);
+      // Ranglisten-Seite (Top 200 und Top 1000) liest dieselbe Liste — kein weiterer Abruf
+      const board = await get('/ranking/players');
+      const board1000 = await get('/ranking/players?top=1000');
+      assert.equal(board.body.items[0].name, 'Top5');
+      assert.equal(board1000.body.items.length, 29);
+      assert.equal(api.calls.filter((c) => c.includes('pathoflegend')).length, 1);
+    });
+  } finally {
+    Date.now = realNow;
+  }
+});
+
+// Crown-Series-Duell im Format der offiziellen API (wie bei der Crown-Series-Auswertung weiter unten): je Runde ein
+// eigenes Deck — ich gewinne beide Runden
+const crownDuelRaw = (time, me, opp) => ({
+  type: 'unknown', battleTime: time, gameMode: { name: 'Competitive_Multideck' }, arena: { name: 'x' },
+  team: [{ tag: `#${me}`, name: 'Duellant', crowns: 2, cards: [...DECK_A, ...DECK_B], rounds: [{ crowns: 1, cards: DECK_A }, { crowns: 1, cards: DECK_B }] }],
+  opponent: [{ tag: `#${opp}`, name: 'Gegner', crowns: 0, cards: [...DECK_B, ...DECK_A], rounds: [{ crowns: 0, cards: DECK_B }, { crowns: 0, cards: DECK_A }] }],
+});
+
+test('Crown Series: Duelle bleiben eigens gemerkt (höchstens 10) und gehen mit dem Profil mit', async () => {
+  const duels = shape.shapeBattles(Array.from({ length: 12 }, (_, i) => crownDuelRaw(`202611${String(i + 1).padStart(2, '0')}T100000.000Z`, '9CU', '8LV')), '9CU', null);
+  assert.ok(duels.every((b) => b.group === 'crown' && b.team[0].decks.length === 2));
+  store.rememberBattles('9CU', duels);
+  const kept = store.getCrownBattles('9CU');
+  assert.equal(kept.length, 10); // es bleiben die neuesten 10
+  assert.equal(kept[0].t, Math.max(...duels.map((b) => b.t))); // neueste zuerst
+  assert.deepEqual(Object.keys(kept[0]).sort(), ['group', 'result', 'rounds', 't', 'team']); // verkleinert
+  assert.deepEqual(kept[0].rounds, [{ f: 1, a: 0 }, { f: 1, a: 0 }]);
+  assert.equal(kept[0].team[0].decks[1][0].id, 'mega-knight');
+  // 250 Ranked-Kämpfe danach schieben die Duelle aus dem Verlauf — der eigene Speicher behält sie
+  const newest = kept[0].t;
+  store.rememberBattles('9CU', Array.from({ length: 250 }, (_, i) => ({ t: newest + (i + 1) * 60 * 1000, group: 'ranked', result: 'win', team: [], opponent: [] })));
+  assert.equal(store.getBattles('9CU', { limit: 200 }).filter((b) => b.group === 'crown').length, 0);
+  assert.equal(store.getCrownBattles('9CU').length, 10);
+  // Das Profil liefert sie mit
+  const api = fakeApi({ '/players/%239CU': { tag: '#9CU', name: 'Duellant', cards: DECK_A }, '/players/%239CU/battlelog': [] });
+  await withServer(api, async (get) => {
+    const r = await get('/player/9CU');
+    assert.equal(r.status, 200, JSON.stringify(r.body));
+    assert.equal(r.body.crownBattles.length, 10);
+    assert.equal(r.body.battles.filter((b) => b.group === 'crown').length, 0);
+  });
+});
+
+test('Crown Series: Nachtrag übernimmt Duelle, die schon im Kampf-Verlauf liegen — nur einmal', async () => {
+  const duels = shape.shapeBattles([0, 1, 2].map((i) => crownDuelRaw(`2026100${i + 1}T100000.000Z`, 'QRJ', 'YLQ')), 'QRJ', null);
+  const ranked = shape.shapeBattles([battle('20261005T100000.000Z', [side('QRJ', 'A', DECK_A, 1)], [side('YLQ', 'B', DECK_B, 0)])], 'QRJ', null);
+  // Direkt in den Verlauf schreiben, wie vor dem eigenen Speicher: rememberBattles würde sie gleich mitnehmen
+  const Database = require('better-sqlite3');
+  const zlib = require('node:zlib');
+  const raw = new Database(process.env.CR_SCOUT_DB);
+  const put = raw.prepare('INSERT OR IGNORE INTO battles (tag, t, data) VALUES (?, ?, ?)');
+  for (const b of [...duels, ...ranked]) put.run('QRJ', b.t, zlib.deflateRawSync(JSON.stringify(b)));
+  raw.close();
+  assert.equal(store.getCrownBattles('QRJ').length, 0);
+  // Kleine Schritte, damit das Fortsetzen über mehrere Schritte geprüft ist
+  let after = null;
+  let steps = 0;
+  do { after = store.crownBackfillStep(after, 2); steps += 1; } while (after && steps < 10000);
+  assert.ok(steps > 1);
+  assert.deepEqual(store.getCrownBattles('QRJ').map((b) => b.t), duels.map((b) => b.t).sort((a, b) => b - a)); // nur die Duelle
+  // Über den Router: läuft einmal und merkt sich das
+  await withServer(fakeApi({}), async (get, router) => {
+    assert.equal(await router.backfillCrown({ pauseMs: 0 }), true);
+    assert.equal(await router.backfillCrown({ pauseMs: 0 }), false);
+  });
+});
+
+test('Route /deck: ohne erreichbare Weltrangliste bleibt der Platz der Auswertung', async () => {
+  const logs = {};
+  const top = Array.from({ length: 30 }, (_, i) => ({ tag: `#${'2PYLQGRJCU'[i % 10]}${'89PYL'[Math.floor(i / 10)]}2`, name: `Top${i}`, rank: i + 1, eloRating: 3000 - i }));
+  top.forEach((p, i) => {
+    const tag = p.tag.slice(1);
+    logs[`/players/%23${tag}/battlelog`] = [0, 1].map((k) => battle(`20261113T${String(10 + (i % 10)).padStart(2, '0')}${String(k * 30 + Math.floor(i / 10)).padStart(2, '0')}00.000Z`,
+      [side(tag, p.name, DECK_A, k === 0 ? 2 : 0)], [side(`V${tag}`, `Gegner${i}`, DECK_B, 1)]));
+  });
+  const api = fakeApi({ '/locations/global/pathoflegend/players': new Error('Royale API HTTP 503') });
+  api.crApiGetSafe = async (p) => (p.startsWith('/locations/global/pathoflegend/players') ? { items: top } : logs[p] || null);
+  const realNow = Date.now;
+  Date.now = () => Date.UTC(2026, 10, 14);
+  try {
+    await withServer(api, async (get, router) => {
+      const snap = await router.crawler.run();
+      const a = snap.decks.find((d) => d.cards.some((c) => c.id === 'hog-rider'));
+      const r = await get(`/deck?karten=${a.key}`);
+      assert.equal(r.status, 200);
+      assert.equal(r.body.ranksLive, false);
+      assert.deepEqual(r.body.players.slice(0, 3).map((p) => [p.name, p.rank]), [['Top0', 1], ['Top1', 2], ['Top2', 3]]);
     });
   } finally {
     Date.now = realNow;

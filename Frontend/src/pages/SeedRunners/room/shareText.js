@@ -20,8 +20,8 @@ function abschnitte(splits) {
   return m;
 }
 
-/** Ein Quadrat je eigenem Checkpoint, verglichen mit der schnellsten Abschnittszeit aller Ranglisten-Läufe */
-export function abschnittQuadrate(splits, entries) {
+/** Je eigenem Checkpoint „gruen“ | „gelb“ | „rot“, verglichen mit der schnellsten Abschnittszeit aller Ranglisten-Läufe */
+export function abschnittWertung(splits, entries) {
   const meine = abschnitte(splits);
   const beste = new Map();
   for (const e of entries || []) {
@@ -29,14 +29,54 @@ export function abschnittQuadrate(splits, entries) {
       if (t > 0 && (!beste.has(cp) || t < beste.get(cp))) beste.set(cp, t);
     }
   }
-  let out = '';
+  const out = [];
   for (const [cp, t] of meine) {
     const b = beste.get(cp);
-    if (!b || t <= b) { out += '🟩'; continue; }
+    if (!b || t <= b) { out.push('gruen'); continue; }
     const mehr = (t - b) / b;
-    out += mehr <= GRUEN_BIS ? '🟩' : mehr <= GELB_BIS ? '🟨' : '🟥';
+    out.push(mehr <= GRUEN_BIS ? 'gruen' : mehr <= GELB_BIS ? 'gelb' : 'rot');
   }
   return out;
+}
+
+const QUADRAT = { gruen: '🟩', gelb: '🟨', rot: '🟥' };
+/** Ein Quadrat je eigenem Checkpoint (siehe abschnittWertung) */
+export function abschnittQuadrate(splits, entries) {
+  return abschnittWertung(splits, entries).map((w) => QUADRAT[w]).join('');
+}
+
+// Farben der Quadrate im Ergebnisbild (wie die Emoji-Quadrate, abgestimmt auf den dunklen Grund)
+const BILD_FARBE = { gruen: '#5fcf6b', gelb: '#f2c744', rot: '#e5534b' };
+
+/**
+ * Das Ergebnisbild des Tagesrennens (utils/ergebnisbild.js): Zeit groß, Platz, Tode, Quadrate je Abschnitt.
+ * Gleiche Eingaben wie tagesrennenText, ohne url (den Link baut das Ergebnisbild selbst, mit ?ref).
+ */
+export function tagesrennenErgebnis({ dateKey, lauf, rank, total, entries, archiv = false }) {
+  const tode = `${lauf.deaths} ${lauf.deaths === 1 ? 'Tod' : 'Tode'}`;
+  const werte = [];
+  if (!archiv && rank) werte.push({ name: 'Platz', wert: total ? `${rank} von ${total}` : String(rank) });
+  werte.push({ name: 'Tode', wert: String(lauf.deaths) });
+  const wertung = abschnittWertung(lauf.splits, entries);
+  if (wertung.length) {
+    const gruen = wertung.filter((w) => w === 'gruen').length;
+    werte.push({ name: 'Nah an der Bestzeit', wert: `${gruen} / ${wertung.length} Abschnitte` });
+  }
+  const teile = [formatTicks(lauf.ticks)];
+  if (!archiv && rank) teile.push(total ? `Platz ${rank} von ${total}` : `Platz ${rank}`);
+  teile.push(tode);
+  return {
+    spiel: 'seed-runners',
+    pfad: archiv ? `/seed-runners/daily/${dateKey}` : '/seed-runners/daily',
+    kicker: `${archiv ? 'Archiv' : 'Tagesrennen'} · ${germanDate(dateKey)}`,
+    marke: !archiv && rank === 1 ? 'Platz 1' : null,
+    gross: formatTicks(lauf.ticks),
+    unter: archiv ? 'Zeit im Archiv-Level' : rank ? 'Bestzeit des Tages' : 'Letzter Lauf',
+    raster: wertung.map((w) => BILD_FARBE[w]),
+    werte,
+    aufruf: archiv ? 'Gleiches Level, deine Zeit?' : 'Heute für alle dasselbe Level. Bist du schneller?',
+    text: `Seed Runners · ${archiv ? 'Archiv' : 'Tagesrennen'} ${germanDate(dateKey)}: ${teile.join(' · ')}`,
+  };
 }
 
 /**

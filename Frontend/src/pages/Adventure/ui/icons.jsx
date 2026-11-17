@@ -8,6 +8,7 @@ import {
   Copy, ChevronsRight, Zap, Bomb, Rocket, Snowflake, Feather, Anchor, Activity, ShieldPlus, Biohazard, Orbit, Axe, Ghost, Cat,
   Bird, Hourglass, Sparkles, HeartPulse, CloudLightning, Gem, Skull, Sun, Crown, Droplets, Bug, Mountain, Wind, Hammer, Tornado,
   Crosshair, RotateCw, ArrowUpRight, CloudRain, Star, Fan, Cloud, Radar, Gauge, Satellite, Box, BrickWall, ArrowBigUp, Castle,
+  Hand, Waves, Swords, Target, Grab, RotateCcw, Dog, Wine, CloudFog, Atom,
 } from "lucide-react";
 import { ITEMS, RARITY } from "../data/items.js";
 import { EQUIPMENT } from "../data/equipment.js";
@@ -55,6 +56,10 @@ const ABILITY_ICONS = {
   toxin: Droplet, toxicCloud: Cloud, acidSprint: Footprints, plague: Biohazard,
   laser: Zap, turret: Radar, overdrive: Gauge, orbital: Satellite,
   block: Box, wall: BrickWall, leap: ArrowBigUp, fortress: Castle,
+  palm: Hand, chiWave: Waves, windStep: Wind, hundredFists: Swords,
+  huntArrow: Target, bearTrap: Grab, backflip: RotateCcw, wolfPack: Dog,
+  soulBolt: Ghost, boneSpikes: Bone, soulSwap: Sparkles, deadArmy: Skull,
+  flask: FlaskConical, elixir: Wine, smokeBomb: CloudFog, chainReaction: Atom,
 };
 
 export function ItemIcon({ id, size = 34, dim = false, title }) {

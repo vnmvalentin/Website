@@ -32,17 +32,17 @@ import {
 } from "lucide-react";
 import { InstagramGlyph } from "../components/BrandGlyphs";
 // Kleine Symbolbilder (thumb) — Clash-Royale-Grafiken NUR für Clash-Royale-Seiten, der Rest aus public/media/icons
-import crCrownImg from "../assets/clashRoyale/ui/crown.png";
-import crTrophyImg from "../assets/clashRoyale/ui/trophy.png";
+import crCrownImg from "../assets/clashRoyale/ui/crown.webp";
+import crTrophyImg from "../assets/clashRoyale/ui/trophy.webp";
 import crKingImg from "../assets/clashRoyale/ui/king_blue.webp";
-import crSkullImg from "../assets/clashRoyale/ui/sudden_death.webp";
+import crSkullImg from "../assets/clashRoyale/modes/sudden_death.webp";
 import crQuestionImg from "../assets/clashRoyale/ui/question.webp";
 import crSwordImg from "../assets/clashRoyale/ui/sword.webp";
 import crTvImg from "../assets/clashRoyale/ui/tv.webp";
-import crScrollImg from "../assets/clashRoyale/ui/icon_daily_task_scroll_opened.png";
+import crScrollImg from "../assets/clashRoyale/ui/icon_daily_task_scroll_opened.webp";
 import crSearchImg from "../assets/clashRoyale/ui/search.webp";
 import crEyeImg from "../assets/clashRoyale/ui/eye.webp";
-import crPotionImg from "../assets/clashRoyale/ui/card_boost_potion.png";
+import crPotionImg from "../assets/clashRoyale/ui/card_boost_potion.webp";
 
 // Vorschaubilder der Unterseiten (Startseite, Türen, Übersichtsseiten) — erzeugt mit scripts/vorschaubilder.cjs
 // fit: "cover" füllt die Karte (Spiele, Seiten), "contain" zeigt das ganze Bild (Overlays sind kleine Ausschnitte)
@@ -79,13 +79,14 @@ export const NAV_CATEGORIES = [
         description: "Deine eigene Farm: Pflanzen setzen, ernten und ausbauen.",
       },
       {
-        label: "Connect 4",
-        to: "/connect4",
-        id: "connect4",
+        // Nachfolger von Connect 4 (17.11.2026); /connect4 leitet hierher weiter
+        label: "Spieleabend",
+        to: "/spieleabend",
+        id: "spieleabend",
         thumb: icon("connect4"),
-        previews: [preview("connect4")],
+        previews: [preview("spieleabend")],
         icon: Disc,
-        description: "Vier Gewinnt gegen einen Freund — Link teilen und direkt loslegen.",
+        description: "Ein Zimmer mit Tisch: Freunde per Link einladen, als Blob herumlaufen und 4 gewinnt, Mensch ärgere dich nicht oder Zeichen-Hochstapler spielen.",
       },
       {
         // Die Sperre ist gefallen: Grund war nicht der Spielcode, sondern der alte Host, der

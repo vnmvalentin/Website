@@ -13,6 +13,8 @@ const ARCHIV = {
   2: () => import('../archiv/pfad-v2/gen/world/generate.js'),
   3: () => import('../archiv/pfad-v3/gen/world/generate.js'),
   4: () => import('../archiv/pfad-v4/gen/world/generate.js'),
+  // ab Version 5 baut das Archiv die Lauflinie (gen/index.js weltParams, LAUF_AB_GV)
+  5: () => import('../archiv/pfad-v5/gen/world/generate.js'),
 };
 
 /** Die generateWorld-Funktion einer Version */

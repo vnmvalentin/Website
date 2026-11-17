@@ -125,8 +125,10 @@ export default function TableBook({ start, onFallback }) {
   };
 
   // Karten im Album: vier nebeneinander je Seite, nach Stämmen
-  // Platz je Karte = Breite + 12 px Abstand rechts; vier davon müssen auf die Seite passen
-  const cardW = Math.floor(Math.max(92, Math.min(150, pageW / 4 - 13)));
+  // Platz je Karte = Breite + 12 px Abstand rechts; vier davon müssen auf die Seite passen. In flachen Fenstern (Handy
+  // quer) begrenzt die Höhe: eine Reihe samt Stamm-Überschrift muss auf die Seite passen (Karte ist 1,4 × so hoch)
+  const byHeight = size.h ? (size.h - 52) / 1.4 : 150;
+  const cardW = Math.floor(Math.max(Math.min(92, byHeight), Math.min(150, pageW / 4 - 13, byHeight)));
   const cardsByTribe = [];
   for (const c of cx.cards) {
     const last = cardsByTribe[cardsByTribe.length - 1];
@@ -150,7 +152,7 @@ export default function TableBook({ start, onFallback }) {
 
   return (
     <>
-      <TableHost zirkel="moor" seated={false} quiet onFallback={onFallback}>
+      <TableHost zirkel="moor" seated={false} quiet mirror={false} onFallback={onFallback}>
         {(room) => <BookTable room={room} />}
       </TableHost>
       <div className="sb-root" onWheel={onWheel}>

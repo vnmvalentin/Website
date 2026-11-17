@@ -12,6 +12,9 @@ import { RUN_SCENES } from "./sceneRegistry.js";
 import { pathView } from "./pathView.js";
 import TotemBench from "./TotemBench.jsx";
 import { Podium } from "./RunFx.jsx";
+import { getZirkel } from "../../engine/zirkel/index.js";
+import ErgebnisTeilen from "../../../../components/ErgebnisTeilen.jsx";
+import { moorErgebnis } from "../../ergebnis.js";
 
 // ───────── Pfad ─────────
 
@@ -184,6 +187,16 @@ export function RunResult({ game, onExit }) {
         <div className="mt-5 flex flex-wrap gap-3">
           {game.lobby?.rematch && <button type="button" className="ss-seal" onClick={() => game.lobby.rematch()}>Neuer Run</button>}
           <button type="button" className="ss-btn" onClick={onExit}>{de.ui.back}</button>
+          {game.you !== null && game.you !== undefined && rv.players[game.you]?.place <= 3 && (
+            <ErgebnisTeilen className="ss-btn inline-flex items-center gap-2"
+              ergebnis={() => {
+                const P = rv.players[game.you];
+                return moorErgebnis({
+                  platz: P.place, spieler: rv.players.length, siegel: P.seals, siegelMax: rv.settings.seals, stats: P.stats,
+                  zirkel: getZirkel(rv.settings.zirkel)?.name,
+                });
+              }} />
+          )}
         </div>
       </div>
       {shown?.deck && (

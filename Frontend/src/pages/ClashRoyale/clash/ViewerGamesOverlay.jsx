@@ -9,7 +9,7 @@ import { useParams } from 'react-router-dom';
 import { useCardImage, drawCardStage, VIEW_W, VIEW_H } from './cardStage';
 import { cardImageUrl } from '../data/cards';
 import { useFontLink } from '../../../components/shell/useFontLink';
-import elixirImg from '../../../assets/clashRoyale/ui/elixir_1.png';
+import elixirImg from '../../../assets/clashRoyale/ui/elixir_1.webp';
 
 const POLL_MS = 1000;
 const FONT_HREF = 'https://fonts.googleapis.com/css2?family=Lilita+One&display=swap';

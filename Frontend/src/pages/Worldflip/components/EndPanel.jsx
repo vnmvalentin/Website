@@ -1,7 +1,10 @@
 // components/EndPanel.jsx — Ende einer Runde: wer gewonnen hat, wie viele Karten die anderen noch hielten.
-import React from "react";
+import React, { useEffect } from "react";
+import { zaehleWorldflipRunde } from "../kontoStand.js";
 import { playerColor } from "../skins.js";
 import { TEAMS } from "../engine/index.js";
+import ErgebnisTeilen from "../../../components/ErgebnisTeilen.jsx";
+import { worldflipErgebnis } from "../ergebnis.js";
 
 /**
  * @param {object} props
@@ -9,11 +12,21 @@ import { TEAMS } from "../engine/index.js";
  * @param {{players: {name: string}[], seat: number | null}} props.table
  * @param {React.ReactNode} props.children  Knöpfe (Nochmal, Menü …)
  */
-export default function EndPanel({ view, table, children }) {
+export default function EndPanel({ view, table, partie, children }) {
   const me = table.seat;
   const { teams } = table;
   const team = view.winTeam;
   const won = view.winner === me || (!!teams && me !== null && teams[me] === team);
+
+  // Statistik am Konto: die Runde einmal zählen (partie ist je Runde eindeutig)
+  useEffect(() => {
+    if (me === null || !partie) return;
+    zaehleWorldflipRunde({
+      partie, gewonnen: won, team: !!teams,
+      menschen: table.players.some((p, i) => i !== me && p && !p.bot),
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [partie, me]);
   const winnerName = teams ? TEAMS[team].name : table.players[view.winner]?.name;
   const order = table.players.map((p, seat) => ({ ...p, seat, left: view.counts[seat] })).sort((a, b) => a.left - b.left);
   return (
@@ -33,7 +46,16 @@ export default function EndPanel({ view, table, children }) {
             </li>
           ))}
         </ul>
-        <div className="flex flex-wrap gap-2">{children}</div>
+        <div className="flex flex-wrap gap-2">
+          {children}
+          {me !== null && won && (
+            <ErgebnisTeilen className="wf-btn wf-btn-ghost"
+              ergebnis={() => worldflipErgebnis({
+                zuege: view.turnNo, karten: view.counts, platz: me, spieler: table.players, teams,
+                teamName: teams ? TEAMS[team]?.name : "",
+              })} />
+          )}
+        </div>
       </div>
     </div>
   );

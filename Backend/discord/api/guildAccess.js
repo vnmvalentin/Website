@@ -16,7 +16,7 @@ function requireGuildAdmin(discordClient) {
         const guildId = String(req.params.guildId || '');
         if (!/^\d{5,25}$/.test(guildId)) return res.status(400).json({ error: 'Ungültige Server-ID', code: "bad_guild_id" });
 
-        const link = links.getLink(req.twitchId);
+        const link = links.getLink(req.linkKey);
         if (!link || !link.userId) return res.status(401).json({ error: 'Discord nicht verknüpft', code: "not_linked" });
 
         const key = `${guildId}:${link.userId}`;

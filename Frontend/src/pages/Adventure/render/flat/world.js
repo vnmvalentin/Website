@@ -2,6 +2,7 @@
 // Alles mit dem Ursprung am Boden (Hindernisse/Objekte) bzw. in der Mitte (Geschosse); keine Bilddateien.
 
 import { circle, ell, rrect, poly, line, curve, twoTone, TAU } from "./draw.js";
+import { GEAR_REACH, GEAR_W } from "../../engine/worldMechanics.js";
 
 // ── Böden: ruhige Zweiton-Fliesen + wenige Details, als Kachel für ein Muster ──────────────────
 export const FLOORS = {
@@ -11,6 +12,11 @@ export const FLOORS = {
   ice: { a: "#cfe3ee", b: "#d8eaf3", detail: "ice", outside: "#2a3a48" },
   lava: { a: "#2a1614", b: "#311a17", detail: "lava", outside: "#120807" },
   storm: { a: "#1c1a2e", b: "#221f36", detail: "storm", outside: "#0a0912" },
+  // Neue Welten ab Zyklus 2 (data/biomes.js BIOMES_NEU)
+  friedhof: { a: "#28312b", b: "#2c362f", detail: "friedhof", outside: "#0b0f0c" },
+  pilzwald: { a: "#2a3326", b: "#2e3829", detail: "pilzwald", outside: "#0e120c" },
+  sumpf: { a: "#363d2a", b: "#3a422d", detail: "sumpf", outside: "#6a7462" }, // outside = Nebelfarbe in 3D
+  uhrwerk: { a: "#3a3632", b: "#403b36", detail: "uhrwerk", outside: "#14110e" },
 };
 
 function rng(seed) {
@@ -59,6 +65,38 @@ export function makeFloorTile(biomeId) {
       }
       for (let i = 0; i < 10; i++) { const [x, y] = at(); circle(c, x, y, 2, "#4a2420"); }
       break;
+    case "friedhof":
+      // Grasbüschel, verstreute Knöchelchen, welkes Laub
+      for (let i = 0; i < 9; i++) { const [x, y] = at(); for (let k = -1; k <= 1; k++) line(c, x + k * 4, y, x + k * 6, y - 9 - (k === 0 ? 3 : 0), 2, "#3a4a3c"); }
+      for (let i = 0; i < 4; i++) { const [x, y] = at(); line(c, x - 6, y, x + 6, y + 2, 3, "#8f8a7e"); circle(c, x - 7, y, 2.5, "#8f8a7e"); circle(c, x + 7, y + 2, 2.5, "#8f8a7e"); }
+      for (let i = 0; i < 10; i++) { const [x, y] = at(); circle(c, x, y, 2 + r() * 2, r() < 0.5 ? "#4a3e2c" : "#3a3426"); }
+      break;
+    case "pilzwald":
+      // Moos, kleine Pilze, Laub
+      for (let i = 0; i < 10; i++) { const [x, y] = at(); circle(c, x, y, 5 + r() * 6, r() < 0.5 ? "#33402c" : "#2f3b29"); }
+      for (let i = 0; i < 6; i++) { const [x, y] = at(); rrect(c, x - 1.5, y - 6, 3, 7, 1.5, "#d8ccb4"); ell(c, x, y - 6, 5, 3, r() < 0.5 ? "#c4402f" : "#8a5ac0"); }
+      for (let i = 0; i < 8; i++) { const [x, y] = at(); ell(c, x, y, 4, 2, "#4a3a22", r() * 3); }
+      break;
+    case "sumpf":
+      // Schlammflecken, Schilfhalme, Blasen
+      for (let i = 0; i < 7; i++) { const [x, y] = at(); ell(c, x, y, 14 + r() * 10, 6 + r() * 4, "#2f3524"); }
+      for (let i = 0; i < 8; i++) { const [x, y] = at(); line(c, x, y, x - 3, y - 12, 2, "#56602f"); line(c, x + 4, y, x + 6, y - 10, 2, "#4a5428"); }
+      for (let i = 0; i < 6; i++) { const [x, y] = at(); c.strokeStyle = "#4f5a36"; c.lineWidth = 1.5; c.beginPath(); c.arc(x, y, 3 + r() * 2, 0, TAU); c.stroke(); }
+      break;
+    case "uhrwerk": {
+      // Bodenplatten mit Nieten und Fugen, ab und zu ein eingelassenes Zahnrad
+      for (let y = 0; y < 4; y++) for (let x = 0; x < 4; x++) {
+        const px = x * 120, py = y * 120;
+        for (const [dx, dy] of [[10, 10], [110, 10], [10, 110], [110, 110]]) circle(c, px + dx, py + dy, 2.5, "#5a524a");
+        line(c, px, py, px + 120, py, 2, "#2e2a26"); line(c, px, py, px, py + 120, 2, "#2e2a26");
+      }
+      for (let i = 0; i < 3; i++) {
+        const [x, y] = at();
+        c.strokeStyle = "#4a443e"; c.lineWidth = 4; c.beginPath(); c.arc(x, y, 16, 0, TAU); c.stroke();
+        for (let k = 0; k < 8; k++) { const a = (k / 8) * TAU; line(c, x + Math.cos(a) * 16, y + Math.sin(a) * 16, x + Math.cos(a) * 22, y + Math.sin(a) * 22, 4, "#4a443e"); }
+      }
+      break;
+    }
     case "storm":
       for (let i = 0; i < 4; i++) { const [x, y] = at(); c.strokeStyle = "#2c2848"; c.lineWidth = 3; c.beginPath(); c.arc(x, y, 14, 0, TAU); c.stroke(); line(c, x - 8, y, x + 8, y, 3, "#2c2848"); }
       break;
@@ -68,7 +106,7 @@ export function makeFloorTile(biomeId) {
 }
 
 // ── Hindernisse (sprite-Schlüssel aus data/biomes.js), Ursprung = Mitte des Kollisionskreises ───
-const ROCK = { dungeon: ["#4a4452", "#5c5566"], cave: ["#3b5566", "#4d6e82"], desert: ["#9b7a48", "#b08b55"], ice: ["#8fb3c7", "#a6c6d8"], lava: ["#4a2a24", "#5e352d"], storm: ["#3a3550", "#4a4466"] };
+const ROCK = { friedhof: ["#4a4d54", "#5c6068"], pilzwald: ["#4a4a3e", "#5c5c4c"], sumpf: ["#4a4e3a", "#5a5f46"], uhrwerk: ["#5a524a", "#6b625a"], dungeon: ["#4a4452", "#5c5566"], cave: ["#3b5566", "#4d6e82"], desert: ["#9b7a48", "#b08b55"], ice: ["#8fb3c7", "#a6c6d8"], lava: ["#4a2a24", "#5e352d"], storm: ["#3a3550", "#4a4466"] };
 
 function rockShape(c, r, col, seed) {
   c.fillStyle = col;
@@ -136,6 +174,86 @@ export function drawObstacle(c, o, biomeId) {
       c.strokeStyle = "#ff7a2e"; c.lineWidth = 3; c.lineJoin = "round"; c.lineCap = "round";
       c.beginPath(); c.moveTo(-r * 0.5, -r * 0.05); c.lineTo(-r * 0.2, r * 0.08); c.lineTo(r * 0.05, -r * 0.12); c.lineTo(r * 0.4, r * 0.05); c.stroke();
       if (o.sprite === "vulkan") { ell(c, 0, -r * 0.3, r * 0.3, r * 0.12, "#ffb04a"); }
+      break;
+    case "grave": { // Grabstein mit Hügel davor (Friedhof: weckt Tote, engine/worldMechanics.js)
+      ell(c, 0, r * 0.35, r * 0.95, r * 0.42, "#3a3426");
+      twoTone(c, (c) => { c.moveTo(-r * 0.62, r * 0.1); c.lineTo(-r * 0.62, -r * 1.25); c.arc(0, -r * 1.25, r * 0.62, Math.PI, 0); c.lineTo(r * 0.62, r * 0.1); c.closePath(); }, "#7d808a", "#666973", -r * 0.9);
+      line(c, 0, -r * 1.5, 0, -r * 0.75, 3, "#55585f");
+      line(c, -r * 0.28, -r * 1.25, r * 0.28, -r * 1.25, 3, "#55585f");
+      break;
+    }
+    case "crypt": // Gruft: kleines Haus mit Giebel
+      twoTone(c, (c) => c.roundRect(-r * 0.85, -r * 1.5, r * 1.7, r * 1.65, 4), "#5f626c", "#4c4f58", -r * 0.7);
+      poly(c, [-r, -r * 1.45, 0, -r * 2.15, r, -r * 1.45], "#3e4048");
+      rrect(c, -r * 0.3, -r * 0.85, r * 0.6, r * 0.95, 3, "#22242a");
+      circle(c, 0, -r * 1.75, r * 0.12, "#9fe8c8");
+      break;
+    case "deadtree": // kahler Baum
+      twoTone(c, (c) => { c.moveTo(-r * 0.22, r * 0.15); c.lineTo(-r * 0.12, -r * 1.6); c.lineTo(r * 0.12, -r * 1.6); c.lineTo(r * 0.22, r * 0.15); c.closePath(); }, "#4a3a2c", "#3a2d22", -r * 0.6);
+      line(c, 0, -r * 1.1, -r * 0.75, -r * 1.75, 5, "#4a3a2c"); line(c, -r * 0.45, -r * 1.45, -r * 0.55, -r * 2.05, 3, "#4a3a2c");
+      line(c, 0, -r * 1.4, r * 0.7, -r * 2.0, 5, "#3a2d22"); line(c, r * 0.4, -r * 1.7, r * 0.85, -r * 1.65, 3, "#3a2d22");
+      break;
+    // ── Pilzwald ──
+    case "bigshroom": // Fliegenpilz: dicker Stiel, roter Hut mit Punkten
+      twoTone(c, (c) => c.roundRect(-r * 0.28, -r * 1.35, r * 0.56, r * 1.5, r * 0.2), "#efe6d2", "#d2c6ac", -r * 0.6);
+      twoTone(c, (c) => c.ellipse(0, -r * 1.35, r * 1.15, r * 0.75, 0, Math.PI, 0), "#d9473a", "#a8302a", -r * 1.6);
+      rrect(c, -r * 1.15, -r * 1.42, r * 2.3, r * 0.16, 4, "#a8302a");
+      for (const [x, y, s] of [[-0.55, -1.6, 0.15], [0.1, -1.85, 0.13], [0.6, -1.55, 0.11], [-0.15, -1.5, 0.09]]) circle(c, x * r, y * r, s * r, "#f4eee0");
+      break;
+    case "sporeshroom": { // Sporenpilz: dicker, violetter Bovist (stößt Sporen aus, engine/worldMechanics.js)
+      const swell = o.puffAt != null ? 1.12 : 1;
+      twoTone(c, (c) => c.ellipse(0, -r * 0.75 * swell, r * 0.95 * swell, r * 0.85 * swell, 0, 0, TAU), "#a07bc8", "#7c5aa6", -r * 0.6);
+      for (const [x, y] of [[-0.35, -1.05], [0.25, -1.3], [0.45, -0.8], [-0.1, -0.6]]) circle(c, x * r, y * r * swell, r * 0.1, "#d8c4f0");
+      ell(c, 0, -r * 1.55 * swell, r * 0.18, r * 0.08, "#5a3a7e");
+      break;
+    }
+    case "stump": // Baumstumpf mit Jahresringen
+      twoTone(c, (c) => c.roundRect(-r * 0.8, -r * 0.9, r * 1.6, r * 1.05, r * 0.2), "#6b4a2b", "#553a22", -r * 0.3);
+      ell(c, 0, -r * 0.9, r * 0.8, r * 0.3, "#a8844e");
+      c.strokeStyle = "#8a6a3a"; c.lineWidth = 2; c.beginPath(); c.ellipse(0, -r * 0.9, r * 0.5, r * 0.18, 0, 0, TAU); c.stroke();
+      circle(c, -r * 0.55, -r * 0.4, r * 0.14, "#4a6a3a");
+      break;
+    // ── Sumpf ──
+    case "reeds": // Schilfbüschel mit Kolben
+      for (const [x, h, k] of [[-0.5, 1.6, -0.15], [-0.15, 2.0, 0.05], [0.2, 1.75, 0.12], [0.5, 1.4, 0.25]]) {
+        line(c, x * r, r * 0.1, (x + k) * r, -h * r, 4, "#6f7a3a");
+        rrect(c, (x + k) * r - r * 0.09, -h * r - r * 0.05, r * 0.18, r * 0.42, r * 0.09, "#6b4a2b");
+      }
+      break;
+    case "willow": // Trauerweide: Stamm, hängende Zweige
+      twoTone(c, (c) => { c.moveTo(-r * 0.25, r * 0.15); c.lineTo(-r * 0.15, -r * 1.5); c.lineTo(r * 0.15, -r * 1.5); c.lineTo(r * 0.25, r * 0.15); c.closePath(); }, "#4a3e2c", "#3a3022", -r * 0.6);
+      twoTone(c, (c) => c.ellipse(0, -r * 1.7, r * 1.1, r * 0.55, 0, 0, TAU), "#4f6a3a", "#3f5a2e", -r * 1.8);
+      for (let i = -3; i <= 3; i++) line(c, i * r * 0.3, -r * 1.5, i * r * 0.34, -r * (0.55 + Math.abs(i) * 0.12), 3, "#4a6235");
+      break;
+    // ── Uhrwerkturm ──
+    case "gear": { // Zahnradfalle: Zahnrad am Boden, die Klinge dreht sich (engine/worldMechanics.js setzt o.armA)
+      const a = o.armA ?? 0;
+      c.save(); c.scale(1, 0.62);
+      c.strokeStyle = "#8a6a2a"; c.lineWidth = 6;
+      for (let k = 0; k < 10; k++) { const t = (k / 10) * TAU + a * 0.5; line(c, Math.cos(t) * r * 0.9, Math.sin(t) * r * 0.9, Math.cos(t) * r * 1.2, Math.sin(t) * r * 1.2, 7, "#8a6a2a"); }
+      circle(c, 0, 0, r, "#b08a3a"); circle(c, 0, 0, r * 0.45, "#6b522a");
+      c.restore();
+      // Klinge: flach über dem Boden
+      c.save(); c.scale(1, 0.62); c.rotate(a);
+      rrect(c, 0, -GEAR_W / 2, GEAR_REACH, GEAR_W, GEAR_W / 2, "#c9d2dc");
+      rrect(c, 0, -GEAR_W / 2, GEAR_REACH, GEAR_W * 0.35, 4, "#eef3f8");
+      for (let k = 1; k < 6; k++) poly(c, [k * 26, GEAR_W / 2, k * 26 + 8, GEAR_W / 2 + 7, k * 26 + 16, GEAR_W / 2], "#9aa3ad");
+      c.restore();
+      circle(c, 0, -2, r * 0.22, "#d8b060");
+      break;
+    }
+    case "boiler": // Dampfkessel mit Ventil
+      twoTone(c, (c) => c.roundRect(-r * 0.75, -r * 1.8, r * 1.5, r * 1.95, r * 0.45), "#8a5a3a", "#6b4428", -r * 0.8);
+      for (const y of [-1.45, -0.85, -0.25]) rrect(c, -r * 0.78, y * r, r * 1.56, r * 0.12, 3, "#5a3a26");
+      rrect(c, -r * 0.12, -r * 2.15, r * 0.24, r * 0.4, 3, "#9aa3ad");
+      circle(c, 0, -r * 2.2, r * 0.2, "#c9d2dc");
+      circle(c, r * 0.35, -r * 1.1, r * 0.16, "#d8b060");
+      break;
+    case "pipes": // Rohrbündel aus dem Boden
+      for (const [x, h] of [[-0.5, 1.4], [0, 1.9], [0.5, 1.2]]) {
+        twoTone(c, (c) => c.roundRect((x - 0.2) * r, -h * r, r * 0.4, h * r + r * 0.15, r * 0.12), "#7a828e", "#5f6670", -h * r * 0.5);
+        rrect(c, (x - 0.26) * r, -h * r, r * 0.52, r * 0.18, 3, "#d8b060");
+      }
       break;
     default: // rock
       rockShape(c, r, rock[0], seed);
@@ -228,6 +346,10 @@ export function drawProjectile(c, key, x, y, angle, size, time) {
     case "electric_ball": circle(c, 0, 0, 9, "#ffe14d"); poly(c, [-3, -7, 3, -1, -1, 0, 4, 7, -3, 1, 1, 0], "#ffffff"); break;
     case "proj_feather": ell(c, 0, 0, 12, 4, "#efe6d2"); line(c, -12, 0, 10, 0, 1.5, "#b8b0a0"); break;
     case "proj_curse": circle(c, 0, 0, 10, "#f5cf4a"); ell(c, 0, 0, 7, 4.5, "#ffffff"); circle(c, 1, 0, 3, "#3f7fd6"); break;
+    // Kits seit November 2026: Chi-Welle (Mönch), Seelenblitz (Nekromantin), Wurfflasche (Alchemist)
+    case "proj_chi": ell(c, 0, 0, 10, 16, "rgba(255,233,160,0.85)"); ell(c, 3, 0, 5, 11, "#fff8dc"); break;
+    case "proj_soul": circle(c, 0, 0, 9, "#6a4e8e"); circle(c, 1, 0, 6, "#9fe8c8"); ell(c, -10, 0, 8, 3, "rgba(159,232,200,0.5)"); break;
+    case "proj_flask": c.rotate(time * 10); circle(c, 0, 2, 7, "#c49aff"); rrect(c, -2.5, -9, 5, 7, 1.5, "#efe6d2"); rrect(c, -3.5, -11, 7, 3, 1, "#8a5a3a"); break;
     default: rrect(c, -9, -4, 18, 8, 4, "#fff3a0"); break; // proj_basic
   }
   c.restore();

@@ -41,7 +41,7 @@ export default function WfRoom() {
   const tableRef = useRef(null);
   const codeRef = useRef(creating ? null : routeCode);
   const seen = useRef({ matchNo: null, seq: null });
-  const settingsRef = useRef({ players: prefs.players, teams: prefs.teams, handSize: prefs.handSize });
+  const settingsRef = useRef({ players: prefs.players, teams: prefs.teams, handSize: prefs.handSize, drawUntil: prefs.drawUntil });
   const skinRef = useRef(prefs.skin); // eigener Blob (im Menü gestaltet): so sehen einen die anderen
 
   // ── Verbindung ────────────────────────────────────────────────────────────
@@ -266,6 +266,13 @@ export default function WfRoom() {
                       </div>
                     </div>
                     <div className="flex items-center justify-between gap-3">
+                      <span>Ziehen</span>
+                      <div className="wf-seg">
+                        <button type="button" disabled={!room.host} aria-pressed={!room.settings.drawUntil} onClick={() => setSettings({ drawUntil: false })}>Eine Karte</button>
+                        <button type="button" disabled={!room.host} aria-pressed={!!room.settings.drawUntil} onClick={() => setSettings({ drawUntil: true })}>Bis es passt</button>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between gap-3">
                       <span>Zugzeit</span>
                       <div className="wf-seg">
                         {RULES.TURN_SECONDS.map((n) => (
@@ -290,7 +297,7 @@ export default function WfRoom() {
             )}
 
             {room && room.phase !== "lobby" && view && view.winner !== null && !busy && (
-              <EndPanel view={view} table={table}>
+              <EndPanel view={view} table={table} partie={`${room.code || routeCode}:${room.matchNo}`}>
                 {room.host ? (
                   <button type="button" className="wf-btn" onClick={() => emit("wf:start")}><RotateCcw size={16} />Nächste Runde</button>
                 ) : (

@@ -2,10 +2,10 @@ import React, { useState, useEffect, useRef, useCallback, useMemo, lazy, Suspens
 import CardFace from '../ui/CardFace';
 import { ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Hand } from 'lucide-react';
 import { CrCheck, CrChest, CrClock, CrClose, CrSearch, CrSocial, CrStar, CrTelescope, CrTv } from '../ui/CrIcons';
-import crownIcon from '../../../assets/clashRoyale/ui/crown.png';
+import crownIcon from '../../../assets/clashRoyale/ui/crown.webp';
 import { RARITY_COLOR, ALL_CARDS, cardImageUrl } from '../data/cards';
-import ghostImgSrc from '../../../assets/clashRoyale/ui/Royale_Ghost.png';
-import chestImgSrc from '../../../assets/clashRoyale/ui/draft-chest.png';
+import ghostImgSrc from '../../../assets/clashRoyale/ui/Royale_Ghost.webp';
+import chestImgSrc from '../../../assets/clashRoyale/ui/draft-chest.webp';
 import jokerImgSrc from '../../../assets/clashRoyale/ui/UnknownCard.webp';
 import { drawCardFrame } from './cardCrop';
 import { ProgressHairline, PlayerPanel, DeckGrid } from './GameChrome';

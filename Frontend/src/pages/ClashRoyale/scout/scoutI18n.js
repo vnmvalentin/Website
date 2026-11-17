@@ -22,6 +22,8 @@ export function timeAgo(ms, lang, now = Date.now()) {
   return lang === 'en' ? 'just now' : 'gerade eben';
 }
 export const fmtDate = (ms, lang) => (ms ? new Date(ms).toLocaleDateString(locale(lang), { day: '2-digit', month: '2-digit', year: 'numeric' }) : '');
+/** Monatsname mit Jahr („Juli 2025") — m zählt ab 1 */
+export const fmtMonth = (y, m, lang) => new Date(Date.UTC(y, m - 1, 1)).toLocaleDateString(locale(lang), { month: 'long', year: 'numeric', timeZone: 'UTC' });
 
 /** „SevenXElixir_Ladder" → „Seven X Elixir Ladder" (Modus- und Abzeichennamen der API) */
 export const prettyMode = (name) => String(name || '').replace(/_/g, ' ').replace(/([a-z0-9])([A-Z])/g, '$1 $2').replace(/\s+/g, ' ').trim();
@@ -47,8 +49,12 @@ const DE = {
     apiDown: 'Clash Royale antwortet gerade nicht. Versuch es gleich nochmal.',
     busy: 'Gerade ist viel los. Versuch es in ein paar Sekunden nochmal.',
     rateLimited: 'Das waren viele Anfragen auf einmal. Kurz warten, dann geht es weiter.',
+    dailyLimit: 'Für heute hast du sehr viele neue Spieler und Clans abgerufen.',
     offline: 'Keine Verbindung zum Server.',
   },
+  limitUntil: (when) => `Neue Spieler und Clans kannst du wieder ab ${when} Uhr öffnen.`,
+  limitTomorrow: 'morgen',
+  limitLogin: 'Mit Twitch oder Discord angemeldet hast du deutlich mehr Spielraum.',
   playerNotFound: 'Kein Spieler mit diesem Tag.', tryAsClan: 'Als Clan öffnen', clanNotFound: 'Kein Clan mit diesem Tag.', tryAsPlayer: 'Als Spieler öffnen',
   // Startseite
   homeTitle: 'Clash Royale Stats', homeSub: 'Spieler-Stats live aus dem Spiel, Meta Decks, Crown Series — dazu Minigames, Kartenspiele und Werkzeuge für Streamer.',
@@ -126,7 +132,12 @@ const DE = {
     Classic12Wins: 'Classic Challenge', Grand12Wins: 'Grand Challenge', LadderTournamentTop1000: 'Global Tournament Top 1000', LadderTop1000: 'Top 1000',
     YearsPlayed: 'Jahre dabei', BattleWins: 'Siege', ClanWarsVeteran: 'Clankrieg-Veteran', ClanWarWins: 'Clankrieg-Siege', EmoteCollection: 'Emote-Sammlung',
     BannerCollection: 'Banner-Sammlung', CollectionLevel: 'Sammlungs-Level', ClanDonations: 'Spenden', TopLeague: 'Höchste Liga', '2v2': '2v2-Siege',
+    CrazyArenaBadge1: 'Secret Chaos', // so heißt es im Spiel (Nutzer, 17.11.2026)
   },
+  badgeGroups: { ranks: 'Ranglisten', crl: 'CRL', events: 'Events & Challenges', career: 'Laufbahn', seasons: 'Saisons & Jahre', special: 'Besonderes' },
+  ranksNote: 'Den Platz selbst gibt die Clash-API nicht heraus, nur wie oft es geklappt hat.',
+  badgePlaced: (n) => `${n}× platziert`, badgeDone: (n) => `${n}× geschafft`, crlWins: (n) => `${n}/20 Siege`,
+  yearBadge: (y) => `Jahr ${y}`, seasonBadge: (m) => `Saison ${m}`,
   // Clan
   clanScore: 'Clan-Punkte', warTrophies: 'Kriegstrophäen', required: 'Mindest-Trophäen', perWeek: 'Spenden pro Woche',
   clanTypes: { open: 'Offen', inviteOnly: 'Nur auf Einladung', closed: 'Geschlossen' },
@@ -178,7 +189,7 @@ const DE = {
   muOwnTitle: 'Deine schwersten Gegner', muOwnSub: 'Deine Bilanz gegen Decks nach ihrer Win-Condition, die schwächste zuerst (ab drei Kämpfen).',
   muOwnTop: 'Bei den Besten', muOwnTopHint: 'Siegquote von Decks mit derselben Win-Condition wie deins bei den besten Spielern (letzte 45 Tage)',
   muOwnRefType: (name) => `Vergleich: Decks mit ${name} als Win-Condition (wie dein aktuelles) bei den besten Spielern.`,
-  playedBy: 'Gespielt von', playedBySub: 'Die bestplatzierten Spieler mit diesem Deck', playedByRank: 'Platz in der Weltrangliste — Stand der letzten Auswertung (läuft alle 6 Stunden)',
+  playedBy: 'Gespielt von', playedBySub: 'Die bestplatzierten Spieler mit diesem Deck', playedByRank: 'Aktueller Platz in der Weltrangliste', playedByRankOld: 'Platz in der Weltrangliste — Stand der letzten Auswertung (läuft alle 6 Stunden)',
   crownTitle: 'Crown Series', crownSub: 'Im Duell spielst du mit bis zu vier Decks, keine Karte darf doppelt vorkommen.', crownSource: (b, ago) => `Aus ${b} Duellen der Top 1000 · ${ago}`,
   crownSeo: 'Die besten Duell-Decks für die Clash-Royale-Crown-Series: Sets aus vier Decks ohne doppelte Karte, die Sets der Bestplatzierten und alle Duell-Decks mit Rundensiegquote.',
   crownEmpty: 'Gerade gibt es zu wenige Crown-Series-Duelle für eine Auswertung — die Liste füllt sich, sobald die Spitze wieder Duelle spielt.',
@@ -218,7 +229,6 @@ const DE = {
   metaEmpty: 'Die Auswertung wird gerade zum ersten Mal gesammelt. Schau in ein paar Minuten wieder vorbei.',
   metaTierEmpty: 'Für diese Auswahl wird gerade ausgewertet. Schau in ein paar Minuten wieder vorbei.', topN: (n) => `Top ${n}`, topFilter: 'Decks der besten Spieler',
   withCard: 'Mit Karte', usesLabel: '× gespielt', usedBy: (n) => `von ${n} Spielern`,
-  sortUses: 'Häufigkeit',
   noDeckMatch: 'Kein Deck passt zu dieser Auswahl.',
   // Vergleich
   compareTitle: 'Vergleich', compareSeo: 'Zwei Clash-Royale-Spieler nebeneinander: Trophäen, Ranked, Siegquote, Sammlung, Decks und direkte Duelle.',
@@ -247,8 +257,12 @@ const EN = {
     apiDown: 'Clash Royale is not responding right now. Try again in a moment.',
     busy: 'It is busy right now. Try again in a few seconds.',
     rateLimited: 'That was a lot of requests at once. Wait a moment, then carry on.',
+    dailyLimit: 'You have looked up a lot of new players and clans today.',
     offline: 'No connection to the server.',
   },
+  limitUntil: (when) => `You can open new players and clans again from ${when}.`,
+  limitTomorrow: 'tomorrow',
+  limitLogin: 'Signed in with Twitch or Discord you get a lot more room.',
   playerNotFound: 'No player with this tag.', tryAsClan: 'Open as clan', clanNotFound: 'No clan with this tag.', tryAsPlayer: 'Open as player',
   homeTitle: 'Clash Royale Stats', homeSub: 'Player stats live from the game, meta decks, Crown Series — plus minigames, card games and tools for streamers.',
   homeSeoTitle: 'Clash Royale stats, decks, minigames & overlays',
@@ -319,7 +333,12 @@ const EN = {
     Classic12Wins: 'Classic Challenge', Grand12Wins: 'Grand Challenge', LadderTournamentTop1000: 'Global Tournament Top 1000', LadderTop1000: 'Top 1000',
     YearsPlayed: 'Years played', BattleWins: 'Wins', ClanWarsVeteran: 'Clan Wars veteran', ClanWarWins: 'Clan War wins', EmoteCollection: 'Emote collection',
     BannerCollection: 'Banner collection', CollectionLevel: 'Collection level', ClanDonations: 'Donations', TopLeague: 'Top league', '2v2': '2v2 wins',
+    CrazyArenaBadge1: 'Secret Chaos',
   },
+  badgeGroups: { ranks: 'Leaderboards', crl: 'CRL', events: 'Events & challenges', career: 'Career', seasons: 'Seasons & years', special: 'Special' },
+  ranksNote: 'The Clash API doesn’t share the placement itself, only how often it happened.',
+  badgePlaced: (n) => `placed ${n}×`, badgeDone: (n) => `completed ${n}×`, crlWins: (n) => `${n}/20 wins`,
+  yearBadge: (y) => `Year ${y}`, seasonBadge: (m) => `Season ${m}`,
   clanScore: 'Clan score', warTrophies: 'War trophies', required: 'Required trophies', perWeek: 'Donations per week',
   clanTypes: { open: 'Open', inviteOnly: 'Invite only', closed: 'Closed' },
   tabMembers: 'Members', tabWar: 'Clan War',
@@ -366,7 +385,7 @@ const EN = {
   muOwnTitle: 'Your toughest opponents', muOwnSub: 'Your record against decks by their win condition, weakest first (from three battles).',
   muOwnTop: 'Top players', muOwnTopHint: 'Win rate of decks with the same win condition as yours among the best players (last 45 days)',
   muOwnRefType: (name) => `Comparison: decks with ${name} as the win condition (like your current one) among the best players.`,
-  playedBy: 'Played by', playedBySub: 'The best-ranked players using this deck', playedByRank: 'Global rank — as of the last analysis (runs every 6 hours)',
+  playedBy: 'Played by', playedBySub: 'The best-ranked players using this deck', playedByRank: 'Current global rank', playedByRankOld: 'Global rank — as of the last analysis (runs every 6 hours)',
   crownTitle: 'Crown Series', crownSub: 'In a duel you play with up to four decks, and no card may appear twice.', crownSource: (b, ago) => `From ${b} duels of the top 1000 · ${ago}`,
   crownSeo: 'The best duel decks for the Clash Royale Crown Series: sets of four decks without a repeated card, the sets of the best-ranked players and every duel deck with its round win rate.',
   crownEmpty: 'There are too few Crown Series duels for an analysis right now — the list fills up as soon as the top players are dueling again.',
@@ -406,7 +425,6 @@ const EN = {
   metaEmpty: 'The analysis is being collected for the first time. Check back in a few minutes.',
   metaTierEmpty: 'This selection is being analysed right now. Check back in a few minutes.', topN: (n) => `Top ${n}`, topFilter: 'Decks of the best players',
   withCard: 'With card', usesLabel: '× played', usedBy: (n) => `by ${n} players`,
-  sortUses: 'Frequency',
   noDeckMatch: 'No deck matches this selection.',
   compareTitle: 'Compare', compareSeo: 'Two Clash Royale players side by side: trophies, ranked, win rate, collection, decks and head-to-head battles.',
   compareSub: 'Search for two players — or tap a favourite.', playerA: 'Player 1', playerB: 'Player 2', swap: 'Swap',

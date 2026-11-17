@@ -16,7 +16,7 @@ const {
 } = require("../lib/seasonalModes");
 // Challenges, Crown Series, Global Tournament — Erkennung am Battle + Runs (Siege/Niederlagen je Versuch).
 const {
-  CROWN_LEAGUE_COUNT, classifyBattle, buildRuns, challengeState, isChallengeKey, countsWinsInStartingTrophies, grandDuelRules,
+  CROWN_LEAGUE_COUNT, classifyBattle, buildRuns, challengeState, isChallengeKey, countsWinsInStartingTrophies, isCrownSeries, grandDuelRules,
 } = require("../lib/challengeModes");
 // Kartenpool fürs Deck-Modul — dieselbe Liste, aus der auch die Icon-URLs im Frontend
 // entstehen (1:1 synchron gehalten, siehe Kommentar dort).
@@ -38,7 +38,12 @@ const MIN_SYNC_INTERVAL_MS = 15 * 1000;
 const WT_TOKEN = process.env.CLASH_ROYALE_API_TOKEN_WINTRACKER || process.env.CLASH_ROYALE_API_TOKEN || "";
 // Alle Aufrufe unten laufen über diese beiden lokal token-gebundenen Wrapper statt direkt über
 // den geteilten Client, ohne jeden einzelnen Aufruf anzufassen.
-const fetchBattlelog = (tag, opts) => fetchBattlelogRaw(tag, { ...opts, token: WT_TOKEN });
+// Abrufe laufen über den gemeinsamen Abruf-Speicher (lib/crApi.js): hat eine Stats-Seite oder ein
+// zweites Overlay Profil oder Battlelog desselben Spielers in den letzten Sekunden geholt, wird
+// diese Antwort mitgenutzt statt erneut gefragt. 10 s liegen unter dem Sync-Abstand, der eigene
+// Takt bleibt also unverändert.
+const SHARE_MAX_AGE_MS = 10 * 1000;
+const fetchBattlelog = (tag, opts) => fetchBattlelogRaw(tag, { maxAgeMs: SHARE_MAX_AGE_MS, ...opts, token: WT_TOKEN });
 
 // Rückwärtskompatibel: der bisherige Code prüft an mehreren Stellen auf CR_API_TOKEN
 const CR_API_TOKEN = isConfigured(WT_TOKEN) ? "configured" : "";
@@ -79,7 +84,7 @@ function computeSessionStartMs(accountId, nowMs = Date.now()) {
 
 // fetchPlayer hieß hier schon immer so; fetchPlayerSummary im geteilten Client liefert
 // exakt dieselbe Form (Name, Trophäen, Medaillen, Liga, Rang) — hier an WT_TOKEN gebunden.
-const fetchPlayer = (tag) => fetchPlayerSummary(tag, WT_TOKEN);
+const fetchPlayer = (tag) => fetchPlayerSummary(tag, WT_TOKEN, { maxAgeMs: SHARE_MAX_AGE_MS });
 
 // ── Prepared Statements ───────────────────────────────────────────────────────
 const getAccountsByUser = db.prepare("SELECT * FROM cr_wintracker_accounts WHERE user_id = ? ORDER BY created_at ASC");
@@ -437,8 +442,9 @@ const setChallengeSessionResetStmt = db.prepare("UPDATE cr_wintracker_accounts S
 function tagChallengeBattles(battles, events) {
   for (const b of battles || []) {
     b.challengeKey = gameModeGroup(b) || b.seasonalPrefix ? "" : (classifyBattle(b, events) || "");
-    // Crown Series: startingTrophies = Siege des Laufs vor dem Duell, fehlt bei 0 (live geprüft,
-    // siehe lib/challengeModes.js) — damit baut buildRuns den Lauf auch über Sync-Lücken exakt nach.
+    // Crown Series und Classic/Grand/20 Win: startingTrophies = Siege des Laufs vor dem Match, fehlt
+    // bei 0 (live geprüft, siehe lib/challengeModes.js) — damit zeigt das Overlay den echten Stand aus
+    // dem Spiel und baut den Lauf auch über Sync-Lücken exakt nach, statt selbst mitzuzählen.
     if (countsWinsInStartingTrophies(b.challengeKey) && !Number.isInteger(b.challengeWinsBefore)) {
       b.challengeWinsBefore = Number.isInteger(b.startingTrophies) && b.startingTrophies >= 0 ? b.startingTrophies : 0;
     }
@@ -495,12 +501,13 @@ function computeChallengeSessionStartMs(row, key, nowMs = Date.now()) {
 /** Stand der Challenge fürs Overlay/den Editor (siehe challengeState in lib/challengeModes.js). */
 function challengeInfo(row, key, sessionStartMs = computeChallengeSessionStartMs(row, key)) {
   const overrides = challengeOverrides(key, row);
-  const runs = buildRuns(challengeBattlesAscStmt.all(row.account_id, key, Date.now() - CHALLENGE_RUN_LOOKBACK_MS), key, overrides);
+  const runs = buildRuns(challengeBattlesAscStmt.all(row.account_id, key, Date.now() - CHALLENGE_RUN_LOOKBACK_MS), key, overrides,
+    row.challenge_session_reset_at || 0);
   return {
     mode: CHALLENGE_MODE_PREFIX + key,
     ...challengeState(runs, key, sessionStartMs, overrides),
     // Crown Series: vom Nutzer gewählte Liga (0 = keine) — das Overlay zeigt ihr Abzeichen
-    crownLeague: countsWinsInStartingTrophies(key) ? (row.crown_league || 0) : 0,
+    crownLeague: isCrownSeries(key) ? (row.crown_league || 0) : 0,
   };
 }
 
@@ -1241,6 +1248,65 @@ function projectFromBattlelog(profileValue, battles, group, nowMs = Date.now()) 
   return lagging ? Math.max(0, after) : profileValue;
 }
 
+// Gegenstück zu projectFromBattlelog: das Profil zeigt schon den Stand NACH einem Match, das im
+// Battlelog noch fehlt. Der Kopf springt dann sofort — Profit, Win/Loss und "letzte 5" blieben
+// stehen, bis das Battlelog nachzieht. Für diese Zeit steht ein vorläufiges Match in der Tabelle:
+// Ergebnis und Änderung aus der Differenz zwischen Profil und dem Stand nach dem neuesten bekannten
+// Match. Es trägt Modus und Arena dieses Matches, zählt also in allen Abfragen wie ein echtes, und
+// verschwindet im selben Sync, in dem das echte Match eintrifft (dann stimmen Profil und Battlelog
+// wieder überein).
+// Nur wenn der gespeicherte Stand vorher zum Battlelog passte (sonst ist die Differenz kein
+// einzelnes neues Match, sondern ein Profil, das weiter zurückhängt) und nur bis zu einer Änderung,
+// wie sie ein Match bringen kann — ein Saison-Reset ist kein Match.
+// Unterhalb von Ultimate Champion nicht möglich: dort nennt das Profil nur die Liga, keine Stufe.
+const PROVISIONAL_MAX_DELTA = 60;
+const provisionalKey = (group) => `prov:${group}`;
+const getProvisionalStmt = db.prepare("SELECT * FROM cr_wintracker_battles WHERE account_id = ? AND battle_time = ?");
+const deleteProvisionalStmt = db.prepare("DELETE FROM cr_wintracker_battles WHERE account_id = ? AND battle_time = ?");
+// battle_time_ms bleibt beim ersten Eintrag stehen: das vorläufige Match rutscht in "letzte 5" nicht
+// bei jedem Sync neu nach vorn.
+const upsertProvisionalStmt = db.prepare(`INSERT INTO cr_wintracker_battles
+  (account_id, battle_time, battle_time_ms, result, trophy_change, crowns_for, crowns_against, opponent_name, game_mode, battle_arena, seasonal_prefix, deck, starting_trophies, battle_type, challenge_key)
+  VALUES (?, ?, ?, ?, ?, 0, 0, '', ?, ?, '', '', ?, ?, '')
+  ON CONFLICT(account_id, battle_time) DO UPDATE SET
+    result = excluded.result,
+    trophy_change = excluded.trophy_change,
+    starting_trophies = excluded.starting_trophies`);
+
+/** Läuft das Profil dem Battlelog um ein Match voraus? { delta, after, like } oder null. */
+function leadFromProfile(profileValue, battles, group) {
+  if (typeof profileValue !== "number") return null;
+  let newest = null;
+  for (const b of battles || []) {
+    if (gameModeGroup(b) === group && (!newest || b.battleTimeMs > newest.battleTimeMs)) newest = b;
+  }
+  if (!newest || typeof newest.startingTrophies !== "number" || !newest.trophyChangeKnown) return null;
+  const after = Math.max(0, newest.startingTrophies + newest.trophyChange);
+  const delta = profileValue - after;
+  if (!delta || Math.abs(delta) > PROVISIONAL_MAX_DELTA) return null;
+  return { delta, after, like: newest };
+}
+
+/**
+ * Vorläufiges Match einer Gruppe anlegen, anpassen oder entfernen.
+ * @param {number} knownValue  der vor diesem Sync gespeicherte Stand (Medaillen bzw. Trophäen)
+ * @returns {boolean} ob ein frisches vorläufiges Match steht (jünger als PROVISIONAL_FAST_MS) — nur
+ *   so lange fragt der Sync in kurzem Abstand nach; taucht das Match nie im Battlelog auf, läuft
+ *   danach wieder der normale Takt
+ */
+const PROVISIONAL_FAST_MS = 3 * 60 * 1000;
+function syncProvisional(accountId, group, lead, knownValue, nowMs = Date.now()) {
+  const key = provisionalKey(group);
+  const existing = getProvisionalStmt.get(accountId, key);
+  if (!lead || !(existing || knownValue === lead.after)) {
+    if (existing) deleteProvisionalStmt.run(accountId, key);
+    return false;
+  }
+  upsertProvisionalStmt.run(accountId, key, nowMs, lead.delta > 0 ? "win" : "loss", lead.delta,
+    lead.like.gameMode || "", lead.like.arenaRawName || "", lead.after, String(lead.like.type || "").slice(0, 40));
+  return nowMs - (existing ? existing.battle_time_ms : nowMs) < PROVISIONAL_FAST_MS;
+}
+
 // Gleichzeitige Syncs desselben Accounts (mehrere OBS-Quellen, Editor-Vorschau, Hintergrund-Loop)
 // teilen sich einen laufenden Durchlauf, statt die API doppelt zu fragen und sich beim Schreiben
 // in die Quere zu kommen.
@@ -1334,6 +1400,16 @@ async function syncAccountOnce(row) {
 
   // Erst die Matches wegschreiben: der Anker unten soll das Aufstiegsspiel schon kennen.
   if (battles.length) insertBattles(row.account_id, battles);
+  // Profil voraus, Match noch nicht im Battlelog: Session zieht mit dem Kopf mit (siehe
+  // leadFromProfile). Ohne Profil oder Battlelog bleibt ein bestehendes vorläufiges Match stehen.
+  let provisionalActive = false;
+  if (playerOk && battles.length) {
+    const league = Number(player.leagueNumber) || 0;
+    const atUc = league > 0 && ladderStepCount(league) === 0 && league === Number(row.league_number);
+    const ranked = syncProvisional(row.account_id, "ranked", atUc ? leadFromProfile(player.seasonMedals, battles, "ranked") : null, row.season_medals);
+    const trophy = syncProvisional(row.account_id, "trophy", leadFromProfile(player.trophies, battles, "trophy"), row.trophies);
+    provisionalActive = ranked || trophy;
+  }
   // Deck pro Modus aus denselben frisch geholten Battles ableiten (die DB-Zeilen tragen die
   // Karten nicht mit) — unabhängig davon, ob der Spieler-Request unten klappt.
   applyDeckUpdates(row.account_id, row, battles);
@@ -1387,7 +1463,9 @@ async function syncAccountOnce(row) {
     && !battles.some((b) => gameModeGroup(b) === "ranked" && b.battleTimeMs > (row.ranked_deck_at || 0)));
 
   if (player && !player.notFound) {
-    const fetchedAt = (league2v2Stale || battlelogStale || promotionPending) ? (row.last_fetched || 0) : Date.now();
+    // Auch solange ein vorläufiges Match steht, gleich beim nächsten Overlay-Poll wieder nachsehen —
+    // das echte Match soll es so früh wie möglich ablösen.
+    const fetchedAt = (league2v2Stale || battlelogStale || promotionPending || provisionalActive) ? (row.last_fetched || 0) : Date.now();
     const leagueNumber = promotionPending ? row.league_number : player.leagueNumber;
     updatePlayerData.run(player.name || row.player_name, player.trophies, player.bestTrophies, player.seasonMedals, leagueNumber, player.polRank, player.clan?.name || "", player.clan?.badgeId ?? null, fetchedAt, row.account_id);
     try { recordSnapshot(row.account_id, player, leagueNumber); } catch (e) { console.error("[WinTracker] Verlauf:", e.message); }

@@ -22,7 +22,8 @@ test('Über der Schwelle: Turnier zuerst, höchstens vier', () => {
   assert.equal(items[0].href, '/clash-royale/turnier/abc');
   assert.equal(items[1].value, 2583);
   const zwei = buildItems({ openTournaments: [{ id: 'a', name: 'A' }, { id: 'b', name: 'B' }] });
-  assert.deepEqual(zwei[0], { id: 'turniere', value: 2, label: 'Clash-Royale-Turniere offen', href: '/clash-royale' });
+  assert.deepEqual(zwei[0], { id: 'turniere', value: 2, label: 'Clash-Royale-Turniere offen', labelEn: 'Clash Royale tournaments open', href: '/clash-royale' });
+  assert.equal(items[0].labelEn, 'Tournament open: Herbst-Cup', 'englische Startseite');
 });
 
 test('Route: zwischengespeichert, Fehler der Quelle → leere Liste', async () => {

@@ -15,6 +15,7 @@ import { ShellContext, biomeOfDay } from "./shellContext.js";
 import "./theme.css";
 import { useFontLink } from "../../../components/shell/useFontLink";
 import BackToSite from "../../../components/shell/BackToSite";
+import { seedRunnersKonto } from "../konto.js";
 
 const FONT_HREF = "https://fonts.googleapis.com/css2?family=Bungee&family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@500;600;700&display=swap";
 
@@ -46,6 +47,8 @@ export default function GameShell() {
 
   // Schriften einmal laden (siehe theme.css, warum nicht per @import)
   useFontLink(FONT_HREF);
+  // Rennen, Siege und Tagesrennen am Konto (kontoStand.js)
+  seedRunnersKonto.useAnbindung();
 
   const setBiome = useCallback((b) => setPageBiome(b), []);
   const openControls = useCallback(() => setControlsOpen(true), []);

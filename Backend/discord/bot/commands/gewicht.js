@@ -1,4 +1,5 @@
 // discord/bot/commands/gewicht.js
+const { botText } = require('../botText');
 
 // 30–200 kg: Werte nahe 0 waren unrealistisch für ein Gewicht.
 function rollGewicht() {
@@ -6,10 +7,8 @@ function rollGewicht() {
 }
 
 async function handleGewicht(interaction) {
-    const weight = rollGewicht();
-
     await interaction.reply({
-        content: `Du wiegst **${weight}kg**.`,
+        content: botText(interaction).fun.weight(rollGewicht()),
     });
 }
 

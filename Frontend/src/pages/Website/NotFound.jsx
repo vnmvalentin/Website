@@ -13,27 +13,32 @@ import React from "react";
 import { Home, Compass } from "lucide-react";
 import SEO from "../../components/SEO";
 import { Page, Button } from "../../components/ui";
+import { useLanguage } from "../../i18n/language.js";
+import { HUELLE_TEXTE } from "../../components/huelleTexte.js";
 
 export default function NotFound() {
+  const { lang } = useLanguage({ supported: HUELLE_TEXTE.langs });
+  const t = HUELLE_TEXTE.dict(lang);
   return (
     <Page width="narrow" className="text-center py-16 md:py-24">
       <SEO
-        title="Seite nicht gefunden"
-        description="Diese Seite gibt es nicht (mehr)."
+        title={t.nichtGefundenTitel}
+        description={t.nichtGefundenMeta}
+        lang={lang}
         path="/404"
         noindex
       />
 
-      <p className="font-display text-[64px] md:text-[88px] font-bold leading-none text-white/10 select-none">404</p>
+      <p aria-hidden="true" className="font-display text-[64px] md:text-[88px] font-bold leading-none text-white/10 select-none">404</p>
 
-      <h1 className="font-display text-2xl md:text-3xl font-bold tracking-tight text-white mt-2">Diese Seite gibt es nicht mehr</h1>
+      <h1 className="font-display text-2xl md:text-3xl font-bold tracking-tight text-white mt-2">{t.nichtGefunden}</h1>
       <p className="text-white/55 text-sm mt-2 leading-relaxed">
-        Der Link ist entweder veraltet oder hat sich vertippt. Über die Kategorien findest du alles Aktuelle.
+        {t.nichtGefundenText}
       </p>
 
       <div className="flex items-center justify-center gap-2 mt-7 flex-wrap">
-        <Button to="/" icon={Home}>Zur Startseite</Button>
-        <Button to="/tools" variant="secondary" icon={Compass}>Streamer-Tools</Button>
+        <Button to="/" icon={Home}>{t.zurStartseite}</Button>
+        <Button to="/tools" variant="secondary" icon={Compass}>{t.streamerTools}</Button>
       </div>
     </Page>
   );

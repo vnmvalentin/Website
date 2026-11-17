@@ -13,7 +13,7 @@ import LanguageSelect from '../components/LanguageSelect';
 import { BACKGROUNDS, statsBackgroundUrl, useCrPrefs } from '../ui/crPrefs';
 import StatsBackdrop, { StaticBackdrop } from './StatsBackdrop';
 import { CrBattle, CrCards, CrCrown, CrKingBlue, CrSettings, CrSwap, CrTrophy } from '../ui/CrIcons';
-import crownSeriesImg from '../../../assets/clashRoyale/ui/CR_CrownSeriesIcon.png';
+import crownSeriesImg from '../../../assets/clashRoyale/modes/CR_CrownSeriesIcon.webp';
 import ScoutSearch from './ScoutSearch';
 import { SavedPanel } from './parts';
 import { useScoutText } from './scoutI18n';

@@ -168,6 +168,28 @@ const SHOTS = {
     await wait(2500);
     await p.screenshot({ path: file.replace('.webp', '-2.webp'), type: 'webp', quality: 70 });
   },
+  // Spieleabend (Nachfolger von Connect 4): Zimmer öffnen, gegen den Bot vier Steine setzen und vom eigenen Platz aus
+  // fotografieren — der Bot schaut über das Brett. Braucht den Server mit den sa:-Sockets hinter BASE; der Dev-Server
+  // verrät die Bildschirmposition einer Spalte (window.__saSpalte).
+  spieleabend: async (p, file) => {
+    await p.evaluateOnNewDocument(() => localStorage.setItem('spieleabend.prefs', JSON.stringify({ name: 'Valentin', skin: { c: 1, h: 6, f: 9 } })));
+    await p.goto(`${BASE}/spieleabend`, { waitUntil: 'networkidle2' });
+    await p.waitForFunction(() => /\/spieleabend\/[A-Z2-9]{5}$/.test(location.pathname), { timeout: 20000 });
+    await wait(1500);
+    await clickText(p, 'Spiel starten');
+    for (const spalte of [3, 2, 4, 3]) {
+      await p.waitForFunction(() => document.body.textContent.includes('Du bist dran'), { timeout: 20000 });
+      await wait(400);
+      const pkt = await p.evaluate((c) => window.__saSpalte?.(c), spalte);
+      if (!pkt) throw new Error('Spalte nicht gefunden (läuft der Dev-Server?)');
+      const box = await p.evaluate(() => { const r = document.querySelector('canvas').getBoundingClientRect(); return { x: r.left, y: r.top }; });
+      await p.mouse.click(box.x + pkt.x, box.y + pkt.y);
+    }
+    // gleich nach dem letzten Stein: der Bot überlegt noch, die Vorschau-Scheibe ist weg
+    await p.mouse.move(5, 5);
+    await wait(1100);
+    await p.screenshot({ path: file, type: 'webp', quality: 80 });
+  },
   // Eine Partie braucht zwei Spieler und den Server — das Brett wird deshalb in den Farben des Spiels gezeichnet
   connect4: async (p, file) => {
     const board = [

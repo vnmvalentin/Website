@@ -3,7 +3,7 @@
 // Regel: Eine Zahl erscheint erst, wenn sie über ihrer Schwelle liegt. "Heute 2 Läufe" schadet mehr, als es nützt — dann
 // lieber gar nichts. Die Schwellen stehen nur hier; der Browser zeigt, was er bekommt (und bei leerer Liste nichts).
 //
-//   GET /api/activity  → { items: [{ id, value, label, href }] }   (5 Minuten zwischengespeichert)
+//   GET /api/activity  → { items: [{ id, value, label, labelEn, href }] }   (5 Minuten zwischengespeichert)
 'use strict';
 
 const express = require('express');
@@ -22,7 +22,7 @@ const THRESHOLDS = {
 
 /**
  * @param stats  { wtBattles7, wtUsers7, dailyRuns7, levelsPublished, openTournaments: [{ id, name }] } — Felder dürfen fehlen
- * @returns [{ id, value, label, href }] in fester Reihenfolge, höchstens MAX_ITEMS
+ * @returns [{ id, value, label, labelEn, href }] in fester Reihenfolge, höchstens MAX_ITEMS (labelEn: englische Startseite)
  */
 function buildItems(stats = {}) {
   const items = [];
@@ -34,20 +34,21 @@ function buildItems(stats = {}) {
       id: 'turniere',
       value: open.length,
       label: open.length === 1 ? `Turnier offen: ${open[0].name}` : 'Clash-Royale-Turniere offen',
+      labelEn: open.length === 1 ? `Tournament open: ${open[0].name}` : 'Clash Royale tournaments open',
       href: open.length === 1 ? `/clash-royale/turnier/${open[0].id}` : '/clash-royale',
     });
   }
   if (over('wtBattles7', stats.wtBattles7)) {
-    items.push({ id: 'wt-matches', value: stats.wtBattles7, label: 'Clash-Royale-Matches diese Woche im Win Tracker', href: '/clash-royale/win-tracker' });
+    items.push({ id: 'wt-matches', value: stats.wtBattles7, label: 'Clash-Royale-Matches diese Woche im Win Tracker', labelEn: 'Clash Royale matches in the Win Tracker this week', href: '/clash-royale/win-tracker' });
   }
   if (over('wtUsers7', stats.wtUsers7)) {
-    items.push({ id: 'wt-kanaele', value: stats.wtUsers7, label: 'Kanäle nutzen den Win Tracker diese Woche', href: '/clash-royale/win-tracker' });
+    items.push({ id: 'wt-kanaele', value: stats.wtUsers7, label: 'Kanäle nutzen den Win Tracker diese Woche', labelEn: 'channels use the Win Tracker this week', href: '/clash-royale/win-tracker' });
   }
   if (over('dailyRuns7', stats.dailyRuns7)) {
-    items.push({ id: 'tagesrennen', value: stats.dailyRuns7, label: 'Läufe im Seed-Runners-Tagesrennen diese Woche', href: '/seed-runners/daily' });
+    items.push({ id: 'tagesrennen', value: stats.dailyRuns7, label: 'Läufe im Seed-Runners-Tagesrennen diese Woche', labelEn: 'runs in the Seed Runners daily race this week', href: '/seed-runners/daily' });
   }
   if (over('levelsPublished', stats.levelsPublished)) {
-    items.push({ id: 'level', value: stats.levelsPublished, label: 'Community-Level in Seed Runners', href: '/seed-runners/levels' });
+    items.push({ id: 'level', value: stats.levelsPublished, label: 'Community-Level in Seed Runners', labelEn: 'community levels in Seed Runners', href: '/seed-runners/levels' });
   }
   return items.slice(0, MAX_ITEMS);
 }

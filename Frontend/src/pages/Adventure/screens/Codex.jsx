@@ -7,7 +7,7 @@ import { ITEMS, ITEM_IDS, RARITY } from "../data/items.js";
 import { EQUIPMENT, EQUIPMENT_IDS } from "../data/equipment.js";
 import { ENEMIES, ELITE_AFFIXES } from "../data/enemies.js";
 import { BOSSES } from "../data/bosses.js";
-import { BIOMES } from "../data/biomes.js";
+import { BIOMES, NEUE_WELTEN, ALL_BIOMES } from "../data/biomes.js";
 import { WEAPONS, WEAPON_IDS, TALENTS, TALENT_IDS, MAX_WEAPONS, MAX_TALENTS, EVOLUTION_IDS } from "../data/weapons.js";
 import { ItemIcon, EquipmentIcon, UpgradeIcon } from "../ui/icons.jsx";
 import FlatSprite from "../ui/FlatSprite.jsx";
@@ -149,9 +149,9 @@ export default function Codex({ profile, onBack }) {
           </section>
         )}
 
-        {tab === "enemies" && BIOMES.filter((b) => !b.final).map((b) => (
+        {tab === "enemies" && [...BIOMES.filter((b) => !b.final), ...NEUE_WELTEN].map((b) => (
           <section key={b.id} className="mb-7">
-            <h2 className="av-label mb-3">{b.name}</h2>
+            <h2 className="av-label mb-3">{b.name}{NEUE_WELTEN.includes(b) && <span className="av-dim"> · ab Zyklus 2</span>}</h2>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               {b.enemies.map(([id]) => (
                 <div key={id} className="av-slot flex flex-col items-center gap-1 px-3 py-3">
@@ -166,7 +166,7 @@ export default function Codex({ profile, onBack }) {
         {tab === "bosses" && (
           <div className="grid md:grid-cols-2 gap-3">
             {Object.entries(BOSSES).map(([id, def]) => {
-              const world = BIOMES.find((b) => b.bosses.includes(id));
+              const world = ALL_BIOMES.find((b) => b.bosses.includes(id));
               const item = ITEMS[def.item];
               return (
                 <div key={id} className="av-slot flex items-center gap-4 px-4 py-3">

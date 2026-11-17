@@ -197,6 +197,21 @@ export default class Renderer {
     if (!pat) { pat = ctx.createPattern(makeFloorTile(id), "repeat"); this.patterns.set(id, pat); }
     ctx.fillStyle = pat;
     ctx.fillRect(0, 0, g.world.w, g.world.h);
+    // Giftpfützen im Sumpf: dunkler Rand, grünliche Brühe, ein paar Blasen
+    for (const o of g.pools || []) {
+      if (!this.visible(o.x, o.y, o.r)) continue;
+      ctx.fillStyle = "#2a3020";
+      ctx.beginPath(); ctx.ellipse(o.x, o.y, o.r, o.r * 0.92, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "#5a7a2e";
+      ctx.beginPath(); ctx.ellipse(o.x, o.y, o.r - 8, o.r * 0.92 - 8, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "#7da23a";
+      for (let i = 0; i < 4; i++) {
+        const a = o.x * 0.1 + i * 1.7, k = (this.time * 0.6 + i * 0.25) % 1;
+        ctx.globalAlpha = 1 - k;
+        ctx.beginPath(); ctx.arc(o.x + Math.cos(a) * o.r * 0.5, o.y + Math.sin(a) * o.r * 0.45, 3 + k * 6, 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+    }
     // Rand: dunkler Streifen nach innen
     ctx.strokeStyle = "rgba(0,0,0,0.3)";
     ctx.lineWidth = 24;
@@ -221,8 +236,8 @@ export default class Renderer {
           drawProjectile(ctx, "proj_arrow", ax, ay - 10, Math.PI / 2, 22, this.time);
         }
       } else {
-        const col = z.kind === "fire" ? "255,110,40" : z.kind === "poison" ? "120,220,80" : z.friendly ? "130,230,90" : "150,60,210";
-        ctx.fillStyle = `rgba(${col},${z.kind === "poison" ? 0.22 : 0.35})`;
+        const col = z.kind === "fire" ? "255,110,40" : z.kind === "poison" ? "120,220,80" : z.kind === "spores" ? "196,154,255" : z.kind === "smoke" ? "200,200,212" : z.friendly ? "130,230,90" : "150,60,210";
+        ctx.fillStyle = `rgba(${col},${z.kind === "poison" ? 0.22 : z.kind === "spores" ? 0.28 : 0.35})`;
         ctx.beginPath(); ctx.arc(z.x, z.y, z.r, 0, Math.PI * 2); ctx.fill();
         if (z.kind === "fire") drawBurn(ctx, z.x + Math.sin(this.time * 3 + z.x) * z.r * 0.4, z.y + z.r * 0.3, 1.1, this.time);
       }
@@ -450,7 +465,8 @@ export default class Renderer {
       ctx.strokeStyle = "rgba(255,90,60,0.6)";
       ctx.lineWidth = e.r * 1.2;
       ctx.globalAlpha = 0.25;
-      ctx.beginPath(); ctx.moveTo(e.x, e.y); ctx.lineTo(e.x + Math.cos(e.aimAngle) * 460, e.y + Math.sin(e.aimAngle) * 460); ctx.stroke();
+      const len = e.aimLen || 460;
+      ctx.beginPath(); ctx.moveTo(e.x, e.y); ctx.lineTo(e.x + Math.cos(e.aimAngle) * len, e.y + Math.sin(e.aimAngle) * len); ctx.stroke();
       ctx.globalAlpha = spawnK;
     }
     if (e.elite) {
@@ -559,6 +575,29 @@ export default class Renderer {
       ctx.rotate(al.aim || 0);
       ctx.fillStyle = "#37323f"; ctx.fillRect(-8, -7, 16, 14);
       ctx.fillStyle = "#8a8098"; ctx.fillRect(6, -3, 16, 6);
+      ctx.restore();
+    } else if (al.kind === "trap") {
+      // Fangeisen: offener Eisenbügel mit Zähnen
+      ctx.fillStyle = "rgba(0,0,0,0.3)";
+      ctx.beginPath(); ctx.ellipse(al.x, al.y + 4, 20, 7, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = "#8a8396"; ctx.lineWidth = 4;
+      ctx.beginPath(); ctx.ellipse(al.x, al.y, 17, 8, 0, 0, Math.PI * 2); ctx.stroke();
+      ctx.fillStyle = "#c9c3d1";
+      for (let i = 0; i < 8; i++) { const a = (i / 8) * Math.PI * 2; ctx.fillRect(al.x + Math.cos(a) * 15 - 1.5, al.y + Math.sin(a) * 7 - 4, 3, 5); }
+      ctx.fillStyle = "#6b4a2b"; ctx.fillRect(al.x - 3, al.y - 3, 6, 6);
+    } else if (al.kind === "wolf") {
+      // Wolf: grauer Körper, Kopf in Laufrichtung, Beine im Takt
+      const f = al.facing || 1, run = al.moving ? Math.sin(this.time * 18 + al.uid) * 5 : 0;
+      ctx.save(); ctx.translate(al.x, al.y); ctx.scale(f, 1);
+      ctx.fillStyle = "rgba(0,0,0,0.3)"; ctx.beginPath(); ctx.ellipse(0, 6, 22, 6, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "#6b6574";
+      ctx.fillRect(-14 + run, -2, 5, 10); ctx.fillRect(9 - run, -2, 5, 10);
+      ctx.fillStyle = "#8a8396"; ctx.beginPath(); ctx.ellipse(0, -10, 20, 10, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.ellipse(18, -18, 9, 8, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(14, -24); ctx.lineTo(17, -34); ctx.lineTo(21, -25); ctx.fill();
+      ctx.fillStyle = "#c9c3d1"; ctx.beginPath(); ctx.ellipse(25, -16, 5, 3.5, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = "#8a8396"; ctx.lineWidth = 5; ctx.lineCap = "round"; ctx.beginPath(); ctx.moveTo(-18, -12); ctx.lineTo(-28, -20); ctx.stroke();
+      ctx.fillStyle = "#ffe14d"; ctx.fillRect(19, -21, 3, 3);
       ctx.restore();
     } else if (al.kind === "skeleton") {
       const at = al.attackT ?? 9;

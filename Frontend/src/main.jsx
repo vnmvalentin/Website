@@ -4,9 +4,11 @@ import { BrowserRouter } from "react-router-dom";
 import App from "./App";
 import "./index.css";
 import { applyLowGfxFlag } from "./utils/lowGfx";
+import { wendeBarrierefreiAn } from "./utils/barrierefrei";
 import { markShellHeadTags } from "./utils/shellHeadTags";
 import { installiereFehlerMelder, meldeFehler, komponentenKette } from "./utils/fehlerMelder";
 import { installiereLeistungsMessung } from "./utils/leistungMessung";
+import { starteApp } from "./utils/mitteilungen";
 
 // Fehler im Browser ans eigene Fehlerprotokoll (utils/fehlerMelder.js → Backend/fehler, Admin-Reiter „Fehler“)
 installiereFehlerMelder();
@@ -14,8 +16,14 @@ installiereFehlerMelder();
 // Vor dem ersten Rendern, damit die gepufferten Messungen vom Laden mitzählen; Seitenwechsel meldet LeistungTracker.
 installiereLeistungsMessung();
 
+// Website als App (utils/mitteilungen.js): Service Worker für Mitteilungen, Installations-Angebot des Browsers merken.
+// Nicht in OBS, auf Overlays und im Admin.
+starteApp();
+
 // Ohne Hardwarebeschleunigung: Animationen, Weichzeichner und 3D sparen (utils/lowGfx.js)
 applyLowGfxFlag();
+// Barrierefreiheit je Gerät (Bewegung, Kontrast, Farbhilfe, Untertitel): Attribute auf <html> für index.css
+wendeBarrierefreiAn();
 // Titel/Canonical/robots der ausgelieferten Datei markieren, bevor React eigene setzt (Wegräumen in components/SEO.jsx)
 markShellHeadTags();
 

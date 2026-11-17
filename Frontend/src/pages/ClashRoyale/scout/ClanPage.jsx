@@ -3,15 +3,17 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { ArrowDown, ArrowUp, Copy, Star } from 'lucide-react';
-import { CrBattle, CrCards, CrCheck, CrSocial, CrStar, CrTrophy } from '../ui/CrIcons';
+import { CrBattle, CrCards, CrCheck, CrScroll, CrSocial, CrStar, CrTrophy } from '../ui/CrIcons';
 import { useClanBadgeUrl } from '../data/clanBadges';
 import ScoutFrame from './ScoutFrame';
 import { Bar, ClanBadge, LoadState, Panel, PlayerLink, RefreshButton, Stat, Tabs } from './parts';
 import { parseTag, rememberRecent, toggleFavorite, useSaved, useScout } from './scoutApi';
 import { fmtDate, fmtNum, timeAgo, useScoutText } from './scoutI18n';
 import { seenClass, useTab } from './scoutUtil';
+import ClanCentral from './ClanCentral';
+import { CENTRAL_TEXTS } from './clanCentralTexts';
 
-const TAB_IDS = ['mitglieder', 'krieg'];
+const TAB_IDS = ['mitglieder', 'krieg', 'zentrale'];
 const WEEK = 7 * 86400000;
 const DECKS_PER_DAY = 4;
 
@@ -252,7 +254,7 @@ function War({ tag, memberTags }) {
 export default function ClanPage() {
   const { tag: rawTag } = useParams();
   const tag = parseTag(rawTag);
-  const { t, q } = useScoutText();
+  const { t, q, lang } = useScoutText();
   const { data, error, loading, refreshing, reload } = useScout(tag ? `/clan/${tag}` : null);
   const [tab, setTab] = useTab(TAB_IDS);
   const clan = data?.clan;
@@ -264,6 +266,7 @@ export default function ClanPage() {
   const tabs = [
     { id: 'mitglieder', icon: CrSocial, label: t.tabMembers },
     { id: 'krieg', icon: CrBattle, label: t.tabWar },
+    { id: 'zentrale', icon: CrScroll, label: CENTRAL_TEXTS.dict(lang).tab },
   ];
   return (
     <ScoutFrame seo={{ title: clan ? `${clan.name} (#${clan.tag}) – Clash Royale Clan` : t.homeSeoTitle, description: t.homeSeo, path: `/clash/clan/${tag || ''}` }}>
@@ -282,7 +285,9 @@ export default function ClanPage() {
               <ClanHero clan={clan} fetchedAt={data.fetchedAt} refreshing={refreshing} onRefresh={reload} />
               <div className="flex justify-center"><Tabs tabs={tabs} value={tab} onChange={setTab} /></div>
               <div key={tab} className="cr-anim-rise">
-                {tab === 'mitglieder' ? <Members clan={clan} /> : <War tag={clan.tag} memberTags={new Set(clan.members.map((m) => m.tag))} />}
+                {tab === 'mitglieder' ? <Members clan={clan} />
+                  : tab === 'zentrale' ? <ClanCentral tag={clan.tag} />
+                    : <War tag={clan.tag} memberTags={new Set(clan.members.map((m) => m.tag))} />}
               </div>
             </div>
           )}

@@ -9,7 +9,7 @@ import React from 'react';
 import { CrTourneyTrophy, CrTrophy } from '../ui/CrIcons';
 import PlayerAvatar from '../components/PlayerAvatar';
 import CrScoreBadge from '../lobby/CrScoreBadge';
-import crownIcon from '../../../assets/clashRoyale/ui/crown.png';
+import crownIcon from '../../../assets/clashRoyale/ui/crown.webp';
 
 /** Gold, Silber, Bronze für die ersten drei; danach nur die Platzziffer. */
 const RANK_COLOR = ['text-amber-400', 'text-white/60', 'text-orange-400'];

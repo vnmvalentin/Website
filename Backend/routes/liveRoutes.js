@@ -74,6 +74,9 @@ function createLiveRouter({ userId, fetchStreams } = {}) {
     res.json(await getState());
   });
 
+  // Derselbe Stand für den Server selbst (Mitteilung „Stream ist live“, push/ausloeser.js) — ohne zweite Twitch-Abfrage
+  router.zustand = getState;
+
   return router;
 }
 

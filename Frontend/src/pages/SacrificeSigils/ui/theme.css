@@ -403,6 +403,34 @@
   padding: 12px 14px;
 }
 
+/* Nur für Screenreader (z. B. Erklärungen zum Tastatur-Fokus am Tisch) */
+.ss-sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+
+/* Hochkant auf dem flachen Tisch (Phase 7): eine leise Zeile unter der Leiste, kein Kasten */
+.ss-rotate-hint {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0 14px;
+  padding: 2px 12px;
+  font-size: 14px;
+  font-style: italic;
+  color: rgb(232 223 204 / 0.62);
+  border-bottom: 1px solid rgb(232 223 204 / 0.08);
+}
+.ss-rotate-hint-off {
+  font-style: normal;
+  font-size: 13px;
+  color: rgb(232 223 204 / 0.5);
+  background: none;
+  border: 0;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.ss-rotate-hint-off:hover { color: var(--bone); }
+
 /* Schmale Spielleiste über dem Spielfeld; auf niedrigen Bildschirmen noch flacher */
 .ss-gamebar { min-height: 44px; white-space: nowrap; }
 .ss-gamebar > span { overflow: hidden; text-overflow: ellipsis; }
@@ -460,3 +488,13 @@
 .st-narrator-go { font-family: var(--font-title); font-size: 17px; color: var(--ink); border-bottom: 2px solid var(--wax-red); }
 .st-narrator-off { font-size: 14px; color: rgb(26 22 18 / 0.6); text-decoration: underline; }
 .st-narrator-go:focus-visible, .st-narrator-off:focus-visible { outline: 2px solid var(--wax-red); outline-offset: 2px; }
+/* Handy quer (Phase 7): das Blatt kleiner, damit es nicht das halbe Brett verdeckt */
+@media (max-height: 500px) {
+  .st-narrator { top: 8px; left: 8px; width: min(290px, 44vw); padding: 9px 12px 4px; }
+  .st-narrator-title { font-size: 16px; }
+  .st-narrator-text { margin-top: 3px; font-size: 13.5px; line-height: 1.35; }
+  .st-narrator-actions { margin-top: 4px; }
+  .ss-game .st-narrator-go, .ss-game .st-narrator-off { min-height: 32px; }
+  .st-narrator-go { font-size: 15px; }
+  .st-narrator-off { font-size: 12.5px; }
+}

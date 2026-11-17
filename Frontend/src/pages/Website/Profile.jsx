@@ -1,10 +1,10 @@
 // src/pages/Website/Profile.jsx — Profil-Seite: Stufe und Abzeichen, Anmeldewege des Kontos (Twitch, Discord,
-// Wiederherstellungscode), Abo, öffentliches Profil, Name, Abmelden und Konto löschen.
+// Wiederherstellungscode), Abo, Visitenkarte (/u/, VisitenkarteEditor.jsx), Name, Abmelden und Konto löschen.
 //
 // Zwei Arten von Angemeldeten: mit Twitch (TwitchAuthContext.user, dazu immer ein Konto) und nur mit Discord oder als
-// Gast (nur das Konto aus utils/konto.js). Abo und öffentliches Profil gibt es nur mit Twitch.
+// Gast (nur das Konto aus utils/konto.js). Das Abo gibt es nur mit Twitch, die Visitenkarte für jedes Konto.
 import { isValidElement, useContext, useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { TwitchAuthContext } from "../../components/TwitchAuthContext";
 import SEO from "../../components/SEO";
 import AboPanel from "../../components/AboPanel";
@@ -12,74 +12,27 @@ import KontoBild from "../../components/KontoBild";
 import { PREMIUM_PRICE } from "../../utils/billingApi";
 import { salesVisible } from "../../config/legal";
 import { TwitchGlyph, DiscordGlyph } from "../../components/BrandGlyphs";
-import { Page, PageHeader, Card, Section, Button, Input, Field, Dialog } from "../../components/ui";
+import { Page, PageHeader, Card, Section, Button, Input, Field, Dialog, Tabs } from "../../components/ui";
 import LanguageSwitch from "../../i18n/LanguageSwitch";
 import { useLanguage } from "../../i18n/language.js";
 import { PROFIL_TEXTE } from "./profilTexte.js";
+import VisitenkarteEditor from "./VisitenkarteEditor.jsx";
+import MitteilungenEinstellungen from "./MitteilungenEinstellungen.jsx";
+import EinladenEinstellungen from "./EinladenEinstellungen.jsx";
+import LadenProfil from "./LadenProfil.jsx";
+import BarrierefreiEinstellungen from "../../components/BarrierefreiEinstellungen.jsx";
+import { BARRIEREFREI_TEXTE } from "../../components/barrierefreiTexte.js";
 import {
   useKonto, oeffneAnmeldung, mitDiscordAnmelden, trenneAnmeldeweg, erstelleNeuenCode, setzeKontoName, loescheKonto,
 } from "../../utils/konto.js";
 import {
-  ShieldCheck, Link2, Unlink, LogOut, RefreshCw, ArrowRight, Check, Sparkles, Globe, KeyRound, Copy, Trash2, Award,
-  ExternalLink, AlertTriangle,
+  ShieldCheck, Link2, Unlink, LogOut, RefreshCw, ArrowRight, Check, Sparkles, KeyRound, Copy, Trash2, Award,
+  ExternalLink, AlertTriangle, Accessibility, LayoutDashboard, Globe, ShoppingBag, UserPlus, Settings, User,
 } from "lucide-react";
 
 import { STREAMER_ID } from "../../config/owner";
 
 const zahl = (n) => Number(n || 0).toLocaleString("de-DE");
-
-// Schalter fürs öffentliche Profil. Name und Bild schickt der Browser mit — der Server kennt sonst nur ID und Login.
-function PublicProfileSection({ user, t }) {
-  const [state, setState] = useState({ loading: true, enabled: false, login: "", busy: false, error: false });
-
-  useEffect(() => {
-    let alive = true;
-    fetch("/api/public-profile/me", { credentials: "include" })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => { if (alive) setState((s) => ({ ...s, loading: false, enabled: !!d?.enabled, login: d?.login || "" })); })
-      .catch(() => { if (alive) setState((s) => ({ ...s, loading: false })); });
-    return () => { alive = false; };
-  }, [user?.id]);
-
-  const toggle = async () => {
-    const next = !state.enabled;
-    setState((s) => ({ ...s, busy: true, error: false }));
-    try {
-      const r = await fetch("/api/public-profile/me", {
-        method: "PUT",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ enabled: next, displayName: user.displayName, avatar: user.profileImageUrl }),
-      });
-      const d = await r.json().catch(() => null);
-      if (!r.ok) throw new Error();
-      setState((s) => ({ ...s, busy: false, enabled: !!d.enabled, login: d.login }));
-    } catch {
-      setState((s) => ({ ...s, busy: false, error: true }));
-    }
-  };
-
-  const login = state.login || String(user.login || "").toLowerCase();
-  return (
-    <Section className="lg:col-span-2" icon={Globe} title={t.publicTitle} description={t.publicHint}>
-      <div className="flex flex-wrap items-center gap-3">
-        <span className={`text-sm font-semibold ${state.enabled ? "text-emerald-300" : "text-white/45"}`}>
-          {state.loading ? "…" : state.enabled ? t.publicOn : t.publicOff}
-        </span>
-        <Button variant="secondary" onClick={toggle} disabled={state.loading || state.busy}>
-          {state.enabled ? t.publicDisable : t.publicEnable}
-        </Button>
-        {state.enabled && (
-          <Link to={`/u/${login}`} className="inline-flex items-center gap-1.5 text-sm font-semibold text-accent-soft hover:text-white">
-            {t.publicOpen} <ArrowRight size={14} />
-          </Link>
-        )}
-        {state.enabled && <span className="text-xs text-white/35">vnmvalentin.de/u/{login}</span>}
-        {state.error && <span className="text-xs text-red-300">{t.publicError}</span>}
-      </div>
-    </Section>
-  );
-}
 
 // Website-Stufe aus den Erfahrungspunkten aller angebundenen Spiele, dazu Spiele und Abzeichen
 function FortschrittSection({ konto, t, lang }) {
@@ -93,7 +46,7 @@ function FortschrittSection({ konto, t, lang }) {
         <div>
           <div className="flex items-baseline justify-between gap-3 mb-2">
             <span className="font-display text-2xl font-bold text-white">{t.stufe(stufe.stufe)}</span>
-            <span className="text-xs text-white/45 tabular-nums">{t.xpBisNaechste(zahl(stufe.naechste - stufe.xp), stufe.stufe + 1)}</span>
+            <span className="text-xs text-white/55 tabular-nums">{t.xpBisNaechste(zahl(stufe.naechste - stufe.xp), stufe.stufe + 1)}</span>
           </div>
           <div className="h-2.5 rounded-sm bg-white/[0.06] overflow-hidden">
             <div className="h-full bg-accent" style={{ width: `${anteil}%` }} />
@@ -101,9 +54,9 @@ function FortschrittSection({ konto, t, lang }) {
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           <div>
-            <h3 className="text-xs font-bold uppercase tracking-wider text-white/40 mb-2">{t.spieleTitel}</h3>
+            <h3 className="text-xs font-bold uppercase tracking-wider text-white/55 mb-2">{t.spieleTitel}</h3>
             {konto.spiele.length === 0 ? (
-              <p className="text-sm text-white/40">{t.nochNichts}</p>
+              <p className="text-sm text-white/55">{t.nochNichts}</p>
             ) : (
               <ul className="divide-y divide-white/5 rounded-lg border border-line bg-black/20">
                 {konto.spiele.map((s) => (
@@ -116,9 +69,9 @@ function FortschrittSection({ konto, t, lang }) {
             )}
           </div>
           <div>
-            <h3 className="text-xs font-bold uppercase tracking-wider text-white/40 mb-2">{t.abzeichenTitel}</h3>
+            <h3 className="text-xs font-bold uppercase tracking-wider text-white/55 mb-2">{t.abzeichenTitel}</h3>
             {konto.erfolge.length === 0 ? (
-              <p className="text-sm text-white/40">{t.keineAbzeichen}</p>
+              <p className="text-sm text-white/55">{t.keineAbzeichen}</p>
             ) : (
               <ul className="flex flex-wrap gap-2">
                 {konto.erfolge.map((e) => (
@@ -146,7 +99,7 @@ function WegZeile({ icon, farbe, titel, text, children }) {
       </span>
       <div className="flex-1 min-w-[10rem]">
         <p className="text-sm font-semibold text-white truncate">{titel}</p>
-        <p className="text-xs text-white/45">{text}</p>
+        <p className="text-xs text-white/55">{text}</p>
       </div>
       <div className="flex items-center gap-2 shrink-0">{children}</div>
     </div>
@@ -274,7 +227,7 @@ function NameFeld({ konto, anzeigeName, t }) {
         </Button>
       </div>
       {/* Hinweis unter der Zeile statt im Feld — sonst säße der Knopf tiefer als das Eingabefeld */}
-      <p className={`text-xs mt-1.5 ${stand.fehler ? "text-red-300" : "text-white/40"}`}>{stand.fehler || t.nameHinweis}</p>
+      <p className={`text-xs mt-1.5 ${stand.fehler ? "text-red-300" : "text-white/55"}`}>{stand.fehler || t.nameHinweis}</p>
     </form>
   );
 }
@@ -285,9 +238,11 @@ export default function Profile() {
   const { user, login, logout } = useContext(TwitchAuthContext);
   const { konto, geladen } = useKonto();
   const navigate = useNavigate();
+  const [suche, setSuche] = useSearchParams();
   const isAdmin = !!user && String(user.id) === STREAMER_ID;
   const { lang, setLang } = useLanguage({ supported: PROFIL_TEXTE.langs });
   const t = PROFIL_TEXTE.dict(lang);
+  const tb = BARRIEREFREI_TEXTE.dict(lang);
 
   const [botStatus, setBotStatus] = useState(null); // Discord-Verknüpfung des Bot-Dashboards (Twitch-Konten)
   const [neuerCode, setNeuerCode] = useState("");
@@ -362,6 +317,26 @@ export default function Profile() {
   // sonst bei allen „Stufe 1“ ohne Abzeichen
   const hatFortschritt = Boolean(konto && (konto.spiele.length > 0 || konto.erfolge.length > 0));
 
+  // Reiter: der gewählte steht in der Adresse (?bereich=…), damit Links und „Zurück“ dorthin führen. Ohne Konto
+  // (alte Twitch-Sitzung, deren Konto noch lädt) fehlen die Reiter, die eines brauchen.
+  const reiter = [
+    { value: "uebersicht", label: t.reiter.uebersicht, icon: LayoutDashboard },
+    konto && { value: "visitenkarte", label: t.reiter.visitenkarte, icon: Globe },
+    salesVisible() && (user || konto) && { value: "laden", label: t.reiter.laden, icon: ShoppingBag },
+    konto && { value: "einladen", label: t.reiter.einladen, icon: UserPlus },
+    { value: "einstellungen", label: t.reiter.einstellungen, icon: Settings },
+    { value: "konto", label: t.reiter.konto, icon: User },
+  ].filter(Boolean);
+  const gewuenscht = suche.get("bereich");
+  // Rückkehr von der Bezahlseite (?abo=…) bzw. vom Verknüpfen mit Discord (?konto=…): gleich den passenden Reiter zeigen
+  const rueckkehr = suche.has("abo") ? "laden" : suche.has("konto") ? "konto" : "uebersicht";
+  const bereich = [gewuenscht, rueckkehr, "uebersicht"].find((w) => reiter.some((r) => r.value === w));
+  const waehleBereich = (wert) => {
+    const neu = new URLSearchParams(suche);
+    if (wert === "uebersicht") neu.delete("bereich"); else neu.set("bereich", wert);
+    setSuche(neu, { replace: true });
+  };
+
   return (
     <Page width="default" className="py-4 md:py-8">
       {seo}
@@ -377,81 +352,119 @@ export default function Profile() {
             {hatFortschritt && <span className="text-accent-soft font-semibold">{t.stufe(konto.stufe.stufe)}</span>}
           </span>
         )}
-        actions={sprachwahl}
+        actions={(
+          <>
+            {isAdmin && <Button to="/admin" variant="secondary" size="sm" icon={ShieldCheck} title={t.adminPanelHint}>{t.adminPanel}</Button>}
+            {sprachwahl}
+          </>
+        )}
       />
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-        {hatFortschritt && <FortschrittSection konto={konto} t={t} lang={lang} />}
+      <Tabs items={reiter} value={bereich} onChange={waehleBereich} label={t.bereiche} idPrefix="profil" className="mb-5" />
 
-        {konto && <AnmeldewegeSection konto={konto} t={t} onTwitch={() => login(false)} onCode={codeErstellen} />}
-        {codeFehler && <p className="lg:col-span-2 text-xs text-red-300">{codeFehler}</p>}
-
-        {/* Die Discord-Verbindung des Bot-Dashboards (Server verwalten, eigener Zugriff) — verknüpft wird im Dashboard */}
-        {user && botStatus && (
-          <Section className="lg:col-span-2" icon={DiscordGlyph} title={t.botTitel} description={t.botHinweis(botStatus.username || "Discord")}>
-            <Button to="/discord-bot" variant="secondary" icon={ExternalLink}>{t.botOeffnen}</Button>
-          </Section>
+      <div role="tabpanel" id={`profil-panel-${bereich}`} aria-labelledby={`profil-tab-${bereich}`} className="space-y-5">
+        {bereich === "uebersicht" && (
+          <>
+            {hatFortschritt
+              ? <FortschrittSection konto={konto} t={t} lang={lang} />
+              : <Card as="p" className="text-sm text-white/55">{t.uebersichtLeer}</Card>}
+            <nav aria-label={t.kurzTitel}>
+              <h2 className="text-xs font-bold uppercase tracking-wider text-white/55 mb-2">{t.kurzTitel}</h2>
+              <ul className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {reiter.filter((r) => r.value !== "uebersicht").map(({ value, icon: Icon }) => (
+                  <li key={value}>
+                    <button type="button" onClick={() => waehleBereich(value)} className={`${kachel} w-full`}>
+                      <Icon size={18} className="text-white/55 group-hover:text-accent-soft transition-colors shrink-0" />
+                      <span className="flex-1 min-w-0">
+                        <span className="block text-sm font-semibold text-white">{t.kurz[value].titel}</span>
+                        <span className="block text-xs text-white/55 mt-0.5">{t.kurz[value].text}</span>
+                      </span>
+                      <ArrowRight size={15} className="text-white/30 group-hover:text-white/70 group-hover:translate-x-0.5 transition-all shrink-0" />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </nav>
+          </>
         )}
 
-        {/* ===== Premium-Abo: Stand, abschließen, verwalten, kündigen =====
-            Erst sichtbar, wenn verkauft werden darf (config/legal.js) */}
-        {user && salesVisible() && (
-          <Section className="lg:col-span-2" icon={Sparkles} title={t.aboTitle} description={t.aboHint(PREMIUM_PRICE)}>
-            <AboPanel returnPath="/profile" lang={lang === "en" ? "en" : "de"} />
-          </Section>
-        )}
+        {/* ===== Visitenkarte (/u/<adresse>, opt-in, jedes Konto) ===== */}
+        {bereich === "visitenkarte" && konto && <VisitenkarteEditor lang={lang} kontoId={konto.id} />}
 
-        {/* ===== Öffentliches Profil (/u/<login>, opt-in) ===== */}
-        {user && <PublicProfileSection user={user} t={t} />}
-
-        {/* ===== Konto ===== */}
-        <Section className="lg:col-span-2" title={t.accountTitle}>
-          {konto && <div className="mb-4"><NameFeld konto={konto} anzeigeName={anzeigeName} t={t} /></div>}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        {/* ===== Abo und Laden — erst sichtbar, wenn verkauft werden darf (config/legal.js) ===== */}
+        {bereich === "laden" && (
+          <>
             {user && (
-              <button type="button" onClick={() => login(true)} className={kachel}>
-                <RefreshCw size={18} className="text-white/40 group-hover:text-accent-soft transition-colors shrink-0" />
-                <span>
-                  <span className="block text-sm font-semibold text-white">{t.switchAccount}</span>
-                  <span className="block text-xs text-white/40 mt-0.5">{t.switchAccountHint}</span>
-                </span>
-              </button>
+              <Section icon={Sparkles} title={t.aboTitle} description={t.aboHint(PREMIUM_PRICE)}>
+                <AboPanel returnPath="/profile" lang={lang === "en" ? "en" : "de"} />
+              </Section>
+            )}
+            {konto && <LadenProfil lang={lang === "en" ? "en" : "de"} kontoId={konto.id} />}
+          </>
+        )}
+
+        {/* ===== Freunde einladen (Backend/einladung) ===== */}
+        {bereich === "einladen" && konto && <EinladenEinstellungen lang={lang} kontoId={konto.id} />}
+
+        {/* ===== Einstellungen je Gerät: App & Mitteilungen (utils/mitteilungen.js), Barrierefreiheit ===== */}
+        {bereich === "einstellungen" && (
+          <>
+            <MitteilungenEinstellungen lang={lang} />
+            <Section icon={Accessibility} title={tb.titel} description={tb.imProfilHinweis}
+              actions={<Link to="/barrierefreiheit" className="text-sm text-accent-soft hover:text-white transition-colors">{tb.mehrDazu}</Link>}>
+              <BarrierefreiEinstellungen lang={lang} />
+            </Section>
+          </>
+        )}
+
+        {/* ===== Konto: Anmeldewege, Name, Abmelden, Löschen ===== */}
+        {bereich === "konto" && (
+          <>
+            {konto && <AnmeldewegeSection konto={konto} t={t} onTwitch={() => login(false)} onCode={codeErstellen} />}
+            {codeFehler && <p className="text-xs text-red-300">{codeFehler}</p>}
+
+            {/* Die Discord-Verbindung des Bot-Dashboards (Server verwalten, eigener Zugriff) — verknüpft wird im Dashboard */}
+            {user && botStatus && (
+              <Section icon={DiscordGlyph} title={t.botTitel} description={t.botHinweis(botStatus.username || "Discord")}>
+                <Button to="/discord-bot" variant="secondary" icon={ExternalLink}>{t.botOeffnen}</Button>
+              </Section>
             )}
 
-            {isAdmin && (
-              <Link
-                to="/admin"
-                className="group flex items-center gap-3 rounded-lg bg-red-500/5 border border-red-500/20 hover:border-red-500/40 hover:bg-red-500/10 p-4 transition-colors"
-              >
-                <ShieldCheck size={18} className="text-red-400 shrink-0" />
-                <span className="flex-1">
-                  <span className="block text-sm font-semibold text-red-200">{t.adminPanel}</span>
-                  <span className="block text-xs text-red-300/50 mt-0.5">{t.adminPanelHint}</span>
-                </span>
-                <ArrowRight size={15} className="text-red-400/40 group-hover:text-red-300 group-hover:translate-x-1 transition-all shrink-0" />
-              </Link>
-            )}
+            <Section title={t.accountTitle}>
+              {konto && <div className="mb-4"><NameFeld konto={konto} anzeigeName={anzeigeName} t={t} /></div>}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {user && (
+                  <button type="button" onClick={() => login(true)} className={kachel}>
+                    <RefreshCw size={18} className="text-white/55 group-hover:text-accent-soft transition-colors shrink-0" />
+                    <span>
+                      <span className="block text-sm font-semibold text-white">{t.switchAccount}</span>
+                      <span className="block text-xs text-white/55 mt-0.5">{t.switchAccountHint}</span>
+                    </span>
+                  </button>
+                )}
 
-            <button type="button" onClick={handleLogout} className={kachel}>
-              <LogOut size={18} className="text-white/40 group-hover:text-white transition-colors shrink-0" />
-              <span>
-                <span className="block text-sm font-semibold text-white">{t.logout}</span>
-                <span className="block text-xs text-white/40 mt-0.5">{t.logoutHint}</span>
-              </span>
-            </button>
+                <button type="button" onClick={handleLogout} className={kachel}>
+                  <LogOut size={18} className="text-white/55 group-hover:text-white transition-colors shrink-0" />
+                  <span>
+                    <span className="block text-sm font-semibold text-white">{t.logout}</span>
+                    <span className="block text-xs text-white/55 mt-0.5">{t.logoutHint}</span>
+                  </span>
+                </button>
 
-            {konto && (
-              <button type="button" onClick={() => setLoeschenOffen(true)}
-                className="group flex items-center gap-3 rounded-lg bg-black/25 border border-line hover:border-red-500/40 hover:bg-red-500/5 p-4 text-left transition-colors">
-                <Trash2 size={18} className="text-white/40 group-hover:text-red-300 transition-colors shrink-0" />
-                <span>
-                  <span className="block text-sm font-semibold text-white">{t.loeschen}</span>
-                  <span className="block text-xs text-white/40 mt-0.5">{t.loeschenHint}</span>
-                </span>
-              </button>
-            )}
-          </div>
-        </Section>
+                {konto && (
+                  <button type="button" onClick={() => setLoeschenOffen(true)}
+                    className="group flex items-center gap-3 rounded-lg bg-black/25 border border-line hover:border-red-500/40 hover:bg-red-500/5 p-4 text-left transition-colors">
+                    <Trash2 size={18} className="text-white/55 group-hover:text-red-300 transition-colors shrink-0" />
+                    <span>
+                      <span className="block text-sm font-semibold text-white">{t.loeschen}</span>
+                      <span className="block text-xs text-white/55 mt-0.5">{t.loeschenHint}</span>
+                    </span>
+                  </button>
+                )}
+              </div>
+            </Section>
+          </>
+        )}
       </div>
 
       <CodeDialog code={neuerCode} onClose={() => setNeuerCode("")} t={t} />
@@ -465,7 +478,7 @@ export default function Profile() {
           </>
         )}>
         <p className="text-sm text-white/70">{t.loeschenText}</p>
-        {user && <p className="text-xs text-white/45 mt-3">{t.loeschenTwitch}</p>}
+        {user && <p className="text-xs text-white/55 mt-3">{t.loeschenTwitch}</p>}
       </Dialog>
     </Page>
   );

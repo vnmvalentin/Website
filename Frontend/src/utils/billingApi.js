@@ -25,6 +25,9 @@ export const PREMIUM_INCLUDES = [
   "Raid-Ansturm: die Raider laufen durch den Stream",
   "Flugzeug mit Banner",
   "Murmelbahn: Rennen für den Chat, auch per Kanalpunkte",
+  "Eigene Töne und Bilder für jede Alert-Art",
+  "Eigene Schrift für alle Overlay-Karten, 10 zur Auswahl",
+  "Happy Hour im Subathon: Abos, Bits und Spenden zählen doppelt oder dreifach",
 ];
 
 /** { configured, premium: { active, source, until, cancelAtPeriodEnd, status }, hasCustomer } */

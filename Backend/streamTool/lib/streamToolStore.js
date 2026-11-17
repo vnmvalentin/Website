@@ -48,6 +48,10 @@ try { db.exec("ALTER TABLE stream_tool_settings ADD COLUMN stats TEXT NOT NULL D
 // jedem Beitritt zur Murmelbahn hinein.
 try { db.exec("ALTER TABLE stream_tool_settings ADD COLUMN scenes TEXT NOT NULL DEFAULT ''"); } catch { /* Spalte existiert bereits */ }
 
+// Subathon-Timer: Restzeit bzw. Endzeitpunkt und Verlauf. Eigene Spalte wie oben — der Chat-Bot schreibt bei jedem
+// Abo und Cheer hinein, und ein Subathon muss Neustarts des Servers überstehen (er läuft oft über Tage).
+try { db.exec("ALTER TABLE stream_tool_settings ADD COLUMN subathon TEXT NOT NULL DEFAULT ''"); } catch { /* Spalte existiert bereits */ }
+
 // Siege der Murmelbahn je Kanal ("!murmeltop"). Eigene Tabelle statt JSON in der
 // Zeile des Streamers: die Liste wächst mit jedem neuen Sieger.
 db.exec(`CREATE TABLE IF NOT EXISTS marble_wins (

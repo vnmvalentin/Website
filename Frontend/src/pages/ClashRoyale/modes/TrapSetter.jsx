@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import CardFace from '../ui/CardFace';
 import { useServerClock } from '../ui/serverClock';
 import { CrCheck, CrRage, CrRandom, CrStar } from '../ui/CrIcons';
-import skullTokenIcon from '../../../assets/clashRoyale/ui/festival_token.png';
+import skullTokenIcon from '../../../assets/clashRoyale/ui/festival_token.webp';
 import { RARITY_COLOR } from '../data/cards';
 import { CARD_CROP } from './cardCrop';
 import { GameHeader, ProgressHairline, PlayerPanel, DeckGrid } from './GameChrome';

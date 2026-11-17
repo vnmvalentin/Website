@@ -96,7 +96,7 @@ export default function AboPanel({ returnPath, lang = "de" }) {
     }
   };
 
-  if (!status) return <p className="text-sm text-white/40">{error || t.loading}</p>;
+  if (!status) return <p className="text-sm text-white/55">{error || t.loading}</p>;
 
   // Fehlt der Abschnitt (alter Server-Stand), gilt „kein Abo“ statt die ganze Profilseite abstürzen zu lassen
   const p = status.premium || {};
@@ -119,7 +119,7 @@ export default function AboPanel({ returnPath, lang = "de" }) {
           <Button variant={status.hasCustomer ? "secondary" : "primary"} onClick={() => setDialog(true)}>{t.subscribe}</Button>
         )}
       </div>
-      {status.hasCustomer && <p className="mt-3 text-xs text-white/40">{t.portalHint}</p>}
+      {status.hasCustomer && <p className="mt-3 text-xs text-white/55">{t.portalHint}</p>}
       <PremiumDialog open={dialog} onClose={() => setDialog(false)} includes={PREMIUM_INCLUDES} returnPath={returnPath} configured={status.configured !== false} />
     </>
   );

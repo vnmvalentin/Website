@@ -13,6 +13,7 @@ import { BIOMES, biomeFor } from "../../data/modes/moorwanderung/biomes.js";
 import { de, errorText } from "../../i18n/de.js";
 import { sound } from "../../audio/sound.js";
 import { useShell } from "../shellContext.js";
+import { helpFor } from "./touch.js";
 import { usePrefs } from "../prefs.js";
 import { stageModel, timeLeft, totemsOnTable } from "./stageModel.js";
 
@@ -158,11 +159,14 @@ export default function TableMap({ room, view, you, send, names, timers, clockOf
           onClose={() => setPaused(false)}
           onSurrender={() => send({ type: "surrender" })}
           onFallback={onFallback}
-          help={<>
+          help={helpFor(<>
             Leuchtende Marke anklicken: dorthin gehen · Mauszeiger auf einer Marke: was dort wartet · eigenen Stapel
             anklicken: Deck auffächern (Rechtsklick auf eine Karte: ansehen) · Orte weiter oben liegen im Nebel, bis du
             näher kommst.
-          </>}
+          </>, <>
+            Leuchtende Marke antippen: dorthin gehen · andere Marke antippen: was dort wartet · eigenen Stapel antippen:
+            Deck auffächern (Karte lange drücken: ansehen) · Orte weiter oben liegen im Nebel, bis du näher kommst.
+          </>)}
         />
       )}
     </>

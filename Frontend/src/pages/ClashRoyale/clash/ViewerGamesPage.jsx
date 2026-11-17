@@ -17,7 +17,7 @@ import tvImg from '../../../assets/clashRoyale/ui/tv.webp';
 import searchImg from '../../../assets/clashRoyale/ui/search.webp';
 import eyeImg from '../../../assets/clashRoyale/ui/eye.webp';
 import swordImg from '../../../assets/clashRoyale/ui/sword.webp';
-import scrollImg from '../../../assets/clashRoyale/ui/icon_daily_task_scroll_opened.png';
+import scrollImg from '../../../assets/clashRoyale/ui/icon_daily_task_scroll_opened.webp';
 
 const API = '/api/cr-viewer-games';
 

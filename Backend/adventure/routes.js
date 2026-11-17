@@ -102,6 +102,7 @@ function profilePayload(u) {
     ascension: u.ascension || 0,
     ascensions: M.ASCENSIONS,
     daily: { day: M.dayKey(), best: u.daily?.day === M.dayKey() ? u.daily.best : null },
+    depthBest: u.depthBest ? depthOf(u.depthBest) : 0,
   };
 }
 
@@ -116,6 +117,7 @@ function mergeGuestInto(user, guest) {
   user.achievements = union(user.achievements, guest.achievements);
   user.skins = union(user.skins, guest.skins);
   if (guest.best && better(guest.best, user.best)) user.best = guest.best;
+  if (guest.depthBest && deeper(guest.depthBest, user.depthBest)) user.depthBest = guest.depthBest;
   for (const entry of Object.values(guest.kitBest || {})) recordBests(user, entry);
   if (guest.daily?.best && guest.daily.day === M.dayKey()) {
     if (!user.daily || user.daily.day !== guest.daily.day) user.daily = { day: guest.daily.day, best: null };
@@ -131,6 +133,13 @@ const int = (v, max) => Math.max(0, Math.min(max, Math.floor(Number(v) || 0)));
 // nachgerechnet — mit der damaligen Formel, sie stehen alle in der Klassik-Liste.
 const scoreOf = (entry) => entry.score ?? P.classicScore({ kills: entry.kills, stagesCleared: entry.stages, timeSec: entry.timeSec, won: entry.won, difficulty: entry.difficulty });
 const better = (a, b) => !b || scoreOf(a) > scoreOf(b);
+
+// Tiefe (Ausbauplan „av-meta“, November 2026): die Welt, in der ein Lauf endete, über alle Zyklen gezählt — 1 bis 6 im
+// ersten Zyklus, 7 = Zyklus 2, Welt 1 (Frontend engine/twists.js depthOf). Bestenliste „Am weitesten gekommen“: tiefer
+// gewinnt, bei gleicher Tiefe mehr Punkte. Entspannt zählt nicht (weniger Druck käme weiter, ohne besser zu spielen).
+const depthOf = (entry) => entry.depth ?? (entry.stages || 0) + 1;
+const deeper = (a, b) => !b || depthOf(a) > depthOf(b) || (depthOf(a) === depthOf(b) && scoreOf(a) > scoreOf(b));
+const countsForDepth = (entry) => entry.difficulty !== "easy";
 
 // Bestwerte pro Kit und pro Woche (für die Filter der Bestenliste). Ältere Konten haben nur user.best.
 function recordBests(user, entry) {
@@ -303,12 +312,17 @@ module.exports = function createAdventureRouter({ requireAuth, optionalAuth }) {
 
     if (won) user.wins = (user.wins || 0) + 1;
     const score = P.runScore(result);
-    const entry = { score, stages: stagesCleared, bosses: bossesKilled, timeSec, kitId: run.kitId, difficulty: run.difficulty, ascension, mode, won, kills, at: Date.now() };
+    const depth = stagesCleared + 1;
+    const entry = { score, stages: stagesCleared, depth, bosses: bossesKilled, timeSec, kitId: run.kitId, difficulty: run.difficulty, ascension, mode, won, kills, at: Date.now() };
     const isRecord = better(entry, user.best);
     if (isRecord) user.best = entry;
     const bestScore = scoreOf(user.best);
     user.highScore = user.best?.stages || 0; // fürs Admin-Dashboard
     recordBests(user, entry);
+    // Tiefe: neue Bestmarke („Am weitesten gekommen“) — als Rekord gemeldet, wenn eine frühere übertroffen wird
+    const depthBefore = user.depthBest ? depthOf(user.depthBest) : 0;
+    if (countsForDepth(entry) && deeper(entry, user.depthBest)) user.depthBest = entry;
+    const isDepthRecord = countsForDepth(entry) && depth > depthBefore && depthBefore > 0;
 
     // Tageslauf: zählt nur am selben Tag, an dem er gestartet wurde
     let dailyBest = null;
@@ -340,6 +354,7 @@ module.exports = function createAdventureRouter({ requireAuth, optionalAuth }) {
 
     res.json({
       success: true, xpGained, isRecord, score, bestScore, dailyBest,
+      depth, depthBest: user.depthBest ? depthOf(user.depthBest) : 0, isDepthRecord,
       newAchievements: gained.map(({ test: _t, ...a }) => a),
       levelBefore: before.level, levelAfter: after.level, levelXp: after.into, levelNeed: after.need,
       newUnlocks, newKits: unlocksAfter.kits.filter((k) => !unlocksBefore.kits.includes(k)),
@@ -347,11 +362,24 @@ module.exports = function createAdventureRouter({ requireAuth, optionalAuth }) {
     });
   });
 
-  // ?scope=all|week|daily|classic und optional ?kit=<id>. Der Tageslauf hat keinen Kit-Filter (jeder spielt denselben
-  // Seed). "classic" ist die eingefrorene Liste von vor dem Horde-Umbau.
+  // ?scope=all|week|daily|classic|tiefe und optional ?kit=<id>. Der Tageslauf hat keinen Kit-Filter (jeder spielt
+  // denselben Seed). "classic" ist die eingefrorene Liste von vor dem Horde-Umbau. "tiefe": am weitesten gekommen
+  // (ohne Kit-Filter, sortiert nach Tiefe, dann Punkten).
   router.get("/leaderboard", (req, res) => {
     const db = loadGameData();
-    const scope = ["week", "daily", "classic"].includes(req.query.scope) ? req.query.scope : "all";
+    const scope = ["week", "daily", "classic", "tiefe"].includes(req.query.scope) ? req.query.scope : "all";
+    if (scope === "tiefe") {
+      const rows = Object.values(db)
+        .filter((u) => (u.era || 1) >= ERA && u.depthBest)
+        .map((u) => ({ u, e: u.depthBest }))
+        .sort((a, b) => (depthOf(b.e) - depthOf(a.e)) || (scoreOf(b.e) - scoreOf(a.e)))
+        .slice(0, 50)
+        .map(({ u, e }) => ({
+          name: u.name, score: scoreOf(e), depth: depthOf(e), stages: e.stages, timeSec: e.timeSec, kitId: e.kitId, won: !!e.won,
+          difficulty: e.difficulty, ascension: e.ascension || 0, level: P.levelInfo(u.xp).level,
+        }));
+      return res.json(rows);
+    }
     const kit = P.KIT_IDS.includes(req.query.kit) ? req.query.kit : null;
     const week = M.weekKey();
     const day = M.dayKey();
@@ -370,7 +398,7 @@ module.exports = function createAdventureRouter({ requireAuth, optionalAuth }) {
       .sort((a, b) => (b.score - a.score) || (a.e.timeSec - b.e.timeSec))
       .slice(0, 50)
       .map(({ u, e, score }) => ({
-        name: u.name, score, stages: e.stages, timeSec: e.timeSec, kitId: e.kitId, won: !!e.won,
+        name: u.name, score, depth: depthOf(e), stages: e.stages, timeSec: e.timeSec, kitId: e.kitId, won: !!e.won,
         difficulty: e.difficulty, ascension: e.ascension || 0, level: P.levelInfo(u.xp).level,
       }));
     res.json(rows);

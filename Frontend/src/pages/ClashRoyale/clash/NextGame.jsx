@@ -6,13 +6,13 @@ import { Link } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
 import { berlinDay, readStore } from './quizData';
 import { useClashLang } from './clashI18n';
-import scrollImg from '../../../assets/clashRoyale/ui/icon_daily_task_scroll_opened.png';
+import scrollImg from '../../../assets/clashRoyale/ui/icon_daily_task_scroll_opened.webp';
 import questionImg from '../../../assets/clashRoyale/ui/question.webp';
 import searchImg from '../../../assets/clashRoyale/ui/search.webp';
 import eyeImg from '../../../assets/clashRoyale/ui/eye.webp';
-import potionImg from '../../../assets/clashRoyale/ui/card_boost_potion.png';
+import potionImg from '../../../assets/clashRoyale/ui/card_boost_potion.webp';
 import swordImg from '../../../assets/clashRoyale/ui/sword.webp';
-import crownImg from '../../../assets/clashRoyale/ui/crown.png';
+import crownImg from '../../../assets/clashRoyale/ui/crown.webp';
 
 /** Reihenfolge der Kette; store = localStorage-Schlüssel der Tagesrunde (wie im Hub) */
 const CHAIN = [

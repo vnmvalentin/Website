@@ -7,6 +7,7 @@ import VolumeControl from "./VolumeControl.jsx";
 import "./theme.css";
 import { useFontLink } from "../../../components/shell/useFontLink";
 import BackToSite from "../../../components/shell/BackToSite";
+import { adventureKonto } from "../konto.js";
 
 const FONT_HREF = "https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&family=Tiny5&display=swap";
 
@@ -15,6 +16,9 @@ export default function AdventureShell() {
 
   // Schrift einmal laden (per <link>, ein @import landet im Build mitten in der CSS)
   useFontLink(FONT_HREF);
+
+  // Läufe, Erfolge und Bestwerte am Konto der Website (kontoStand.js)
+  adventureKonto.useAnbindung();
 
   const ctx = useMemo(() => ({ setImmersive }), []);
 

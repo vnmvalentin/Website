@@ -47,6 +47,41 @@ test('Overlay-Stand: Versuch in der Session, frischer Run nach altem Ende', () =
   assert.equal(ongoing.attempt, 1);
 });
 
+test('Manueller Reset: laufender Run beginnt bei 0, Crown Series behält den echten Lauf', () => {
+  // Grand-Run 4:2, dritte Niederlage nie gesehen — ohne Reset-Schnitt hinge der Run für immer fest.
+  const rows = ['win', 'win', 'loss', 'win', 'win', 'loss'].map((r) => B(r));
+  const resetMs = t * 1000 + 500;
+  const stuck = challengeState(buildRuns(rows, 'grand'), 'grand', resetMs);
+  assert.deepEqual([stuck.wins, stuck.losses], [4, 2]);
+  const cut = challengeState(buildRuns(rows, 'grand', undefined, resetMs), 'grand', resetMs);
+  assert.deepEqual([cut.wins, cut.losses, cut.results, cut.attempt, cut.bestWins], [0, 0, '', 1, 0]);
+  // Nach dem Reset gespielte Matches bilden einen neuen Run
+  const after = [...rows, B('win'), B('loss')];
+  const next = challengeState(buildRuns(after, 'grand', undefined, resetMs), 'grand', resetMs);
+  assert.deepEqual([next.wins, next.losses, next.results, next.attempt], [1, 1, 'wl', 1]);
+  // Crown Series: Siege stehen im Duell selbst — der Lauf über den Reset hinweg bleibt vollständig
+  const duel = [B('win', 0), B('loss', 1), B('win', 1), B('win', 2)];
+  const duelRuns = buildRuns(duel, 'duel', undefined, duel[2].battle_time_ms);
+  assert.deepEqual([duelRuns.length, duelRuns[0].wins, duelRuns[0].losses], [1, 3, 1]);
+});
+
+test('Classic/Grand/20 Win: Siege kommen aus der API, auch über Sync-Lücken; Reset schneidet weiter', () => {
+  const { countsWinsInStartingTrophies, isCrownSeries } = require('../challengeModes');
+  for (const key of ['classic', 'grand', '20win', 'duel', 'grandduel']) assert.equal(countsWinsInStartingTrophies(key), true, key);
+  assert.equal(countsWinsInStartingTrophies('global'), false); // ungeprüft
+  assert.deepEqual(['duel', 'grandduel', 'grand'].map(isCrownSeries), [true, true, false]);
+  // Echter Verlauf (#9C28LGR0, 16.11.2026): 2W 3W 4W 5W 6W — das Overlay sah die ersten Siege nie
+  const seen = [B('win', 2), B('win', 3), B('win', 4), B('win', 5), B('win', 6)];
+  const run = challengeState(buildRuns(seen, 'grand'), 'grand', 0);
+  assert.deepEqual([run.wins, run.losses, run.attempt], [7, 0, 1]);
+  // Reset mitten im Run: erst frisch, das nächste Match bringt den echten Stand mit
+  const resetMs = t * 1000 + 500;
+  assert.equal(challengeState(buildRuns(seen, 'grand', undefined, resetMs), 'grand', resetMs).wins, 0);
+  const after = [...seen, B('loss', 7)];
+  const next = challengeState(buildRuns(after, 'grand', undefined, resetMs), 'grand', resetMs);
+  assert.deepEqual([next.wins, next.losses, next.results], [7, 1, 'l']);
+});
+
 // ── Crown Series + Global Tournament (API-Formen live geprüft 13.11.2026, siehe challengeModes.js) ──
 const { roundsResult } = require('../crApi');
 const EVENTS = [{ eventTag: '#2UR9289L', title: 'Duel' }, { eventTag: '#2PRCRPQL', title: 'Grand Challenge' }];

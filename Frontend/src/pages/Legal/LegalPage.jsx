@@ -30,6 +30,7 @@ export function Operator() {
     <address className="not-italic text-white/85">
       {LEGAL.businessName && <>{LEGAL.businessName}<br /></>}
       {LEGAL.name || "[Name fehlt]"}<br />
+      {LEGAL.co && <>{LEGAL.co}<br /></>}
       {LEGAL.street || "[Straße fehlt]"}<br />
       {LEGAL.zipCity || "[PLZ und Ort fehlen]"}<br />
       {LEGAL.country}
@@ -57,7 +58,7 @@ export default function LegalPage({ title, description, path, children }) {
 
       <div className="space-y-8">{children}</div>
 
-      <nav className="mt-12 pt-6 border-t border-line flex flex-wrap gap-x-5 gap-y-2 text-xs text-white/45">
+      <nav aria-label="Weitere Rechtstexte" className="mt-12 pt-6 border-t border-line flex flex-wrap gap-x-5 gap-y-2 text-xs text-white/55">
         {LEGAL_LINKS.filter((l) => l.to !== path).map((l) => (
           <Link key={l.to} to={l.to} className="hover:text-white transition-colors">{l.label}</Link>
         ))}

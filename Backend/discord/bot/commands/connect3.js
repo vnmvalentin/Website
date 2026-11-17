@@ -1,6 +1,7 @@
 // discord/bot/commands/connect3.js
 const { ActionRowBuilder, ButtonBuilder, ButtonStyle, MessageFlags } = require('discord.js');
 const crypto = require('crypto');
+const { botText } = require('../botText');
 
 const activeGames = new Map();
 
@@ -66,12 +67,13 @@ function buildComponents(gameId, board, gameOver = false) {
 
 async function handleConnect3(interaction) {
     const opponent = interaction.options.getUser('gegner');
+    const t = botText(interaction).fun;
 
     if (opponent.id === interaction.user.id) {
-        return interaction.reply({ content: '❌ Du kannst nicht gegen dich selbst spielen!', flags: MessageFlags.Ephemeral });
+        return interaction.reply({ content: t.c3NotSelf, flags: MessageFlags.Ephemeral });
     }
     if (opponent.bot) {
-        return interaction.reply({ content: '❌ Du kannst nicht gegen einen Bot spielen!', flags: MessageFlags.Ephemeral });
+        return interaction.reply({ content: t.c3NotBot, flags: MessageFlags.Ephemeral });
     }
 
     const gameId = crypto.randomBytes(4).toString('hex');
@@ -90,7 +92,7 @@ async function handleConnect3(interaction) {
     const components = buildComponents(gameId, board);
 
     const { resource } = await interaction.reply({
-        content: `🎮 **Connect 3** — 🔴 ${p1} vs 🟡 ${p2}\n🔴 ${p1} ist am Zug!`,
+        content: `🎮 **Connect 3** — 🔴 ${p1} vs 🟡 ${p2}\n${t.c3Turn('🔴', p1)}`,
         components,
         withResponse: true,
     });
@@ -108,18 +110,19 @@ async function handleConnect3Button(interaction) {
     const col = parseInt(parts[3]);
 
     const game = activeGames.get(gameId);
+    const t = botText(interaction).fun;
     if (!game) {
-        return interaction.reply({ content: '❌ Dieses Spiel existiert nicht mehr.', flags: MessageFlags.Ephemeral });
+        return interaction.reply({ content: t.c3Gone, flags: MessageFlags.Ephemeral });
     }
 
     const currentPlayerId = game.currentPlayer === 1 ? game.player1 : game.player2;
     if (interaction.user.id !== currentPlayerId) {
-        return interaction.reply({ content: '❌ Du bist gerade nicht dran!', flags: MessageFlags.Ephemeral });
+        return interaction.reply({ content: t.c3NotYourTurn, flags: MessageFlags.Ephemeral });
     }
 
     const lowestEmpty = findLowestEmpty(game.board, col);
     if (lowestEmpty === -1) {
-        return interaction.reply({ content: '❌ Diese Spalte ist voll!', flags: MessageFlags.Ephemeral });
+        return interaction.reply({ content: t.c3ColumnFull, flags: MessageFlags.Ephemeral });
     }
 
     game.board[lowestEmpty][col] = game.currentPlayer;
@@ -132,7 +135,7 @@ async function handleConnect3Button(interaction) {
     if (checkWin(game.board, game.currentPlayer)) {
         const components = buildComponents(gameId, game.board, true);
         await interaction.update({
-            content: `🎮 **Connect 3** — 🔴 ${p1} vs 🟡 ${p2}\n🏆 ${currentEmoji} ${currentName} **hat gewonnen!** Glückwunsch!`,
+            content: `🎮 **Connect 3** — 🔴 ${p1} vs 🟡 ${p2}\n${t.c3Won(currentEmoji, currentName)}`,
             components,
         });
         activeGames.delete(gameId);
@@ -142,7 +145,7 @@ async function handleConnect3Button(interaction) {
     if (isBoardFull(game.board)) {
         const components = buildComponents(gameId, game.board, true);
         await interaction.update({
-            content: `🎮 **Connect 3** — 🔴 ${p1} vs 🟡 ${p2}\n🤝 **Unentschieden!**`,
+            content: `🎮 **Connect 3** — 🔴 ${p1} vs 🟡 ${p2}\n${t.c3Draw}`,
             components,
         });
         activeGames.delete(gameId);
@@ -155,7 +158,7 @@ async function handleConnect3Button(interaction) {
     const components = buildComponents(gameId, game.board);
 
     await interaction.update({
-        content: `🎮 **Connect 3** — 🔴 ${p1} vs 🟡 ${p2}\n${nextEmoji} ${nextName} ist am Zug!`,
+        content: `🎮 **Connect 3** — 🔴 ${p1} vs 🟡 ${p2}\n${t.c3Turn(nextEmoji, nextName)}`,
         components,
     });
 }

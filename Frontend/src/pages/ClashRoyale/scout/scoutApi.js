@@ -10,11 +10,18 @@ export function parseTag(raw) {
   return /^[0289PYLQGRJCUV]{3,12}$/.test(tag) ? tag : null;
 }
 
+// Bis wann das Abruf-Kontingent dieses Besuchers aufgebraucht ist (Server: retryAt bei 429, scoutRoutes.js) und ob eine
+// Anmeldung mit Twitch oder Discord mehr Spielraum gäbe. Gilt seitenweit: das Kontingent hängt am Besucher, nicht an der Seite.
+let limit = { until: 0, login: false };
+/** { until, login } solange das Kontingent erschöpft ist, sonst null */
+export const currentLimit = () => (limit.until > Date.now() ? limit : null);
+
 /** GET; liefert immer ein Objekt { ok, … } — Netz- und Serverfehler werden zu { ok: false, key }. */
 export async function scoutGet(path, { signal } = {}) {
   try {
     const res = await fetch(BASE + path, { signal });
     const json = await res.json().catch(() => null);
+    if (json?.ok === false && Number(json.retryAt) > 0) limit = { until: Number(json.retryAt), login: json.login === true };
     if (json && typeof json.ok === 'boolean') return json;
     return { ok: false, key: res.status === 429 ? 'rateLimited' : 'apiDown' };
   } catch (err) {

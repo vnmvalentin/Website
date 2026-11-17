@@ -23,7 +23,9 @@ function MenuButton({ icon: Icon, label, sub, onClick }) {
 }
 
 // "Klassik" = die eingefrorene Liste von vor dem Horde-Umbau (November 2026); die anderen haben damals neu begonnen
-const SCOPES = [["all", "Gesamt"], ["week", "Diese Woche"], ["daily", "Tageslauf"], ["classic", "Klassik"]];
+// "tiefe" = am weitesten gekommen (Tiefe über alle Zyklen, Ausbauplan av-meta November 2026), ohne Kit-Filter
+const SCOPES = [["all", "Gesamt"], ["week", "Diese Woche"], ["tiefe", "Am weitesten"], ["daily", "Tageslauf"], ["classic", "Klassik"]];
+const NO_KIT = new Set(["daily", "tiefe"]);
 
 // Halle der Helden: lädt selbst, mit Filter nach Zeitraum und Kit (der Tageslauf hat keinen Kit-Filter)
 function HallOfHeroes({ reloadKey }) {
@@ -34,7 +36,7 @@ function HallOfHeroes({ reloadKey }) {
   useEffect(() => {
     let alive = true;
     setRows(null);
-    api.leaderboard(scope, scope === "daily" ? "" : kit)
+    api.leaderboard(scope, NO_KIT.has(scope) ? "" : kit)
       .then((r) => { if (alive) { setRows(Array.isArray(r) ? r : []); setFailed(false); } })
       .catch(() => { if (alive) { setRows([]); setFailed(true); } });
     return () => { alive = false; };
@@ -47,7 +49,7 @@ function HallOfHeroes({ reloadKey }) {
         <div className="av-tabs !gap-4" role="tablist">
           {SCOPES.map(([id, label]) => <button key={id} role="tab" aria-selected={scope === id} className="av-tab !py-1.5" onClick={() => setScope(id)}>{label}</button>)}
         </div>
-        {scope !== "daily" && (
+        {!NO_KIT.has(scope) && (
           <select value={kit} onChange={(e) => setKit(e.target.value)} className="av-input !w-auto !py-1.5 text-[15px]" aria-label="Nach Kit filtern">
             <option value="">Alle Kits</option>
             {KIT_ORDER.map((id) => <option key={id} value={id}>{KITS[id].name}</option>)}
@@ -55,11 +57,12 @@ function HallOfHeroes({ reloadKey }) {
         )}
       </div>
       {scope === "classic" && <p className="av-faint text-[14px] mb-3">Bestwerte von vor dem Horde-Umbau. Diese Liste ist eingefroren — alle anderen haben neu begonnen.</p>}
+      {scope === "tiefe" && <p className="av-faint text-[14px] mb-3">Wer nach dem Sieg über Thunderwing am tiefsten kommt: jede Welt zählt, über alle Zyklen. Bei gleicher Tiefe entscheiden die Punkte, Entspannt zählt nicht.</p>}
       {rows === null ? (
         <p className="av-slot px-4 py-6 text-center av-faint">Lädt …</p>
       ) : rows.length === 0 ? (
         <p className="av-slot px-4 py-6 text-center av-faint">
-          {failed ? "Bestenliste gerade nicht erreichbar." : scope === "daily" ? "Heute hat noch niemand den Tageslauf gespielt." : scope === "classic" ? "Keine Einträge aus der Zeit vor der Horde." : "Noch keine Einträge — dein nächster Lauf bringt dich hierher."}
+          {failed ? "Bestenliste gerade nicht erreichbar." : scope === "daily" ? "Heute hat noch niemand den Tageslauf gespielt." : scope === "classic" ? "Keine Einträge aus der Zeit vor der Horde." : scope === "tiefe" ? "Noch niemand ist nach dem Sieg weitergereist — sei die erste Person in dieser Liste." : "Noch keine Einträge — dein nächster Lauf bringt dich hierher."}
         </p>
       ) : (
         <ol className="flex flex-col gap-1.5 max-h-[420px] av-scroll pr-1">
@@ -69,10 +72,10 @@ function HallOfHeroes({ reloadKey }) {
               {KITS[e.kitId] && <FlatSprite kind="hero" id={e.kitId} size={32} title={KITS[e.kitId].name} />}
               <span className="flex-1 min-w-0 truncate" title={e.name}>{e.name}<span className="av-faint text-[13px]"> · Stufe {e.level}</span></span>
               <span className="shrink-0 text-right leading-tight">
-                <b className="block font-normal av-num text-[var(--av-ink)]">{(e.score ?? 0).toLocaleString("de-DE")}</b>
+                <b className="block font-normal av-num text-[var(--av-ink)]">{scope === "tiefe" ? `Tiefe ${e.depth}` : (e.score ?? 0).toLocaleString("de-DE")}</b>
                 <span className="block av-faint av-num text-[13px]">
                   {e.won && <Trophy size={12} className="inline av-gold mr-1 -mt-0.5" aria-label="Sieg" />}
-                  {e.stages} {e.stages === 1 ? "Welt" : "Welten"} · {fmtTime(e.timeSec)}
+                  {scope === "tiefe" ? `${(e.score ?? 0).toLocaleString("de-DE")} Punkte` : `${e.stages} ${e.stages === 1 ? "Welt" : "Welten"}`} · {fmtTime(e.timeSec)}
                   {e.difficulty === "hard" ? ` · Albtraum${e.ascension ? `+${e.ascension}` : ""}` : e.difficulty === "easy" ? " · Entspannt" : ""}
                 </span>
               </span>

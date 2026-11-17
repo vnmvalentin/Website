@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { CrTv } from '../ui/CrIcons';
-import crownIcon from '../../../assets/clashRoyale/ui/crown.png';
+import crownIcon from '../../../assets/clashRoyale/ui/crown.webp';
 import ModeShell from './ModeShell';
 import { CARD_RATIO } from './cardCrop';
 import CardFace from '../ui/CardFace';

@@ -3,6 +3,7 @@ const express = require("express");
 const fetch = (...args) => import("node-fetch").then(({ default: fetch }) => fetch(...args));
 
 const links = require("../linkStore");
+const { inviteUrl } = require("../bot/permissions");
 
 const CLIENT_ID = process.env.DISCORD_CLIENT_ID;
 const CLIENT_SECRET = process.env.DISCORD_CLIENT_SECRET;
@@ -51,8 +52,8 @@ module.exports = function({ requireAuth, discordClient, sessions, saveSessionsTo
     // 1. Server-Liste
     router.get("/", requireAuth, async (req, res) => {
         // Verknüpfung alter Art (an der Sitzung) zieht beim ersten Zugriff in die Datenbank um
-        if (links.migrateFromSessions(req.twitchId, sessions) && saveSessionsToFile) saveSessionsToFile(sessions);
-        let link = links.getLink(req.twitchId);
+        if (req.twitchId && links.migrateFromSessions(req.twitchId, sessions) && saveSessionsToFile) saveSessionsToFile(sessions);
+        let link = links.getLink(req.linkKey);
         // 401 heißt hier und NUR hier: nicht verknüpft. Das Dashboard zeigt dann die Discord-Anmeldung.
         if (!link || !link.accessToken) return res.status(401).json({ error: "Discord not linked", code: "not_linked" });
 
@@ -72,20 +73,20 @@ module.exports = function({ requireAuth, discordClient, sessions, saveSessionsTo
         try {
             // Läuft das Zugriffstoken ab (oder ist es schon abgelaufen), vorher erneuern
             if (link.expiresAt && link.expiresAt < now + 60 * 1000) {
-                const r = await refreshTokens(req.twitchId, link);
-                if (r === "invalid") { links.removeLink(req.twitchId); return res.status(401).json({ error: "Discord not linked", code: "not_linked" }); }
-                if (r === "ok") link = links.getLink(req.twitchId);
+                const r = await refreshTokens(req.linkKey, link);
+                if (r === "invalid") { links.removeLink(req.linkKey); return res.status(401).json({ error: "Discord not linked", code: "not_linked" }); }
+                if (r === "ok") link = links.getLink(req.linkKey);
             }
             const load = (token) => fetch("https://discord.com/api/users/@me/guilds", { headers: { Authorization: `Bearer ${token}` } });
             let response = await load(link.accessToken);
             if (response.status === 401) {
                 // Token abgelehnt: einmal erneuern und noch einmal versuchen
-                const r = await refreshTokens(req.twitchId, link);
-                if (r === "invalid") { links.removeLink(req.twitchId); return res.status(401).json({ error: "Discord not linked", code: "not_linked" }); }
+                const r = await refreshTokens(req.linkKey, link);
+                if (r === "invalid") { links.removeLink(req.linkKey); return res.status(401).json({ error: "Discord not linked", code: "not_linked" }); }
                 if (r === "error") return unavailable();
-                link = links.getLink(req.twitchId);
+                link = links.getLink(req.linkKey);
                 response = await load(link.accessToken);
-                if (response.status === 401) { links.removeLink(req.twitchId); return res.status(401).json({ error: "Discord not linked", code: "not_linked" }); }
+                if (response.status === 401) { links.removeLink(req.linkKey); return res.status(401).json({ error: "Discord not linked", code: "not_linked" }); }
             }
             if (!response.ok) return unavailable();
 
@@ -96,7 +97,8 @@ module.exports = function({ requireAuth, discordClient, sessions, saveSessionsTo
                 id: guild.id, name: guild.name,
                 icon: guild.icon ? `https://cdn.discordapp.com/icons/${guild.id}/${guild.icon}.png` : null,
                 botPresent: discordClient.guilds.cache.has(guild.id),
-                inviteUrl: `https://discord.com/api/oauth2/authorize?client_id=${CLIENT_ID}&permissions=8&scope=bot%20applications.commands&guild_id=${guild.id}&disable_guild_select=true`
+                // Genau die Rechte, die der Bot braucht (bot/permissions.js) — nicht mehr Administrator
+                inviteUrl: inviteUrl({ clientId: CLIENT_ID, guildId: guild.id })
             }));
 
             guildCache.set(discordUserId, { guilds: result, expiresAt: now + (5 * 60 * 1000) });

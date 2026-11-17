@@ -14,6 +14,7 @@ import { spawnItem, rollItem } from "./loot.js";
 import { ENEMIES, ELITE_AFFIXES } from "../data/enemies.js";
 import { collectEnemies, nearestInGrid } from "./grid.js";
 import { noteKill } from "./timeline.js";
+import { twDealt, twTaken, twHeal, twGold, twXp, twDodge, loopDodge, loopHitFloor, rewardCoeff } from "./twists.js";
 
 // Wer hat getroffen? Für "Getötet von …" auf dem Endbildschirm
 export function describeAttacker(e) {
@@ -87,6 +88,7 @@ export function damageEnemy(g, e, amount, opts = {}) {
   // Glückspilz: Krits werfen Gold ab
   if (crit && p.items.glueckspilz && proc > 0 && g.rng.chance(0.3 * proc)) { p.gold += Math.max(1, Math.round(p.items.glueckspilz * g.coeff)); g.stats.goldCollected += 1; }
   if (e.damageTakenMult) dmg *= e.damageTakenMult;
+  dmg *= twDealt(g); // Wendung „Glaskanone“
 
   e.hp -= dmg;
   e.flash = 0.08;
@@ -136,9 +138,9 @@ export function killEnemy(g, e) {
   // Fluch: +50 % Beute; Blutmond: viele Gegner, dafür nur 60 % Gold/Erfahrung pro Kill
   const reward = (e.reward ?? 0) * (g.curse ? 1.5 : 1) * (g.horde?.blood > 0 ? 0.6 : 1);
   if (reward > 0) {
-    dropXp(g, e.x, e.y, reward * 0.35 * g.coeff); // als Kristall — gutgeschrieben wird beim Einsammeln (loot.js)
+    dropXp(g, e.x, e.y, reward * 0.35 * rewardCoeff(g) * twXp(g)); // als Kristall — gutgeschrieben wird beim Einsammeln (loot.js)
     // Kleinbeträge (Futter) werden gewürfelt statt auf 1 aufgerundet: sonst gäbe jede Horde ein Vermögen
-    const gold = reward * 0.18 * g.coeff * g.player.stats.gold;
+    const gold = reward * 0.18 * rewardCoeff(g) * g.player.stats.gold * twGold(g);
     if (gold >= 1 || g.rng.chance(gold)) dropGold(g, e.x, e.y, Math.max(1, gold) / g.player.stats.gold);
   }
   if (hasAffix(e, "eis")) {
@@ -173,7 +175,9 @@ export function hurtPlayer(g, amount, opts = {}) {
   const p = g.player;
   if (!p.alive || g.over) return false;
   if (p.buffs.invuln > 0 || p.dash?.invuln) return false;
-  if (!opts.unavoidable && p.stats.dodge > 0 && g.rng.chance(p.stats.dodge)) {
+  // Ab Zyklus 2 wirkt Ausweichen schwächer (Zyklus-Druck), in der Wendung „Nebel“ gar nicht (engine/twists.js)
+  const dodge = p.stats.dodge * loopDodge(g) * twDodge(g);
+  if (!opts.unavoidable && dodge > 0 && g.rng.chance(dodge)) {
     floatText(g, p.x, p.y - 34, "Ausgewichen", "#9ad1ff", { size: 13 });
     return false;
   }
@@ -191,6 +195,12 @@ export function hurtPlayer(g, amount, opts = {}) {
 
   // Kettenhemd: fester Abzug pro Treffer (ein Treffer macht immer mindestens 1)
   if (p.items.kettenhemd) dmg = Math.max(Math.min(dmg, 1), dmg - 3 * p.items.kettenhemd);
+  dmg *= twTaken(g); // Wendung „Glaskanone“
+  // Ab Zyklus 2: jeder Treffer kostet mindestens einen wachsenden Anteil des Lebens — Rüstung und Leben allein tragen
+  // sonst beliebig weit (engine/twists.js, Zyklus-Druck)
+  // (Flächen ticken alle paar Zehntelsekunden: dort nur der halbe Mindestschaden)
+  const floor = loopHitFloor(g) * (opts.unavoidable ? 0.5 : 1);
+  if (floor > 0) dmg = Math.max(dmg, p.stats.maxHp * floor);
 
   if (p.shield > 0) {
     const absorbed = Math.min(p.shield, dmg);
@@ -252,6 +262,7 @@ export function applyStatus(g, effect) {
 export function healPlayer(g, amount, silent = false) {
   const p = g.player;
   if (!p.alive || amount <= 0) return;
+  amount *= twHeal(g); // Wendungen „Dürre“ (halb) und „Nebel“ (mehr)
   const before = p.hp;
   p.hp = Math.min(p.stats.maxHp, p.hp + amount);
   const healed = p.hp - before;
@@ -293,6 +304,8 @@ export function updateHazards(g, dt) {
           damageEnemy(g, e, h.dmg, { proc: h.proc ?? 0.5, knockback: h.knockback, fromX: h.x, fromY: h.y });
           if (h.effect === "freeze" && !e.isBoss) e.freezeT = Math.max(e.freezeT, 1.5);
           if (h.effect === "burn") { e.burnT = 3; e.burnDps = Math.max(e.burnDps, h.dmg * 0.15); }
+          if (h.effect === "chill" && !e.isBoss) { e.slowT = Math.max(e.slowT, 2); e.slowPct = Math.max(e.slowPct, 0.5); }
+          if (h.effect === "poison") addPoison(e, h.dmg * 0.3, 3);
         }
       }
     } else if (h.dmg > 0 && p.alive && insideHazard(h, p.x, p.y, p.r * 0.8)) {
@@ -330,7 +343,9 @@ export function updateZones(g, dt) {
         if (z.effect === "slow" && !e.isBoss) { e.slowT = Math.max(e.slowT, 0.6); e.slowPct = Math.max(e.slowPct, 0.4); }
       }
     } else if (p.alive && dist2(p.x, p.y, z.x, z.y) < z.r * z.r) {
-      hurtPlayer(g, z.dmg, { effect: z.effect, unavoidable: true, source: z.src });
+      // Flächen ohne Schaden (Sporenwolken) wirken nur ihren Zustand — kein Treffer, kein Mindestschaden ab Zyklus 2
+      if (z.dmg > 0) hurtPlayer(g, z.dmg, { effect: z.effect, unavoidable: true, source: z.src });
+      else if (p.buffs.invuln <= 0) applyStatus(g, z.effect);
     }
   }
   g.zones = g.zones.filter((z) => z.t > 0);

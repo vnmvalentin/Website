@@ -12,6 +12,9 @@ import { de } from "../../i18n/de.js";
 import { sound } from "../../audio/sound.js";
 import { useShell } from "../shellContext.js";
 import { stageModel, totemsOnTable } from "./stageModel.js";
+import { getZirkel } from "../../engine/zirkel/index.js";
+import ErgebnisTeilen from "../../../../components/ErgebnisTeilen.jsx";
+import { duellErgebnis } from "../../ergebnis.js";
 
 /** Die Karte, die im Match am meisten Schaden gemacht hat. */
 function strongest(stats) {
@@ -125,6 +128,15 @@ export default function TableResult({ room, view, you, names, onRematch, onExit,
   return (
     <>
       <button type="button" className="st-menu-btn" onClick={() => setPaused(true)} aria-label="Menü (Esc)">Menü</button>
+      {won && (
+        <ErgebnisTeilen className="st-menu-btn is-teilen" mitSymbol={false}
+          ergebnis={() => duellErgebnis({
+            siege: view.wins, ich: you, stats: P[you].stats, zirkel: getZirkel(zirkel)?.name,
+            staerkste: W === you && best ? CARDS[best.id]?.name : "", aufgabe: view.endReason === "surrender",
+          })}>
+          Ergebnis teilen
+        </ErgebnisTeilen>
+      )}
       {(notice || status) && <div className="st-toast ss-paper" role="status">{notice || status}</div>}
       {detail && <CardDetail card={detail} onClose={() => setDetail(null)} />}
       {paused && (

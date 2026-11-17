@@ -21,6 +21,17 @@ export const WC_DOC = {
 };
 export const WC_TIMER_MS = (47 * 60 + 12) * 1000; // stehende Beispielzeit statt 00:00:00
 
+// Dasselbe Beispiel auf Englisch (Produktseite /tools/win-challenge?lang=en) — die Liste ist Inhalt des Streamers,
+// das Overlay übersetzt sie nicht selbst
+export const WC_DOC_EN = {
+  title: "Win Challenge",
+  items: [
+    { id: "d1", name: "3 wins with a random deck", useWins: true, target: 3, progress: 2 },
+    { id: "d2", name: "Win without spells", done: true },
+    { id: "d3", name: "Beat a viewer", pinned: true },
+  ],
+};
+
 // Bingo: 4 × 4 mit dem Aussehen, das der Editor für eine neue Karte voreinstellt (BingoEditorPage.jsx)
 export const BINGO_SIZE = 4;
 export const BINGO_STYLE = { textScale: 0.8, cardOpacity: 0.6, cardBg: "#000000", textColor: "#ffffff", lineColor: "#ffffff", lineWidth: 2 };

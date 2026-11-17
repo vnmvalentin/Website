@@ -13,6 +13,7 @@ import { HudIcon, TabIcon } from './gameIcons';
 import { hutVorschau } from '../engine/huete';
 import { raumVorschau } from './hausRaum';
 import { versionedAsset } from '../engine/assetVersion';
+import { ladenSichtbar } from '../../../utils/ladenBesitz';
 
 // Alle drei Reiter zeigen echte Icons statt lucide (Feedback 31.08./01.09.:
 // "dont use lucide icons anymore for things like that"). Werkzeug-Reiter
@@ -82,6 +83,18 @@ function Vorschau({ kategorie, eintrag }) {
     );
 }
 
+// Hüte aus dem Laden der Website (core/reskins.js: `laden`): ohne Goldpreis, frei mit dem Kauf im Laden. Der Server
+// schaltet sie beim Öffnen des Shops frei; bis dahin führt die Kachel in den Laden (neuer Tab, die Farm bleibt offen).
+function ZumLaden() {
+    return (
+        <a href="/laden" target="_blank" rel="noopener noreferrer"
+            className="border-[3px] px-2.5 py-1 text-xs font-bold bg-[#7a4fb0] text-white hover:bg-[#8a60c0] transition-transform duration-75 active:translate-y-0.5"
+            style={{ borderColor: "#3b2516", boxShadow: "0 3px 0 0 #3b2516" }}>
+            Zum Laden
+        </a>
+    );
+}
+
 function ReskinKarte({ kategorie, eintrag, ausgeruestet, gold, onKaufen, onAusruesten, busy }) {
     // Der Standard-Eintrag (id: null) gilt auch dann als aktiv, wenn noch nie
     // etwas ausgerüstet wurde (ausgeruestet[kategorie] dann undefined statt
@@ -93,12 +106,25 @@ function ReskinKarte({ kategorie, eintrag, ausgeruestet, gold, onKaufen, onAusru
     const leistbar = gold >= eintrag.price;
     // Saison-Namensschilder gibt es nur über die Saisonziele (Missionsbrett → Jahreszeit).
     const nurSaison = Boolean(eintrag.saison) && !eintrag.gekauft;
+    const ausLaden = Boolean(eintrag.laden) && !eintrag.gekauft;
+    if (ausLaden) {
+        return (
+            <WarenKachel
+                gross
+                band={{ text: "Laden", farbe: "#7a4fb0", hell: "#e8dcf4" }}
+                bild={<Vorschau kategorie={kategorie} eintrag={eintrag} />}
+                name={eintrag.name}
+                text="Im Laden der Website, kein Gold. Gilt für dein Konto."
+                aktionen={<ZumLaden />}
+            />
+        );
+    }
     return (
         <WarenKachel
             gross
             hervorheben={istAusgeruestet}
             band={istAusgeruestet ? { text: "Ausgerüstet", farbe: "#3f7a35", hell: "#dcebc8" }
-                : eintrag.gekauft ? { text: eintrag.saison ? "Freigeschaltet" : "Gekauft", farbe: "#2f6ab0", hell: "#d4e4f4" }
+                : eintrag.gekauft ? { text: eintrag.saison ? "Freigeschaltet" : eintrag.laden ? "Aus dem Laden" : "Gekauft", farbe: "#2f6ab0", hell: "#d4e4f4" }
                     : nurSaison ? { text: "Saisonziel", farbe: "#c8407a", hell: "#f8d8e6" }
                         : { text: "", farbe: "transparent", hell: "#f8e8b8" }}
             bild={<Vorschau kategorie={kategorie} eintrag={eintrag} />}
@@ -128,7 +154,11 @@ export default function GoldShopModal({ offen, onClose, onBack, daten, gold, onK
     }, [offen, startTab]);
     if (!offen) return null;
 
-    const katalog = daten?.katalog || {};
+    // Hüte aus dem Laden nur zeigen, wenn man sie hat oder der Laden für Besucher sichtbar ist
+    const zeigeLaden = ladenSichtbar();
+    const katalog = Object.fromEntries(Object.entries(daten?.katalog || {}).map(([k, liste]) => [
+        k, (liste || []).filter((e) => !e.laden || e.gekauft || zeigeLaden),
+    ]));
     const ausgeruestet = daten?.ausgeruestet || {};
     const standard = STANDARD_EINTRAG[tab];
     const liste = standard ? [standard, ...(katalog[tab] || [])] : (katalog[tab] || []);

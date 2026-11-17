@@ -1179,7 +1179,17 @@ function kaufeSamenAlle(state, seedId, twitchId) {
 }
 
 // ─── HTTP Routes ──────────────────────────────────────────────────────────────
-module.exports = function ({ requireAuth }) {
+module.exports = function ({ requireAuth, ladenBesitzt = null }) {
+    // Laden der Website (Spur D, Anschluss kosmetik-artikel): ladenBesitzt(kontoId, artikelId) aus index.js.
+    // Gekaufte Hüte aus dem Laden freischalten, erstattete wegnehmen — beim Laden der Farm, im Gold-Shop und vor dem
+    // Anlegen. Ohne Laden (Tests, Prüfstände) oder bei einem Fehler bleibt alles, wie es ist.
+    const ladenAbgleich = (req, state) => {
+        if (typeof ladenBesitzt !== "function" || !req.kontoId || !state) return false;
+        return reskins.gleicheLadenAb(state, (artikelId) => {
+            try { return Boolean(ladenBesitzt(req.kontoId, artikelId)); } catch { return null; }
+        });
+    };
+
     // Party-Veredelung: veredelt reihum, solange eine Party läuft, und meldet dem
     // Besitzer, was passiert ist (siehe garden/world/ereignisse.js).
     ereignisse.starteVeredelung(farmStates, {
@@ -1556,6 +1566,7 @@ module.exports = function ({ requireAuth }) {
         // Wochenwettbewerb: vergangene Wochen abrechnen (Platz 1–3 → Gold + Abzeichen),
         // bevor der Stand gespeichert wird — siehe world/wettbewerb.js.
         const wettbewerbGewinne = wettbewerb.abrechnen(farmStates, advanced, userId);
+        ladenAbgleich(req, advanced); // Hüte aus dem Laden (gespeichert wird gleich darunter)
         setFarmState(farmStates, userId, advanced);
         scheduleFarmsSave(farmStates);
         res.json({
@@ -1607,6 +1618,7 @@ module.exports = function ({ requireAuth }) {
         const userId = String(req.twitchId);
         const state = farmStates.get(userId);
         if (!state) return res.status(400).json({ error: "Keine Farm gefunden." });
+        if (ladenAbgleich(req, state)) scheduleFarmsSave(farmStates);
         res.json(reskins.reskinUebersicht(state));
     });
 
@@ -2024,6 +2036,7 @@ module.exports = function ({ requireAuth }) {
             // vorher gegen den Kontostand geprüft.
             ergebnis = reskins.reskinKaufen(state, req.body?.kategorie, req.body?.id);
         } else if (aktion === "reskinAusruesten") {
+            ladenAbgleich(req, state); // erst nach dem Laden-Kauf ist der Hut „gekauft“
             ergebnis = reskins.reskinAusruesten(state, req.body?.kategorie, req.body?.id);
         } else if (aktion === "stoererFangen") {
             // Käfer/Unkraut wegklicken (core/stoerer.js) — der Browser nennt nur die id.

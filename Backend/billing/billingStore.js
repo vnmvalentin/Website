@@ -63,6 +63,11 @@ db.exec(`
   ) WITHOUT ROWID;
 `);
 
+// Freischaltungen aus dem Admin-Reiter „Abos“ (billing/adminGrants.js) merken den Twitch-Namen zur Anzeige
+if (!db.prepare("PRAGMA table_info(grants)").all().some((c) => c.name === "login")) {
+  db.exec("ALTER TABLE grants ADD COLUMN login TEXT NOT NULL DEFAULT ''");
+}
+
 const stmt = {
   getCustomer: db.prepare("SELECT stripe_customer_id FROM customers WHERE twitch_id = ?"),
   getTwitchByCustomer: db.prepare("SELECT twitch_id FROM customers WHERE stripe_customer_id = ?"),
@@ -81,9 +86,12 @@ const stmt = {
   ),
   getGrant: db.prepare("SELECT * FROM grants WHERE twitch_id = ?"),
   setGrant: db.prepare(
-    `INSERT INTO grants (twitch_id, note, until, created_at) VALUES (?, ?, ?, ?)
-     ON CONFLICT(twitch_id) DO UPDATE SET note = excluded.note, until = excluded.until`
+    `INSERT INTO grants (twitch_id, note, until, created_at, login) VALUES (?, ?, ?, ?, ?)
+     ON CONFLICT(twitch_id) DO UPDATE SET note = excluded.note, until = excluded.until,
+       login = CASE WHEN excluded.login != '' THEN excluded.login ELSE grants.login END`
   ),
+  listGrants: db.prepare("SELECT * FROM grants ORDER BY created_at DESC"),
+  listSubs: db.prepare("SELECT twitch_id, status, current_period_end, cancel_at_period_end FROM subscriptions ORDER BY updated_at DESC"),
   delGrant: db.prepare("DELETE FROM grants WHERE twitch_id = ?"),
   listPurchases: db.prepare("SELECT item_id FROM purchases WHERE twitch_id = ?"),
   addPurchase: db.prepare("INSERT OR IGNORE INTO purchases (twitch_id, item_id, stripe_ref, bought_at) VALUES (?, ?, ?, ?)"),
@@ -104,7 +112,10 @@ module.exports = {
   saveSubscription: (sub) => stmt.setSub.run({ ...sub, twitchId: String(sub.twitchId), cancelAtPeriodEnd: sub.cancelAtPeriodEnd ? 1 : 0 }),
 
   grantOf: (twitchId) => stmt.getGrant.get(String(twitchId)) || null,
-  setGrant: (twitchId, note = "", until = 0, now = Date.now()) => stmt.setGrant.run(String(twitchId), String(note), Number(until) || 0, now),
+  setGrant: (twitchId, note = "", until = 0, now = Date.now(), login = "") =>
+    stmt.setGrant.run(String(twitchId), String(note), Number(until) || 0, now, String(login || "")),
+  listGrants: () => stmt.listGrants.all(),
+  listSubscriptions: () => stmt.listSubs.all(),
   removeGrant: (twitchId) => stmt.delGrant.run(String(twitchId)),
 
   purchasesOf: (twitchId) => stmt.listPurchases.all(String(twitchId)).map((r) => r.item_id),

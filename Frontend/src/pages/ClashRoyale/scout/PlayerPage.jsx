@@ -9,16 +9,16 @@ import { TwitchAuthContext } from '../../../components/TwitchAuthContext';
 import {
   CrBattle, CrBook, CrCards, CrChat, CrCheck, CrClock, CrCrown, CrRandom, CrCrownBlue, CrCrownRed, CrElixir, CrShield, CrSkull, CrStar, CrSwap, CrTarget, CrTourneyTrophy, CrTrophy, CrTv, CrXp,
 } from '../ui/CrIcons';
-import collectionLevelImg from '../../../assets/clashRoyale/ui/collection-level.png';
+import collectionLevelImg from '../../../assets/clashRoyale/ui/collection-level.webp';
 import { MEDAL_ICON_URL, LEAGUE_MEDAL_ICON_URL } from '../data/leagueIcons';
 import { trophyArenaIcon, trophyArenaIconByName } from '../data/trophyArenas';
-import trophyImg from '../../../assets/clashRoyale/ui/trophy.png';
-import battleImg from '../../../assets/clashRoyale/ui/battle.png';
-import skullImg from '../../../assets/clashRoyale/ui/sudden_death.webp';
-import crownBlueImg from '../../../assets/clashRoyale/ui/blue_crown_1.png';
+import trophyImg from '../../../assets/clashRoyale/ui/trophy.webp';
+import battleImg from '../../../assets/clashRoyale/ui/battle.webp';
+import skullImg from '../../../assets/clashRoyale/modes/sudden_death.webp';
+import crownBlueImg from '../../../assets/clashRoyale/ui/blue_crown_1.webp';
 import trophy2v2Img from '../../../assets/clashRoyale/ui/trophy2v2.webp';
-import challengeImg from '../../../assets/clashRoyale/ui/challenge-grand.webp';
-import seasonalTrophyImg from '../../../assets/clashRoyale/ui/seasonal-trophy-green.png';
+import challengeImg from '../../../assets/clashRoyale/modes/challenge-grand.webp';
+import seasonalTrophyImg from '../../../assets/clashRoyale/ui/seasonal-trophy-green.webp';
 import heroArt from '../../../assets/clashRoyale/bg/evergreen.webp';
 import ScoutFrame from './ScoutFrame';
 import {
@@ -426,7 +426,7 @@ export default function PlayerPage() {
   const { t, lang, q } = useScoutText();
   const { data, error, loading, refreshing, reload } = useScout(tag ? `/player/${tag}` : null, 120000);
   const [tab, setTab] = useTab(TAB_IDS);
-  const analysis = useMemo(() => (data ? analyze(data.battles) : null), [data]);
+  const analysis = useMemo(() => (data ? analyze(data.battles, { crown: data.crownBattles }) : null), [data]);
   const profile = data?.profile;
 
   useEffect(() => {

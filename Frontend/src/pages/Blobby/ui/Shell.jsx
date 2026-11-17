@@ -8,6 +8,7 @@ import { ShellContext } from "./shellContext.js";
 import "./theme.css";
 import { useFontLink } from "../../../components/shell/useFontLink";
 import BackToSite from "../../../components/shell/BackToSite";
+import { blobbyKonto } from "../konto.js";
 
 const FONT_HREF = "https://fonts.googleapis.com/css2?family=Lilita+One&family=Rubik:wght@400;500;600;700&display=swap";
 
@@ -16,6 +17,9 @@ export default function BlobbyShell() {
 
   // Schriften einmal laden (siehe theme.css, warum nicht per @import)
   useFontLink(FONT_HREF);
+
+  // Partien und Siege am Konto (kontoStand.js)
+  blobbyKonto.useAnbindung();
 
   const openHelp = useCallback(() => setHelpOpen(true), []);
   const ctx = useMemo(() => ({ openHelp }), [openHelp]);

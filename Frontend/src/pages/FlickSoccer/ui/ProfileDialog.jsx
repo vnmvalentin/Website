@@ -5,9 +5,10 @@ import { X, Award, Check } from "lucide-react";
 import SkinPicker from "../components/SkinPicker.jsx";
 import LookPicker from "../components/LookPicker.jsx";
 import DiscPreview from "../components/DiscPreview.jsx";
-import { SKIN_IDS, formationInfo, unlockedSkins } from "../engine/index.js";
+import { SKINS, SKIN_IDS, formationInfo, unlockedSkins } from "../engine/index.js";
 import { ACHIEVEMENTS, BALLS, CELEBRATIONS, achievementDone, itemUnlocked } from "../progress.js";
 import { loadStats, playStyle } from "../stats.js";
+import { useLadenBesitz } from "../../../utils/ladenBesitz.js";
 
 const TABS = [["profil", "Profil"], ["designs", "Designs"], ["erfolge", "Erfolge"]];
 
@@ -40,6 +41,7 @@ export default function ProfileDialog({ onClose, prefs, updatePrefs }) {
   const [stats] = useState(loadStats);
   const [tab, setTab] = useState("profil");
   const [showSecond, setShowSecond] = useState(prefs.mode === "hotseat");
+  const besitz = useLadenBesitz("flick-soccer"); // gekaufte Scheiben aus dem Laden
   const style = playStyle(stats);
 
   useEffect(() => {
@@ -109,7 +111,7 @@ export default function ProfileDialog({ onClose, prefs, updatePrefs }) {
                 {STAT_ROWS.map(([key, label]) => <Stat key={key} label={label} value={stats[key]} />)}
               </dl>
               <p className="fk-faint text-[12.5px] mt-3">
-                Gezählt wird nur in diesem Browser. Spiele zu zweit an einem Gerät zählen nur als Partie.
+                Gezählt wird in diesem Browser und, wenn du angemeldet bist, an deinem Konto. Spiele zu zweit an einem Gerät zählen nur als Partie.
               </p>
             </section>
           </div>
@@ -120,15 +122,15 @@ export default function ProfileDialog({ onClose, prefs, updatePrefs }) {
             <section className="px-5 py-4">
               <div className="flex items-baseline justify-between gap-3 mb-3">
                 <h3 className="fk-section-title">Scheibe</h3>
-                <span className="fk-faint text-[13px]">{unlockedSkins(stats).length} von {SKIN_IDS.length} frei</span>
+                <span className="fk-faint text-[13px]">{unlockedSkins(stats).length} von {SKIN_IDS.filter((id) => !SKINS[id].laden).length} frei</span>
               </div>
-              <SkinPicker value={prefs.skin} onChange={(skin) => updatePrefs({ skin })} team={0} stats={stats} />
+              <SkinPicker value={prefs.skin} onChange={(skin) => updatePrefs({ skin })} team={0} stats={stats} besitz={besitz} />
               <button type="button" className="fk-faint text-[13px] underline underline-offset-2 mt-3" onClick={() => setShowSecond((v) => !v)}>
                 {showSecond ? "Scheibe für Blau ausblenden" : "Scheibe für Blau beim Spiel zu zweit wählen"}
               </button>
               {showSecond && (
                 <div className="mt-3">
-                  <SkinPicker value={prefs.skin2} onChange={(skin2) => updatePrefs({ skin2 })} team={1} stats={stats} />
+                  <SkinPicker value={prefs.skin2} onChange={(skin2) => updatePrefs({ skin2 })} team={1} stats={stats} besitz={besitz} />
                 </div>
               )}
             </section>

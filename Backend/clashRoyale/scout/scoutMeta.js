@@ -210,7 +210,7 @@ function createMetaCrawler({ fetchTopPlayers, fetchBattles, store, players = 300
       let sampled = 0;
       let failures = 0;
       for (const [i, p] of top.entries()) {
-        const battles = await fetchBattles(p.tag);
+        const battles = await fetchBattles(p.tag, p);
         if (battles) {
           acc.add(battles);
           crown.add(battles);

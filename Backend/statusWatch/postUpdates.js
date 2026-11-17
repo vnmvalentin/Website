@@ -33,15 +33,43 @@ function isEntry(e) {
   return e && typeof e.version === "string" && e.version && typeof e.date === "string" && Array.isArray(e.sections);
 }
 
-async function main() {
-  const url = process.env.DISCORD_UPDATES_WEBHOOK_URL;
-  if (!url) {
-    console.log("[updates] DISCORD_UPDATES_WEBHOOK_URL fehlt in der .env — nichts gepostet.");
-    return;
+/**
+ * Mitteilung „Neue Updates“ an alle Geräte, die das Thema abonniert haben (push/, Website als App). Unabhängig vom
+ * Discord-Webhook; ein Fehler hier hält den Discord-Post nicht auf.
+ */
+async function meldePush(entries) {
+  let store;
+  try {
+    const { createPushStore } = require("../push/pushStore");
+    const { createPushVersand } = require("../push/pushVersand");
+    const { meldeNeueVersion } = require("../push/ausloeser");
+    // Derselbe Datenordner wie der Rest dieses Skripts (Tests leiten ihn über STATUS_DATA_DIR um)
+    store = createPushStore({ datei: process.env.PUSH_DB || path.join(DATA_DIR, "push.db") });
+    const versand = createPushVersand({ store });
+    const r = await meldeNeueVersion({ entries, store, melde: (n) => versand.sende(n) });
+    if (r) console.log(`[updates] Mitteilung an ${r.ok} Geräte (${r.weg} abgemeldet, ${r.fehler} Fehler)`);
+  } catch (e) {
+    console.error(`[updates] Mitteilung nicht verschickt: ${e.message}`);
+  } finally {
+    store?.close();
   }
-  const siteUrl = (process.env.FRONTEND_URL || "").replace(/\/+$/, "");
-  if (!siteUrl) throw new Error("FRONTEND_URL fehlt — ohne sie gäbe es keinen Link zur Updates-Seite.");
+}
 
+/** Die neuesten Versionen für die Glocke im Kopf der Website (glocke/glockeRoutes.js) — nur Version und Datum */
+function merkeFuerGlocke(entries) {
+  let store;
+  try {
+    const { createGlockeStore } = require("../glocke/glockeStore");
+    store = createGlockeStore({ datei: process.env.GLOCKE_DB || path.join(DATA_DIR, "glocke.db") });
+    store.setzeKv("updates", entries.slice(0, 5).map(({ version, date }) => ({ version, date })));
+  } catch (e) {
+    console.error(`[updates] Glocke nicht aufgefrischt: ${e.message}`);
+  } finally {
+    store?.close();
+  }
+}
+
+async function main() {
   let input;
   try {
     input = JSON.parse(await readStdin());
@@ -50,6 +78,17 @@ async function main() {
   }
   const entries = Array.isArray(input && input.entries) ? input.entries.filter(isEntry) : [];
   if (!entries.length) throw new Error("Keine Update-Einträge in der Eingabe.");
+
+  merkeFuerGlocke(entries);
+  await meldePush(entries);
+
+  const url = process.env.DISCORD_UPDATES_WEBHOOK_URL;
+  if (!url) {
+    console.log("[updates] DISCORD_UPDATES_WEBHOOK_URL fehlt in der .env — nichts gepostet.");
+    return;
+  }
+  const siteUrl = (process.env.FRONTEND_URL || "").replace(/\/+$/, "");
+  if (!siteUrl) throw new Error("FRONTEND_URL fehlt — ohne sie gäbe es keinen Link zur Updates-Seite.");
 
   fs.mkdirSync(DATA_DIR, { recursive: true });
   const state = readJson(STATE_FILE, null);

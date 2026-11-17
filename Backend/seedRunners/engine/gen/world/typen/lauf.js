@@ -1,4 +1,5 @@
-// Welttyp „Lauflinie“ (Prototyp, 14.11.2026) — Strecken mit vollem Schwung statt einzelner Züge aus dem Stand.
+// Welttyp „Lauflinie“ (Prototyp 14.11.2026, seit Generator-Version 5 in den Rennen) — Strecken mit vollem Schwung statt
+// einzelner Züge aus dem Stand.
 //
 // Anlass: Audit des Pfad-Generators (61 % schlichte Sprünge, Bauart „Plattform, Lücke, Plattform“; Rückmeldung: „eintönig …
 // jedes Level sollte wie ein eigenes, selbst erstelltes krasses Level sein“). Hier ist die Einheit die STRECKE
@@ -11,7 +12,8 @@
 //   2. jede Strecke mit allen Zitter-Sätzen prüfen, ausbauen (Boden, Decke, Stacheln), erneut prüfen
 //   3. Kettenlauf: alle Strecken am Stück in EINER Welt (der strengste Beweis, wie beim Pfad)
 //
-// Nur in der Werkbank wählbar (registry.js ZUFALLS_TYPEN nennt ihn nicht): Lobby und Tagesrennen bauen weiter mit Pfad.
+// registry.js ZUFALLS_TYPEN nennt ihn nicht: Gewählt wird er über die Generator-Version (gen/index.js weltParams, ab gv 5:
+// Lobby-Runden, Vorrat, Tagesrennen ab seinem Stichtag) und in der Werkbank.
 
 import { createRng } from '../../../sim/rng.js';
 import { LIMITS } from '../../../level/limits.js';
@@ -19,6 +21,7 @@ import { neuerBau, baueKette, baueKamin, baueSturz, pruefeStrecke, KETTEN_ARTEN 
 import { baueAus, entschaerfe } from '../lauf/ausbau.js';
 import { ausschnitt, spiele, standVon } from '../lauf/spiel.js';
 import { GEFAHRENFREI } from '../gemeinsam/plattform.js';
+import { LAUF_AUTOR, LAUF_FORMEN, laufIdee } from '../lauf/namen.js';
 
 /** Strecken je Level-Länge */
 const STRECKEN = Object.freeze({ short: 5, medium: 8, long: 12 });
@@ -388,9 +391,10 @@ export default {
       notizen: {
         form,
         wenden: strecken.filter((s) => s.wende).length,
-        // (die Werkbank zeigt Leitidee und Autor an — hier steht dort die Abfolge der Strecken)
-        thema: 'Prototyp',
-        leitidee: { id: 'lauflinie', name: 'Lauflinie', satz: strecken.map((s) => s.name).join(' → ') },
+        // Titel wie bei Pfad-Leveln „Leitidee · Autor“ (ui/levelRef.js): die Großform und „Lauflinie“; die Werkbank zeigt
+        // im Satz die Abfolge der Strecken
+        thema: LAUF_AUTOR,
+        leitidee: { id: laufIdee(form), name: LAUF_FORMEN[form] || form, satz: strecken.map((s) => s.name).join(' → ') },
         strecken: strecken.map((s) => s.name),
         arten,
         zugArten,

@@ -40,10 +40,10 @@ import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeom
 import { sparkBurst, ringPulse } from '../../ui/juice';
 import { playSound } from '../../ui/sound';
 import { avatarUrl } from '../../components/avatars';
-import elixirIcon from '../../../../assets/clashRoyale/ui/elixir_1.png';
+import elixirIcon from '../../../../assets/clashRoyale/ui/elixir_1.webp';
 import checkIcon from '../../../../assets/clashRoyale/ui/check.webp';
-import redCrownImg from '../../../../assets/clashRoyale/ui/red_crown_1.png';
-import blueCrownImg from '../../../../assets/clashRoyale/ui/blue_crown_1.png';
+import redCrownImg from '../../../../assets/clashRoyale/ui/red_crown_1.webp';
+import blueCrownImg from '../../../../assets/clashRoyale/ui/blue_crown_1.webp';
 
 // Wimpel: Kronenbild aus dem Spiel passend zur Farbe (Rot/Blau wie die Seiten in der Arena)
 const crownFor = (color) => (color === '#d93a3a' ? redCrownImg : blueCrownImg);

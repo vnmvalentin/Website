@@ -6,24 +6,27 @@ const { rollGroesse } = require('./groesse');
 const { rollGewicht } = require('./gewicht');
 const { rollPP } = require('./pp');
 const { rollAussehen } = require('./aussehen');
+const { botText } = require('../botText');
 
 async function handleAllStats(interaction) {
     const user = interaction.user;
     const displayName = interaction.guild?.members.cache.get(user.id)?.displayName || user.displayName || user.username;
+    const t = botText(interaction).fun;
+    const label = t.statLabels;
 
     const rows = [
-        ['🧠', 'IQ', `${rollIQ()}`],
-        ['📏', 'Größe', `${rollGroesse()}cm`],
-        ['⚖️', 'Gewicht', `${rollGewicht()}kg`],
-        ['📐', 'PP', `${rollPP()}cm`],
-        ['👀', 'Aussehen', `${rollAussehen()}/10`],
+        ['🧠', label.iq, `${rollIQ()}`],
+        ['📏', label.height, `${rollGroesse()}cm`],
+        ['⚖️', label.weight, `${rollGewicht()}kg`],
+        ['📐', label.pp, `${rollPP()}cm`],
+        ['👀', label.looks, `${rollAussehen()}/10`],
     ];
 
-    const labelWidth = Math.max(...rows.map(([, label]) => label.length));
-    const lines = rows.map(([emoji, label, value]) => `${emoji} \`${label.padEnd(labelWidth, ' ')}\`  **${value}**`);
+    const labelWidth = Math.max(...rows.map(([, l]) => l.length));
+    const lines = rows.map(([emoji, l, value]) => `${emoji} \`${l.padEnd(labelWidth, ' ')}\`  **${value}**`);
 
     await interaction.reply({
-        content: `📊 **Alle Stats von ${displayName}**\n\n${lines.join('\n')}`,
+        content: `${t.allStatsTitle(displayName)}\n\n${lines.join('\n')}`,
     });
 }
 

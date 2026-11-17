@@ -10,6 +10,7 @@ import ProfileDialog from "./ProfileDialog.jsx";
 import { ShellContext } from "./shellContext.js";
 import { isMuted, setMuted } from "../sound.js";
 import { loadPrefs, savePrefs } from "../prefs.js";
+import { flickKonto } from "../konto.js";
 import "./theme.css";
 import { useFontLink } from "../../../components/shell/useFontLink";
 import BackToSite from "../../../components/shell/BackToSite";
@@ -25,6 +26,9 @@ export default function FlickShell() {
 
   // Schriften einmal laden (ein @import landet im Build mitten in der CSS-Datei, wo Browser ihn ignorieren)
   useFontLink(FONT_HREF);
+
+  // Fortschritt am Konto; kam ein Stand vom Konto, die Einstellungen neu prüfen (Designs können jetzt frei sein)
+  flickKonto.useAnbindung(() => setPrefs(loadPrefs()));
 
   const updatePrefs = useCallback((patch) => {
     setPrefs((p) => {

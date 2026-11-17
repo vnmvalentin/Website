@@ -21,6 +21,8 @@ const KNOWN_PATHS = [
   '/worldflip/spiel',
   '/discord-bot/privacy', '/discord-bot/terms',
   '/tutorial/ytm-bot',
+  // Streamer-Werkzeuge: Galerie und Produktseiten (Spur C), sonst fielen sie zusammen in „/tools/*“
+  '/tools/vorlagen', '/tools/win-tracker', '/tools/win-challenge', '/tools/twitch-overlays',
 ];
 const KNOWN = new Map(KNOWN_PATHS.map((p) => [p.toLowerCase(), p]));
 

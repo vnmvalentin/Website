@@ -35,6 +35,10 @@ export const SKINS = Object.freeze({
   wappen: { name: 'Wappen', motif: true, need: { stat: 'tourStars', count: 30, label: 'Sammle 30 Sterne in der Tour' } },
   schaedel: { name: 'Schädel', motif: true, need: { stat: 'winsProfi', count: 1, label: 'Besiege den Computer auf Profi' } },
   kristall: { name: 'Kristall', motif: true, need: { stat: 'tourStars', count: 50, label: 'Sammle 50 Sterne in der Tour' } },
+
+  // Aus dem Laden (Backend/laden/katalog.js): frei, sobald das Konto den Artikel `laden` besitzt — nie über Erfolge
+  pizza: { name: 'Pizza', motif: true, laden: 'fs-scheibe-pizza' },
+  sushi: { name: 'Sushi', motif: true, laden: 'fs-scheibe-sushi' },
 });
 
 export const SKIN_IDS = Object.freeze(Object.keys(SKINS));
@@ -44,9 +48,14 @@ export function isSkin(id) {
   return typeof id === 'string' && Object.prototype.hasOwnProperty.call(SKINS, id);
 }
 
-export function isUnlocked(id, stats) {
+/**
+ * besitz: Set der gekauften Laden-Artikel (utils/ladenBesitz.js). Ohne besitz sind Laden-Designs nie frei — so
+ * meldet die Statistik sie auch nie als „neu freigeschaltet“.
+ */
+export function isUnlocked(id, stats, besitz = null) {
   const s = SKINS[id];
   if (!s) return false;
+  if (s.laden) return !!besitz?.has?.(s.laden);
   if (!s.need) return true;
   return (Number(stats?.[s.need.stat]) || 0) >= s.need.count;
 }

@@ -18,6 +18,8 @@
 //   · Blobs dürfen über den Pfeiler auf die andere Seite und stoßen sich gegenseitig an
 //   · Berührungslimit abschaltbar
 //   · Powerups, die über dem Pfeiler schweben
+//   · Partyregeln, frei kombinierbar: Doppelball, Wind, Riesenball, Mini-Netz
+//   · „König des Strandes“: kurze Partien, der Sieger bleibt, die Warteschlange rückt nach
 
 // ── Weltmaße (Originalkoordinaten, y zeigt nach unten) ──────────────────────
 const WORLD_H = 600;
@@ -120,6 +122,33 @@ const EFFECT_FRAMES = Math.round(10 * TICK_HZ);   // Wirkdauer eines Powerups
 const POWERUP_SPAWN_FRAMES = Math.round(10 * TICK_HZ);
 const POWERUP_LIFETIME = Math.round(18 * TICK_HZ);
 
+// ── Partyregeln (Ausbauplan „blobby-party“) ─────────────────────────────────
+// Frei kombinierbar, nur auf dem klassischen Feld — Ego 3D rechnet seine Physik im Browser
+// des Hosts und kennt diese Regeln nicht. Ohne Rangliste: Blobby bleibt ein Spiel unter Freunden.
+const PARTY_RULES = ["doppelball", "wind", "riesenball", "mininetz"];
+const GIANT_BALL_SCALE = 1.6;      // Riesenball: Radius ×1,6 …
+const GIANT_BALL_GRAVITY = 0.72;   // … und er schwebt (Schwerkraft ×0,72), sonst wäre er kaum zu spielen
+const MINI_NET_DROP = 110;         // Mini-Netz: Kante so viel tiefer (Pfeiler 106 statt 216 px hoch)
+// Wind: seitlicher Schub auf den Ball in px/Frame², je Aufschlag neu ausgewürfelt (Richtung und
+// Stärke). 0,06 ist rund ein Fünftel der Ballschwerkraft — deutlich spürbar, aber spielbar.
+const WIND_MIN = 0.03;
+const WIND_MAX = 0.08;
+const WIND_MAX_VX = 16;            // sonst schaukelt der Wind einen langen Flug unbegrenzt auf
+// König des Strandes: kurze Partien bis 7 (ohne zwei Punkte Abstand), danach eine Pause zum
+// Lesen des Ergebnisses, dann rücken die Nächsten aus der Warteschlange gegen den Sieger nach.
+const KING_SCORE = 7;
+const KING_WIN_BY = 1;
+const KING_PAUSE_MS = 4000;
+
+// Accessoire des Blobs (Laden: Sonnenbrille, Strohhut …) als kleine Zahl. Was sie bedeutet, weiß nur der Browser
+// (Frontend/src/pages/Blobby/zier.js); hier wird sie nur geprüft, je Verbindung gemerkt und weitergereicht.
+const cleanZier = (z) => (Number.isInteger(z) && z >= 0 && z <= 15 ? z : 0);
+const zierVon = (game, socketId) => game.zier?.get(socketId) || 0;
+
+const hasRule = (settings, rule) => (settings.party || []).includes(rule);
+const scoreToWin = (settings) => (settings.koenig ? KING_SCORE : SCORE_TO_WIN);
+const winBy = (settings) => (settings.koenig ? KING_WIN_BY : WIN_BY);
+
 // ── Raumverwaltung ──────────────────────────────────────────────────────────
 const CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // ohne I/O/0/1
 const RECONNECT_GRACE_MS = 2 * 60 * 1000;
@@ -153,18 +182,24 @@ const otherTeam = (team) => (team === 1 ? 2 : 1);
 //                    Browser des Hosts; dieser Prozess verwaltet nur Raum, Plätze und
 //                    Punktestand und vermittelt die direkte Verbindung (bb:*-Ereignisse).
 function defaultSettings() {
-  return { mode: "1v1", crossNet: true, maxTouches: 0, powerups: false, field: "classic" };
+  return { mode: "1v1", crossNet: true, maxTouches: 0, powerups: false, field: "classic", party: [], koenig: false };
 }
 
 function sanitizeSettings(raw = {}, prev = defaultSettings()) {
   const mode = raw.mode === "2v2" || raw.mode === "1v1" ? raw.mode : prev.mode;
   const field = raw.field === "beach" || raw.field === "classic" ? raw.field : (prev.field || "classic");
+  // Partyregeln und König nur auf dem klassischen Feld (Ego 3D rechnet beim Host)
+  const party = field === "beach" ? [] : PARTY_RULES.filter((r) => (Array.isArray(raw.party) ? raw.party : prev.party || []).includes(r));
+  const koenig = field === "beach" ? false : typeof raw.koenig === "boolean" ? raw.koenig : !!prev.koenig;
   return {
     mode,
     crossNet: typeof raw.crossNet === "boolean" ? raw.crossNet : prev.crossNet,
-    maxTouches: Number(raw.maxTouches) === 3 ? 3 : 0,   // 0 = unbegrenzt
+    // Mit zwei Bällen lässt sich nicht sinnvoll mitzählen, wer wie oft dran war
+    maxTouches: party.includes("doppelball") ? 0 : Number(raw.maxTouches) === 3 ? 3 : 0,   // 0 = unbegrenzt
     powerups: typeof raw.powerups === "boolean" ? raw.powerups : prev.powerups,
     field,
+    party,
+    koenig,
   };
 }
 const isBeach = (game) => game.settings.field === "beach";
@@ -204,7 +239,7 @@ const hasEffect = (w, type, pred) =>
   w.effects.some((e) => POWERUP_TYPES[e.t] === type && pred(e));
 
 function netTopY(w) {
-  let top = NET_BASE_TOP;
+  let top = w.netBase ?? NET_BASE_TOP;
   if (hasEffect(w, "netHigh", () => true)) top -= POWERUP_NET_SHIFT;
   if (hasEffect(w, "netLow", () => true)) top += POWERUP_NET_SHIFT;
   return top;
@@ -274,6 +309,14 @@ function newWorld(settings, serveTeam = 1) {
     powerup: null,           // { t, x, y, life }
     held: {},                // Platz -> eingesammelter, noch nicht gezündeter Typ
     nextPowerupIn: POWERUP_SPAWN_FRAMES,
+    // Partyregeln: Ballgröße und -schwerkraft, Pfeilerkante, Wind, zweiter Ball
+    ballR: hasRule(settings, "riesenball") ? BALL_RADIUS * GIANT_BALL_SCALE : BALL_RADIUS,
+    ballG: hasRule(settings, "riesenball") ? BALL_GRAVITATION * GIANT_BALL_GRAVITY : BALL_GRAVITATION,
+    netBase: NET_BASE_TOP + (hasRule(settings, "mininetz") ? MINI_NET_DROP : 0),
+    wind: 0,
+    ball2: null,             // Doppelball: zweiter Ball mit eigener Flugstrecke und Anlage
+    ball2Prev: { x: 0, y: STANDARD_BALL_HEIGHT },
+    touching2: {},
   };
   for (const slot of [1, 2, 3, 4]) {
     w.blobs[slot] = { x: slotStartX(slot, settings), y: groundPlaneFor(1), vy: 0, grounded: true, jumpWasDown: false };
@@ -281,7 +324,22 @@ function newWorld(settings, serveTeam = 1) {
     w.touching[slot] = false;
   }
   w.ball.x = serveBallX(serveTeam, settings);
+  servePartyBalls(w, settings, serveTeam);
   return w;
+}
+
+// Doppelball: der zweite Ball hängt über dem Aufschlagplatz der ANDEREN Seite — beide Teams
+// schlagen gleichzeitig auf. Wind: je Aufschlag neu (Richtung und Stärke).
+function servePartyBalls(w, settings, serveTeam) {
+  if (hasRule(settings, "doppelball")) {
+    w.ball2 = { x: serveBallX(otherTeam(serveTeam), settings), y: STANDARD_BALL_HEIGHT, vx: 0, vy: 0 };
+    w.ball2Prev = { x: w.ball2.x, y: w.ball2.y };
+    w.touching2 = {};
+  }
+  if (hasRule(settings, "wind")) {
+    const strength = WIND_MIN + Math.random() * (WIND_MAX - WIND_MIN);
+    w.wind = Math.random() < 0.5 ? -strength : strength;
+  }
 }
 
 // Blobs zurück auf ihre Startplätze, Ball hängt über dem Aufschläger
@@ -299,11 +357,13 @@ function resetForServe(w, settings, serveTeam) {
   w.lastHit = 0;
   w.lastTeam = 0;
   w.lastTouchFrame = {};
+  servePartyBalls(w, settings, serveTeam);
 }
 
-function hasWon(w, team) {
+function hasWon(game, team) {
+  const w = game.world;
   const s = w.score[team], o = w.score[otherTeam(team)];
-  return s >= SCORE_TO_WIN && s - o >= WIN_BY;
+  return s >= scoreToWin(game.settings) && s - o >= winBy(game.settings);
 }
 
 // ── Physik ──────────────────────────────────────────────────────────────────
@@ -436,7 +496,7 @@ function endRally(game, scorer, reason) {
   w.pointReason = reason;
   w.phase = "point";
   w.phaseFrames = POINT_FRAMES;
-  if (hasWon(w, scorer)) game.pendingFinish = scorer;
+  if (hasWon(game, scorer)) game.pendingFinish = scorer;
 }
 
 // ── Der Blob als EIN Körper ─────────────────────────────────────────────────
@@ -513,22 +573,24 @@ function sweepBlob(px, py, vx, vy, s, pad) {
 // Ball gegen einen Blob. Der Stoß gilt nur beim EINTRITT, sonst würde der Ball am Blob
 // kleben und jeden Frame neu beschleunigt. Liegt er trotzdem in der Hülle, wird er in
 // jedem Fall herausgeschoben — sichtbar drinstecken darf er nie.
-function ballBlobCollision(game, slot) {
+// bs: der Ball mit seiner Flugstrecke und seiner Anlage je Platz (Doppelball hat zwei davon)
+function ballBlobCollision(game, slot, bs) {
   const w = game.world;
-  const ball = w.ball;
+  const ball = bs.ball;
+  const touching = bs.touching;
   const shape = blobShape(w.blobs[slot], blobScale(w, slot));
-  const p0 = w.ballPrev;
+  const p0 = bs.prev;
 
-  const hit = sweepBlob(p0.x, p0.y, ball.x - p0.x, ball.y - p0.y, shape, BALL_RADIUS);
-  const here = blobDistance(ball.x, ball.y, shape, BALL_RADIUS);
+  const hit = sweepBlob(p0.x, p0.y, ball.x - p0.x, ball.y - p0.y, shape, w.ballR);
+  const here = blobDistance(ball.x, ball.y, shape, w.ballR);
   // Entscheidend ist, ob der Ball schon zu Frame-BEGINN anlag — nicht, wo er am Ende liegt.
   // Ein steigender Blob (15 px/Frame) ist schneller als der weggestoßene Ball (13,1 px/Frame)
   // und holt ihn im nächsten Frame wieder ein; am Frame-Ende ist der Ball dann längst wieder
   // draußen. Nur an `here` geprüft sah das jedes Mal wie ein neuer Treffer aus: ein einziger
   // Sprungschlag zählte als vier Berührungen, in der Ecke als acht, beim Nachlaufen als
   // siebzehn. Mit `maxTouches: 3` verlor damit der erste Schlag eines Ballwechsels den Punkt.
-  const start = blobDistance(p0.x, p0.y, shape, BALL_RADIUS);
-  const blocked = w.touching[slot] && (start.d <= 0.01 || here.d <= 0.01);
+  const start = blobDistance(p0.x, p0.y, shape, w.ballR);
+  const blocked = touching[slot] && (start.d <= 0.01 || here.d <= 0.01);
 
   if (hit && !blocked) {
     // Berührpunkt auf dem Flugweg, nicht die (schon durchflogene) Endposition
@@ -555,32 +617,32 @@ function ballBlobCollision(game, slot) {
     registerTouch(game, slot);
     // Der Kontakt bleibt gesetzt. Ob der Ball wirklich entkommen ist, entscheidet der
     // NÄCHSTE Frame anhand des Abstands — nicht die Annahme, ein Stoß reiche dafür immer.
-    w.touching[slot] = true;
+    touching[slot] = true;
     return;
   }
 
   if (here.d < 0) {                       // getragen statt gestoßen
     ball.x -= here.d * here.nx;
     ball.y -= here.d * here.ny;
-    w.touching[slot] = true;
+    touching[slot] = true;
     return;
   }
   // Anliegen heißt anliegen, nicht "hat mal gestreift": sonst bliebe die Sperre gesetzt,
   // während der Ball längst frei ist, und der nächste Treffer würde verschluckt. Geprüft
   // werden beide Enden der Flugstrecke — sonst reißt der Kontakt genau in dem Frame ab, in
   // dem der Blob den Ball vor sich herschiebt, und der Stoß zählt sofort wieder neu.
-  w.touching[slot] = start.d <= 0.01 || here.d <= 0.01;
+  touching[slot] = start.d <= 0.01 || here.d <= 0.01;
 }
 
-function ballNetCollision(w) {
-  const ball = w.ball;
+function ballNetCollision(w, ball) {
+  const R = w.ballR;
   const netTop = netTopY(w);
   const dx = ball.x - w.netX;
   const dy = ball.y - netTop;
   const d = Math.hypot(dx, dy);
 
   // Pfeilerkante (Kugel obendrauf) — hier entscheiden sich die Glücksbälle
-  if (d < BALL_RADIUS + NET_RADIUS) {
+  if (d < R + NET_RADIUS) {
     const nx = d < 1e-6 ? 0 : dx / d;
     const ny = d < 1e-6 ? -1 : dy / d;
     const dot = ball.vx * nx + ball.vy * ny;
@@ -588,18 +650,18 @@ function ballNetCollision(w) {
       ball.vx = (ball.vx - 2 * dot * nx) * NET_DAMPING;
       ball.vy = (ball.vy - 2 * dot * ny) * NET_DAMPING;
     }
-    ball.x = w.netX + nx * (BALL_RADIUS + NET_RADIUS);
-    ball.y = netTop + ny * (BALL_RADIUS + NET_RADIUS);
+    ball.x = w.netX + nx * (R + NET_RADIUS);
+    ball.y = netTop + ny * (R + NET_RADIUS);
     return;
   }
 
   // Pfeilerkörper darunter — senkrechte Wand
   if (ball.y > netTop) {
-    if (ball.x < w.netX && ball.x + BALL_RADIUS > w.netX - NET_RADIUS) {
-      ball.x = w.netX - NET_RADIUS - BALL_RADIUS;
+    if (ball.x < w.netX && ball.x + R > w.netX - NET_RADIUS) {
+      ball.x = w.netX - NET_RADIUS - R;
       if (ball.vx > 0) ball.vx = -ball.vx;
-    } else if (ball.x >= w.netX && ball.x - BALL_RADIUS < w.netX + NET_RADIUS) {
-      ball.x = w.netX + NET_RADIUS + BALL_RADIUS;
+    } else if (ball.x >= w.netX && ball.x - R < w.netX + NET_RADIUS) {
+      ball.x = w.netX + NET_RADIUS + R;
       if (ball.vx < 0) ball.vx = -ball.vx;
     }
   }
@@ -726,32 +788,39 @@ function stepWorld(game) {
     return;
   }
 
-  const ball = w.ball;
-  w.ballPrev.x = ball.x;   // Startpunkt der Flugstrecke für die Blob-Kollision
-  w.ballPrev.y = ball.y;
-  ball.vy += BALL_GRAVITATION;
-  ball.x += ball.vx;
-  ball.y += ball.vy;
+  const balls = [{ ball: w.ball, prev: w.ballPrev, touching: w.touching }];
+  if (w.ball2) balls.push({ ball: w.ball2, prev: w.ball2Prev, touching: w.touching2 });
+  const R = w.ballR;
+  for (const bs of balls) {
+    const ball = bs.ball;
+    bs.prev.x = ball.x;   // Startpunkt der Flugstrecke für die Blob-Kollision
+    bs.prev.y = ball.y;
+    ball.vy += w.ballG;
+    if (w.wind) ball.vx = Math.max(-WIND_MAX_VX, Math.min(WIND_MAX_VX, ball.vx + w.wind));
+    ball.x += ball.vx;
+    ball.y += ball.vy;
 
-  for (const slot of slots) ballBlobCollision(game, slot);
-  if (w.phase !== "rally") return;   // Berührungslimit hat den Ballwechsel beendet
-  ballNetCollision(w);
+    for (const slot of slots) ballBlobCollision(game, slot, bs);
+    if (w.phase !== "rally") return;   // Berührungslimit hat den Ballwechsel beendet
+    ballNetCollision(w, ball);
 
-  // Seitenwände
-  if (ball.x - BALL_RADIUS < 0 && ball.vx < 0) {
-    ball.vx = -ball.vx;
-    ball.x = BALL_RADIUS;
-  } else if (ball.x + BALL_RADIUS > w.width && ball.vx > 0) {
-    ball.vx = -ball.vx;
-    ball.x = w.width - BALL_RADIUS;
-  }
+    // Seitenwände
+    if (ball.x - R < 0 && ball.vx < 0) {
+      ball.vx = -ball.vx;
+      ball.x = R;
+    } else if (ball.x + R > w.width && ball.vx > 0) {
+      ball.vx = -ball.vx;
+      ball.x = w.width - R;
+    }
 
-  // Boden → Punkt für die andere Seite
-  if (ball.y + BALL_RADIUS >= GROUND_Y) {
-    ball.y = GROUND_Y - BALL_RADIUS;
-    ball.vx = 0;
-    ball.vy = 0;
-    endRally(game, ball.x < w.netX ? 2 : 1, "ground");
+    // Boden → Punkt für die andere Seite (Doppelball: der erste Ball im Sand entscheidet)
+    if (ball.y + R >= GROUND_Y) {
+      ball.y = GROUND_Y - R;
+      ball.vx = 0;
+      ball.vy = 0;
+      endRally(game, ball.x < w.netX ? 2 : 1, "ground");
+      return;
+    }
   }
 }
 
@@ -765,7 +834,7 @@ function sanitize(game) {
     // rtt/jit werden vom Client gemeldet (bv:rtt) und nur weiterverteilt — beide Seiten
     // sollen die Verbindungsqualität des jeweils anderen sehen.
     players[slot] = p
-      ? { name: p.name, connected: p.connected, rtt: p.rtt ?? null, jit: p.jit ?? null, conn: p.conn ?? 0 }
+      ? { name: p.name, connected: p.connected, rtt: p.rtt ?? null, jit: p.jit ?? null, conn: p.conn ?? 0, zier: p.zier || 0 }
       : null;
   }
   return {
@@ -779,7 +848,13 @@ function sanitize(game) {
     winner: game.winner,
     rematch: { ...game.rematch },
     spectatorCount: game.spectators.size,
-    scoreToWin: SCORE_TO_WIN,
+    scoreToWin: scoreToWin(game.settings),
+    winBy: winBy(game.settings),
+    // König des Strandes: wer gerade König ist (Team, Namen, Siege in Folge), die Warteschlange
+    // (Zuschauer in Beitrittsreihenfolge) und wie lange die Pause vor dem Wechsel dauert
+    king: game.king ? { team: game.king.team, names: game.king.names, streak: game.king.streak } : null,
+    queue: game.settings.koenig ? [...game.spectators.values()] : [],
+    kingPauseMs: KING_PAUSE_MS,
     // Beach: Jede neue Partie (Start, Revanche, Zurück in die Lobby) bekommt eine neue
     // Nummer — daran erkennt der Host, dass er die Welt neu aufsetzen muss.
     matchId: game.matchId,
@@ -828,6 +903,10 @@ function snapshot(game) {
     lh: w.lastHit,
     ef: w.effects.map((e) => [e.t, e.team, e.left]),
     pu: w.powerup ? [round2(w.powerup.x), round2(w.powerup.y), w.powerup.t] : null,
+    // Partyregeln: zweiter Ball wie b, Wind in px/Frame², Ballradius (nur wenn nicht Standard)
+    b2: w.ball2 ? [round2(w.ball2.x), round2(w.ball2.y), round2(w.ball2.vx), round2(w.ball2.vy)] : undefined,
+    wd: w.wind ? Math.round(w.wind * 1000) / 1000 : undefined,
+    br: w.ballR !== BALL_RADIUS ? w.ballR : undefined,
     // Selbstauskunft des Servers für die Diagnose (?net=1 im Client):
     // sh = tatsächlich gerechnete Frames der letzten Sekunde (soll 75)
     // sb = längste Event-Loop-Blockade der letzten Sekunde in ms
@@ -963,8 +1042,10 @@ function runLoop() {
       game.winner = game.pendingFinish;
       game.pendingFinish = 0;
       game.updatedAt = now;
+      if (game.settings.koenig) crownKing(game);
       loopIo.to(game.code).emit("bv:tick", snapshot(game));
       broadcast(loopIo, game);
+      if (game.settings.koenig) scheduleKingRotation(game);
       continue;
     }
 
@@ -1001,10 +1082,13 @@ function newGame(code, settings) {
     hostSlot: 1,
     players: { 1: null, 2: null, 3: null, 4: null },
     spectators: new Map(),
+    zier: new Map(),         // socketId → Accessoire (cleanZier), auch für Zuschauer, die später nachrücken
     rematch: { 1: false, 2: false, 3: false, 4: false },
     pendingFinish: 0,
     lastSentScore: { 1: 0, 2: 0 },
     matchId: 0,
+    king: null,              // König des Strandes: { team, names, key, streak }
+    kingTimer: null,
     createdAt: Date.now(),
     updatedAt: Date.now(),
   };
@@ -1020,8 +1104,8 @@ function startIfReady(game, io) {
   ensureLoop(io);
 }
 
-function resetForRematch(game, io) {
-  game.world = newWorld(game.settings, game.winner || 1);
+function resetForRematch(game, io, serveTeam = game.winner || 1) {
+  game.world = newWorld(game.settings, serveTeam);
   game.winner = 0;
   game.rematch = { 1: false, 2: false, 3: false, 4: false };
   game.pendingFinish = 0;
@@ -1031,6 +1115,60 @@ function resetForRematch(game, io) {
   if (game.status === "playing") {
     partienGesamt += 1;
     ensureLoop(io);
+  }
+}
+
+// ── König des Strandes ──────────────────────────────────────────────────────
+// Sieger bleiben auf ihren Plätzen. Ihre Serie zählt weiter, solange dieselben Spieler gewinnen;
+// gewinnen die Herausforderer, sind sie die neuen Könige (Serie 1).
+function crownKing(game) {
+  const team = game.winner;
+  const seats = slotsFor(game.settings).filter((s) => teamOf(s) === team && game.players[s]);
+  const names = seats.map((s) => game.players[s].name);
+  const key = [...names].sort().join("|");
+  const same = game.king && game.king.team === team && game.king.key === key;
+  game.king = { team, names, key, streak: same ? game.king.streak + 1 : 1 };
+}
+
+function scheduleKingRotation(game) {
+  clearTimeout(game.kingTimer);
+  game.kingTimer = setTimeout(() => rotateKing(game, loopIo), KING_PAUSE_MS);
+}
+
+// Zuschauer auf einen freien Platz setzen (König: der Nächste aus der Warteschlange)
+function promoteSpectator(game, slot, socketId, name, io) {
+  game.spectators.delete(socketId);
+  game.players[slot] = { name, connected: true, socketId, disconnectTimer: null, conn: ++connCounter, zier: zierVon(game, socketId) };
+  socketIndex.set(socketId, { code: game.code, role: "player", slot });
+  game.world.inputs[slot] = blankInput(game.world.frame);
+  io.to(socketId).emit("bv:slot", { slot, spectator: false, reason: "koenig" });
+}
+
+// Nach der Pause: Verlierer ans Ende der Warteschlange, die Nächsten rücken nach, neue Partie
+// (die Herausforderer schlagen auf). Wartet niemand, spielen dieselben gleich noch einmal.
+function rotateKing(game, io) {
+  game.kingTimer = null;
+  if (!io || games.get(game.code) !== game || game.status !== "finished" || !game.settings.koenig) return false;
+  const winTeam = game.winner;
+  const queue = [...game.spectators.entries()];   // [socketId, Name] in Beitrittsreihenfolge
+  for (const slot of slotsFor(game.settings).filter((s) => teamOf(s) !== winTeam)) {
+    const next = queue.shift();
+    if (!next) break;
+    demoteToSpectator(game, slot, io, "koenig");   // landet hinten in der Warteschlange
+    promoteSpectator(game, slot, next[0], next[1], io);
+  }
+  resetForRematch(game, io, otherTeam(winTeam));
+  broadcast(io, game);
+  return true;
+}
+
+// Freie Plätze aus der Warteschlange füllen (König: wenn jemand mitten in der Partie geht)
+function fillFromQueue(game, io) {
+  for (const slot of slotsFor(game.settings)) {
+    if (game.players[slot]) continue;
+    const next = game.spectators.entries().next().value;
+    if (!next) return;
+    promoteSpectator(game, slot, next[0], next[1], io);
   }
 }
 
@@ -1046,13 +1184,18 @@ function resetToLobby(game) {
 
 // Ein Sitzplatz wird frei — die Partie geht zurück in den Wartezustand, damit über
 // denselben Link jemand neu einsteigen kann
-function freeSlot(game, slot) {
+function freeSlot(game, slot, io) {
   clearDisconnectTimer(game.players[slot]);
   game.players[slot] = null;
   if (game.hostSlot === slot) {
     game.hostSlot = [1, 2, 3, 4].find((s) => game.players[s]) || 1;
   }
   resetToLobby(game);
+  // König des Strandes: der Nächste aus der Warteschlange rückt sofort nach
+  if (io && game.settings.koenig) {
+    fillFromQueue(game, io);
+    startIfReady(game, io);
+  }
 }
 
 function clearDisconnectTimer(player) {
@@ -1063,7 +1206,7 @@ function clearDisconnectTimer(player) {
 }
 
 // Platz → Zuschauer (z. B. wenn der Host von 2v2 auf 1v1 wechselt)
-function demoteToSpectator(game, slot, io) {
+function demoteToSpectator(game, slot, io, reason) {
   const p = game.players[slot];
   if (!p) return;
   clearDisconnectTimer(p);
@@ -1072,7 +1215,7 @@ function demoteToSpectator(game, slot, io) {
   if (p.socketId && p.connected) {
     game.spectators.set(p.socketId, p.name);
     socketIndex.set(p.socketId, { code: game.code, role: "spectator", slot: null });
-    io.to(p.socketId).emit("bv:slot", { slot: null, spectator: true });
+    io.to(p.socketId).emit("bv:slot", { slot: null, spectator: true, reason });
   }
 }
 
@@ -1082,7 +1225,8 @@ function registerBlobbySocket(socket, io) {
     const settings = sanitizeSettings(payload.settings);
     const code = generateCode();
     const game = newGame(code, settings);
-    game.players[1] = { name, connected: true, socketId: socket.id, disconnectTimer: null, conn: ++connCounter };
+    game.zier.set(socket.id, cleanZier(payload.zier));
+    game.players[1] = { name, connected: true, socketId: socket.id, disconnectTimer: null, conn: ++connCounter, zier: zierVon(game, socket.id) };
     games.set(code, game);
     socket.join(code);
     socketIndex.set(socket.id, { code, role: "player", slot: 1 });
@@ -1100,6 +1244,7 @@ function registerBlobbySocket(socket, io) {
     }
 
     game.spectators.delete(socket.id);
+    game.zier.set(socket.id, cleanZier(payload.zier));
     const seats = slotsFor(game.settings);
 
     // Reconnect: derselbe Name hält den Sitzplatz für die Gnadenfrist
@@ -1110,6 +1255,7 @@ function registerBlobbySocket(socket, io) {
         p.connected = true;
         p.socketId = socket.id;
         p.conn = ++connCounter;
+        p.zier = zierVon(game, socket.id);
         socket.join(code);
         socketIndex.set(socket.id, { code, role: "player", slot });
         game.world.inputs[slot] = blankInput(game.world.frame);
@@ -1123,7 +1269,7 @@ function registerBlobbySocket(socket, io) {
     const slot = seats.find((s) => !game.players[s]);
 
     if (slot) {
-      game.players[slot] = { name, connected: true, socketId: socket.id, disconnectTimer: null, conn: ++connCounter };
+      game.players[slot] = { name, connected: true, socketId: socket.id, disconnectTimer: null, conn: ++connCounter, zier: zierVon(game, socket.id) };
       socket.join(code);
       socketIndex.set(socket.id, { code, role: "player", slot });
       startIfReady(game, io);
@@ -1147,6 +1293,7 @@ function registerBlobbySocket(socket, io) {
     if (!game || game.status === "playing" || entry.slot !== game.hostSlot) return;
 
     game.settings = sanitizeSettings(payload, game.settings);
+    game.king = null;
     // Beim Wechsel auf 1v1 verlieren die hinteren Plätze ihren Sitz
     for (const slot of [3, 4]) {
       if (!slotsFor(game.settings).includes(slot)) demoteToSpectator(game, slot, io);
@@ -1230,7 +1377,7 @@ function registerBlobbySocket(socket, io) {
     const entry = socketIndex.get(socket.id);
     if (!entry || entry.role !== "player") return;
     const game = games.get(entry.code);
-    if (!game || game.status !== "finished") return;
+    if (!game || game.status !== "finished" || game.settings.koenig) return;
     game.rematch[entry.slot] = true;
     if (slotsFor(game.settings).every((s) => game.rematch[s])) resetForRematch(game, io);
     broadcast(io, game);
@@ -1296,7 +1443,7 @@ function registerBlobbySocket(socket, io) {
     game.world.score = { 1: a, 2: b };
     game.lastSentScore = { 1: a, 2: b };
     const winner = Number(payload.winner);
-    if ((winner === 1 || winner === 2) && hasWon(game.world, winner)) {
+    if ((winner === 1 || winner === 2) && hasWon(game, winner)) {
       game.status = "finished";
       game.winner = winner;
     }
@@ -1318,6 +1465,7 @@ function handleLeave(socket, io, { immediate }) {
 
   if (entry.role === "spectator") {
     game.spectators.delete(socket.id);
+    game.zier?.delete(socket.id);
     broadcastOrCleanup(io, game);
     return;
   }
@@ -1326,7 +1474,7 @@ function handleLeave(socket, io, { immediate }) {
   if (!player || player.socketId !== socket.id) return; // Sitzplatz wurde schon übernommen
 
   if (immediate) {
-    freeSlot(game, entry.slot);
+    freeSlot(game, entry.slot, io);
     io.to(game.code).emit("bv:playerLeft", { name: player.name });
     broadcastOrCleanup(io, game);
     stopLoopIfIdle();
@@ -1343,7 +1491,7 @@ function handleLeave(socket, io, { immediate }) {
     if (!g) return;
     const p = g.players[entry.slot];
     if (!p || p.connected || p.socketId !== socket.id) return;
-    freeSlot(g, entry.slot);
+    freeSlot(g, entry.slot, io);
     io.to(g.code).emit("bv:playerLeft", { name: p.name });
     broadcastOrCleanup(io, g);
   }, RECONNECT_GRACE_MS);
@@ -1356,11 +1504,14 @@ setInterval(() => {
       [1, 2, 3, 4].some((s) => game.players[s]?.connected) || game.spectators.size > 0;
     if (!hasSomeone && now - game.updatedAt > STALE_AFTER_MS) {
       for (const s of [1, 2, 3, 4]) clearDisconnectTimer(game.players[s]);
+      clearTimeout(game.kingTimer);
       games.delete(code);
     }
   }
   stopLoopIfIdle();
-}, STALE_SWEEP_MS);
+  // unref: hält den Prozess nicht allein am Leben (im Betrieb tut das der HTTP-Server; Tests
+  // können so socket.js laden und trotzdem enden)
+}, STALE_SWEEP_MS).unref?.();
 
 // Kurzbericht für /healthz des eigenen Prozesses (Backend/blobbyServer.js). Dieselben
 // Zahlen, die auch im Schnappschuss als `sh`/`sb` beim Client landen — damit lässt sich von
@@ -1390,6 +1541,8 @@ function blobbyStats() {
 module.exports = {
   registerBlobbySocket,
   blobbyStats,
+  // Nur für Tests: Welt und Raumablauf ohne Netz durchspielen
+  _intern: { newGame, newWorld, stepWorld, sanitizeSettings, snapshot, sanitize, crownKing, rotateKing, freeSlot, games, socketIndex, hasWon, netTopY, PARTY_RULES, KING_SCORE, cleanZier, zierVon, promoteSpectator },
   // für Tests / den Client-Renderer: dieselben Maße, damit nichts auseinanderläuft
   BLOBBY_CONSTANTS: {
     WORLD_H, GROUND_Y, FIELD_W,

@@ -356,6 +356,15 @@ function egg(c, p) {
 }
 
 // ── Neue Gegner (Oktober 2026) ────────────────────────────────────────────
+// Irrlicht (Friedhof): schwebendes, flackerndes Seelenlicht — fliegt heran und zerplatzt
+function irrlicht(c, p) {
+  const h = Math.sin(p.t * 6) * 4 - 10, a = strike(p);
+  c.save(); c.translate(0, h); c.scale(1 + a * 0.25, 1 + a * 0.25);
+  flame(c, 0, -4, 22, 58, p.t, "#4fd6a8", "#d8fff0");
+  eyes(c, 3, -26, 4, 11, { look: 0.5 });
+  c.restore();
+}
+
 function zombie(c, p) {
   const b = p.move ? -Math.abs(Math.sin(p.t * 6)) * 3 : 0, s = step(p, 6), a = strike(p);
   const lean = 0.12;
@@ -393,14 +402,15 @@ function shieldbearer(c, p) {
 }
 
 function bat(c, p) {
+  const pal = { body: "#6a4e8e", dark: "#523a70", wing: "#4a3a66", ...p.pal };
   const flap = Math.sin(p.t * 22);
   const h = -50 + Math.sin(p.t * 5) * 5;
   c.save(); c.translate(0, h); c.scale(1.6, 1.6);
   for (const side of [-1, 1]) {
-    poly(c, [side * 8, -4, side * 36, -14 - flap * 16, side * 30, 2 - flap * 4, side * 22, -2, side * 14, 6], "#4a3a66");
+    poly(c, [side * 8, -4, side * 36, -14 - flap * 16, side * 30, 2 - flap * 4, side * 22, -2, side * 14, 6], pal.wing);
   }
-  twoTone(c, (c) => c.ellipse(0, 0, 14, 13, 0, 0, TAU), "#6a4e8e", "#523a70", 3);
-  poly(c, [-10, -8, -12, -20, -4, -11], "#6a4e8e"); poly(c, [10, -8, 12, -20, 4, -11], "#6a4e8e");
+  twoTone(c, (c) => c.ellipse(0, 0, 14, 13, 0, 0, TAU), pal.body, pal.dark, 3);
+  poly(c, [-10, -8, -12, -20, -4, -11], pal.body); poly(c, [10, -8, 12, -20, 4, -11], pal.body);
   eyes(c, 2, -2, 3.2, 9, { white: "#ffe14d", look: 0.4 });
   poly(c, [-2, 6, 0, 11, 2, 6], "#ffffff"); poly(c, [4, 6, 6, 11, 8, 6], "#ffffff");
   c.restore();
@@ -452,13 +462,14 @@ function bear(c, p) {
 }
 
 function kobold(c, p) {
+  const pal = { body: "#e0703a", dark: "#c4501f", legs: "#a8401f", horns: "#f5cf4a", ...p.pal };
   const b = bob(p, 4, 12), s = step(p, 12), a = strike(p);
-  legs(c, 0, -20, 20, 12, 7, "#a8401f", s);
+  legs(c, 0, -20, 20, 12, 7, p.pal?.dark || pal.legs, s);
   c.save(); c.translate(0, b);
-  curve(c, -12, -24, -28, -20, -32, -6, 6, "#c4501f"); // Schwanz
-  twoTone(c, (c) => c.roundRect(-13, -46, 26, 26, 9), "#e0703a", "#c4501f", -30);
-  twoTone(c, (c) => c.ellipse(4, -56, 16, 13, 0, 0, TAU), "#e0703a", "#c4501f", -52);
-  poly(c, [-8, -66, -14, -78, -2, -68], "#f5cf4a"); poly(c, [4, -68, 2, -80, 10, -68], "#f5cf4a");
+  curve(c, -12, -24, -28, -20, -32, -6, 6, pal.dark); // Schwanz
+  twoTone(c, (c) => c.roundRect(-13, -46, 26, 26, 9), pal.body, pal.dark, -30);
+  twoTone(c, (c) => c.ellipse(4, -56, 16, 13, 0, 0, TAU), pal.body, pal.dark, -52);
+  poly(c, [-8, -66, -14, -78, -2, -68], pal.horns); poly(c, [4, -68, 2, -80, 10, -68], pal.horns);
   eyes(c, 10, -58, 3, 8, { white: "#ffe14d", look: 0.5 });
   // Mörserrohr auf der Schulter, zeigt schräg nach oben
   c.save(); c.translate(-4, -46); c.rotate(-0.9 - a * 0.2);
@@ -556,10 +567,26 @@ export function drawMound(c, x, y, r, t, lava) {
   c.restore();
 }
 
+// Wolf (Rudel): grauer Körper, Kopf nach rechts, Beine im Lauftakt — Farben über pal (Fuchs, Glutwolf …)
+function wolf(c, p) {
+  const pal = { body: "#8a8396", dark: "#5a5468", eye: "#ffe14d", ...p.pal };
+  const s = step(p, 16), b = bob(p, 3, 16), a = strike(p);
+  legs(c, -14, -22, 22, 8, 6, pal.dark, s);
+  legs(c, 14, -22, 22, 8, 6, pal.dark, -s);
+  c.save(); c.translate(a * 8, b);
+  curve(c, -26, -36, -42, -44, -46, -30, 7, pal.dark); // Schwanz
+  twoTone(c, (c) => c.ellipse(0, -34, 28, 14, 0, 0, TAU), pal.body, pal.dark, -30);
+  twoTone(c, (c) => c.ellipse(28, -44, 13, 11, -0.2, 0, TAU), pal.body, pal.dark, -42);
+  poly(c, [20, -52, 24, -66, 30, -54], pal.dark); poly(c, [28, -54, 34, -66, 36, -52], pal.body);
+  ell(c, 40, -40, 7, 5, pal.dark);
+  circle(c, 31, -47, 2.6, pal.eye);
+  c.restore();
+}
+
 export const CREATURES = {
   slime, goblin, skeleton, skeletonwarrior, orc, troll, minotaur, nekromant, shaman, firewizard, spider, mummy, scorpion,
   golem, snowman, penguin, yeti, icespirit, firespirit, firespewer, dragon, egg,
-  zombie, shieldbearer, bat, sandworm, bear, kobold, fallenknight, pharaoh, lavaworm,
+  zombie, shieldbearer, bat, sandworm, bear, kobold, fallenknight, pharaoh, lavaworm, irrlicht, wolf,
 };
 
 // Bosse: welche Figur, welche Farben (p.pal) — Größe kommt vom Renderer (BOSSES[id].r)
@@ -574,4 +601,11 @@ export const BOSS_LOOK = {
   fallenKnight: { fig: "fallenknight", pal: {} },
   pharaoh: { fig: "pharaoh", pal: {} },
   lavaWurm: { fig: "lavaworm", pal: {} },
+  frostwyrm: { fig: "dragon", pal: { body: "#dff2fb", dark: "#a9cfe0", belly: "#8fd8ff", wing: "#6fa8c8", wingFront: "#8fc0da", horn: "#ffffff" } },
+  // Friedhof: ein bleicher Schleier über der Figur des Nekromanten
+  witwe: { fig: "nekromant", pal: { robe: "#c9c3d6", dark: "#9a93ad", hood: "#b3abc6", trim: "#9fe8c8", orb: "#9fe8c8", eye: "#9fe8c8" } },
+  // Pilzwald, Sumpf, Uhrwerkturm (ab Zyklus 2)
+  myzelkoenig: { fig: "golem", pal: { body: "#b0402f", dark: "#8a2e22", rune: "#f4eee0" } },
+  moorhexe: { fig: "firewizard", pal: { robe: "#4a5a3a", dark: "#36442a", hood: "#3f4d30", trim: "#8be04e", orb: "#8be04e", eye: "#c8ff8a", hat: "#2a3420" } },
+  uhrwerkkoloss: { fig: "golem", pal: { body: "#c99a40", dark: "#9a7430", rune: "#5ec8ff" } },
 };

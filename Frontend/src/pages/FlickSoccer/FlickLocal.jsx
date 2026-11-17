@@ -18,6 +18,8 @@ import GoalBanner, { GOAL_MS } from "./components/GoalBanner.jsx";
 import ReplayTag from "./components/ReplayTag.jsx";
 import FinalWhistle from "./components/FinalWhistle.jsx";
 import RematchSetup from "./components/RematchSetup.jsx";
+import ErgebnisTeilen from "../../components/ErgebnisTeilen.jsx";
+import { flickErgebnis } from "./ergebnis.js";
 import { useFlickShell } from "./ui/shellContext.js";
 import {
   REPLAY, FORMATION_IDS, canPlayCard, chaosHand, createMatch, currentEvent, getField, passTurn, playShot as engineShot, normalizeSettings,
@@ -404,6 +406,15 @@ export default function FlickLocal() {
               <button type="button" className="fk-btn fk-btn-ghost" onClick={() => navigate("/flick-soccer/tour")}><MapIcon size={16} /> Tour</button>
             ) : (
               <button type="button" className="fk-btn fk-btn-ghost" onClick={() => navigate("/flick-soccer")}><Home size={16} /> Menü</button>
+            )}
+            {(!vsAi || match.winner === 0) && (
+              <ErgebnisTeilen className="fk-btn fk-btn-ghost"
+                ergebnis={() => flickErgebnis({
+                  score: match.score, team: vsAi ? 0 : null, winner: match.winner,
+                  modus: stage ? "tour" : vsAi ? "ki" : "lokal",
+                  gegner: stage ? aiName : AI_LEVELS[config.level]?.label, cup: stage?.cupName,
+                  sterne: stars, gegentore: conceded,
+                })} />
             )}
           </FinalWhistle>
         )}

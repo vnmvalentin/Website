@@ -1,4 +1,5 @@
 // discord/bot/commands/groesse.js
+const { botText } = require('../botText');
 
 // 120–220 cm: 0cm/1cm-Ergebnisse waren unrealistisch/nicht witzig, sondern nur Datenmüll.
 function rollGroesse() {
@@ -6,10 +7,8 @@ function rollGroesse() {
 }
 
 async function handleGroesse(interaction) {
-    const size = rollGroesse();
-
     await interaction.reply({
-        content: `Du bist **${size}cm** groß.`,
+        content: botText(interaction).fun.height(rollGroesse()),
     });
 }
 

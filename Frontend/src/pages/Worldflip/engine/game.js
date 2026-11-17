@@ -9,12 +9,13 @@
 //   combo (Zahl, die per Strömung nachgelegt werden darf, sonst null),
 //   lastFx (Art der zuletzt gelegten Effektkarte — das, was ein Echo wiederholt),
 //   react (null | offener Angriff, auf den das Ziel antworten darf: { by, seat, k, plus, again }),
-//   winner, winTeam, turnNo, rng
+//   drawUntil (Option „Ziehen, bis es passt“), winner, winTeam, turnNo, rng
 //
 // Karte   { id, w: 0–3 | -1 (passt immer), k: Kartenart (constants.KINDS), n: Zahl bei k === 'n' }
 //
 // Züge    { t: 'play', id, world?, target? }   world bei Karten, die immer passen; target bei Karten mit Ziel
-//         { t: 'draw' }                        ziehen (im Vulkan 2); passt etwas davon, darf man es noch legen
+//         { t: 'draw' }                        ziehen (im Vulkan 2, mit drawUntil so lange, bis etwas passt); passt etwas
+//                                              davon, darf man es noch legen
 //         { t: 'pass' }                        nach dem Ziehen oder in einer Strömungs-Kette weitergeben
 //   Antworten auf einen Angriff (nur react.seat, solange react gesetzt ist):
 //         { t: 'react', id }                   Spiegel legen (wirft zurück) oder — gegen Hagel — selbst einen Hagel drauflegen
@@ -22,7 +23,7 @@
 //
 // Wer gerade handeln darf, sagt actorOf(): das Ziel eines offenen Angriffs, sonst wer am Zug ist.
 // apply() liefert den neuen Zustand und die Ereignisse in der Reihenfolge, in der sie abgespielt werden.
-import { RULES, ANIM, KINDS, EVENTS_BY_WORLD } from './constants.js';
+import { RULES, ANIM, BOT_THINK, DRAW_EACH, KINDS, EVENTS_BY_WORLD } from './constants.js';
 
 // ── Zufall (mulberry32, Zustand liegt im Spielzustand: gleicher Seed ⇒ gleiche Partie) ───────────────────────
 function rand(s) {
@@ -80,6 +81,7 @@ export function normalizeSettings(raw) {
     handSize: RULES.HAND_SIZES.includes(r.handSize) ? r.handSize : RULES.DEFAULT_HAND,
     turnSeconds: RULES.TURN_SECONDS.includes(r.turnSeconds) ? r.turnSeconds : RULES.DEFAULT_TURN_SECONDS,
     bots: r.bots !== false,
+    drawUntil: r.drawUntil === true,
   };
 }
 
@@ -88,14 +90,14 @@ function rollEvent(s, w, avoid) {
   return pick(s, pool);
 }
 
-export function createGame({ players, handSize = RULES.DEFAULT_HAND, seed = 1, teams = false }) {
+export function createGame({ players, handSize = RULES.DEFAULT_HAND, seed = 1, teams = false, drawUntil = false }) {
   const n = teams ? 4 : Math.max(RULES.MIN_PLAYERS, Math.min(RULES.MAX_PLAYERS, players | 0));
   const s = {
     n, hands: [], deck: [], pile: [], turn: 0, dir: 1, world: 0,
     charges: [0, 0, 0, 0], next: [],
     shield: new Array(n).fill(false), frozen: new Array(n).fill(false), out: new Array(n).fill(false), fog: new Array(n).fill(0),
     teams: teams ? [0, 1, 0, 1] : null,
-    dark: 0, darkBy: null, drawn: [], combo: null, lastFx: null, react: null,
+    dark: 0, darkBy: null, drawn: [], combo: null, lastFx: null, react: null, drawUntil: drawUntil === true,
     winner: null, winTeam: null, turnNo: 0, rng: seed | 0,
   };
   s.deck = shuffle(s, buildDeck());
@@ -144,6 +146,27 @@ export function worldAfter(s, card, chosen = null) {
 export function effectOf(s, card) {
   if (card.k === 'n' || card.k === 'spiegel') return null; // der Spiegel wirkt nur als Antwort
   return card.k === 'echo' ? s.lastFx : card.k;
+}
+
+/**
+ * So viel lädt die Karte ihre Welt auf: 1, im Dschungel 2 (Wildwuchs). Karten, die immer passen (Portal, Finsternis,
+ * Zünder, Spiegel), laden nichts auf — Wunsch des Nutzers vom 16.11.2026.
+ */
+export const chargeOf = (card) => (card.w < 0 ? 0 : card.w === 2 ? 2 : 1);
+
+/**
+ * Welten, die ausbrechen, wenn diese Karte jetzt gelegt wird (für den Hinweis an der Handkarte): die eigene, wenn sie
+ * voll wird, bei der Supernova auch die anderen, die dadurch voll werden. Weitere Kettenreaktionen (Konjunktion) und
+ * den Zünder (seine Welt wählt man erst) zählt sie nicht. Geht mit dem Spielzustand und mit der Sicht (viewFor).
+ */
+export function eruptsWith(s, card) {
+  if (card.w < 0) return [];
+  const out = [];
+  if (s.charges[card.w] + chargeOf(card) >= RULES.CHARGE_MAX) out.push(card.w);
+  if (effectOf(s, card) === 'supernova') {
+    for (let o = 0; o < 4; o += 1) if (o !== card.w && s.charges[o] + 1 >= RULES.CHARGE_MAX) out.push(o);
+  }
+  return out;
 }
 
 /** Kosmos — Wurmlöcher: Gilt das Gesetz für diese Zahl? (im Kosmos gelegt oder sie führt in den Kosmos) */
@@ -376,9 +399,8 @@ function canAnswer(s, by, victim, k) {
 
 /**
  * Ein Angriff der Art k trifft `victim`. mirror: Platz dessen, der ihn mit dem Spiegel zurückgeworfen hat (dann ist
- * victim der Absender selbst und ein Schild hilft ihm nicht; beim Sturm fällt dann sein nächster Zug aus, bei Hagel und
- * Meteor zieht er nur).
- * Liefert true, wenn der Getroffene sofort aussetzt (er ist der Nächste in der Reihe).
+ * victim der Absender selbst und ein Schild hilft ihm nicht; beim Sturm fällt dann sein nächster Zug aus).
+ * Liefert true, wenn der Getroffene sofort aussetzt (er ist der Nächste in der Reihe) — das tut nur der Sturm.
  */
 function hit(s, by, victim, k, plus, events, mirror) {
   const back = mirror !== null;
@@ -390,12 +412,11 @@ function hit(s, by, victim, k, plus, events, mirror) {
   }
   if (!back && blocked(s, victim, events)) return false;
   if (k === 'hagel' || k === 'meteor') {
-    // Hagel lässt nur ziehen; der Meteor lässt zusätzlich aussetzen — zurückgeworfen zieht der Absender aber nur
-    const stun = k === 'meteor';
+    // Hagel und Meteor lassen nur ziehen (der Meteor ließ bis 16.11.2026 auch aussetzen — Wunsch des Nutzers: ohne)
     const pre = [];
     const cards = drawCards(s, victim, plus, pre);
     events.push(...pre, { t: k, by, seat: victim, n: cards.length, plus, cards, ...tag });
-    return stun && !back;
+    return false;
   }
   if (k === 'frost') {
     s.frozen[victim] = true;
@@ -488,7 +509,7 @@ function doPlay(s, seat, card, a, events, debt = 0) {
   s.pile.push(card);
   const from = s.world;
   s.world = world;
-  s.charges[world] = Math.min(RULES.CHARGE_MAX, s.charges[world] + (world === 2 ? 2 : 1)); // Dschungel: Wildwuchs
+  s.charges[world] = Math.min(RULES.CHARGE_MAX, s.charges[world] + chargeOf(card)); // Dschungel: Wildwuchs
   events.push({ t: 'play', seat, card, world, charges: s.charges.slice(), ...(card.k === 'echo' && fx ? { echo: fx } : {}) });
   if (world !== from) events.push({ t: 'world', from, to: world });
   if (!s.hands[seat].length) return win(s, seat, events);
@@ -597,7 +618,17 @@ export function apply(state, seat, action) {
 
   if (a.t === 'draw') {
     if (s.drawn.length || s.combo !== null) return { ok: false, error: 'Jetzt kannst du nicht ziehen.' };
-    const cards = drawCards(s, seat, s.world === 0 ? 2 : 1, events); // Vulkan: Hitze
+    const step = s.world === 0 ? 2 : 1; // Vulkan: Hitze
+    const cards = drawCards(s, seat, step, events);
+    // Option „Ziehen, bis es passt“: weiterziehen (im Vulkan paarweise), bis eine passende Karte dabei ist — oder
+    // nichts mehr zu ziehen ist. Endet sicher: Jede Runde nimmt Karten aus Stapel und Ablage, und nachgelegt wird nichts.
+    if (s.drawUntil) {
+      let more = cards;
+      while (more.length && !cards.some((c) => isLegal(s, c))) {
+        more = drawCards(s, seat, step, events);
+        cards.push(...more);
+      }
+    }
     events.push({ t: 'draw', seat, n: cards.length, cards });
     s.drawn = cards.map((c) => c.id);
     // Sehend und nichts davon passt: Zug ist vorbei. Blind weiß man es nicht — dann entscheidet der Spieler.
@@ -663,6 +694,7 @@ export function viewFor(s, seat) {
     dark: s.dark,
     darkBy: s.darkBy,
     drawn: mine && seat === s.turn ? s.drawn : [],
+    drawUntil: s.drawUntil,
     combo: s.combo,
     lastFx: s.lastFx,
     react: s.react ? { by: s.react.by, seat: s.react.seat, k: s.react.k, plus: s.react.plus } : null,
@@ -702,6 +734,18 @@ export function eventsFor(events, seat) {
 /** So lange braucht der Browser, um die Ereignisse abzuspielen (Millisekunden). */
 export function durationOf(events) {
   let ms = 0;
-  for (const e of events) ms += e.t === 'play' && e.card.k !== 'n' ? ANIM.playFx : ANIM[e.t] || 0;
+  for (const e of events) {
+    if (e.t === 'play' && e.card.k !== 'n') ms += ANIM.playFx;
+    else if (e.t === 'draw') ms += ANIM.draw + Math.max(0, (e.n || 0) - 2) * DRAW_EACH; // viele Karten fliegen länger
+    else ms += ANIM[e.t] || 0;
+  }
   return ms;
+}
+
+// Ereignisse, nach denen ein Bot normal lange überlegt; alles andere ist ein Effekt, nach dem es zügig weitergeht
+const CALM = new Set(['play', 'draw', 'turn', 'combo', 'world', 'reshuffle', 'light', 'unfog', 'misplay']);
+
+/** Bedenkzeit eines Bots nach diesen Ereignissen (Millisekunden): nach einem Effekt oder Weltereignis kürzer. */
+export function botThinkMs(events) {
+  return (events || []).some((e) => !CALM.has(e.t)) ? BOT_THINK.afterFx : BOT_THINK.calm;
 }

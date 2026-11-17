@@ -86,6 +86,38 @@ export const resetMarbleTop = () => scenePost("marbles/top/reset");
 export const testAlert = (kind) =>
   apiFetch("/api/stream-tool/alerts/test", { method: "POST", body: JSON.stringify({ kind }) });
 
+/* ── Subathon-Timer: jede Antwort bringt den neuen Stand samt Verlauf ({ subathon }) ── */
+
+const subathonPost = (path, body) =>
+  apiFetch(`/api/stream-tool/subathon/${path}`, { method: "POST", body: JSON.stringify(body || {}) });
+
+export const subathonStart = () => subathonPost("start");
+export const subathonPause = () => subathonPost("pause");
+/** Alles auf Anfang, Verlauf eingeschlossen. */
+export const subathonReset = () => subathonPost("reset");
+/** ± Sekunden von Hand (negativ zieht ab, nie unter null). */
+export const subathonAdd = (seconds, name) => subathonPost("add", { seconds, name });
+/** Spende eintragen — die Zeit rechnet der Server nach der Regel „je Einheit“. */
+export const subathonDonation = (amount, name) => subathonPost("donation", { amount, name });
+/** Happy Hour (Abo-Extra): minutes 1–240, factor 2 oder 3. */
+export const subathonHappy = (minutes, factor) => subathonPost("happy", { minutes, factor });
+export const subathonHappyStop = () => subathonPost("happy/stop");
+
+/* ── Eigene Töne und Bilder der Alerts (Abo-Extra) ───────────────────────── */
+
+/** { media: [{ id, kind: 'image'|'sound', name, size }], usage: { files, bytes }, limits } */
+export const listMedia = () => apiFetch("/api/stream-tool/media");
+
+/** Eine Datei roh hochladen. Den Typ prüft der Server an den ersten Bytes. */
+export const uploadMedia = (file) =>
+  apiFetch("/api/stream-tool/media", {
+    method: "POST",
+    headers: { "Content-Type": "application/octet-stream", "X-File-Name": encodeURIComponent(file.name || "") },
+    body: file,
+  });
+
+export const deleteMedia = (id) => apiFetch(`/api/stream-tool/media/${encodeURIComponent(id)}`, { method: "DELETE" });
+
 /** Laufende Szene beenden: 'hype' | 'storm' | 'plane' | 'marbles'. */
 export const stopScene = (key) => apiFetch(`/api/stream-tool/scenes/${key}`, { method: "DELETE" });
 

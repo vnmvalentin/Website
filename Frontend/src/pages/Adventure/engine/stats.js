@@ -87,6 +87,7 @@ export function attackSpeedNow(p) {
   if (p.buffs.overdrive > 0) a *= 1.5;
   if (p.buffs.hyper > 0) a *= 2;
   if (p.buffs.fortress > 0) a *= 1.5;
+  if (p.buffs.elixir > 0) a *= 1.6;
   if (p.bloodStacks?.length) a *= 1 + 0.05 * p.bloodStacks.length;
   return a;
 }

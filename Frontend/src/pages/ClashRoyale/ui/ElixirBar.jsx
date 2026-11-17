@@ -15,7 +15,7 @@
 // oft ein Dutzend Mal pro Bildschirm) im Einsatz, siehe ui/CrIcons.jsx; hier, wo der
 // Tropfen als eigenständiges Icon sitzt, darf es die echte Grafik sein.
 import React from 'react';
-import elixirDropImg from '../../../assets/clashRoyale/ui/elixir_1.png';
+import elixirDropImg from '../../../assets/clashRoyale/ui/elixir_1.webp';
 
 // Natürliches Seitenverhältnis von elixir_1.png (85×99, nach dem Zuschneiden) — damit die
 // Breite bei jeder Höhe passend mitwächst, statt den Tropfen zu stauchen.

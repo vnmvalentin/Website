@@ -6,6 +6,7 @@ import { firePrimary, castAbility, activateEquipment, updateAbilityEffects } fro
 import { addHazard, addZone } from "./combat.js";
 import { EQUIPMENT } from "../data/equipment.js";
 import { ascRegen } from "./ascension.js";
+import { twHeal } from "./twists.js";
 import { burst } from "./fx.js";
 import { clamp, distToSegment } from "./util.js";
 
@@ -46,6 +47,10 @@ function dropLava(g, p) {
   addZone(g, { x: p.x, y: p.y, r: 60, t: 3, tick: 0.5, dmg: p.stats.damage * 1.2 * p.items.magmaherz, friendly: true, kind: "fire", effect: "burn", textColor: "#ff9a5a" });
 }
 
+// Mindestabstand zwischen zwei Ladungen derselben Fähigkeit. Ohne ihn feuerte eine gehaltene Taste alle Ladungen in
+// aufeinanderfolgenden Spielschritten ab (drei Fangeisen auf einer Stelle, zwei Türme, Doppel-Schattenschritt).
+export const CHARGE_GAP = 0.4;
+
 export function maxCharges(p, kit, slot) {
   const base = kit.abilities[slot].charges || 1;
   if (slot === "utility") return base + p.stats.utilityCharges;
@@ -76,7 +81,7 @@ export function updatePlayer(g, dt, input) {
     if (st.burnT > 0) { st.burnT -= 0.5; dot += st.burnDps * 0.5; } else st.burnDps = 0;
     if (dot > 0 && p.buffs.invuln <= 0) { p.hp = Math.max(1, p.hp - dot); p.lastHurt = g.time; }
   }
-  p.hp = Math.min(p.stats.maxHp, p.hp + p.stats.regen * ascRegen(g) * dt);
+  p.hp = Math.min(p.stats.maxHp, p.hp + p.stats.regen * ascRegen(g) * twHeal(g) * dt);
 
   // Zielen
   p.aimX = input.aimX; p.aimY = input.aimY;
@@ -142,6 +147,7 @@ export function updatePlayer(g, dt, input) {
   for (const slot of SLOTS) {
     const cd = p.cds[slot];
     const max = maxCharges(p, kit, slot);
+    if (cd.gap > 0) cd.gap -= dt;
     if (cd.charges > max) cd.charges = max;
     if (cd.charges < max) {
       cd.t += dt;
@@ -161,9 +167,10 @@ export function updatePlayer(g, dt, input) {
   for (const slot of SLOTS) {
     if (!canAct || !h[slot]) continue;
     const cd = p.cds[slot];
-    if (cd.charges <= 0) continue;
+    if (cd.charges <= 0 || cd.gap > 0) continue;
     if (slot === "utility" && p.dash) continue;
     cd.charges--;
+    cd.gap = CHARGE_GAP;
     castAbility(g, slot);
     // Magmaherz: Bewegungsfähigkeit lässt Lava am Startpunkt (Sprints/Sprünge ziehen zusätzlich eine Spur, abilities.js)
     if (slot === "utility" && p.items.magmaherz) dropLava(g, p);

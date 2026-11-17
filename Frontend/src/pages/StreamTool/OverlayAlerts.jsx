@@ -11,7 +11,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Heart, Star, Repeat, Gift, Gem, Users } from 'lucide-react';
 import './overlayAlerts.css';
 import { useOverlayText, OVERLAY_TEXTS, overlayFormat } from './overlayI18n';
-import { alertTemplate, alertTextParts } from './streamToolConfig';
+import { alertTemplate, alertTextParts, alertMediaOf } from './streamToolConfig';
 import { cardStyle } from './OverlayWidgets';
 
 /** Breite der Karte auf der 1920er Bühne. */
@@ -44,8 +44,23 @@ const NOTES = {
 };
 let audio = null;
 
-/** Spielt den Ton zu einer Alert-Art. volume 0–100. Fehler (kein Audio, gesperrt) bleiben still. */
-export function playAlertSound(kind, volume = 60) {
+/**
+ * Spielt den Ton zu einer Alert-Art. volume 0–100. Fehler (kein Audio, gesperrt) bleiben still.
+ * @param {string|null} url  eigener Ton (Abo-Extra, alertMediaOf); lädt er nicht, kommt der eingebaute
+ */
+export function playAlertSound(kind, volume = 60, url = null) {
+  if (url) {
+    try {
+      const el = new Audio(url);
+      el.volume = clamp(volume / 100, 0, 1);
+      el.play().catch(() => playTones(kind, volume));
+      return;
+    } catch { /* weiter mit dem eingebauten Ton */ }
+  }
+  playTones(kind, volume);
+}
+
+function playTones(kind, volume) {
   try {
     const AC = window.AudioContext || window.webkitAudioContext;
     if (!AC) return;
@@ -157,6 +172,17 @@ export function useAlertPlayer(events, module, onShow) {
 
 /* ── Karte ────────────────────────────────────────────────────────────────── */
 
+/** Eigenes Bild links in der Karte (Abo-Extra). Lädt es nicht, fällt der Platz einfach weg. */
+function AlertImage({ src }) {
+  const [broken, setBroken] = useState(false);
+  if (broken) return null;
+  return (
+    <div className="stw-alert-media">
+      <img src={src} alt="" draggable={false} onError={() => setBroken(true)} />
+    </div>
+  );
+}
+
 export function AlertWidget({ event, module, width = ALERT_W, still = false }) {
   const { t, num, lang } = useOverlayText();
   const parts = alertTextParts(alertTemplate(module, event.kind, lang), event, t, num);
@@ -165,10 +191,13 @@ export function AlertWidget({ event, module, width = ALERT_W, still = false }) {
   const tier = TIERED.includes(event.kind) && event.tier && event.tier !== '1' ? t.tierWord[event.tier] : '';
   const showMessage = module.showMessage !== false && hasMessage(event) && !!event.message;
   const seconds = clamp(Number(module.seconds) || 6, 2, 30);
+  const image = alertMediaOf(module, event.kind).image;
 
   return (
-    <div className={`stw-card stw-alert${module.glass ? '' : ' is-flat'}`} style={cardStyle(module, width)} data-kind={event.kind}>
+    <div className={`stw-card stw-alert${module.glass ? '' : ' is-flat'}${image ? ' has-media' : ''}`} style={cardStyle(module, width)} data-kind={event.kind}>
       <i className="stw-alert-edge" style={{ background: module.accent }} />
+      {/* key: ein neuer Alert mit demselben Bild startet ein GIF von vorn */}
+      {image && <AlertImage key={`${event.id}-${image}`} src={image} />}
       <div className="stw-alert-body" key={event.id}>
         <div className="stw-alert-kicker" style={{ color: module.accent }}>
           <Icon size={16} strokeWidth={2.4} aria-hidden="true" />

@@ -13,6 +13,7 @@ const ZEITRAUM = [
 const AUFFRISCHEN_MS = 15_000;
 
 const num = (n) => Number(n || 0).toLocaleString("de-DE");
+const euro = (cent) => (Number(cent || 0) / 100).toLocaleString("de-DE", { style: "currency", currency: "EUR" });
 const anteil = (teil, ganzes) => (ganzes ? Math.round((teil / ganzes) * 100) : 0);
 const tagLabel = (day) => {
   const [y, m, d] = String(day).split("-");
@@ -96,6 +97,11 @@ function WiederkehrKarte({ konten }) {
       </div>
       <p className="text-[11px] text-white/35 mt-4">
         Konten gesamt {num(z.konten)} · mit Twitch {num(z.twitch)} · mit Discord {num(z.discord)} · nur Gast {num(z.nurGast)} · mit Spielstand {num(z.mitSpielstand)}
+        {/* Einladungslinks (Backend/einladung): angenommen = neues Konto über einen Link, bestätigt = am zweiten Tag wieder da */}
+        {konten.einladungen && ` · Einladungen ${num(konten.einladungen.angenommen)} angenommen, ${num(konten.einladungen.bestaetigt)} bestätigt`}
+        {/* Laden (Backend/laden): bezahlte Käufe gesamt, Beträge brutto */}
+        {konten.laden?.unterstuetzer && ` · Unterstützungen ${num(konten.laden.unterstuetzer.anzahl)} (${euro(konten.laden.unterstuetzer.cent)})`}
+        {konten.laden?.artikel && ` · Laden-Käufe ${num(konten.laden.artikel.anzahl)} (${euro(konten.laden.artikel.cent)})`}
       </p>
     </div>
   );

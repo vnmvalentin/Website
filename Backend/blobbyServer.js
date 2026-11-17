@@ -79,6 +79,10 @@ const io = new Server(server, {
   cors: { origin: ALLOWED_ORIGINS, credentials: true },
 });
 
+// Grenzen je Besucher-Adresse (lib/socketBremse.js). Die Eingaben kommen hier im Physik-Takt — Ereignis-Grenze deshalb
+// höher als im Hauptdienst (3000 in 5 s = 600/s je Verbindung).
+require("./lib/socketBremse").schuetzeSocketServer(io, { maxEreignisse: 3000 });
+
 io.on("connection", (socket) => {
   registerBlobbySocket(socket, io);
 });

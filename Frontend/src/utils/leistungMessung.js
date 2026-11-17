@@ -17,7 +17,7 @@ import { isLowGfx } from "./lowGfx.js";
 
 const ENDPUNKT = "/api/leistung";
 const AUSGESCHLOSSEN = /(^\/winchallengeoverlay\/)|(\/overlay\/)|(^\/winchallengecontrol(\/|$))|(^\/admin(\/|$))|(^\/auth(\/|$))/i;
-const SPIELE = ["/adventures", "/garden", "/blobby", "/seed-runners", "/sacrifice-and-sigils", "/flick-soccer", "/worldflip", "/lights-out", "/connect4"];
+const SPIELE = ["/adventures", "/garden", "/blobby", "/seed-runners", "/sacrifice-and-sigils", "/flick-soccer", "/worldflip", "/lights-out", "/spieleabend"];
 const AUFWAERMEN_MS = 3000;
 const WIEDER_AUFWAERMEN_MS = 1000;
 const MIN_SPIEL_MS = 5000;

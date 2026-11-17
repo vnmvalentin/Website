@@ -61,6 +61,31 @@ export function rankedChange(b) {
   return null;
 }
 
+// Modi, in denen die API als „Stand vor dem Kampf“ (startingTrophies) die bisherigen Siege zählt statt Trophäen
+export const WIN_COUNT_GROUPS = new Set(['crown', 'party', 'challenge', 'tournament']);
+
+/**
+ * Siege eines Spielers im laufenden Lauf VOR dem Kampf (Challenge, Crown Series, Turnier, Events mit Siegzählung)
+ * oder null. Die API lässt startingTrophies bei 0 Siegen weg — geprüft 16.11.2026 an rund 8.000 gespeicherten
+ * Kämpfen: dort zählt der Stand ab 1, und er fehlt bei beiden Seiten so oft wie „1 Sieg“ vorkommt. Reine Spaß-Events
+ * (z. B. Showdown) haben gar keinen Stand; bei Events heißt „fehlt“ deshalb nur 0, wenn es eine Challenge ist oder die
+ * andere Seite einen Stand hat. Global Tournament ist ungeprüft — dort nur, was die API ausdrücklich nennt.
+ * @param {object} b  aufbereiteter Kampf
+ * @param {object} p  Spieler aus b.team bzw. b.opponent
+ * @param {boolean} mine  p ist der abgefragte Spieler (team[0]) — nur für ihn nennt die API challengeWinCountBefore
+ */
+export function winsBefore(b, p, mine = false) {
+  if (!b || !p || !WIN_COUNT_GROUPS.has(b.group)) return null;
+  if (typeof p.start === 'number') return p.start;
+  if (mine && typeof b.challengeWins === 'number') return b.challengeWins;
+  if (b.challenge === 'global') return null;
+  if (b.group !== 'party') return 0;
+  const sides = [...(b.team || []), ...(b.opponent || [])];
+  const isRun = b.challenge || typeof b.challengeWins === 'number' || /^Challenge_/i.test(b.mode || '')
+    || sides.some((s) => typeof s?.start === 'number');
+  return isRun ? 0 : null;
+}
+
 /** Kalendertag eines Zeitpunkts in der Zeitzone des Geräts, z. B. "2026-11-14". */
 export function localDayKey(ms) {
   const d = new Date(ms);
@@ -135,9 +160,20 @@ export function crownSet(battles) {
 }
 
 /**
- * @param {Array} battles   neueste zuerst
+ * Kämpfe plus eigens gemerkte Crown-Series-Duelle (Profil-Antwort `crownBattles`), ohne doppelte, neueste zuerst —
+ * so bleibt das Duell-Set sichtbar, auch wenn die Duelle schon aus den letzten Kämpfen gerutscht sind.
  */
-export function analyze(battles) {
+function withCrownBattles(list, crown) {
+  if (!Array.isArray(crown) || !crown.length) return list;
+  const seen = new Set(list.map((b) => b.t));
+  return [...list, ...crown.filter((b) => b && !seen.has(b.t))].sort((a, b) => b.t - a.t);
+}
+
+/**
+ * @param {Array} battles   neueste zuerst
+ * @param {{ crown?: Array }} [extra]  gemerkte Crown-Series-Duelle — zählen nur für das Duell-Set
+ */
+export function analyze(battles, { crown = null } = {}) {
   const list = Array.isArray(battles) ? battles : [];
   const decided = list.filter((b) => b.result === 'win' || b.result === 'loss');
   const wins = decided.filter((b) => b.result === 'win').length;
@@ -252,7 +288,7 @@ export function analyze(battles) {
     form,
     days: byDay(list),
     streak: currentStreak(list),
-    crownSet: crownSet(list),
+    crownSet: crownSet(withCrownBattles(list, crown)),
     // Trophäen-/Medaillenverlauf je Gruppe, ältester Wert zuerst
     lines: ['ranked', 'ladder'].map((group) => ({ group, points: line.filter((p) => p.group === group).reverse() })).filter((l) => l.points.length >= 3),
   };

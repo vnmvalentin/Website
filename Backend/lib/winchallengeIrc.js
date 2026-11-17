@@ -24,6 +24,7 @@ const streamToolRaids = require("../streamTool/lib/streamToolRaids");
 const streamToolStats = require("../streamTool/lib/streamToolStats");
 const streamToolScenes = require("../streamTool/lib/streamToolScenes");
 const streamToolAlerts = require("../streamTool/lib/streamToolAlerts");
+const streamToolSubathon = require("../streamTool/lib/streamToolSubathon");
 const winTrackerChat = require("../clashRoyale/lib/winTrackerChat");
 // CR-Minigames: Chat stimmt im Pyramidendraft für den Streamer ab
 const crTwitchChat = require("../clashRoyale/core/twitchChat");
@@ -31,6 +32,12 @@ const crTwitchChat = require("../clashRoyale/core/twitchChat");
 const crViewerGames = require("../clashRoyale/viewerGames/viewerGames");
 const { healRenamedChannel } = require("./twitchRenameHeal");
 const { step } = require("./startupLog");
+// Giveaways (giveaways/dienst.js): erst beim Gebrauch geladen — der Dienst lädt diese Datei selbst für Chatzeilen
+let giveawayModul = null;
+function giveawayDienst() {
+  if (!giveawayModul) giveawayModul = require("../giveaways/dienst");
+  return giveawayModul.aktiv();
+}
 
 let client = null;
 let refreshTimer = null;
@@ -418,8 +425,16 @@ function getChannelList() {
     for (const c of streamToolStats.getStatsChannels()) set.add(normalizeChannel(c));
     for (const c of streamToolScenes.getSceneChannels()) set.add(normalizeChannel(c));
     for (const c of streamToolAlerts.getAlertChannels()) set.add(normalizeChannel(c));
+    for (const c of streamToolSubathon.getSubathonChannels()) set.add(normalizeChannel(c));
   } catch (e) {
     console.warn("[stream-tool] Overlay-Kanäle nicht lesbar:", e.message);
+  }
+  // Giveaways: der eigene Kanal (Stichwort im Chat, Anwesenheit für „war bei N Streams“)
+  try {
+    const gw = giveawayDienst();
+    if (gw) for (const c of gw.kanaele()) set.add(normalizeChannel(c));
+  } catch (e) {
+    console.warn("[giveaways] Kanal nicht lesbar:", e.message);
   }
   // Win-Tracker: Kanäle mit aktiviertem "!tracker"-Chatbefehl.
   try {
@@ -820,6 +835,15 @@ async function onChatMessage(channel, tags, message, self) {
     console.warn("[clash] Chat-Stimme:", e.message);
   }
 
+  // Giveaways: Anwesenheit im eigenen Kanal (jede Zeile) und das Stichwort, z. B. "!giveaway". Fremde Kanäle sind
+  // nach einem Vergleich wieder draußen. Ohne await: die Prüfung bei Twitch soll den Chat nicht aufhalten.
+  try {
+    const gw = giveawayDienst();
+    if (gw) gw.onChatMessage(channel, tags || {}, message).catch((e) => console.warn("[giveaways] Chat:", e.message));
+  } catch (e) {
+    console.warn("[giveaways] Chat:", e.message);
+  }
+
   // Billigste Prüfung zuerst. Praktisch jede Chatzeile ist kein Befehl, und
   // für die darf hier nichts weiter passieren — kein DB-Zugriff, kein
   // ensureDocShape, keine Allokation. Vorher lief die ganze Kette durch und
@@ -841,6 +865,14 @@ async function onChatMessage(channel, tags, message, self) {
     streamToolScenes.onChatCommand(ch, tags, message);
   } catch (e) {
     console.warn("[stream-tool] Murmelbahn-Befehl:", e.message);
+  }
+
+  // Subathon-Timer: "!subathon" (Restzeit) und Mod-Befehle (+10m, spende 10, pause, start). Synchron, alle
+  // anderen Zeilen fallen an einer Regex heraus.
+  try {
+    streamToolSubathon.onChatCommand(ch, tags, message);
+  } catch (e) {
+    console.warn("[stream-tool] Subathon-Befehl:", e.message);
   }
 
   // Win-Tracker: "!tracker #TAG" — eigener Kanalkreis und eigene Mod-Prüfung, unabhängig
@@ -1140,6 +1172,15 @@ async function initWinchallengeIrc() {
   client.on("anonsubmysterygift", alertSafe("Geschenkpaket", streamToolAlerts.onAnonMysteryGift));
   client.on("cheer", alertSafe("Bits", streamToolAlerts.onCheer));
   client.on("raided", alertSafe("Raid", streamToolAlerts.onRaid));
+
+  // Subathon-Timer: Abos, Geschenke und Bits verlängern ihn. Geschenkpakete wie bei den Alerts als EIN Eintrag.
+  client.on("subscription", alertSafe("Subathon-Abo", streamToolSubathon.onSub));
+  client.on("resub", alertSafe("Subathon-Verlängerung", streamToolSubathon.onResub));
+  client.on("subgift", alertSafe("Subathon-Geschenk", streamToolSubathon.onSubGift));
+  client.on("anonsubgift", alertSafe("Subathon-Geschenk", streamToolSubathon.onAnonSubGift));
+  client.on("submysterygift", alertSafe("Subathon-Geschenkpaket", streamToolSubathon.onMysteryGift));
+  client.on("anonsubmysterygift", alertSafe("Subathon-Geschenkpaket", streamToolSubathon.onAnonMysteryGift));
+  client.on("cheer", alertSafe("Subathon-Bits", streamToolSubathon.onCheer));
 
   client.on("notice", (ircChannel, messageId, message) => {
     const m = String(message || "");

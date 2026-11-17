@@ -12,7 +12,8 @@ export const systemPrefersReducedMotion = typeof window !== "undefined" && !!win
 //   docs/sacrifice-and-sigils/REBUILD-PLAN.md). Der neue Tisch ist seit dem 14.11.2026 Standard; das frühere Feld
 //   `newTable` (Vorschau-Schalter) wird nicht mehr gelesen.
 // mask: die eigene Maske am Tisch (Kennung aus table/masks.js) — sie sieht nur das Gegenüber
-const DEFAULTS = { v: SETTINGS_VERSION, reduceMotion: false, motionHintSeen: false, speed: 1, tipsOff: false, table3d: true, oldTable: false, mask: "wachs", seenTips: /** @type {string[]} */ ([]), name: "" };
+// rotateHintOff: Hinweis „quer halten“ (hochkant auf dem flachen Tisch) ausgeblendet
+const DEFAULTS = { v: SETTINGS_VERSION, reduceMotion: false, motionHintSeen: false, speed: 1, tipsOff: false, table3d: true, oldTable: false, mask: "wachs", seenTips: /** @type {string[]} */ ([]), name: "", rotateHintOff: false };
 
 let state = load();
 const listeners = new Set();

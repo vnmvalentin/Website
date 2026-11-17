@@ -304,6 +304,11 @@ try { db.exec("ALTER TABLE cr_wintracker_battles ADD COLUMN battle_type TEXT NOT
 try { db.exec("ALTER TABLE cr_wintracker_battles ADD COLUMN challenge_key TEXT NOT NULL DEFAULT ''"); } catch { /* Spalte existiert bereits */ }
 try { db.exec("ALTER TABLE cr_wintracker_battles ADD COLUMN challenge_wins_before INTEGER"); } catch { /* Spalte existiert bereits */ }
 db.exec(`CREATE INDEX IF NOT EXISTS idx_wt_battles_challenge ON cr_wintracker_battles(account_id, challenge_key, battle_time_ms)`);
+// Classic/Grand/20 Win: die Siege vor dem Match stehen in startingTrophies (fehlt bei 0, geprüft 16.11.2026, siehe
+// lib/challengeModes.js). Neue Matches bekommen sie beim Sync; bereits gespeicherte hier nachtragen. starting_trophies
+// kam mit derselben Version wie challenge_key, jede Challenge-Zeile hat den Wert also, sofern die API ihn lieferte.
+db.exec(`UPDATE cr_wintracker_battles SET challenge_wins_before = COALESCE(starting_trophies, 0)
+  WHERE challenge_key IN ('classic', 'grand', '20win') AND challenge_wins_before IS NULL`);
 // Crown-Series-Liga (1 Dagger … 13 King's League V, 0 = nicht gewählt). Die API liefert sie nicht,
 // der Nutzer wählt sie im Editor — sie bestimmt Abzeichen und Grand-Duel-Regel (lib/challengeModes.js).
 try { db.exec("ALTER TABLE cr_wintracker_accounts ADD COLUMN crown_league INTEGER NOT NULL DEFAULT 0"); } catch { /* Spalte existiert bereits */ }

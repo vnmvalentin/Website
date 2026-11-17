@@ -19,7 +19,7 @@ import {
   crownLeagueIconUrl, crownLeagueName, CROWN_LEAGUE_COUNT, CROWN_KING_LEAGUE_FROM,
 } from '../data/leagueIcons';
 import { trophyArenaIcon, trophyArenaName } from '../data/trophyArenas';
-import trophyIcon from '../../../assets/clashRoyale/ui/trophy.png';
+import trophyIcon from '../../../assets/clashRoyale/ui/trophy.webp';
 import trophy2v2Icon from '../../../assets/clashRoyale/ui/trophy2v2.webp';
 import OverlayPreview from './OverlayPreview';
 import Toggle from '../ui/Toggle';

@@ -176,7 +176,13 @@ button.crs-vote.is-down:hover { background: #a03434; }
 .crs-battle-who > a, .crs-battle-who > span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .crs-battle-who > .crs-battle-clan { font-size: 12px; font-weight: 600; color: #b9cbe6; }
 .crs-battle-who.is-theirs { align-items: flex-end; }
-/* Stand vor dem Kampf (Medaillen, Trophäen oder Siege) unter Name und Clan */
+/* Name mit den Siegen des Laufs als Bubble daneben; rechte Seite gespiegelt, damit die Bubble zur Mitte zeigt */
+.crs-battle-name { display: flex; align-items: center; gap: 6px; max-width: 100%; min-width: 0; }
+.crs-battle-name > :not(.crs-wins) { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.crs-battle-who.is-theirs .crs-battle-name { flex-direction: row-reverse; }
+@media (min-width: 820px) { .crs-battle-side.is-theirs .crs-battle-name { flex-direction: row-reverse; } }
+.crs-wins { flex-shrink: 0; display: inline-flex; align-items: center; padding: 3px 8px 2px; border-radius: 999px; font-family: var(--font-cr); font-weight: 400; font-size: 12px; line-height: 1; color: #fff; background: rgba(4, 14, 34, 0.6); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1); text-shadow: var(--cr-text-outline); font-variant-numeric: tabular-nums; white-space: nowrap; }
+/* Stand vor dem Kampf (Medaillen, Trophäen) unter Name und Clan */
 .crs-battle-who > .crs-battle-stand { display: inline-flex; align-items: center; gap: 4px; margin-top: 1px; font-family: var(--font-cr); font-weight: 400; font-size: 14px; line-height: 1; color: #fff; text-shadow: var(--cr-text-outline); font-variant-numeric: tabular-nums; }
 .crs-battle-stand img { height: 16px; width: auto; }
 .crs-battle-stand small { margin-left: 3px; font-family: var(--font-sans, inherit); font-size: 11px; font-weight: 700; color: #ffd65c; text-shadow: none; }
@@ -228,7 +234,10 @@ button.crs-vote.is-down:hover { background: #a03434; }
 .crs-savedchip small { display: block; font-size: 11.5px; color: var(--crs-soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .crs-badge { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 10px 6px 8px; text-align: center; }
 .crs-badge > img { width: 64px; height: 64px; object-fit: contain; }
+/* Ersatzbild ohne Rand (Modus-Symbol): auf die Inhaltsgröße der Supercell-Abzeichen (rund 65 % des Bildes) */
+.crs-badge > img.is-fallback { width: 42px; height: 42px; margin: 11px; }
 .crs-badge-name { font-size: 12px; font-weight: 600; line-height: 1.2; color: #fff; overflow-wrap: anywhere; }
+.crs-badge-group { margin-bottom: 8px; font-family: var(--font-cr); font-weight: 400; font-size: 1rem; line-height: 1.1; color: #ffd65c; text-shadow: var(--cr-text-outline); }
 .crs-skel { border-radius: 14px; background: linear-gradient(to bottom, #1a3458, #132a4a); border: 2px solid var(--cr-panel-edge); animation: crsSkel 1.1s ease-in-out infinite alternate; }
 @keyframes crsSkel { from { opacity: 0.55; } to { opacity: 0.9; } }
 .crs-spin { animation: crsSpin 0.8s linear infinite; }
@@ -280,6 +289,12 @@ html[data-cr-anim="off"] .crs-cardlink:hover { transform: none; }
 /* Deck als eine Zeile: Karten links, Kennzahlen und Knöpfe rechts */
 .crs-deckline { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px 20px; align-items: center; padding: 12px 14px; border-radius: 14px; background: linear-gradient(to bottom, #1c3860, #132a4a); border: 1px solid rgba(2, 8, 20, 0.6); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1), 0 3px 0 rgba(2, 8, 20, 0.5); }
 @media (min-width: 860px) { .crs-deckline { grid-template-columns: minmax(0, 510px) minmax(0, 1fr); } .crs-deckline--ranked { grid-template-columns: 38px minmax(0, 480px) minmax(0, 1fr); } }
+/* Ganzseitige Listen (Meta Decks): Deck so breit wie in der Rangliste (.crs-deck4--row, bis 760 px) — die Kennzahlen
+   behalten ihre Mindestbreite, schmalere Fenster verkleinern zuerst das Deck */
+@media (min-width: 860px) {
+  .crs-deckline--wide { grid-template-columns: minmax(0, 760px) minmax(230px, 1fr); }
+  .crs-deckline--wide.crs-deckline--ranked { grid-template-columns: 38px minmax(0, 760px) minmax(230px, 1fr); }
+}
 .crs-deckline-info { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
 .crs-deckline-top { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 16px; }
 .crs-deckline-big { font-family: var(--font-cr); font-size: 1.55rem; line-height: 1; color: #fff; text-shadow: var(--cr-text-outline); font-variant-numeric: tabular-nums; }
@@ -566,6 +581,17 @@ html[data-cr-anim="off"] .crs-vsdeck:hover { transform: none; }
 .crs-duelset-head { display: flex; align-items: center; gap: 12px; min-width: 0; margin-bottom: 14px; }
 .crs-setdeck { min-width: 0; padding: 12px; border-radius: 14px; background: rgba(4, 14, 34, 0.35); border: 1px solid rgba(2, 8, 20, 0.6); }
 .crs-setdeck-head { display: flex; align-items: center; gap: 10px; min-width: 0; margin: -12px -12px 12px; padding: 8px 12px; border-radius: 14px 14px 0 0; background: rgba(4, 14, 34, 0.55); border-bottom: 1px solid rgba(2, 8, 20, 0.7); }
+/* Crown-Series-Sets: Karten so groß wie bei den Meta Decks (4 × 82 px + Abstände) — die Angaben stehen daneben, in
+   schmalen Flächen als Zeile darüber (im DOM zuerst, daher row-reverse) */
+.crs-setdeck--side { container-type: inline-size; }
+.crs-setdeck-body { display: flex; flex-direction: column; gap: 10px; }
+.crs-setdeck-body > .crs-deck4 { max-width: 343px; }
+.crs-setdeck-info { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; min-width: 0; }
+@container (min-width: 480px) {
+  .crs-setdeck-body { flex-direction: row-reverse; align-items: center; gap: 16px; }
+  .crs-setdeck-body > .crs-deck4 { flex: 0 1 343px; }
+  .crs-setdeck-info { flex: 1 1 0; flex-direction: column; align-items: flex-start; gap: 8px; }
+}
 /* Deck-Seite: „Gespielt von" als Raster mit Platz, Name und Clan */
 .crs-playedby { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 6px 10px; }
 .crs-playedby-item { display: grid; grid-template-columns: minmax(44px, auto) minmax(0, 1fr); column-gap: 8px; align-items: center; padding: 7px 10px; border-radius: 12px; background: var(--crs-well); border: 1px solid rgba(2, 8, 20, 0.8); text-decoration: none !important; }
@@ -628,3 +654,14 @@ html[data-cr-anim="off"] .crs-trail-dot:hover { transform: none; }
   font-size: 14px; font-weight: 600; color: #fff; text-decoration: none; white-space: nowrap;
 }
 .crs-share-menu > a:hover, .crs-share-menu > button:hover, .crs-share-menu > a:focus-visible, .crs-share-menu > button:focus-visible { background: rgba(255, 255, 255, 0.1); outline: none; }
+
+/* Clan-Zentrale (ClanCentral.jsx): Wochen-Balken für Kriegsdecks und Spenden, Gründe unter Namen */
+.crs-cc-lights .crs-dot { width: 12px; height: 12px; }
+.crs-cc-bars { display: inline-flex; align-items: flex-end; gap: 3px; height: 24px; vertical-align: middle; }
+.crs-cc-bars > i { display: block; width: 7px; height: 3px; border-radius: 2px; background: #4fd36d; }
+.crs-cc-bars > i.is-half { background: #ffc93c; }
+.crs-cc-bars > i.is-low { background: #ff6b6d; }
+.crs-cc-bars > i.is-gift { background: #6fa8ff; }
+.crs-cc-bars > i.is-none { background: rgba(200, 212, 232, 0.22); }
+.crs-cc-why { display: block; margin-top: 1px; font-size: 12px; font-weight: 400; line-height: 1.35; color: var(--crs-soft); }
+.crs-cc-check { width: 18px; height: 18px; accent-color: #4fd36d; }

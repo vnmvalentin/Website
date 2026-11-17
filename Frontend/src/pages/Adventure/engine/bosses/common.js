@@ -6,6 +6,7 @@ import { hurtPlayer } from "../combat.js";
 import { floatText, ring as fxRing, shake } from "../fx.js";
 import { dist2 } from "../util.js";
 import { ascBossRage } from "../ascension.js";
+import { twBossRage } from "../twists.js";
 
 export function chooseAttack(g, e, options) {
   // options: [[name, weight, {phase2Only, minGap}]] — nie zweimal dasselbe hintereinander
@@ -56,7 +57,8 @@ export function bossFrame(g, e, dt) {
     if (e.introT <= 0) { e.invuln = false; e.state = "idle"; e.t = 0; }
     return false;
   }
-  if (!e.phase2 && e.hp < e.maxHp * ascBossRage(g)) {
+  // (Wendung „Tyrannen“: Raserei vom ersten Treffer an — engine/twists.js)
+  if (!e.phase2 && e.hp < e.maxHp * (twBossRage(g) ?? ascBossRage(g))) {
     e.phase2 = true;
     floatText(g, e.x, e.y - e.r - 40, "Raserei!", "#ff5a4a", { size: 24, life: 1.6, jitter: false });
     fxRing(g, e.x, e.y, e.r * 2.4, "#ff5a4a", 0.6);

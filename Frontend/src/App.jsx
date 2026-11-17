@@ -18,6 +18,7 @@ import { gardenRoutes } from "./pages/GardenGame/routes";
 import { adventureRoutes } from "./pages/Adventure/routes";
 import { flickSoccerRoutes } from "./pages/FlickSoccer/routes";
 import { worldflipRoutes } from "./pages/Worldflip/routes";
+import { spieleabendRoutes } from "./pages/Spieleabend/routes";
 
 // ── Nachgeladene Routen ─────────────────────────────────────────────────────
 // Eager importiert bleibt nur, was auf JEDER Seite gebraucht wird (Layout, die
@@ -75,24 +76,29 @@ const LightsOut = lazy(() => import("./pages/LightsOut/LightsOut.jsx"));
 const CategoryPage = lazy(() => import("./pages/Website/CategoryPage"));
 const StreamerToolsPage = lazy(() => import("./pages/StreamerTools/StreamerToolsPage"));
 const OverlayGalleryPage = lazy(() => import("./pages/StreamerTools/OverlayGalleryPage"));
+const ProductPage = lazy(() => import("./pages/StreamerTools/ProductPage"));
+const DiscordBotLandingPage = lazy(() => import("./pages/Discord/DiscordBotLandingPage"));
+const StreamerZentralePage = lazy(() => import("./pages/StreamerTools/zentrale/StreamerZentralePage"));
 const Profile = lazy(() => import("./pages/Website/Profile"));
 const PublicProfilePage = lazy(() => import("./pages/PublicProfile/PublicProfilePage"));
 const Abstimmung = lazy(() => import("./pages/Abstimmung/Abstimmung"));
 const AbstimmungDetail = lazy(() => import("./pages/Abstimmung/AbstimmungDetail"));
 const AuthTwitch = lazy(() => import("./pages/Website/AuthTwitch"));
 const GiveawaysPage = lazy(() => import("./pages/Giveaways/GiveawaysPage"));
+const GiveawayOverlay = lazy(() => import("./pages/Giveaways/GiveawayOverlay"));
 const BingoJoinPage = lazy(() => import("./pages/Bingo/BingoJoinPage"));
-const Connect4Page = lazy(() => import("./pages/Connect4/Connect4Page"));
-const Connect4Room = lazy(() => import("./pages/Connect4/Connect4Room"));
 const SeedRunnersTestPage = lazy(() => import("./pages/SeedRunners/SeedRunnersTestPage"));
 const SeedRunnersWorldLab = lazy(() => import("./pages/SeedRunners/SeedRunnersWorldLab"));
 const AdminDashboard = lazy(() => import("./pages/Admin/AdminDashboard"));
 const YTMBotPage = lazy(() => import("./pages/YTM/YTMBotPage"));
 const Updates = lazy(() => import("./pages/Website/Updates"));
+const MitspielenPage = lazy(() => import("./pages/Website/MitspielenPage"));
+const Barrierefreiheit = lazy(() => import("./pages/Website/Barrierefreiheit"));
 const DiscordBotPrivacyPage = lazy(() => import("./pages/Discord/DiscordBotPrivacyPage"));
 const DiscordBotTermsPage = lazy(() => import("./pages/Discord/DiscordBotTermsPage"));
 const AvatarBuilderPage = lazy(() => import("./pages/StreamScenes/AvatarBuilderPage"));
 const Abo = lazy(() => import("./pages/Website/Abo"));
+const Laden = lazy(() => import("./pages/Website/Laden"));
 const Impressum = lazy(() => import("./pages/Legal/Impressum"));
 const Datenschutz = lazy(() => import("./pages/Legal/Datenschutz"));
 const Agb = lazy(() => import("./pages/Legal/Agb"));
@@ -170,6 +176,7 @@ export default function App() {
           <Route path="/overlay/brb" element={<StreamBrb />} />
           {/* Gamble-System aus Streamer.bot (Rakete, Murmel-Wetten, Würfeln, Topf) */}
           <Route path="/overlay/gamble" element={<GambleOverlay />} />
+          <Route path="/overlay/giveaway" element={<GiveawayOverlay />} />
 
           <Route path="/bingo/overlay/:overlayKey" element={<BingoOverlayPage />} />
           <Route path="/banned-cards/overlay/:overlayKey" element={<BannedCardsOverlayPage />} />
@@ -187,6 +194,8 @@ export default function App() {
             <Route path="/WinChallengeControl/:controlKey" element={<WinChallengeControl />} />
           </Route>
           <Route element={<ToolShell />}>
+            {/* Streamer-Zentrale: Stand aller Werkzeuge + Einrichtungs-Assistent */}
+            <Route path="/streamer-zentrale" element={<ToolScroll><StreamerZentralePage /></ToolScroll>} />
             <Route path="/twitch-tools" element={<PollsPredictionsPage />} />
             {/* Diese drei scrollen ganz normal (ToolScroll); die übrigen haben eine Arbeitsfläche über die volle Höhe */}
             <Route path="/stream-szenen" element={<ToolScroll><StreamScenesControlPage /></ToolScroll>} />
@@ -204,6 +213,7 @@ export default function App() {
           {adventureRoutes}
           {flickSoccerRoutes}
           {worldflipRoutes}
+          {spieleabendRoutes}
 
           {/* Lights Out: Horror-Labyrinth in der Ego-Perspektive, eigene Hülle (LightsOut/LightsOut.jsx) */}
           <Route path="/lights-out" element={<LightsOut />} />
@@ -219,6 +229,12 @@ export default function App() {
             <Route path="tools" element={<StreamerToolsPage />} />
             {/* Overlay-Galerie mit Reitern je Overlay (Vorlagen übernehmen per ?vorlage=) */}
             <Route path="tools/vorlagen" element={<OverlayGalleryPage />} />
+            {/* Produktseiten zum Verlinken und für die Suche (StreamerTools/productTexts.js) */}
+            <Route path="tools/win-tracker" element={<ProductPage id="win-tracker" />} />
+            <Route path="tools/win-challenge" element={<ProductPage id="win-challenge" />} />
+            <Route path="tools/twitch-overlays" element={<ProductPage id="twitch-overlays" />} />
+            {/* Einstiegsseite des Discord-Bots für Bot-Listen und das App-Verzeichnis (Discord/landingTexts.js) */}
+            <Route path="tools/discord-bot" element={<DiscordBotLandingPage />} />
             <Route path="contact" element={<CategoryPage categoryKey="contact" />} />
 
             <Route path="profile" element={<Profile />} />
@@ -231,8 +247,6 @@ export default function App() {
 
             <Route path="Giveaways" element={<GiveawaysPage />} />
             <Route path="Bingo/join/:joinKey" element={<BingoJoinPage/>} />
-            <Route path="connect4" element={<Connect4Page/>} />
-            <Route path="connect4/:code" element={<Connect4Room/>} />
             {/* Seed Runners: Übungsbereich und Welten-Werkbank sind Entwickler-Werkzeuge und bleiben im Website-Look; der Rest
                 des Spiels hat eine eigene Hülle (unten). Feste Routen gewinnen gegen ":code". */}
             <Route path="seed-runners/test" element={<SeedRunnersTestPage/>} />
@@ -242,12 +256,17 @@ export default function App() {
             <Route path="tutorial/ytm-songrequest" element={<Navigate to="/tutorial/ytm-bot" replace />} />
             <Route path="tutorial/ytm-streamdeck" element={<Navigate to="/tutorial/ytm-bot" replace />} />
             <Route path="updates" element={<Updates />} />
+            <Route path="mitspielen" element={<MitspielenPage />} />
+            {/* Einstellungen für Barrierefreiheit je Gerät (utils/barrierefrei.js) */}
+            <Route path="barrierefreiheit" element={<Barrierefreiheit />} />
             <Route path="/discord-bot/privacy" element={<DiscordBotPrivacyPage />} />
             <Route path="/discord-bot/terms" element={<DiscordBotTermsPage />} />
             {/* Figurbaukasten der 3D-Stream-Szenen (Zuschauer); das Steuerpult steht in der Tool-Hülle oben */}
             <Route path="/tanzfigur" element={<AvatarBuilderPage />} />
             {/* Premium-Abo ansehen, verwalten, kündigen (Backend/billing) */}
             <Route path="/abo" element={<Abo />} />
+            {/* Unterstützen + Designs für die Spiele (Backend/laden), erst sichtbar mit vollständigen Rechtsangaben */}
+            <Route path="/laden" element={<Laden />} />
             {/* Rechtsseiten — die Angaben des Betreibers stehen in config/legal.js */}
             <Route path="/impressum" element={<Impressum />} />
             <Route path="/datenschutz" element={<Datenschutz />} />

@@ -19,7 +19,7 @@ import { elixirOf } from '../data/cardElixir';
 import { POOL, STATS, seeded, berlinDay, readStore, writeStore, fmtNum } from './quizData';
 import { useClashLang, pick } from './clashI18n';
 import { playSound } from '../ui/sound';
-import scrollImg from '../../../assets/clashRoyale/ui/icon_daily_task_scroll_opened.png';
+import scrollImg from '../../../assets/clashRoyale/ui/icon_daily_task_scroll_opened.webp';
 
 const STORE = 'crq_wordle_v1';
 const has = (id, k) => (CARD_ATTRS[id] || []).includes(k);

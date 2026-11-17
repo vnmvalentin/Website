@@ -11,6 +11,8 @@ import MenuBeach from "./ui/MenuBeach.jsx";
 import { useBlobbyShell } from "./ui/shellContext.js";
 import { DEFAULT_SETTINGS } from "./settings";
 import { BLOBBY_SOCKET_OPTS } from "./net";
+import { ZIER, eigeneZier, merkeZier, zierErlaubt } from "./zier.js";
+import { ladenSichtbar, useLadenBesitz } from "../../utils/ladenBesitz.js";
 
 // Ab 1024 px steht der Strand hinter dem Menü, darunter als Band darüber — nie beide gleichzeitig (jede Instanz zeichnet)
 const WIDE_QUERY = "(min-width: 1024px)";
@@ -34,6 +36,35 @@ function readSession() {
   } catch {
     return null;
   }
+}
+
+// Accessoire für den eigenen Blob (Laden): gekaufte zum Auswählen; fehlen welche, ein Hinweis auf den Laden — aber
+// nur, solange der Laden für Besucher sichtbar ist. Ohne Kauf und ohne sichtbaren Laden fehlt die Zeile ganz.
+function ZierWahl() {
+  const besitz = useLadenBesitz("blobby");
+  const [zier, setZier] = useState(() => eigeneZier());
+  useEffect(() => { setZier(eigeneZier()); }, [besitz]);
+  const waehlbar = ZIER.map((_, i) => i).filter((i) => zierErlaubt(i, besitz));
+  const fehlen = ZIER.filter((e) => e.laden && !besitz.has(e.laden)).map((e) => e.name);
+  const hinweis = fehlen.length > 0 && ladenSichtbar();
+  if (waehlbar.length <= 1 && !hinweis) return null;
+  return (
+    <div className="mt-3">
+      <span className="bv-label block mb-1.5">Accessoire</span>
+      {waehlbar.length > 1 && (
+        <div className="bv-seg" role="group" aria-label="Accessoire">
+          {waehlbar.map((i) => (
+            <button key={i} type="button" aria-pressed={zier === i} onClick={() => { merkeZier(i); setZier(i); }}>{ZIER[i].name}</button>
+          ))}
+        </div>
+      )}
+      {hinweis && (
+        <p className="text-xs bv-dim mt-1.5">
+          {fehlen.join(" und ")} für deinen Blob gibt es im <Link to="/laden" className="underline underline-offset-2">Laden</Link>.
+        </p>
+      )}
+    </div>
+  );
 }
 
 function MenuItem({ icon: Icon, title, text, onClick, to, expanded, children }) {
@@ -107,7 +138,7 @@ export default function BlobbyPage() {
     const socket = ensureSocket();
 
     const doCreate = () => {
-      socket.emit("bv:create", { name: trimmed, settings }, (res) => {
+      socket.emit("bv:create", { name: trimmed, settings, zier: eigeneZier() }, (res) => {
         if (!res?.ok) {
           setCreating(false);
           setError("Spiel konnte nicht erstellt werden. Versuch es nochmal.");
@@ -189,6 +220,7 @@ export default function BlobbyPage() {
                 className="bv-input"
               />
             </label>
+            <ZierWahl />
           </div>
 
           <ul className="flex flex-col gap-3">

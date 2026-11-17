@@ -57,7 +57,16 @@ export default function HelpDialog({ open, onClose }) {
               <li>Gespielt wird auf <b className="text-[var(--bv-ink)]">15 Punkte</b> mit 2 Punkten Vorsprung.</li>
               <li>Pfeiler offen: hochspringen, rüberklettern und den Gegner anrempeln ist erlaubt.</li>
               <li>Mit „Max. 3" verliert die Seite den Punkt ab der vierten Ballberührung.</li>
+              <li>König des Strandes: Partien bis 7. Der Sieger bleibt, wer zuschaut, rückt der Reihe nach gegen ihn an.</li>
             </ul>
+          </section>
+          <section className="sm:col-span-2 bv-divider pt-4">
+            <h3 className="bv-label mb-2">Partyregeln</h3>
+            <p className="text-[14px] bv-dim">
+              Frei kombinierbar, nur auf dem klassischen Feld: <b className="text-[var(--bv-ink)]">Doppelball</b> (zwei Bälle, der erste im
+              Sand entscheidet), <b className="text-[var(--bv-ink)]">Wind</b> (wechselt bei jedem Aufschlag, oben rechts angezeigt),
+              {" "}<b className="text-[var(--bv-ink)]">Riesenball</b> (größer und schwebender) und <b className="text-[var(--bv-ink)]">Mini-Netz</b>.
+            </p>
           </section>
           <section className="sm:col-span-2 bv-divider pt-4">
             <h3 className="bv-label mb-2">Powerups</h3>

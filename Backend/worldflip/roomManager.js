@@ -16,7 +16,6 @@
 const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // ohne I/O/0/1
 const RECONNECT_GRACE_MS = 60 * 1000;
 const STALE_AFTER_MS = 10 * 60 * 1000;
-const BOT_THINK_MS = 1600; // Bedenkzeit eines Bots nach dem Abspielen des letzten Zugs
 const AWAY_MS = 4000; // getrennter Spieler am Zug: so lange warten, dann spielt ein Bot für ihn
 const TIMEOUT_GRACE_MS = 600;
 const BOT_NAMES = ['Kiesel', 'Funke', 'Moos', 'Nebel', 'Qualle', 'Komet'];
@@ -126,7 +125,7 @@ function createRoomManager({ engine, send, now = Date.now, random = Math.random 
 
   function pace(room, events) {
     const t = now() + engine.durationOf(events);
-    room.readyAt = t + BOT_THINK_MS;
+    room.readyAt = t + engine.botThinkMs(events); // Bedenkzeit eines Bots: nach einem Effekt kürzer
     // auf einen Angriff antworten: dafür läuft die kürzere Antwortzeit
     const secs = room.state.react ? Math.min(engine.RULES.REACT_SECONDS, room.settings.turnSeconds) : room.settings.turnSeconds;
     room.turnEndsAt = room.state.winner === null ? t + secs * 1000 : null;
@@ -148,6 +147,7 @@ function createRoomManager({ engine, send, now = Date.now, random = Math.random 
       players: table.length,
       handSize: room.settings.handSize,
       teams: room.settings.teams,
+      drawUntil: room.settings.drawUntil,
       seed: Math.floor(random() * 0x7fffffff),
     });
     room.phase = 'playing';

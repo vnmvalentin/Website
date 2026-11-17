@@ -61,7 +61,7 @@ export default function PremiumDialog({ open, onClose, includes, returnPath, con
               {PREMIUM_PRICE} <span className="text-sm font-semibold text-white/50">pro Monat</span>
             </h2>
           </div>
-          <button type="button" onClick={onClose} aria-label="Schließen" className="p-1.5 rounded-sm text-white/40 hover:text-white hover:bg-white/5 transition-colors">
+          <button type="button" onClick={onClose} aria-label="Schließen" className="p-1.5 rounded-sm text-white/55 hover:text-white hover:bg-white/5 transition-colors">
             <X size={16} />
           </button>
         </div>
@@ -88,7 +88,7 @@ export default function PremiumDialog({ open, onClose, includes, returnPath, con
           </span>
         </label>
 
-        <p className="px-5 mt-3 text-xs text-white/45">
+        <p className="px-5 mt-3 text-xs text-white/55">
           Es gelten die <a href="/agb" target="_blank" rel="noreferrer" className="text-violet-300 hover:text-violet-200">AGB</a> und das{" "}
           <a href="/widerruf" target="_blank" rel="noreferrer" className="text-violet-300 hover:text-violet-200">Widerrufsrecht</a>. Hinweise zur Datenverarbeitung stehen in der{" "}
           <a href="/datenschutz" target="_blank" rel="noreferrer" className="text-violet-300 hover:text-violet-200">Datenschutzerklärung</a>.

@@ -9,7 +9,8 @@
 // die feste Rangliste des Tages, aber nichts wird eingereicht: Die Zeit ist nur für einen selbst.
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { Play, RotateCcw, Trophy, Loader2, Check, AlertTriangle, History, ArrowLeft, Film, Share2 } from "lucide-react";
+import { Play, RotateCcw, Trophy, Loader2, Check, AlertTriangle, History, ArrowLeft, Film, Share2, Image as ImageIcon } from "lucide-react";
+import ErgebnisTeilen from "../../components/ErgebnisTeilen.jsx";
 import SEO from "../../components/SEO";
 import RaceView from "./room/RaceView.jsx";
 import { getIdentity, saveIdentity, getDailyKey } from "./room/identity.js";
@@ -23,7 +24,8 @@ import { refForParams } from "./ui/levelRef.js";
 import { isArchivTag, germanDate, ARCHIV_AB } from "./ui/tagesArchiv.js";
 import { useBoundAction } from "./client/useBoundAction.js";
 import { boundLabel } from "./client/input.js";
-import { tagesrennenText } from "./room/shareText.js";
+import { tagesrennenText, tagesrennenErgebnis } from "./room/shareText.js";
+import { zaehleTagesrennen } from "./kontoStand.js";
 import { copyText } from "./levels/clipboard.js";
 
 const COUNTDOWN_MS = 3300;
@@ -221,8 +223,16 @@ function ShareResult({ board, run, archiv }) {
     <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
       <button type="button" onClick={share} className="sr-btn sr-btn-sm sr-btn-ghost" data-testid="daily-share">
         {done === "ok" ? <Check size={14} /> : <Share2 size={14} />}
-        {done === "ok" ? "Kopiert" : best ? "Bestzeit teilen" : "Ergebnis teilen"}
+        {done === "ok" ? "Kopiert" : best ? "Bestzeit als Text" : "Ergebnis als Text"}
       </button>
+      <ErgebnisTeilen className="sr-btn sr-btn-sm sr-btn-ghost" mitSymbol={false}
+        ergebnis={() => tagesrennenErgebnis({
+          dateKey: board.today.dateKey, lauf: best || run, rank: best?.rank ?? null, total: board.today.total,
+          entries: board.today.entries, archiv: !!archiv,
+        })}>
+        <ImageIcon size={14} aria-hidden="true" />
+        Als Bild teilen
+      </ErgebnisTeilen>
       {done === "fehler" && (
         <pre className="basis-full text-xs sr-dim whitespace-pre-wrap select-all sr-sunk px-3 py-2">{text}</pre>
       )}
@@ -298,7 +308,10 @@ function DailyPage({ tagParam }) {
       dateKey: board.today.dateKey, playerKey: key, name: playerName, ticks: finished.ticks, deaths: finished.deaths, log: finished.log, fp: finished.fp,
     });
     setSubmit({ state: res.status, ...res });
-    if (res.status === "ok" || res.status === "nicht-besser") loadBoard(key);
+    if (res.status === "ok" || res.status === "nicht-besser") {
+      loadBoard(key);
+      zaehleTagesrennen(board.today.dateKey); // Statistik am Konto, je Tag einmal
+    }
   }, [key, board, loadBoard]);
 
   const startRun = () => {

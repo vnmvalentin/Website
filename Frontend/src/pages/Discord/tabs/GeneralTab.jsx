@@ -1,11 +1,12 @@
 import React from 'react';
 import { DcSaveBar } from '../ui';
+import SetupCheck from './SetupCheck';
 import { useDiscordText } from '../discordI18n.js';
 
 // Sprachen, in denen der Bot schreiben kann (Backend/discord/bot/botTexts.js)
 const BOT_LANGS = ['de', 'en'];
 
-export default function GeneralTab({ prefix, setPrefix, botNickname, setBotNickname, botLanguage, setBotLanguage, isSaving, saveStatus, handleSaveSettings, dirty }) {
+export default function GeneralTab({ serverId, overview, onOpenTab, prefix, setPrefix, botNickname, setBotNickname, botLanguage, setBotLanguage, isSaving, saveStatus, handleSaveSettings, dirty }) {
     const t = useDiscordText();
     return (
         <div className="dc-page">
@@ -13,6 +14,7 @@ export default function GeneralTab({ prefix, setPrefix, botNickname, setBotNickn
                 <h2 className="dc-h2">{t.general.title}</h2>
                 <p>{t.general.intro}</p>
             </div>
+            {serverId && <SetupCheck key={serverId} serverId={serverId} overview={overview} onOpenTab={onOpenTab} />}
             <div className="dc-card p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                     <label className="dc-label" htmlFor="dc-prefix">{t.general.prefix}</label>

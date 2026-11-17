@@ -1,0 +1,43 @@
+// components/glockeTexte.js — Texte der Glocke (components/Glocke.jsx), Deutsch und Englisch über den Sprachkern.
+import { defineMessages } from "../i18n/core.js";
+
+export const GLOCKE_TEXTE = defineMessages({
+  de: {
+    titel: "Neuigkeiten",
+    schliessen: "Schließen",
+    oeffnen: "Neuigkeiten öffnen",
+    oeffnenMit: (n) => (n === 1 ? "Neuigkeiten öffnen, 1 neue" : `Neuigkeiten öffnen, ${n} neue`),
+    leer: "Gerade gibt es nichts Neues.",
+    neu: "neu",
+    liveTitel: "vnmvalentin ist live",
+    liveText: "Jetzt zuschauen",
+    mitspielenTitel: "Jetzt mitspielen",
+    mitspielenText: "Ein Raum für die Community ist offen",
+    fuerDich: "Für dich",
+    updates: "Updates",
+    alleUpdates: "Alle Updates",
+    mitteilungen: "Mitteilungen einstellen",
+    anmeldenHinweis: "Melde dich an, dann landen hier auch Antworten auf dein Feedback.",
+    anmelden: "Anmelden",
+    zeit: { gerade: "gerade eben" },
+  },
+  en: {
+    titel: "News",
+    schliessen: "Close",
+    oeffnen: "Open news",
+    oeffnenMit: (n) => (n === 1 ? "Open news, 1 new" : `Open news, ${n} new`),
+    leer: "Nothing new right now.",
+    neu: "new",
+    liveTitel: "vnmvalentin is live",
+    liveText: "Watch now",
+    mitspielenTitel: "Play along now",
+    mitspielenText: "A room for the community is open",
+    fuerDich: "For you",
+    updates: "Updates",
+    alleUpdates: "All updates",
+    mitteilungen: "Notification settings",
+    anmeldenHinweis: "Sign in and replies to your feedback will show up here too.",
+    anmelden: "Sign in",
+    zeit: { gerade: "just now" },
+  },
+});

@@ -46,6 +46,14 @@
   transition: opacity 0.15s ease;
 }
 .st-menu-btn:hover, .st-menu-btn:focus-visible { opacity: 1; }
+/* Ergebnis teilen: links neben „Menü“, gleiche Machart, aber gleich sichtbar (das Ergebnis ist der Moment dafür) */
+.st-menu-btn.is-teilen {
+  right: 92px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  opacity: 0.9;
+}
 
 /* Kurze Meldung über der Hand */
 .st-toast {
@@ -146,4 +154,42 @@
   border-radius: 2px;
   font-size: 13px;
   opacity: 0.75;
+}
+
+/* Flache Fenster (Handy quer, Phase 7): Meldung kleiner und tiefer — in der Lobby lag sie sonst über den
+   Einstellungs-Zetteln, im Kampf über der eigenen Reihe */
+@media (max-height: 500px) {
+  .st-toast { bottom: 21%; max-width: min(440px, 66vw); padding: 4px 12px; font-size: 14px; }
+  .st-menu-btn { top: 6px; right: 8px; }
+  .st-banner-sub { font-size: 16px; }
+}
+
+/* Bedien-Spiegelung (TableMirror.jsx, Phase 7): für Screenreader da, fürs Auge unsichtbar. Wer mit der Tastatur
+   spielt, sieht das gewählte Ziel in der Szene (Karte hebt sich, Erklärung erscheint) und unten links als Zeile. */
+.st-mirror {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.st-mirror-caption {
+  position: absolute;
+  left: 14px;
+  bottom: 14px;
+  z-index: 9;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-width: min(520px, calc(100vw - 28px));
+  padding: 6px 12px;
+  font-size: 15px;
+  line-height: 1.3;
+  pointer-events: none;
+}
+.st-mirror-caption span { font-size: 12.5px; opacity: 0.7; }
+@media (max-height: 500px) {
+  .st-mirror-caption { left: 8px; bottom: 8px; padding: 4px 10px; font-size: 13px; }
+  .st-mirror-caption span { display: none; }
 }

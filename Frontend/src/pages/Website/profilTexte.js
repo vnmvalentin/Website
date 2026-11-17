@@ -52,14 +52,6 @@ export const PROFIL_TEXTE = defineMessages({
 
     aboTitle: "Premium-Abo",
     aboHint: (price) => `${price} pro Monat, monatlich kündbar. Schaltet die Stream-Szenen der Twitch-Overlay-Tools frei.`,
-    publicTitle: "Öffentliches Profil",
-    publicHint: "Eine teilbare Seite mit deinen Erfolgen: Stufe und Abzeichen, Win-Tracker-Statistik, Turniere, Seed-Runners-Level, adVentures und Farm. Nur sichtbar, wenn du es einschaltest. Ausschalten geht jederzeit.",
-    publicOn: "Öffentlich",
-    publicOff: "Nicht öffentlich",
-    publicEnable: "Einschalten",
-    publicDisable: "Ausschalten",
-    publicOpen: "Profil ansehen",
-    publicError: "Konnte nicht gespeichert werden.",
 
     accountTitle: "Konto",
     nameFeld: "Anzeigename",
@@ -79,6 +71,22 @@ export const PROFIL_TEXTE = defineMessages({
     loeschenTwitch: "Daten der Twitch-Bereiche (Farm, adVentures, Win Tracker, Overlays) hängen an deinem Twitch-Konto und bleiben davon unberührt.",
     abbrechen: "Abbrechen",
     endgueltig: "Endgültig löschen",
+
+    // Reiter der Profilseite
+    bereiche: "Bereiche des Profils",
+    reiter: {
+      uebersicht: "Übersicht", visitenkarte: "Visitenkarte", laden: "Abo & Laden", einladen: "Einladen",
+      einstellungen: "Einstellungen", konto: "Konto",
+    },
+    kurzTitel: "Schnell zu",
+    kurz: {
+      visitenkarte: { titel: "Visitenkarte", text: "Dein öffentliches Profil zum Teilen" },
+      laden: { titel: "Abo & Laden", text: "Abo, Unterstützen und deine Designs" },
+      einladen: { titel: "Freunde einladen", text: "Dein Link und die Abzeichen dafür" },
+      einstellungen: { titel: "Einstellungen", text: "Mitteilungen und Barrierefreiheit" },
+      konto: { titel: "Konto", text: "Anmeldewege, Name, Abmelden" },
+    },
+    uebersichtLeer: "Hier erscheinen deine Stufe, deine Spiele und deine Abzeichen, sobald du mit deinem Konto gespielt hast.",
   },
   en: {
     metaTitle: "Profile",
@@ -129,14 +137,6 @@ export const PROFIL_TEXTE = defineMessages({
 
     aboTitle: "Premium subscription",
     aboHint: (price) => `${price} per month, cancel anytime. Unlocks the stream scenes of the Twitch overlay tools.`,
-    publicTitle: "Public profile",
-    publicHint: "A shareable page with your achievements: level and badges, Win Tracker stats, tournaments, Seed Runners levels, adVentures and the farm. Only visible if you turn it on. You can turn it off at any time.",
-    publicOn: "Public",
-    publicOff: "Not public",
-    publicEnable: "Turn on",
-    publicDisable: "Turn off",
-    publicOpen: "View profile",
-    publicError: "Could not be saved.",
 
     accountTitle: "Account",
     nameFeld: "Display name",
@@ -156,5 +156,20 @@ export const PROFIL_TEXTE = defineMessages({
     loeschenTwitch: "Data of the Twitch areas (farm, adVentures, Win Tracker, overlays) belongs to your Twitch account and is not affected.",
     abbrechen: "Cancel",
     endgueltig: "Delete for good",
+
+    bereiche: "Sections of your profile",
+    reiter: {
+      uebersicht: "Overview", visitenkarte: "Profile card", laden: "Subscription & shop", einladen: "Invite",
+      einstellungen: "Settings", konto: "Account",
+    },
+    kurzTitel: "Jump to",
+    kurz: {
+      visitenkarte: { titel: "Profile card", text: "Your public profile to share" },
+      laden: { titel: "Subscription & shop", text: "Subscription, support and your designs" },
+      einladen: { titel: "Invite friends", text: "Your link and the badges for it" },
+      einstellungen: { titel: "Settings", text: "Notifications and accessibility" },
+      konto: { titel: "Account", text: "Sign-in methods, name, sign out" },
+    },
+    uebersichtLeer: "Your level, your games and your badges appear here once you have played with your account.",
   },
 });

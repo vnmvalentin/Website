@@ -16,12 +16,13 @@
 
 import * as THREE from "three";
 import { loadFigure } from "./figures3d.js";
-import { CAST, BOSS_CAST, DEFAULT_BOSS, HEROES, HERO_SKINS, EXTRAS, KNECHT, castOf } from "./cast.js";
+import { CAST, BOSS_CAST, DEFAULT_BOSS, HEROES, HERO_SKINS, EXTRAS, KNECHT, castOf, PET_FIG, KIT_PETS, PROPS } from "./cast.js";
 import { makeFloorTile, FLOORS } from "../render/flat/world.js";
 import { RARITY, ITEMS } from "../data/items.js";
 import { ELITE_AFFIXES } from "../data/enemies.js";
 import { enemyPoolFor } from "../data/biomes.js";
 import { TELEPORTER_RADIUS } from "../engine/stage.js";
+import { GEAR_REACH, GEAR_W } from "../engine/worldMechanics.js";
 
 export const S = 0.02; // Welt-Pixel → Meter
 const OUTLINE = 0.016; // Konturstärke, Anteil der Körperhöhe
@@ -95,6 +96,40 @@ const _ray = new THREE.Raycaster();
 const _ndc = new THREE.Vector2();
 const _hit = new THREE.Vector3();
 const GROUND = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+const HAZARD_CAP = 400;
+
+// Geschosse: Form und Farbe je Art (Gestalt aus engine: look, kind, sprite). orb = leuchtende Kugel, rod = Stab in
+// Flugrichtung, flat = flache, sich drehende Scheibe, cube = Würfel, gem = Kristall. size = Größe relativ zum Trefferradius.
+const SHOT_LOOK = {
+  dagger: ["rod", "#dcdce6", 2.6], boomerang: ["flat", "#a87443", 1.3], rocket: ["rod", "#d9473a", 2.2],
+  proj_arrow: ["rod", "#c8a070", 3.2], proj_shuriken: ["flat", "#c9c3d1", 1.4], proj_laser: ["rod", "#5ee0ff", 3.4],
+  proj_block: ["cube", "#a87443", 1.3], proj_fireball: ["orb", "#ff8a3c", 1.25], proj_poisonball: ["orb", "#8be04e", 1.1],
+  proj_soul: ["orb", "#9fe8c8", 1.1], proj_chi: ["flat", "#ffe9a0", 1.2], proj_flask: ["orb", "#c49aff", 1.1],
+  proj_grenade: ["orb", "#4a5240", 1.1], proj_iceball: ["gem", "#bfe9ff", 1.3], proj_sand: ["rod", "#d8b070", 2.4],
+  proj_spike: ["rod", "#d8b070", 2.4], proj_web: ["orb", "#efe6d2", 1.1], electric_ball: ["orb", "#ffe14d", 1.1],
+  proj_curse: ["orb", "#f5cf4a", 1.1], proj_basic: ["orb", "#ffe9a0", 1],
+};
+const shotLook = (b, enemy) => SHOT_LOOK[b.look] || (b.kind === "rocket" && SHOT_LOOK.rocket) || SHOT_LOOK[b.sprite] || (enemy ? ["orb", "#ff5a4a", 1] : SHOT_LOOK.proj_basic);
+
+// Hindernisse der neuen Welten (ab Zyklus 2): aus denselben Grundkörpern wie die übrigen (Säule, Kegel, Fels).
+// put(Topf, Zähler, Hindernis, Höhe, Breite, Farbe, Höhe über dem Boden)
+const NEW_OBSTACLES = {
+  // Friedhof
+  grave: (put, s, o, r) => put(s.pillars, "pillars", o, r * 1.7, r * 0.7, "#7d808a"),
+  crypt: (put, s, o, r) => { put(s.pillars, "pillars", o, r * 2.2, r * 1.0, "#5f626c"); put(s.cones, "cones", o, r * 2.9, r * 0.75, "#3e4048"); },
+  deadtree: (put, s, o, r) => put(s.pillars, "pillars", o, r * 2.6, r * 0.25, "#4a3a2c"),
+  // Pilzwald: Fliegenpilz (Stiel + flacher roter Hut), Sporenpilz (violette Knolle), Baumstumpf
+  bigshroom: (put, s, o, r) => { put(s.pillars, "pillars", o, r * 1.9, r * 0.3, "#efe6d2"); put(s.cones, "cones", o, r * 0.9, r * 1.25, "#d9473a", r * 1.5); },
+  sporeshroom: (put, s, o, r) => put(s.rocks, "rocks", o, r * 1.5, r * 1.0, "#a07bc8"),
+  stump: (put, s, o, r) => put(s.pillars, "pillars", o, r * 0.9, r * 0.85, "#6b4a2b"),
+  // Sumpf: Schilf (dünner Kegel), Trauerweide (Stamm + Krone), Steine fallen unter „rock“
+  reeds: (put, s, o, r) => put(s.cones, "cones", o, r * 2.4, r * 0.45, "#6f7a3a"),
+  willow: (put, s, o, r) => { put(s.pillars, "pillars", o, r * 1.8, r * 0.3, "#4a3e2c"); put(s.rocks, "rocks", o, r * 1.2, r * 1.25, "#4f6a3a", r * 1.4); },
+  // Uhrwerkturm: Zahnrad (flach, Messing — die Klinge zeichnet drawMechanics), Kessel mit Ventil, Rohre
+  gear: (put, s, o, r) => put(s.pillars, "pillars", o, r * 0.35, r * 1.15, "#b08a3a"),
+  boiler: (put, s, o, r) => { put(s.pillars, "pillars", o, r * 2.4, r * 0.85, "#8a5a3a"); put(s.cones, "cones", o, r * 0.5, r * 0.6, "#9aa3ad", r * 2.4); },
+  pipes: (put, s, o, r) => put(s.pillars, "pillars", o, r * 2.6, r * 0.45, "#7a828e"),
+};
 
 export default class Scene3d {
   constructor(canvas, { kitId = "default", quality = "hoch", skin = "" } = {}) {
@@ -135,13 +170,19 @@ export default class Scene3d {
     // Schatten als dunkle Scheiben (billig, passt zum Comic-Look)
     this.shadows = instanced(flat(new THREE.CircleGeometry(1, 14)), unlit(0x000000, 0.34), 1800);
     this.shadows.renderOrder = 1;
-    this.hazards = instanced(flat(new THREE.CircleGeometry(1, 40)), unlit(0xffffff, 0.2), 200, true);
+    this.hazards = instanced(flat(new THREE.CircleGeometry(1, 40)), unlit(0xffffff, 0.2), HAZARD_CAP, true);
     this.hazards.renderOrder = 2;
     this.lines = instanced(flat(new THREE.PlaneGeometry(1, 1).translate(0.5, 0, 0)), unlit(0xff4a3a, 0.22), 120);
     this.lines.renderOrder = 2;
     this.chunkMesh = instanced(new THREE.BoxGeometry(1, 1, 1), toon(), 900, true);
-    this.pBullets = instanced(new THREE.SphereGeometry(1, 8, 6), unlit(0xffe9a0), 500);
-    this.eBullets = instanced(new THREE.SphereGeometry(1, 8, 6), unlit(0xff5a4a), 400);
+    // Geschosse nach Form (SHOT_LOOK): Farbe je Instanz, Spieler und Gegner gemeinsam
+    this.shotOrb = instanced(new THREE.SphereGeometry(1, 10, 8), unlit(0xffffff), 900, true);
+    this.shotRod = instanced(new THREE.BoxGeometry(1, 1, 1), toon(), 500, true);
+    this.shotFlat = instanced(new THREE.OctahedronGeometry(1), toon(), 300, true);
+    this.shotCube = instanced(new THREE.BoxGeometry(1, 1, 1), toon(), 200, true);
+    this.shotGem = instanced(new THREE.OctahedronGeometry(1), unlit(0xffffff), 200, true);
+    // Edelstein über den Schreinen
+    this.shrineGems = instanced(new THREE.OctahedronGeometry(1), unlit(0xffffff), 24, true);
     this.coins = instanced(new THREE.CylinderGeometry(1, 1, 0.35, 10), toon({ color: 0xf5cf4a }), 600);
     this.gems = instanced(new THREE.OctahedronGeometry(1), toon(), 80, true);
     this.crystals = instanced(new THREE.OctahedronGeometry(1), unlit(0xffffff), 400, true); // Erfahrung
@@ -159,7 +200,13 @@ export default class Scene3d {
     this.rings.renderOrder = 2;
     this.beams = instanced(new THREE.BoxGeometry(1, 1, 1).translate(0, 0.5, 0), unlit(0xfff3a0, 0.85), 60);
     this.slashes = instanced(flat(new THREE.PlaneGeometry(1, 1).translate(0.5, 0, 0)), unlit(0xffffff, 0.45), 24);
-    this.scene.add(this.shadows, this.hazards, this.lines, this.chunkMesh, this.pBullets, this.eBullets, this.coins, this.gems, this.boxes, this.rocks, this.pillars, this.cones,
+    // Giftpfützen (Sumpf): liegen fest am Boden, gebaut mit den Hindernissen. Klingen der Zahnradfallen (Uhrwerkturm):
+    // drehen sich jedes Bild (drawMechanics)
+    this.pools = instanced(flat(new THREE.CircleGeometry(1, 36)), unlit(0xffffff), 80, true);
+    this.pools.renderOrder = 1;
+    this.blades = instanced(new THREE.BoxGeometry(1, 1, 1).translate(0.5, 0.5, 0), toon({ color: 0xc9d2dc }), 60);
+    this.scene.add(this.pools, this.blades);
+    this.scene.add(this.shadows, this.hazards, this.lines, this.chunkMesh, this.shotOrb, this.shotRod, this.shotFlat, this.shotCube, this.shotGem, this.shrineGems, this.coins, this.gems, this.boxes, this.rocks, this.pillars, this.cones,
       this.walls, this.orbs, this.sparks, this.rings, this.beams, this.slashes);
 
     // Teleporter: Ring am Boden, Lichtsäule, großer Ladekreis
@@ -179,8 +226,43 @@ export default class Scene3d {
     this.heroRing.renderOrder = 3;
     this.scene.add(this.player, this.playerOutline, this.heroRing);
 
+    // Requisiten (cast.js PROPS): je eine Instanzen-Gruppe mit Kontur. Bis sie geladen sind, zeichnet drawObjects die alten
+    // Kästen — ein fehlendes Modell bricht also nichts.
+    this.props = new Map();
+    for (const [key, def] of Object.entries(PROPS)) {
+      loadFigure(def.fig).then((fig) => {
+        if (this.disposed) return;
+        const cap = key === "crystal" || key === "crystal2" ? 160 : 40;
+        const m = instanced(fig.idle, this.figureMat, cap, true);
+        const hull = new THREE.InstancedMesh(fig.idle, this.outlineMat, cap);
+        hull.instanceMatrix = m.instanceMatrix;
+        hull.count = 0; hull.frustumCulled = false; hull.visible = false;
+        this.scene.add(m, hull);
+        this.props.set(key, { m, hull, cap, n: 0, h: def.h });
+        this.obstacleCount = -1; // Kristalle der Höhle neu legen
+      }).catch((err) => console.warn("[adVentures 3D] Requisite nicht geladen:", def.fig, err));
+    }
+
     this.setQuality(quality);
     this.ready = this.loadCast(kitId);
+  }
+
+  // Eine Requisite hinstellen (false, solange ihr Modell noch lädt)
+  putProp(key, x, y, yaw, scale, color, dim = 1) {
+    const p = this.props.get(key);
+    if (!p || p.n >= p.cap) return false;
+    setInstance(p.m.instanceMatrix.array, p.n, x * S, 0, y * S, yaw, p.h * scale);
+    (color ? _c.set(color) : _c.setRGB(1, 1, 1)).multiplyScalar(dim).toArray(p.m.instanceColor.array, p.n * 3);
+    p.n++;
+    return true;
+  }
+
+  commitProp(key) {
+    const p = this.props.get(key);
+    if (!p) return;
+    commit(p.m, p.n);
+    p.hull.count = p.n;
+    p.hull.visible = p.n > 0 && this.outlines;
   }
 
   // Heldenfigur laden; die Gegner kommen je Welt dazu (loadWorldCast)
@@ -197,7 +279,8 @@ export default class Scene3d {
   // beschworen werden kann. Jede Figur ist eine kleine Datei; wer noch nicht geladen ist, wird solange nicht gezeichnet.
   loadWorldCast(g) {
     const casts = [...enemyPoolFor(g.biome, g.loop).map(([id]) => CAST[id] || KNECHT), ...(g.biome.waves || []).map(([id]) => CAST[id] || KNECHT), ...EXTRAS.map((id) => CAST[id]),
-      ...g.biome.bosses.map((id) => BOSS_CAST[id] || DEFAULT_BOSS)];
+      ...g.biome.bosses.map((id) => BOSS_CAST[id] || DEFAULT_BOSS),
+      ...(KIT_PETS[g.kit?.id] || []).map((pet) => ({ fig: PET_FIG[pet], cap: 8 }))];
     const wanted = new Map(); // Datei → größter Bedarf unter allen Gegnern, die sie nutzen
     for (const c of casts) wanted.set(c.fig, Math.max(wanted.get(c.fig) || 0, c.cap || 20));
     const jobs = [];
@@ -239,6 +322,7 @@ export default class Scene3d {
     this.renderer.setPixelRatio(q === "spar" ? 0.6 : q === "handy" ? Math.min(1.25, dpr) : Math.min(2, dpr));
     this.renderer.setSize(this.w, this.h, false);
     for (const b of this.buckets.values()) for (const h of b.hulls) h.visible = this.outlines;
+    for (const p of this.props?.values() || []) p.hull.visible = this.outlines && p.n > 0;
     this.playerOutline.visible = this.outlines && !!this.heroFig;
     this.torch.visible = q !== "spar";
   }
@@ -259,8 +343,9 @@ export default class Scene3d {
 
   applyFog() {
     if (!this.scene.fog) return;
-    this.scene.fog.near = 30 * (this.camScale || 1);
-    this.scene.fog.far = 70 * (this.camScale || 1);
+    const k = this.fogK || 1; // Sumpf: dichter Nebel (data/biomes.js fog)
+    this.scene.fog.near = 30 * k * (this.camScale || 1);
+    this.scene.fog.far = 70 * (k < 1 ? 0.62 : 1) * (this.camScale || 1);
   }
 
   // Bildschirmpunkt → Punkt am Boden, in Spielkoordinaten
@@ -284,6 +369,7 @@ export default class Scene3d {
     const bg = new THREE.Color(FLOORS[id]?.outside || "#0d0c10");
     this.scene.background = bg;
     this.scene.fog = new THREE.Fog(bg, 30, 70);
+    this.fogK = g.biome.fog ? 0.6 : 1;
     this.applyFog();
     if (this.ground) { this.scene.remove(this.ground); this.ground.geometry.dispose(); this.ground.material.map.dispose(); this.ground.material.dispose(); }
     const tex = new THREE.CanvasTexture(makeFloorTile(id));
@@ -301,15 +387,19 @@ export default class Scene3d {
 
   buildObstacles(g) {
     const n = { rocks: 0, pillars: 0, cones: 0 };
-    const put = (mesh, key, o, h, w, color) => {
+    for (const key of ["crystal", "crystal2"]) { const p = this.props.get(key); if (p) p.n = 0; }
+    const put = (mesh, key, o, h, w, color, lift = 0) => {
       if (n[key] >= mesh.instanceMatrix.count) return;
-      setInstance(mesh.instanceMatrix.array, n[key], o.x * S, 0, o.y * S, (o.x * 0.013 + o.y * 0.007) % 6.28, w, h, w);
+      setInstance(mesh.instanceMatrix.array, n[key], o.x * S, lift, o.y * S, (o.x * 0.013 + o.y * 0.007) % 6.28, w, h, w);
       _c.set(color).toArray(mesh.instanceColor.array, n[key] * 3);
       n[key]++;
     };
     for (const o of g.obstacles) {
       const r = o.r * S, k = o.sprite || "";
-      if (/pillar/.test(k)) put(this.pillars, "pillars", o, r * 3.4, r * 0.9, "#8a8298");
+      if (NEW_OBSTACLES[k]) NEW_OBSTACLES[k](put, this, o, r);
+      // Kristallhöhle: echte Kristalle statt Felsbrocken (fallen auf Felsen zurück, solange sie laden)
+      else if ((k === "stone1" || k === "stone2") && this.putProp(k === "stone1" ? "crystal" : "crystal2", o.x, o.y, (o.x * 0.013 + o.y * 0.007) % 6.28, r * 2.4 / PROPS.crystal.h, k === "stone1" ? null : "#c49aff")) { /* gesetzt */ }
+      else if (/pillar/.test(k)) put(this.pillars, "pillars", o, r * 3.4, r * 0.9, "#8a8298");
       else if (/tree/.test(k)) { put(this.pillars, "pillars", o, r * 1.2, r * 0.35, "#5e3c24"); put(this.cones, "cones", o, r * 2.8, r * 1.05, "#2f5a35"); }
       else if (/cactus/.test(k)) put(this.pillars, "pillars", o, r * 3, r * 0.7, "#4f9a4a");
       else if (/ice/.test(k)) put(this.cones, "cones", o, r * 2.6, r, "#a8e4ff");
@@ -317,7 +407,18 @@ export default class Scene3d {
       else put(this.rocks, "rocks", o, r * 1.25, r * 1.05, /stone/.test(k) ? "#4a6272" : "#6b6478");
     }
     commit(this.rocks, n.rocks); commit(this.pillars, n.pillars); commit(this.cones, n.cones);
+    this.commitProp("crystal"); this.commitProp("crystal2");
     this.obstacleCount = g.obstacles.length;
+    // Giftpfützen: dunkler Rand, darüber die Brühe
+    let np = 0;
+    const pa = this.pools.instanceMatrix.array, pc = this.pools.instanceColor.array;
+    for (const o of g.pools || []) {
+      if (np + 2 > 80) break;
+      setInstance(pa, np, o.x * S, 0.008, o.y * S, 0, o.r * S, 1, o.r * S * 0.92); _c.set("#2a3020").toArray(pc, np * 3); np++;
+      setInstance(pa, np, o.x * S, 0.01, o.y * S, 0, (o.r - 8) * S, 1, (o.r * 0.92 - 8) * S); _c.set("#5a7a2e").toArray(pc, np * 3); np++;
+    }
+    commit(this.pools, np);
+    this.gears = g.obstacles.filter((o) => o.sprite === "gear");
   }
 
   // ── Ein Bild ──────────────────────────────────────────────────────────────
@@ -351,6 +452,7 @@ export default class Scene3d {
     this.drawLoot(g);
     this.drawObjects(g);
     this.drawExtras(g);
+    this.drawMechanics();
 
     this.renderer.render(this.scene, this.camera);
     const info = this.renderer.info.render;
@@ -421,19 +523,24 @@ export default class Scene3d {
       if (nShadow < 1800) setInstance(sh, nShadow++, x, 0.012, z, 0, e.r * S * 0.95, 1, e.r * S * 0.7);
     }
     this.drawCorpses();
-    // Begleiter: erweckte Skelette und der Köder des Ninjas stehen als bläuliche Skelettkrieger da
+    // Begleiter: erweckte Skelette und der Köder des Ninjas stehen als bläuliche Skelettkrieger da, Begleittiere mit
+    // eigener Figur (Wölfe der Jägerin); Geschütztürme und Fangeisen zeichnet drawObjects
     const helpers = this.buckets.get(CAST.skeletonwarrior.fig);
-    if (helpers) for (const al of g.allies) {
-      if (al.kind === "turret") continue;
-      const frame = al.moving ? Math.floor(this.animT * helpers.fps + al.uid) % helpers.steps : helpers.steps;
-      const slot = helpers.n[frame];
-      if (slot >= helpers.cap) continue;
-      helpers.n[frame]++;
-      const mesh = helpers.meshes[frame];
+    for (const al of g.allies) {
+      if (al.kind === "turret" || al.kind === "trap") continue;
+      const pet = PET_FIG[al.kind];
+      const b = pet ? this.buckets.get(pet) : helpers;
+      if (!b) continue;
+      const frame = al.moving ? Math.floor(this.animT * b.fps + al.uid) % b.steps : b.steps;
+      const slot = b.n[frame];
+      if (slot >= b.cap) continue;
+      b.n[frame]++;
+      const mesh = b.meshes[frame];
       const fade = Math.min(1, (al.life - al.t) / 0.5);
-      setInstance(mesh.instanceMatrix.array, slot, al.x * S, 0, al.y * S, (al.facing || 1) > 0 ? Math.PI / 2 : -Math.PI / 2, 1.1 * Math.max(0.05, fade));
-      mesh.instanceColor.array.set(al.kind === "decoy" ? [1.6, 1.6, 2.2] : [0.7, 1.2, 1.9], slot * 3);
-      if (nShadow < 1800) setInstance(sh, nShadow++, al.x * S, 0.012, al.y * S, 0, 0.38, 1, 0.28);
+      const yaw = pet ? Math.atan2(Math.cos(al.aim ?? 0), Math.sin(al.aim ?? 0)) : (al.facing || 1) > 0 ? Math.PI / 2 : -Math.PI / 2;
+      setInstance(mesh.instanceMatrix.array, slot, al.x * S, 0, al.y * S, yaw, (pet ? 0.75 : 1.1) * Math.max(0.05, fade));
+      mesh.instanceColor.array.set(pet ? [1, 1, 1] : al.kind === "decoy" ? [1.6, 1.6, 2.2] : [0.7, 1.2, 1.9], slot * 3);
+      if (nShadow < 1800) setInstance(sh, nShadow++, al.x * S, 0.012, al.y * S, 0, pet ? 0.45 : 0.38, 1, 0.28);
     }
     for (const b of this.buckets.values()) {
       for (let f = 0; f < b.meshes.length; f++) { commit(b.meshes[f], b.n[f]); b.hulls[f].count = b.n[f]; b.hulls[f].visible = b.n[f] > 0 && this.outlines; }
@@ -554,23 +661,29 @@ export default class Scene3d {
     commit(this.splatMesh, m);
   }
 
+  // Geschosse nach Form (SHOT_LOOK): Stäbe zeigen in Flugrichtung, Scheiben drehen sich, Kugeln leuchten
   drawShots(g) {
-    let n = 0;
-    let arr = this.pBullets.instanceMatrix.array;
-    for (const b of g.pBullets) {
-      if (n >= 500) break;
-      const r = b.r * S;
-      setInstance(arr, n++, b.x * S, 0.75, b.y * S, Math.atan2(b.vx, b.vy), r * 0.5, r * 0.5, r * 1.5);
-    }
-    commit(this.pBullets, n);
-    n = 0;
-    arr = this.eBullets.instanceMatrix.array;
-    for (const b of g.eBullets) {
-      if (n >= 400) break;
-      const r = b.r * S * (b.scale || 1) * 1.3;
-      setInstance(arr, n++, b.x * S, 0.7, b.y * S, 0, r);
-    }
-    commit(this.eBullets, n);
+    const meshes = { orb: this.shotOrb, rod: this.shotRod, flat: this.shotFlat, cube: this.shotCube, gem: this.shotGem };
+    const caps = { orb: 900, rod: 500, flat: 300, cube: 200, gem: 200 };
+    const n = { orb: 0, rod: 0, flat: 0, cube: 0, gem: 0 };
+    const put = (b, enemy) => {
+      const [shape, color, size] = shotLook(b, enemy);
+      if (n[shape] >= caps[shape]) return;
+      const mesh = meshes[shape], i = n[shape]++;
+      const r = b.r * S * (b.scale || 1) * size * (enemy ? 1.15 : 1);
+      const yaw = -Math.atan2(b.vy, b.vx);
+      const y = enemy ? 0.7 : 0.75;
+      const arr = mesh.instanceMatrix.array;
+      if (shape === "rod") setInstance(arr, i, b.x * S, y, b.y * S, yaw, r * 1.7, r * 0.13, r * 0.13);
+      else if (shape === "flat") setInstance(arr, i, b.x * S, y, b.y * S, this.animT * 14 + b.x * 0.01, r, r * 0.22, r);
+      else if (shape === "cube") setInstance(arr, i, b.x * S, y, b.y * S, this.animT * 6, r * 0.8);
+      else if (shape === "gem") setInstance(arr, i, b.x * S, y, b.y * S, this.animT * 4, r * 0.75, r * 1.1, r * 0.75);
+      else setInstance(arr, i, b.x * S, y, b.y * S, 0, r * 0.7);
+      _c.set(b.element?.color || color).toArray(mesh.instanceColor.array, i * 3);
+    };
+    for (const b of g.pBullets) put(b, false);
+    for (const b of g.eBullets) put(b, true);
+    for (const k of Object.keys(meshes)) commit(meshes[k], n[k]);
   }
 
   // Telegraphen und Flächen am Boden
@@ -578,17 +691,27 @@ export default class Scene3d {
     const arr = this.hazards.instanceMatrix.array, col = this.hazards.instanceColor.array;
     let n = 0, nl = 0;
     const disc = (x, y, r, color, lift) => {
-      if (n >= 200) return;
+      if (n >= HAZARD_CAP) return;
       setInstance(arr, n, x * S, lift, y * S, 0, r * S);
       _c.set(color).toArray(col, n * 3);
       n++;
     };
-    for (const z of g.zones) disc(z.x, z.y, z.r, z.kind === "fire" ? "#ff7a2e" : z.kind === "poison" || z.friendly ? "#8be04e" : "#a050e0", 0.014);
+    for (const z of g.zones) disc(z.x, z.y, z.r, z.kind === "fire" ? "#ff7a2e" : z.kind === "smoke" ? "#c8c8d4" : z.kind === "poison" || z.friendly ? "#8be04e" : z.kind === "spores" ? "#c49aff" : "#a050e0", 0.014);
     for (const h of g.hazards) {
       if (h.delay > 1.15) continue;
       const prog = Math.max(0, Math.min(1, 1 - h.delay / Math.min(h.maxDelay || 1, 1.15)));
       const color = h.friendly ? "#9ad1ff" : h.color || "#ff4a3a";
       if (h.shape === "circle") { disc(h.x, h.y, h.r, color, 0.016); disc(h.x, h.y, h.r * prog, color, 0.018); }
+      else if (h.shape === "ring") {
+        // Band zwischen rIn und r als Kette überlappender Scheiben; die inneren wachsen mit der Ankündigung
+        const mid = (h.r + h.rIn) / 2, half = (h.r - h.rIn) / 2;
+        const count = Math.max(8, Math.ceil((Math.PI * 2 * mid) / (half * 1.5)));
+        for (let i = 0; i < count; i++) {
+          const a = (Math.PI * 2 * i) / count, x = h.x + Math.cos(a) * mid, y = h.y + Math.sin(a) * mid;
+          disc(x, y, half, color, 0.016);
+          disc(x, y, half * prog, color, 0.018);
+        }
+      }
       else if (h.shape === "line" && nl < 120) {
         const len = Math.hypot(h.x2 - h.x, h.y2 - h.y);
         setInstance(this.lines.instanceMatrix.array, nl++, h.x * S, 0.016, h.y * S, -Math.atan2(h.y2 - h.y, h.x2 - h.x), len * S, 1, h.w * S);
@@ -597,7 +720,7 @@ export default class Scene3d {
     // Ansturm-Bahnen: wer zielt, zeigt, wohin er gleich rennt
     for (const e of g.enemies) {
       if (e.dead || e.state !== "aim" || nl >= 120) continue;
-      setInstance(this.lines.instanceMatrix.array, nl++, e.x * S, 0.016, e.y * S, -e.aimAngle, 460 * S, 1, e.r * 1.2 * S);
+      setInstance(this.lines.instanceMatrix.array, nl++, e.x * S, 0.016, e.y * S, -e.aimAngle, (e.aimLen || 460) * S, 1, e.r * 1.2 * S);
     }
     // Glutaura des Helden
     const p = g.player;
@@ -636,21 +759,45 @@ export default class Scene3d {
 
   drawObjects(g) {
     const arr = this.boxes.instanceMatrix.array, col = this.boxes.instanceColor.array;
-    let n = 0;
+    let n = 0, ng = 0;
+    const DYN = ["chest", "bigChest", "equipChest", "opened", "shrine", "altar", "trap"];
+    for (const key of DYN) { const p = this.props.get(key); if (p) p.n = 0; }
+    const gems = this.shrineGems.instanceMatrix.array, gcol = this.shrineGems.instanceColor.array;
     for (const o of g.interactables) {
-      if (n >= 80) break;
       const [color, h] = INTERACT_LOOK[o.type] || ["#8a8298", 0.8];
+      // leicht gedreht je Ort, damit nicht alle Kisten gleich stehen; Front grob zur Kamera
+      const yaw = (((o.x * 13 + o.y * 7) % 100) / 100) * 0.8 - 0.4;
+      const isChest = o.type === "chest" || o.type === "bigChest" || o.type === "equipChest";
+      const isShrine = !isChest && o.type !== "sacrificeAltar";
+      const key = isChest ? (o.used ? "opened" : o.type) : o.type === "sacrificeAltar" ? "altar" : "shrine";
+      const placed = this.putProp(key, o.x, o.y, yaw, 1, null, o.used && !isChest ? 0.45 : o.used ? 0.6 : 1);
+      // Schreine: der Edelstein in ihrer Farbe schwebt darüber (verblasst, wenn benutzt)
+      if (placed && isShrine && ng < 24) {
+        setInstance(gems, ng, o.x * S, 2.05 + Math.sin(this.animT * 2.5 + o.x) * 0.08, o.y * S, this.animT * 1.6, 0.16, 0.24, 0.16);
+        _c.set(color).multiplyScalar(o.used ? 0.3 : 1).toArray(gcol, ng * 3);
+        ng++;
+      }
+      if (placed || n >= 80) continue;
       const w = h > 1 ? 0.5 : 0.75;
       setInstance(arr, n, o.x * S, 0, o.y * S, 0, w, h, w * (h > 1 ? 1 : 0.7));
       _c.set(color).multiplyScalar(o.used ? 0.25 : 1).toArray(col, n * 3);
       n++;
     }
+    commit(this.shrineGems, ng);
     for (const al of g.allies) {
-      if (al.kind !== "turret" || n >= 80) continue;
-      setInstance(arr, n, al.x * S, 0, al.y * S, -(al.aim || 0), 0.5, 0.55, 0.42);
-      _c.set("#5ee0ff").toArray(col, n * 3);
-      n++;
+      if (n >= 80) continue;
+      if (al.kind === "turret") {
+        setInstance(arr, n, al.x * S, 0, al.y * S, -(al.aim || 0), 0.5, 0.55, 0.42);
+        _c.set("#5ee0ff").toArray(col, n * 3);
+        n++;
+      } else if (al.kind === "trap" && !this.putProp("trap", al.x, al.y, (al.uid * 1.7) % 6.28, 1, null)) {
+        // Fangeisen, solange das Modell noch lädt: flache Eisenplatte am Boden
+        setInstance(arr, n, al.x * S, 0, al.y * S, 0.4, 0.5, 0.07, 0.5);
+        _c.set("#9aa3ad").toArray(col, n * 3);
+        n++;
+      }
     }
+    for (const key of DYN) this.commitProp(key);
     commit(this.boxes, n);
 
     const t = g.teleporter;
@@ -665,6 +812,16 @@ export default class Scene3d {
   }
 
   // Mauern, Eier, kreisende Waffen und die Effekte aus g.fx (Funken, Ringe, Blitze, Hiebe)
+  // Klingen der Zahnradfallen (Winkel setzt engine/worldMechanics.js an o.armA)
+  drawMechanics() {
+    let n = 0;
+    for (const o of this.gears || []) {
+      if (n >= 60) break;
+      setInstance(this.blades.instanceMatrix.array, n++, o.x * S, 0.12, o.y * S, -(o.armA ?? 0), GEAR_REACH * S, 0.16, GEAR_W * S);
+    }
+    commit(this.blades, n);
+  }
+
   drawExtras(g) {
     const p = g.player, fx = g.fx;
     let n = 0;
@@ -701,14 +858,28 @@ export default class Scene3d {
         orb(h.lob.x + (h.x - h.lob.x) * k, h.lob.y + (h.y - h.lob.y) * k, 0.5 + Math.sin(k * Math.PI) * 4.5, 11, "#3a3440");
       }
     }
-    for (const [id, color, r] of [["feuerkugeln", "#ff9a3c", 15], ["sonnenkranz", "#ffd84a", 17], ["kriegsrad", "#c9a06b", 20]]) {
+    for (const [id, color, r] of [["feuerkugeln", "#ff9a3c", 15], ["sonnenkranz", "#ffd84a", 17]]) {
       for (const o of (p.weapons[id] && p.weaponState[id]?.orbs) || []) orb(o.x, o.y, 0.75, r, color);
     }
-    for (let i = 0; i < (p.items.orbitalklinge || 0); i++) {
-      const a = (p.orbitAngle || 0) + (Math.PI * 2 * i) / p.items.orbitalklinge;
-      orb(p.x + Math.cos(a) * 95, p.y + Math.sin(a) * 95, 0.75, 13, "#d8d8e0");
-    }
     commit(this.orbs, n);
+    // Kriegsrad als drehendes Rad, Orbitalklingen als Klingen quer zur Kreisbahn (Formen der Geschosse mitbenutzt)
+    {
+      const flat = this.shotFlat, rod = this.shotRod;
+      let nf = flat.count, nr = rod.count;
+      for (const o of (p.weapons.kriegsrad && p.weaponState.kriegsrad?.orbs) || []) {
+        if (nf >= 300) break;
+        setInstance(flat.instanceMatrix.array, nf, o.x * S, 0.75, o.y * S, this.animT * 10, 20 * S, 5 * S, 20 * S);
+        _c.set("#c9a06b").toArray(flat.instanceColor.array, nf * 3);
+        nf++;
+      }
+      for (let i = 0; i < (p.items.orbitalklinge || 0) && nr < 500; i++) {
+        const a = (p.orbitAngle || 0) + (Math.PI * 2 * i) / p.items.orbitalklinge;
+        setInstance(rod.instanceMatrix.array, nr, (p.x + Math.cos(a) * 95) * S, 0.75, (p.y + Math.sin(a) * 95) * S, -a, 30 * S, 3 * S, 7 * S);
+        _c.set("#dcdce6").toArray(rod.instanceColor.array, nr * 3);
+        nr++;
+      }
+      commit(flat, nf); commit(rod, nr);
+    }
 
     n = 0;
     const sp = this.sparks.instanceMatrix.array, scol = this.sparks.instanceColor.array;

@@ -9,17 +9,17 @@ import { CrBattle, CrCards, CrCheck, CrTv } from '../ui/CrIcons';
 import { berlinDay, readStore } from './quizData';
 import { useClashLang } from './clashI18n';
 import { DAILY_GAMES, doneCount, syncDaily } from './dailyRound';
-import crownImg from '../../../assets/clashRoyale/ui/crown.png';
-import skullImg from '../../../assets/clashRoyale/ui/sudden_death.webp';
-import trophyImg from '../../../assets/clashRoyale/ui/trophy.png';
+import crownImg from '../../../assets/clashRoyale/ui/crown.webp';
+import skullImg from '../../../assets/clashRoyale/modes/sudden_death.webp';
+import trophyImg from '../../../assets/clashRoyale/ui/trophy.webp';
 import questionImg from '../../../assets/clashRoyale/ui/question.webp';
 import kingImg from '../../../assets/clashRoyale/ui/king_blue.webp';
 import swordImg from '../../../assets/clashRoyale/ui/sword.webp';
 import searchImg from '../../../assets/clashRoyale/ui/search.webp';
 import eyeImg from '../../../assets/clashRoyale/ui/eye.webp';
 import tvImg from '../../../assets/clashRoyale/ui/tv.webp';
-import potionImg from '../../../assets/clashRoyale/ui/card_boost_potion.png';
-import scrollImg from '../../../assets/clashRoyale/ui/icon_daily_task_scroll_opened.png';
+import potionImg from '../../../assets/clashRoyale/ui/card_boost_potion.webp';
+import scrollImg from '../../../assets/clashRoyale/ui/icon_daily_task_scroll_opened.webp';
 
 // Kartenspiele zuerst und standardmäßig offen (Nutzerwunsch 15.11.2026), Minigames dahinter
 const TAB_IDS = ['kartenspiele', 'minigames', 'streamer'];

@@ -230,7 +230,10 @@ export function createTableRoom(host, opts = {}) {
   } catch {
     return null;
   }
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  // Schärfe (Phase 7): höchstens doppelt; auf Touch-Geräten (Handy, Tablet: kleine, aber dichte Bildschirme mit
+  // schwächerer Grafik) höchstens 1,5-fach — gut 40 % weniger Bildpunkte, die Schrift auf den Karten bleibt lesbar
+  const coarsePointer = !!window.matchMedia?.("(pointer: coarse)").matches;
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, coarsePointer ? 1.5 : 2));
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.0;
   renderer.shadowMap.enabled = true;
@@ -580,6 +583,7 @@ export function createTableRoom(host, opts = {}) {
     move.from = { pos: base.pos.clone(), quat: base.quat.clone(), fov: base.fov };
     move.t0 = clock.getElapsedTime();
     move.done = false;
+    wake(MOVE_S);
   };
 
   const resize = () => {
@@ -1016,8 +1020,10 @@ export function createTableRoom(host, opts = {}) {
 
   /** @param {BattleModel} m */
   function sync(m) {
+    wake(1);
     if (!ready) { pendingModel = m; return; }
     applyModel(m);
+    targetsChanged();
   }
 
   // Rückseiten und Schriften laden, danach den ersten Stand aufbauen
@@ -1027,7 +1033,7 @@ export function createTableRoom(host, opts = {}) {
     backTex = keep(kit.texture(a));
     sideBackTex = keep(kit.texture(b));
     ready = true;
-    if (pendingModel) { applyModel(pendingModel); pendingModel = null; }
+    if (pendingModel) { applyModel(pendingModel); pendingModel = null; targetsChanged(); }
     // Alle Materialien vorab übersetzen (auch die der Gestalt, die im Standardblick nicht im Bild ist) —
     // sonst ruckelt der erste Kamerawechsel
     renderer.compile(scene, camera);
@@ -1035,6 +1041,7 @@ export function createTableRoom(host, opts = {}) {
 
   /** @param {UiState} next */
   function setUi(next) {
+    wake();
     ui = next || {};
     markedSet = new Set(ui.marked || []);
     pickedSet = new Set(ui.picked || []);
@@ -1058,6 +1065,7 @@ export function createTableRoom(host, opts = {}) {
       if (k.startsWith("loose:")) rings[k].goal = ui.selected === k.slice(6) || pickedSet.has(k.slice(6)) ? 0.95 : pickable.has(k.slice(6)) ? 0.5 : 0;
       else if (k.startsWith("choice:")) rings[k].goal = String(ui.choice) === k.slice(7) ? 0.95 : choosable.has(k.slice(7)) ? 0.45 : 0;
     }
+    targetsChanged();
   }
 
   // ── Gesten zu Ereignissen ───────────────────────────────────────────────
@@ -1195,6 +1203,7 @@ export function createTableRoom(host, opts = {}) {
    * @param {any} ev @param {number} [durMs] Abstand bis zum nächsten Ereignis
    */
   function play(ev, durMs) {
+    wake(ev.type === "bossPhase" ? 3 : 1);
     const t = clock.getElapsedTime();
     const ent = ev.uid ? ents.get(ev.uid) : null;
     const byOpp = typeof ev.player === "number" && ownerOf(ev.player) === "opp";
@@ -1443,6 +1452,17 @@ export function createTableRoom(host, opts = {}) {
   }
   const headAt = new THREE.Vector3();
 
+  // ── Ruhe (Phase 7) ──────────────────────────────────────────────────────
+  // In Ruhe zeichnet der Tisch nur etwa 30 Bilder je Sekunde statt so vieler, wie der Bildschirm kann (bei 165 Hz
+  // also ein Fünftel). Ruhe heißt: seit CALM_AFTER_S keine Eingabe, kein neuer Stand, kein Ereignis, keine
+  // Kamerafahrt. Kerzen, Staub und das Atmen der Gestalt laufen dann ruhiger weiter; jede Eingabe und jedes Ereignis
+  // schaltet sofort auf die volle Bildrate zurück. Spart Akku und Lüfter, vor allem auf Laptops und Handys.
+  const CALM_AFTER_S = 1.5;
+  const CALM_FRAME_MS = 32;
+  let activeUntil = 0;
+  /** Etwas passiert (gerade, oder noch so viele Sekunden lang): volle Bildrate. */
+  const wake = (forS = 0) => { activeUntil = Math.max(activeUntil, clock.getElapsedTime() + CALM_AFTER_S + forS); };
+
   // ── Zeiger ──────────────────────────────────────────────────────────────
   const ray = new THREE.Raycaster();
   const ndc = new THREE.Vector2();
@@ -1490,13 +1510,22 @@ export function createTableRoom(host, opts = {}) {
     pointer.inside = true;
   };
   const down = { x: 0, y: 0, timer: 0, long: false };
-  const onMove = (e) => setPointer(e);
-  const onLeave = () => { pointer.inside = false; };
+  /**
+   * Touch (Phase 7): ohne Mauszeiger gibt es kein Drüberfahren. Das zuletzt angetippte Ding gilt deshalb für die
+   * Erklärung (onHover) als „unter dem Zeiger“, bis zum nächsten Antippen — sonst sähe man am Handy nie, was die Waage,
+   * ein Totem oder die Kerzen bedeuten. Angehoben wird dabei nichts (das bleibt dem echten Zeiger).
+   * @type {{ pick: any, at: { x: number, y: number } } | null}
+   */
+  let touchTip = null;
+  const onMove = (e) => { setPointer(e); wake(); };
+  const onLeave = () => { pointer.inside = false; wake(); };
   const onDown = (e) => {
     setPointer(e);
+    wake();
     down.x = e.clientX;
     down.y = e.clientY;
     down.long = false;
+    touchTip = null;
     clearTimeout(down.timer);
     if (e.pointerType !== "mouse") {
       // Langes Drücken = ansehen (Handy)
@@ -1513,7 +1542,10 @@ export function createTableRoom(host, opts = {}) {
     setPointer(e);
     const p = pickAt();
     if (p) onIntent(p, "click");
-    if (e.pointerType !== "mouse") pointer.inside = false;
+    if (e.pointerType !== "mouse") {
+      pointer.inside = false;
+      touchTip = p ? { pick: p, at: { x: e.clientX, y: e.clientY } } : null;
+    }
   };
   const onCancel = () => clearTimeout(down.timer);
   const onContext = (e) => {
@@ -1527,6 +1559,79 @@ export function createTableRoom(host, opts = {}) {
   canvas.addEventListener("pointerup", onUp);
   canvas.addEventListener("pointercancel", onCancel);
   canvas.addEventListener("contextmenu", onContext);
+
+  // ── Tastatur und Screenreader (Phase 7) ─────────────────────────────────
+  // Die Bedien-Spiegelung (TableMirror.jsx) ist eine unsichtbare Liste von Knöpfen für alles, was hier anfassbar ist.
+  // Hat einer davon den Fokus, gilt sein Ziel wie „unter dem Zeiger“: die Karte hebt sich, die Erklärung erscheint.
+  /** @type {any} */
+  let focusPick = null;
+  /** Welt-Lage eines Ziels (Karten über ihre uid, Felder über Reihe/Lane, Gegenstände über ihr pick). */
+  const worldOf = (pick, out) => {
+    if (!pick) return null;
+    if (pick.uid) {
+      const ent = ents.get(pick.uid);
+      return ent ? out.copy(ent.pos) : null;
+    }
+    if (pick.type === "slot") return out.set(LANE_X[pick.lane], 0.1, ROW_Z[pick.row]);
+    if (pick.type === "node") {
+      const mk = pathMap.marks().find((x) => x.lv === pick.lv && x.st === pick.st);
+      return mk ? out.copy(mk.world).setY(mk.world.y + 2) : null;
+    }
+    if (pick.type === "seal") { seal.stamp.getWorldPosition(out); out.y += 3.5; return out; }
+    let found = null;
+    for (const r of pickRoots) {
+      if (found || !r.visible) continue;
+      r.traverse((o) => { if (!found && o.visible && o.userData.pick && samePick(o.userData.pick, pick)) found = o; });
+    }
+    return found ? found.getWorldPosition(out) : null;
+  };
+  /** Bildschirmpunkt eines Ziels (CSS-Pixel), sonst die Bildmitte. */
+  const screenOf = (pick) => {
+    const r = canvas.getBoundingClientRect();
+    const p = worldOf(pick, new THREE.Vector3());
+    if (!p) return { x: r.left + r.width / 2, y: r.top + r.height * 0.55 };
+    p.project(camera);
+    return { x: r.left + ((p.x + 1) / 2) * r.width, y: r.top + ((1 - p.y) / 2) * r.height };
+  };
+  /** Was weiß die Szene über einen Gegenstand (für die Beschriftung der Spiegelung)? */
+  const infoOf = (p) => {
+    const m = model;
+    switch (p.type) {
+      case "deck": return { count: p.pile === "main" ? m.me.deck : null, drawable: !!ui.drawable };
+      case "pool": return { count: m.pool?.count ?? 0, label: m.pool?.label || "" };
+      case "bones": return { count: m.me.bones };
+      case "third": return { count: m.me.third, kind: m.third };
+      case "scale": return { count: m.scale };
+      case "seal": return { ready: !!ui.canEnd };
+      case "oppSeal": return { ready: !!ui.oppSeal };
+      case "hammer": return { active: ui.hammer === "active", ready: ui.hammer === "ready" };
+      case "item": return { label: m.itemNames?.[p.id] || p.id };
+      case "totem": return { label: (p.owner === "me" ? m.me.totems : m.opp.totems)?.[p.index]?.label || "" };
+      case "note": {
+        const n = (m.notes || []).find((x) => String(x.id) === String(p.id));
+        return { lines: (n?.lines || []).map((l) => (typeof l === "string" ? l : l.text)).filter(Boolean), dim: !!n?.dim };
+      }
+      case "choice": {
+        const c = (m.choices || []).find((x) => String(x.id) === String(p.id));
+        return { label: c?.label || "", chosen: String(ui.choice) === String(p.id), choosable: (ui.choosable || []).map(String).includes(String(p.id)) };
+      }
+      case "ware": {
+        const w = (m.wares || []).find((x) => String(x.id) === String(p.id));
+        return { label: w?.name || "", dim: !!w?.dim };
+      }
+      case "candle": return { lit: candleLit ? !!candleLit[p.index] : null };
+      case "podium": return { place: p.place };
+      default: return null;
+    }
+  };
+  const targetListeners = new Set();
+  let targetsQueued = false;
+  /** Die Spiegelung neu lesen lassen (gebündelt auf das nächste Bild). */
+  const targetsChanged = () => {
+    if (targetsQueued || !targetListeners.size) return;
+    targetsQueued = true;
+    requestAnimationFrame(() => { targetsQueued = false; targetListeners.forEach((fn) => fn()); });
+  };
 
   // ── Bild für Bild ───────────────────────────────────────────────────────
   const flameQ = new THREE.Quaternion();
@@ -1688,6 +1793,8 @@ export function createTableRoom(host, opts = {}) {
 
   let last = 0;
   const frame = (nowMs) => {
+    // In Ruhe nur jedes ~32. ms ein Bild (siehe „Ruhe“); last bleibt stehen, damit dt die Lücke mitzählt
+    if (move.done && clock.getElapsedTime() > activeUntil && nowMs - last < CALM_FRAME_MS) return;
     const dt = Math.min(0.1, (nowMs - last) / 1000 || 0.016);
     last = nowMs;
     const t = clock.getElapsedTime();
@@ -1740,15 +1847,16 @@ export function createTableRoom(host, opts = {}) {
     hs = Math.tan(THREE.MathUtils.degToRad(base.fov) / 2) / Math.tan(THREE.MathUtils.degToRad(44) / 2);
 
     // Was liegt unter dem Zeiger?
-    const pick = pickAt();
+    const pick = focusPick || pickAt();
     hovered = pick && (pick.type === "hand" || pick.type === "unit" || pick.type === "loose") ? ents.get(pick.uid) || null : null;
     if (mapData) {
       pathMap.setHover(pick?.type === "node" ? { lv: pick.lv, st: pick.st } : null);
       pathMap.update(t, reduced);
     }
-    if (!samePick(pick, lastPick)) {
-      lastPick = pick;
-      onHover(pick, { x: pointer.cx, y: pointer.cy });
+    const tipPick = pick || touchTip?.pick || null;
+    if (!samePick(tipPick, lastPick)) {
+      lastPick = tipPick;
+      onHover(tipPick, focusPick ? screenOf(focusPick) : pick || !touchTip ? { x: pointer.cx, y: pointer.cy } : touchTip.at);
     }
     canvas.style.cursor = pick && !["candle", "oppHand", "oppItem", "oppDeck", "oppSeal", "hourglass", "pool", "fire"].includes(pick.type) && !(pick.type === "note" && !pick.click) ? "pointer" : "default";
 
@@ -2009,6 +2117,7 @@ export function createTableRoom(host, opts = {}) {
     pressSeal() { sealPressAt = clock.getElapsedTime(); after(0.12, () => onSound("seal")); },
     /** Das Gegenüber drückt seinen Stempel ins Wachs (Lobby: es ist bereit). */
     oppStamp() {
+      wake(1);
       if (sit.goal !== 1) return;
       if (reduced) { onSound("seal"); return; }
       const d = puppet.stamp({ x: AT.oppSeal[0] - 1.5, z: AT.oppSeal[1] });
@@ -2020,6 +2129,7 @@ export function createTableRoom(host, opts = {}) {
      * Bei „Animationen reduzieren“ liegt es gleich gebrochen da. @param {{ x?: number, z?: number }} [at]
      */
     lifeSealBreak(at = {}) {
+      wake(3.5);
       if (disposed) return;
       dropLifeSeal();
       const made = makeLifeSeal();
@@ -2056,11 +2166,74 @@ export function createTableRoom(host, opts = {}) {
       }
       shadowDirty = 2;
     },
+    /**
+     * Alles, was man gerade anfassen oder ansehen kann — für die Bedien-Spiegelung (Tastatur, Screenreader).
+     * group: brett | hand | auslage | karte | tisch · pick: wie beim Anklicken · info/state: was die Beschriftung braucht.
+     */
+    targets() {
+      const out = [];
+      const m = model;
+      if (!m || !ready) return out;
+      const targetsSet = new Set(ui.targets || []);
+      if (stage === "battle") {
+        // Brett: 16 Plätze, von der hinteren Reihe gegenüber bis zur eigenen hinteren Reihe
+        for (const row of ROWS) for (let lane = 0; lane < 4; lane++) {
+          const u = m.units.find((x) => x.row === row && x.lane === lane);
+          out.push({
+            group: "brett",
+            pick: u ? { type: "unit", uid: u.uid, row, lane } : { type: "slot", row, lane },
+            info: u ? { card: u.card, attack: u.attack, health: u.health, maxHealth: u.maxHealth, submerged: !!u.submerged } : null,
+            state: { target: targetsSet.has(`${row}:${lane}`), marked: !!u && markedSet.has(u.uid) },
+          });
+        }
+      }
+      m.hand.forEach((card) => out.push({ group: "hand", pick: { type: "hand", uid: card.uid }, info: { card }, state: { selected: ui.selected === card.uid, marked: markedSet.has(card.uid) } }));
+      const pickable = new Set(ui.pickable || []);
+      [...(m.loose || [])].sort((a, b) => (Math.abs(a.z - b.z) > 6 ? a.z - b.z : a.x - b.x)).forEach((c) => out.push({
+        group: "auslage",
+        pick: { type: "loose", uid: c.uid },
+        info: { card: c.faceUp === false ? null : c.card, dim: !!c.dim },
+        state: { pickable: pickable.has(c.uid), selected: ui.selected === c.uid || pickedSet.has(c.uid) },
+      }));
+      if (mapData) for (const mk of pathMap.marks()) out.push({ group: "karte", pick: { type: "node", lv: mk.lv, st: mk.st }, info: { node: mk.type, level: mk.lv }, state: { option: mk.option, done: mk.onRoute } });
+      if ((m.oppHand || []).length) out.push({ group: "tisch", pick: { type: "oppHand" }, info: { count: m.oppHand.length } });
+      const seen = new Set();
+      for (const r of pickRoots) {
+        if (!r.visible) continue;
+        r.traverse((o) => {
+          const p = o.userData.pick;
+          if (!p || p.type === "slot") return;
+          for (let q = o; q; q = q.parent) if (!q.visible) return;
+          const k = JSON.stringify(p);
+          if (seen.has(k)) return;
+          seen.add(k);
+          out.push({ group: "tisch", pick: p, info: infoOf(p) });
+        });
+      }
+      return out;
+    },
+    /** Die Spiegelung meldet sich an, um nach jedem neuen Stand neu zu lesen. @param {() => void} fn */
+    subscribeTargets(fn) {
+      targetListeners.add(fn);
+      return () => targetListeners.delete(fn);
+    },
+    /** Fokus der Spiegelung: das Ziel gilt wie unter dem Zeiger (null = Zeiger zählt wieder). */
+    setFocus(pick) { focusPick = pick || null; wake(); },
+    /** Ein Ziel per Tastatur auslösen — dieselben Rückrufe wie ein Klick bzw. Rechtsklick. */
+    trigger(pick, how = "click") {
+      if (!pick) return;
+      wake();
+      onIntent(pick, how, screenOf(pick));
+    },
+    /** Bildschirmpunkt eines Ziels (für Prüfskripte und die Spiegelung). */
+    screenOf,
     /** Wer bedient gerade? Jede Phase (Draft, Totem-Wahl, Kampf) setzt ihre eigenen Rückrufe. */
     setHandlers(h) {
       onIntent = h?.onIntent || (() => {});
       onHover = h?.onHover || (() => {});
       lastPick = null;
+      wake();
+      touchTip = null;
     },
     /**
      * Das Gegenüber nimmt eine lose Karte (Draft): seine Hand greift sie dort, wo sie lag, und steckt sie zu den
@@ -2068,6 +2241,7 @@ export function createTableRoom(host, opts = {}) {
      * @param {string} uid
      */
     oppTake(uid) {
+      wake(1);
       const from = lastLoose.get(uid);
       lastLoose.delete(uid);
       dying = dying.filter((e) => { if (e.uid !== uid) return true; removeEnt(e); return false; });
@@ -2107,6 +2281,7 @@ export function createTableRoom(host, opts = {}) {
      * seated = false: niemand sitzt gegenüber (Hauptmenü, Lobby vor dem Beitritt) — Gestalt und ihr Stempel fehlen.
      */
     setPresence({ away, seated = true, instant = false }) {
+      wake(1);
       oppAway = !!away;
       puppet.setMood({ away: oppAway });
       // Hinsetzen bzw. Aufstehen: die Gestalt kommt aus dem Dunkel an den Tisch (siehe sit im Bildtakt)
@@ -2120,6 +2295,7 @@ export function createTableRoom(host, opts = {}) {
      * @param {string} id @param {"me" | "opp"} who @param {{ row: string, lane: number } | null} [target]
      */
     gesture(id, who, target = null) {
+      wake(1.5);
       const t = clock.getElapsedTime();
       const ok = target && ROW_Z[target.row] !== undefined && LANE_X[target.lane] !== undefined;
       const P = ok ? { x: LANE_X[target.lane], y: 1, z: ROW_Z[target.row] } : null;
@@ -2202,7 +2378,7 @@ export function createTableRoom(host, opts = {}) {
     /** Kennzahlen für Messungen (nur Entwicklung). */
     stats() {
       return {
-        calls: renderer.info.render.calls, triangles: renderer.info.render.triangles, textures: renderer.info.memory.textures, geometries: renderer.info.memory.geometries, cards: ents.size,
+        frames: renderer.info.render.frame, calls: renderer.info.render.calls, triangles: renderer.info.render.triangles, textures: renderer.info.memory.textures, geometries: renderer.info.memory.geometries, cards: ents.size,
         mask: figure.mask, decor: figure.decor, away: oppAway, lifeSeal: lifeSeal ? (lifeSeal.cracked ? "gebrochen" : "ganz") : null, podium: (model?.podium || []).length, seated: sit.goal === 1, sat: sit.now, zirkel, totems: (model?.me?.totems || []).length, pose: poseName, oppGestures, lastGesture,
         candles: candleLit, map: mapData ? { level: mapData.pp?.level ?? 0, levels: mapData.map.levels, done: !!mapData.pp?.done } : null, stage, notes: (model?.notes || []).filter((n) => n.click).map((n) => n.id), picked: pickedSet.size, loose: [...ents.values()].filter((e) => e.kind === "loose").length, hand: [...ents.values()].filter((e) => e.kind === "hand").length,
         oppHand: [...ents.values()].filter((e) => e.kind === "opp").length, pickable: (ui.pickable || []).length, choosable: (ui.choosable || []).length, canEnd: !!ui.canEnd,

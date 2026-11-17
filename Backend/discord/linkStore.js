@@ -1,6 +1,10 @@
 // linkStore.js — die Discord-Verknüpfung eines Nutzers: welches Discord-Konto gehört zu welcher
 // Twitch-ID, samt Zugriffs- und Erneuerungs-Token.
 //
+// Seit dem Ausbauplan „discord-verzeichnis“ geht das Dashboard auch ohne Twitch (Discord- oder Gastkonto). Solche
+// Verknüpfungen stehen unter dem Schlüssel „konto:<kontoId>“ in derselben Spalte; linkKeyOf(req) wählt den
+// Schlüssel einer Anfrage. Wer später Twitch dazunimmt, behält die Verknüpfung (linkKeyOf findet beide).
+//
 // Früher hing das an der Login-Sitzung (sessions[…].discord). Jede neue Twitch-Anmeldung legt
 // aber eine neue Sitzung an — und Twitch-Anmeldungen passieren oft (anderer Browser, „Account
 // wechseln“, jedes Mal, wenn ein Werkzeug zusätzliche Twitch-Rechte anfragt). Die Verknüpfung
@@ -48,6 +52,8 @@ const stmt = {
   ),
   setTokens: db.prepare("UPDATE links SET access_enc = ?, refresh_enc = ?, expires_at = ?, updated_at = ? WHERE twitch_id = ?"),
   del: db.prepare("DELETE FROM links WHERE twitch_id = ?"),
+  // Nur echte Twitch-IDs — Verknüpfungen am Konto („konto:…“) haben keine
+  byDiscord: db.prepare("SELECT twitch_id FROM links WHERE discord_user_id = ? AND twitch_id NOT LIKE 'konto:%' ORDER BY updated_at DESC LIMIT 1"),
 };
 
 /** @returns {{ userId, username, avatar, accessToken, refreshToken, expiresAt }|null} */
@@ -103,4 +109,47 @@ function migrateFromSessions(twitchId, sessions) {
   return changed;
 }
 
-module.exports = { getLink, setLink, setTokens, removeLink, migrateFromSessions };
+/** Rückweg: zu welcher Twitch-ID gehört dieses Discord-Konto? (Giveaways: Teilnahme per Discord-Knopf) */
+function twitchIdOfDiscord(discordUserId) {
+  const row = stmt.byDiscord.get(String(discordUserId || ""));
+  return row ? row.twitch_id : null;
+}
+
+const KONTO_PREFIX = "konto:";
+
+/** Mögliche Schlüssel einer Anfrage, der bevorzugte zuerst: Twitch-ID (wie bisher), sonst das Konto. */
+function linkKeysOf(req) {
+  const keys = [];
+  if (req && req.twitchId) keys.push(String(req.twitchId));
+  if (req && req.kontoId) keys.push(KONTO_PREFIX + String(req.kontoId));
+  return keys;
+}
+
+/**
+ * Der Schlüssel, unter dem die Verknüpfung dieser Anfrage steht — oder stehen wird.
+ * Gibt es schon eine Verknüpfung (unter der Twitch-ID oder am Konto), gilt deren Schlüssel.
+ * @returns {string|null}
+ */
+function linkKeyOf(req) {
+  const keys = linkKeysOf(req);
+  return keys.find((k) => stmt.get.get(k)) || keys[0] || null;
+}
+
+const moveKey = db.prepare("UPDATE links SET twitch_id = ? WHERE twitch_id = ?");
+
+/** Konten zusammengeführt (konto/kontoStore beobachte): Verknüpfung am alten Konto zieht mit, wenn das Ziel keine hat. */
+function kontoUmziehen(ziel, quelle) {
+  const from = KONTO_PREFIX + String(quelle);
+  const to = KONTO_PREFIX + String(ziel);
+  if (!stmt.get.get(from)) return;
+  if (stmt.get.get(to)) stmt.del.run(from);
+  else moveKey.run(to, from);
+}
+
+/** Konto gelöscht: seine Verknüpfung samt Tokens weg. */
+const kontoLoeschen = (kontoId) => stmt.del.run(KONTO_PREFIX + String(kontoId));
+
+module.exports = {
+  getLink, setLink, setTokens, removeLink, migrateFromSessions, twitchIdOfDiscord,
+  linkKeyOf, linkKeysOf, kontoUmziehen, kontoLoeschen, KONTO_PREFIX,
+};

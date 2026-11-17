@@ -1,4 +1,4 @@
-// render/flat/heroes.js — die sieben Kits als Figuren im flachen Stil (Konvention wie creatures.js). Gemeinsamer Körper,
+// render/flat/heroes.js — die Kits als Figuren im flachen Stil (Konvention wie creatures.js). Gemeinsamer Körper,
 // jedes Kit hat Kopfbedeckung, Kleidung und Waffe für sich. p.pal = { main, mainDark } ersetzt die Kleidungsfarbe —
 // so funktionieren die Farbvarianten (data/skins.js).
 
@@ -69,6 +69,28 @@ const KIT_LOOK = {
     main: "#8a8396", mainDark: "#6b6574", pants: "#3f5fb0", vest: "#f0882a", vestDark: "#c4661a", belt: "#4a4552",
     head(c) { eyes(c, 8, -72, 2.6, 9, { pr: 0.8 }); twoTone(c, (c) => c.arc(2, -80, 20, Math.PI, 0), "#f5cf4a", "#d8ac22", -84); rrect(c, -20, -82, 44, 5, 2.5, "#d8ac22"); },
     weapon(c, a) { c.save(); c.translate(14, -44); c.rotate(-0.6 + a * 1.4); line(c, 0, 0, 0, -30, 5, "#6b4a2b"); rrect(c, -10, -40, 20, 12, 3, "#8a8396"); c.restore(); frontArm(c, "#6b6574", 14, -44); },
+  },
+  // Kits seit November 2026
+  moench: {
+    main: "#d8a24a", mainDark: "#b07e30", pants: "#8a6a3a", belt: "#7a3a2a",
+    head(c) { poly(c, [-6, -64, 16, -64, 6, -50], "#f4f0e6"); eyes(c, 8, -74, 2.6, 9, { pr: 0.8, look: 0.3 }); circle(c, 2, -90, 3, "#7a3a2a"); },
+    weapon(c, a) { frontArm(c, "#b07e30", 22 + a * 12, -48); circle(c, 24 + a * 12, -48, 7, "#efe6d2"); if (a > 0.3) circle(c, 34 + a * 12, -48, 6 * a, "rgba(255,233,160,0.7)"); },
+  },
+  jaegerin: {
+    main: "#3f7a5a", mainDark: "#2f5e44", pants: "#4a3a2e", belt: "#6b4a2b",
+    head(c) { twoTone(c, (c) => c.arc(2, -74, 21, Math.PI * 0.85, Math.PI * 2.15), "#3f7a5a", "#2f5e44", -70); rrect(c, -4, -76, 22, 14, 6, SKIN); eyes(c, 9, -71, 2.6, 9, { pr: 0.8, look: 0.4 }); rrect(c, -16, -66, 8, 18, 4, "#b0402f"); },
+    weapon(c, a) { frontArm(c, "#2f5e44", 22, -46); c.strokeStyle = "#6b4a2b"; c.lineWidth = 4; c.lineCap = "round"; c.beginPath(); c.arc(16, -46, 22, -1.2, 1.2); c.stroke(); line(c, 16 + Math.cos(-1.2) * 22, -46 + Math.sin(-1.2) * 22, 16 + Math.cos(1.2) * 22 - a * 10, -46 + Math.sin(1.2) * 22, 1.5, "#efe6d2"); },
+  },
+  nekromantin: {
+    main: "#3a2a4a", mainDark: "#271c33", robe: true, belt: "#9fe8c8",
+    face: "#c9c3d6", faceDark: "#9a93ad",
+    head(c) { rrect(c, -12, -84, 28, 26, 10, "#c9c3d6"); rrect(c, 2, -76, 4, 3, 1, "#2a2230"); rrect(c, 10, -76, 4, 3, 1, "#2a2230"); twoTone(c, (c) => c.arc(-2, -84, 15, Math.PI, 0), "#efe6d2", "#c9c3d6", -90); },
+    weapon(c, a) { frontArm(c, "#271c33", 22, -40); line(c, 24, -4, 26, -86, 5, "#4a3a2e"); circle(c, 26, -90 - a * 3, 7 + a * 3, "#9fe8c8"); circle(c, 24, -92 - a * 3, 2.5, "#e8fff4"); },
+  },
+  alchemist: {
+    main: "#2f5aa8", mainDark: "#22427c", robe: true, belt: "#d8a24a",
+    head(c) { poly(c, [-6, -66, 16, -66, 8, -46], "#f4f0e6"); twoTone(c, (c) => c.arc(2, -82, 16, Math.PI, 0), "#f4f0e6", "#d8d2c4", -86); eyes(c, 8, -74, 2.6, 9, { pr: 0.8 }); },
+    weapon(c, a) { frontArm(c, "#22427c", 22 + a * 6, -44 - a * 6); rrect(c, 22 + a * 6, -60 - a * 6, 6, 8, 2, "#efe6d2"); circle(c, 25 + a * 6, -46 - a * 6, 8, "#c49aff"); circle(c, 23 + a * 6, -48 - a * 6, 2.5, "#f0e6ff"); },
   },
 };
 

@@ -2,7 +2,32 @@
 
 Stand: 15.11.2026 · Status: **Phasen 0 bis 3 abgenommen · der neue Tisch ist Standard · Phase 4 gebaut: das ganze Match läuft an einem Tisch (Draft, Totem-Wahl, Pfadkarte, Pfad-Szenen, Kampf, Rast, Ergebnis). Draft bis Ergebnis vom Nutzer bestätigt („passt so“), Pfadkarte und Hauptmenü am Tisch abgenommen („passt so“, 15.11.2026) · Phase 5 abgenommen (15.11.2026, mit Rückmeldungen umgesetzt: Statistik raus, „Aufstehen“-Zettel, Figur läuft auf der Karte, **Regeländerung: Totems nur noch am Schrein**) · Phase 6 gebaut: die ganze Moorwanderung am Tisch (Startdeck, Pfad, Kämpfe, Lager mit Nachbartischen, Duell-Ankündigung, Siegelbruch, Podest, NPC-Masken, Boss-Phasenwechsel; 15.11.2026), **Abnahme offen** · Balancing-Frage Moorling-Totem offen** · ersetzt nichts in `PLAN.md` (Regeln und Engine bleiben gültig)
 
-## Übergabe (Stand 16.11.2026, Phase 6 abgenommen) — hier anfangen
+## Übergabe (Stand 16.11.2026, Phase 7 gebaut) — hier anfangen
+
+**Phase 7 (16.11.2026, Ausbauplan „ss-phase7“, Spur D) — gebaut, getestet, wartet auf Deploy (nur Frontend), Abnahme offen.**
+Entscheidung des Nutzers vorab: **hochkant bleibt der flache Tisch** (kein eigener Hochkant-Tisch; Hinweis + Wechsel beim
+Drehen). Drei Schritte:
+- **Handy:** `useWideEnough()` in `ui/table/useAtTable.js` (eine Regel statt vier Kopien; folgt Drehen/Fenstergröße,
+  schaltet nicht, solange ein Eingabefeld den Fokus hat — Bildschirmtastatur). Hochkant: leise Zeile in der Hülle
+  „Quer halten …“ (`prefs.rotateHintOff`). Die Einflug-Fahrt des flachen Tischs nur einmal je Tab (`Table3DLayer`,
+  sonst nach dem Zurückdrehen 4 s leeres Feld). Touch: das zuletzt Angetippte zeigt seine Erklärung (`touchTip` in
+  `tableRoom.js`), Hilfetexte im Pausenmenü für Finger (`ui/table/touch.js`: `isTouch`, `helpFor`). Flache Fenster
+  (`max-height: 500px`): Menü, Lobby-Zeile, Meldung, Buch, Erzähler-Blatt kompakt; Kartengröße im Buch folgt der Höhe.
+- **Tastatur + Screenreader:** `ui/table/TableMirror.jsx` (in TableHost, aus bei Menü und Buch: `mirror={false}`) —
+  unsichtbare Knöpfe in Gruppen (Hand, Brett 4×4, Karten auf dem Tisch, Pfadkarte, Gegenstände), Tab je Gruppe, Pfeile,
+  Eingabe/Leertaste = Klick, I = Rechtsklick. Szene: `targets()`, `subscribeTargets`, `setFocus` (gilt wie der Zeiger:
+  Karte hebt sich, onHover kommt an der Bildschirmlage), `trigger`, `screenOf`; `pathMap.marks()`. Beschriftungen in
+  `ui/table/mirrorText.js`. Erklärungen gehen über eine feste Live-Zone der Hülle an den Screenreader.
+- **Leistung:** Ruhe-Drosselung im Tisch (`wake()`, `CALM_AFTER_S` 1,5 s, dann ~30 Bilder/s; gemessen 27,6 statt
+  165 Bilder/s in Ruhe), Schärfe auf Touch-Geräten ≤ 1,5×, `stats().frames`. Sparmodus: kein 3D-Hintergrund und kein
+  Kerzenflackern am flachen Tisch (Software-Grafik: Bildzeit im Mittel 6 ms statt 12–43 ms), Hinweis in den
+  Einstellungen. „Animationen reduzieren“ war am Tisch schon durchgängig (geprüft).
+- Prüfung: Skripte im Scratch-Ordner der Sitzung (Handy 667×375/844×390 mit Touch, Drehen, Tastatur-Zug mit drei Opfern,
+  alle Phasen per Tastatur, Lobby mit zwei Browsern, Leistung); dazu `menue` (Kartenbuch-Prüfung an Phase 5 angepasst),
+  `buch`, `tutorial`, `vorkampf`, `nachkampf`, `lobby`, `kampf`, `szenen`, `lager`, `moor`, `onlineDraft`, `takt` grün,
+  173 Tests grün. **Nicht geprüft:** echtes Handy, echter Screenreader (NVDA/VoiceOver).
+
+### Übergabe zu Phase 6 (Stand 16.11.2026, abgenommen)
 
 **Abnahme Phase 6 (16.11.2026, Prüfliste „Abnahme Spiele“):** alle acht Punkte „passt“ — Startdeck und Pfad, Kampf mit
 Gestalten und Masken, Pfad-Boss mit Phasenwechsel, Lager und Nachbartische, Duellrunde und Siegelbruch, Podest, Späherturm
@@ -718,9 +743,10 @@ Hauptmenü im Raum, Lobby als Hinsetzen, Seitenleiste weg, Kartenbuch und Anleit
 Lager, Siegel, NPCs als Gestalten mit eigenen Masken, Boss mit Phasenwechsel, Duell-Ankündigung, Blick auf Nachbartische
 statt Vorschau-Kasten.
 
-### Phase 7 — Handy, Sparmodus, Zugänglichkeit, Feinschliff (M)
-Hochkant-Kamera (steiler, Hand als Leiste), Touch-Gesten, Flachtisch für `gfx=low`, Tastatur komplett, Screenreader-
-Spiegelung, „Animationen reduzieren“, Leistungsmessung auf schwacher Grafik.
+### Phase 7 — Handy, Sparmodus, Zugänglichkeit, Feinschliff (M) — gebaut 16.11.2026, Abnahme offen
+~~Hochkant-Kamera (steiler, Hand als Leiste)~~ (Nutzer: hochkant bleibt flach, mit Hinweis und Wechsel beim Drehen),
+Touch-Gesten, Flachtisch für `gfx=low`, Tastatur komplett, Screenreader-Spiegelung, „Animationen reduzieren“,
+Leistungsmessung auf schwacher Grafik. Einzelheiten in der Übergabe oben.
 
 ### Danach, getrennt zu entscheiden — Regeln
 Erst wenn sich das Spiel gut anfühlt, lohnt der Blick auf die Regeln; vorher lässt sich nicht trennen, was am Regelwerk

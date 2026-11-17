@@ -1,14 +1,13 @@
 // discord/bot/commands/pp.js
+const { botText } = require('../botText');
 
 function rollPP() {
     return Math.floor(Math.random() * 25) + 1;
 }
 
 async function handlePP(interaction) {
-    const size = rollPP();
-
     await interaction.reply({
-        content: `Dein PP ist **${size}cm** groß.`,
+        content: botText(interaction).fun.pp(rollPP()),
     });
 }
 

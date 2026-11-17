@@ -11,7 +11,7 @@ import { spawnEnemy } from "../engine/enemies.js";
 import { spawnBoss } from "../engine/bosses/index.js";
 import { loadStage } from "../engine/stage.js";
 import { ENEMIES } from "../data/enemies.js";
-import { BIOMES, enemyPoolFor } from "../data/biomes.js";
+import { BIOMES, BIOMES_NEU, NEUE_WELTEN, enemyPoolFor } from "../data/biomes.js";
 import { BOSSES } from "../data/bosses.js";
 import { KITS, KIT_ORDER } from "../data/kits.js";
 import Scene3d from "./scene3d.js";
@@ -19,7 +19,11 @@ import Scene3d from "./scene3d.js";
 const SIZES = [150, 300, 600, 1000];
 // Mischung der Probe-Horde nach Stufe (data/enemies.js, tier) — die Arten kommen aus dem Vorrat der gewählten Welt
 const MIX = [["futter", 0.78], ["kaempfer", 0.14], ["spezial", 0.05], ["brocken", 0.03]];
-const WORLDS = BIOMES.filter((b) => !b.final);
+// Klassische Welten (Zyklus 1) und die neuen ab Zyklus 2 (geladen in Zyklus 2, dort stehen sie im Wechsel)
+const WORLDS = [
+  ...BIOMES.filter((b) => !b.final).map((b, i) => ({ biome: b, index: i, loop: 0, name: b.name })),
+  ...NEUE_WELTEN.map((b) => ({ biome: b, index: BIOMES_NEU.indexOf(b), loop: 1, name: `${b.name} (ab Zyklus 2)` })),
+];
 const KEYS = { KeyW: "up", ArrowUp: "up", KeyS: "down", ArrowDown: "down", KeyA: "left", ArrowLeft: "left", KeyD: "right", ArrowRight: "right", Space: "utility", ShiftLeft: "utility", KeyR: "special" };
 
 function pickType(g) {
@@ -35,7 +39,8 @@ function pickType(g) {
 
 function makeGame(kitId, world) {
   const g = createGame({ kitId, seed: 11 });
-  if (world > 0) { g.stageIndex = world; loadStage(g); }
+  const w = WORLDS[world];
+  if (w.index > 0 || w.loop > 0) { g.stageIndex = w.index; g.loop = w.loop; loadStage(g); }
   const p = g.player;
   // Ein ausgebauter Held, damit von Anfang an gemäht wird
   Object.assign(p.weapons, { dolche: 5, peitsche: 4, donnerkeil: 4, bumerang: 4 });
@@ -225,9 +230,9 @@ export default function Probe3d() {
         <label className="av-label block mb-1" htmlFor="probe-world">Welt</label>
         <div className="flex gap-2 mb-3">
           <select id="probe-world" value={world} onChange={(e) => setWorld(Number(e.target.value))} className="av-input !py-1.5 flex-1">
-            {WORLDS.map((b, i) => <option key={b.id} value={i}>{b.name}</option>)}
+            {WORLDS.map((w, i) => <option key={w.biome.id} value={i}>{w.name}</option>)}
           </select>
-          <button type="button" className="av-btn av-btn-stone av-btn-sm" onClick={callBoss} title={WORLDS[world].bosses.map((id) => BOSSES[id].name).join(" / ")}>Boss</button>
+          <button type="button" className="av-btn av-btn-stone av-btn-sm" onClick={callBoss} title={WORLDS[world].biome.bosses.map((id) => BOSSES[id].name).join(" / ")}>Boss</button>
         </div>
 
         <label className="av-label block mb-1" htmlFor="probe-kit">Held</label>

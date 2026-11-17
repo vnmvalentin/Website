@@ -1,7 +1,8 @@
 // components/GameTable.jsx — der Spieltisch: 3D-Szene (scene/tableScene.js) plus Anzeigen darüber.
 //
-//   oben Mitte   Weltenrad (dreht sich wie die Welt: die aktuelle liegt unten; Ringe = Ladung jeder Welt)
-//   oben links   Name der aktuellen Welt, ihr Gesetz und ihr nächstes Ereignis
+//   oben Mitte   Ladungs-Türme der vier Welten (die aktuelle hell, mit Marke darunter); links daneben Name der Welt und
+//                ihr Gesetz (passiv, gilt immer), rechts ihr nächstes Ereignis (aktiv, bei voller Ladung)
+//   Handkarten   Zeichen an Karten, die beim Legen eine Welt ausbrechen lassen (tableScene setBadge)
 //   Mitte        großes Feld, wenn ein Weltereignis ausgelöst wird; kleinere Einblendung für Karten und Weltwechsel
 //   an den Figuren  Namensschilder mit Zustand (dran, eingefroren, Schild, weggeweht)
 //   oben rechts  2 gegen 2: die Karten des Partners (view.mate)
@@ -19,7 +20,7 @@ import CardImg from "./CardImg.jsx";
 import { createTableScene } from "../scene/tableScene.js";
 import { clearCardArt } from "../scene/cardArt.js";
 import { playerColor } from "../skins.js";
-import { EVENTS, KINDS, RULES, WORLDS, effectOf, isCosmic, isLegal, needsTarget } from "../engine/index.js";
+import { EVENTS, KINDS, RULES, WORLDS, effectOf, eruptsWith, isCosmic, isLegal, needsTarget } from "../engine/index.js";
 import { isLowGfx } from "../../../utils/lowGfx.js";
 import { meldeFehler } from "../../../utils/fehlerMelder.js";
 import { sfx } from "../sound.js";
@@ -40,37 +41,35 @@ const KIND_INDEX = Object.fromEntries(Object.keys(KINDS).map((k, i) => [k, i]));
 const handOrder = (a, b) => ((a.w < 0 ? 4 : a.w) - (b.w < 0 ? 4 : b.w)) || (KIND_INDEX[a.k] - KIND_INDEX[b.k]) || ((a.n || 0) - (b.n || 0)) || (a.id - b.id);
 const patch = (list, i, value) => list.map((x, k) => (k === i ? value : x));
 
-// ── Weltenrad ───────────────────────────────────────────────────────────────────────────────
-const polar = (r, deg) => [Math.cos((deg * Math.PI) / 180) * r, Math.sin((deg * Math.PI) / 180) * r];
-function band(r0, r1, a0, a1) {
-  const [x0, y0] = polar(r0, a0);
-  const [x1, y1] = polar(r0, a1);
-  const [x2, y2] = polar(r1, a1);
-  const [x3, y3] = polar(r1, a0);
-  return `M${x0} ${y0}A${r0} ${r0} 0 0 1 ${x1} ${y1}L${x2} ${y2}A${r1} ${r1} 0 0 0 ${x3} ${y3}Z`;
-}
-
-/** Vier Viertel = vier Welten, je vier Ringe = Ladung. Dreht sich wie die Trommel: die aktuelle Welt liegt unten. */
-function WorldWheel({ world, charges }) {
-  // fortlaufender Winkel, damit das Rad immer den kurzen Weg dreht
-  const rot = useRef(world * 90);
-  rot.current += ((world * 90 - rot.current + 540) % 360) - 180;
+// ── Ladungs-Türme ───────────────────────────────────────────────────────────────────────────
+// Seit 16.11.2026 statt des Weltenrads (Wunsch des Nutzers: „anderes Symbol, wie Türme“, Gesetz und Ereignis links und
+// rechts daneben). Jede Welt ein Turm aus RULES.CHARGE_MAX Steinen, die von unten in ihrer Farbe aufleuchten.
+const TW = 24; // Turmbreite
+const TS = 14; // Abstand der Türme
+const BH = 11; // Steinhöhe
+const BG = 3; // Fuge
+const CREST = 9; // Zinnen
+function ChargeTowers({ world, charges }) {
+  const M = RULES.CHARGE_MAX;
+  const H = CREST + 3 + M * (BH + BG);
+  const W = 4 * TW + 3 * TS;
   return (
-    <svg className="wf-wheel" viewBox="-80 -80 160 160" aria-hidden="true">
-      <g style={{ transform: `rotate(${rot.current}deg)` }} className="wf-wheel-spin">
-        {WORLDS.map((w, i) => {
-          const mid = 90 - i * 90; // Welt 0 unten, 1 rechts, 2 oben, 3 links (bei Drehung 0)
-          return (
-            <g key={w.id} opacity={i === world ? 1 : 0.6}>
-              {Array.from({ length: RULES.CHARGE_MAX }, (_, k) => (
-                <path key={k} d={band(21 + k * 13.5, 32 + k * 13.5, mid - 41, mid + 41)} fill={k < charges[i] ? w.color : "#34313f"} />
-              ))}
-            </g>
-          );
-        })}
-      </g>
-      <circle r="15" fill={WORLDS[world].color} />
-      <path d="M-9 76 L9 76 L0 66 Z" fill="#f4eedf" />
+    <svg className="wf-towers" viewBox={`-2 -2 ${W + 4} ${H + 14}`} aria-hidden="true">
+      {WORLDS.map((w, i) => {
+        const x = i * (TW + TS);
+        const on = i === world;
+        return (
+          <g key={w.id} opacity={on ? 1 : 0.55}>
+            {[0, 1, 2].map((k) => (
+              <rect key={k} x={x + k * (TW / 3) + 1.5} y={0} width={TW / 3 - 3} height={CREST} rx="1.5" fill={on ? w.color : "#4a4658"} />
+            ))}
+            {Array.from({ length: M }, (_, k) => (
+              <rect key={k} x={x} y={CREST + 3 + (M - 1 - k) * (BH + BG)} width={TW} height={BH} rx="2" fill={k < charges[i] ? w.color : "#34313f"} />
+            ))}
+            {on && <path d={`M${x + TW / 2 - 6} ${H + 11} L${x + TW / 2 + 6} ${H + 11} L${x + TW / 2} ${H + 3} Z`} fill="#f4eedf" />}
+          </g>
+        );
+      })}
     </svg>
   );
 }
@@ -85,7 +84,7 @@ const GameTable = forwardRef(function GameTable({ onAct, onIdle, deadline = null
   const fogRef = useRef([]); // wer gerade im Nebel steht — dessen Kartenzahl wird nicht angesagt
   const seenWorldsRef = useRef(new Set()); // Welten, deren Gesetz in dieser Partie schon groß angesagt wurde
   const plateEls = useRef({});
-  const worldEl = useRef(null);
+  const barEl = useRef(null); // Leiste oben: Gesetz, Türme, Ereignis
   const mateEl = useRef(null);
   const cb = useRef({});
   const timers = useRef({ flash: null, splash: null, sent: null, peek: null });
@@ -176,11 +175,10 @@ const GameTable = forwardRef(function GameTable({ onAct, onIdle, deadline = null
       case "meteor": {
         counts[e.seat] = (counts[e.seat] || 0) + e.n;
         const title = KINDS[e.t].name;
-        // aussetzen lässt nur der Meteor, und nur den, den er direkt trifft — zurückgeworfen wird bloß gezogen
-        const stun = e.t === "meteor" && !Number.isInteger(e.mirror) ? " und setzt aus" : "";
+        // beide lassen nur ziehen (der Meteor ließ bis 16.11.2026 auch aussetzen)
         showFlash(e.t === "hagel" && e.plus > KINDS.hagel.plus ? `Hagel × ${e.plus / KINDS.hagel.plus}` : title, Number.isInteger(e.mirror)
           ? who(e.seat, `Dein ${title} kommt zurück: Du ziehst ${e.plus} Karten`, `bekommt den eigenen ${title} ab und zieht ${e.plus} Karten`)
-          : who(e.seat, `Du ziehst ${e.plus} Karten${stun}`, `zieht ${e.plus} Karten${stun}`), e.t === "hagel" ? "#bfe9ff" : WORLDS[0].color);
+          : who(e.seat, `Du ziehst ${e.plus} Karten`, `zieht ${e.plus} Karten`), e.t === "hagel" ? "#bfe9ff" : WORLDS[0].color);
         break;
       }
       case "sitout":
@@ -414,17 +412,25 @@ const GameTable = forwardRef(function GameTable({ onAct, onIdle, deadline = null
         const half = (el.lastElementChild?.offsetWidth || 120) / 2 + 6;
         const max = (canvasRef.current?.clientWidth || 0) - half;
         const x = max > half ? Math.min(max, Math.max(half, p.x)) : p.x;
-        // nicht über der Welt-Tafel oben links landen: dort rutscht das Schild unter die Tafel
-        const panel = worldEl.current;
-        const under = panel && x - half < panel.offsetLeft + panel.offsetWidth ? panel.offsetTop + panel.offsetHeight + el.lastElementChild.offsetHeight + 8 : 70;
+        // nicht unter der Leiste oben (Gesetz, Türme, Ereignis) landen: dort rutscht das Schild darunter
+        const plateH = el.lastElementChild.offsetHeight;
+        const bar = barEl.current;
+        const under = bar && x + half > bar.offsetLeft && x - half < bar.offsetLeft + bar.offsetWidth ? bar.offsetTop + bar.offsetHeight + plateH + 8 : 70;
         // genauso bei der Partner-Tafel oben rechts (2 gegen 2)
         const matePanel = mateEl.current;
-        const underMate = matePanel && x + half > matePanel.offsetLeft ? matePanel.offsetTop + matePanel.offsetHeight + el.lastElementChild.offsetHeight + 8 : 70;
-        // und nicht unter dem Weltenrad oben in der Mitte
-        const mid = (canvasRef.current?.clientWidth || 0) / 2;
-        const wheel = Math.abs(x - mid) < half + 84 ? 164 + el.lastElementChild.offsetHeight : 0;
-        el.style.transform = `translate(${x.toFixed(1)}px, ${Math.max(under, underMate, wheel, p.y).toFixed(1)}px)`;
+        const underMate = matePanel && x + half > matePanel.offsetLeft ? matePanel.offsetTop + matePanel.offsetHeight + plateH + 8 : 70;
+        el.style.transform = `translate(${x.toFixed(1)}px, ${Math.max(under, underMate, p.y).toFixed(1)}px)`;
       }
+    };
+    // Partner-Tafel (2 gegen 2) rechts oben — stößt sie an die Leiste, rutscht sie darunter
+    const positionMate = () => {
+      const bar = barEl.current;
+      const m = mateEl.current;
+      if (!m) return;
+      const width = canvasRef.current?.clientWidth || 0;
+      const clash = bar && width - 10 - m.offsetWidth < bar.offsetLeft + bar.offsetWidth + 6;
+      const top = `${clash ? bar.offsetTop + bar.offsetHeight + 8 : 10}px`;
+      if (m.style.top !== top) m.style.top = top;
     };
     const start = () => {
       if (!alive || !canvasRef.current) return;
@@ -436,7 +442,10 @@ const GameTable = forwardRef(function GameTable({ onAct, onIdle, deadline = null
           onDraw: () => cb.current.draw(),
           onHover: (card) => setTip(card || null),
           onDealt: (seat, n) => popDraw(seat, n),
-          onFrame: positionPlates,
+          onFrame: () => {
+            positionMate();
+            positionPlates();
+          },
         });
       } catch (e) {
         console.error("[worldflip] 3D-Szene:", e);
@@ -482,7 +491,9 @@ const GameTable = forwardRef(function GameTable({ onAct, onIdle, deadline = null
     }
     const pseudo = { drawn: view.drawn, combo: view.combo, world: view.world, pile: [view.top] };
     const cards = blindMe ? view.hand.filter((c) => !view.drawn.length || view.drawn.includes(c.id)) : view.hand.filter((c) => isLegal(pseudo, c));
-    scene.setInteractive({ playable: cards.map((c) => c.id), canDraw: !view.drawn.length && view.combo === null });
+    // Hinweis an den spielbaren Karten, die eine Welt ausbrechen lassen (blind sieht man sie ja nicht)
+    const erupts = blindMe ? [] : cards.map((c) => ({ id: c.id, world: eruptsWith(view, c)[0] })).filter((x) => x.world !== undefined);
+    scene.setInteractive({ playable: cards.map((c) => c.id), canDraw: !view.drawn.length && view.combo === null, erupts });
   }, [canAct, view, blindMe, myReact]);
 
   // Zugzeit
@@ -521,14 +532,24 @@ const GameTable = forwardRef(function GameTable({ onAct, onIdle, deadline = null
   // Antwort auf einen Angriff: Welche Karten kommen in Frage, was droht?
   const react = view && view.winner === null ? view.react : null;
   const answers = myReact ? view.hand.filter((c) => c.k === "spiegel" || (c.k === "hagel" && react.k === "hagel")) : [];
-  const threat = !react ? "" : react.k === "meteor" ? `${react.plus} Karten ziehen und aussetzen`
-    : react.k === "sturm" ? "aussetzen" : react.k === "frost" ? "einfrieren" : react.k === "hagel" || react.k === "strahl" ? `${react.plus} Karten ziehen`
+  const threat = !react ? "" : react.k === "sturm" ? "aussetzen" : react.k === "frost" ? "einfrieren"
+    : react.k === "hagel" || react.k === "meteor" || react.k === "strahl" ? `${react.plus} Karten ziehen`
       : react.k === "saat" ? "eine Karte dazu" : "in deine Karten schauen";
-  // Erklärung der Karte unter dem Zeiger: Effektkarten, das Echo mit dem, was es gerade wiederholt, 0 und 7 im Kosmos
+  // Erklärung der Karte unter dem Zeiger: Effektkarten, das Echo mit dem, was es gerade wiederholt, 0 und 7 im Kosmos —
+  // und ob die Karte eine Welt ausbrechen lässt (dann trägt sie in der Hand auch ein Zeichen)
   const tipOf = (c) => {
-    if (c.k === "n") return view && isCosmic(view, c) ? { name: `${WORLDS[3].law} · ${c.n}`, text: c.n === 7 ? "Du tauschst die Hand mit einem Spieler deiner Wahl." : "Alle Hände wandern einen Platz in Spielrichtung weiter." } : null;
-    const fx = view && c.k === "echo" ? effectOf(view, c) : null;
-    return { name: KINDS[c.k].name, text: c.k === "echo" ? `${KINDS.echo.text} Gerade: ${fx ? `${KINDS[fx].name} — ${KINDS[fx].text}` : "noch nichts."}` : KINDS[c.k].text };
+    const burst = view ? eruptsWith(view, c).map((w) => `Bricht aus: ${WORLDS[w].name} — ${EVENTS[view.next[w]].name}: ${EVENTS[view.next[w]].text}`).join(" ") : "";
+    let base;
+    if (c.k === "n") {
+      if (view && isCosmic(view, c)) base = { name: `${WORLDS[3].law} · ${c.n}`, text: c.n === 7 ? "Du tauschst die Hand mit einem Spieler deiner Wahl." : "Alle Hände wandern einen Platz in Spielrichtung weiter." };
+      else if (burst) base = { name: `${WORLDS[c.w].name} ${c.n}`, text: "" };
+      else return null;
+    } else {
+      const fx = view && c.k === "echo" ? effectOf(view, c) : null;
+      base = { name: KINDS[c.k].name, text: c.k === "echo" ? `${KINDS.echo.text} Gerade: ${fx ? `${KINDS[fx].name} — ${KINDS[fx].text}` : "noch nichts."}` : KINDS[c.k].text };
+      if (c.w < 0) base.text += " Lädt keine Welt auf.";
+    }
+    return { ...base, burst };
   };
   const tipInfo = tip && !choice && view?.winner === null ? tipOf(tip) : null;
   return (
@@ -548,27 +569,31 @@ const GameTable = forwardRef(function GameTable({ onAct, onIdle, deadline = null
         {myTurn && !busy && !self && <div className="wf-myturn" />}
 
         {w && view && (
-          <>
-            <div className="wf-wheelbox" title="Ladung der vier Welten — die aktuelle liegt unten">
-              <WorldWheel world={shown.world} charges={shown.charges} />
-            </div>
-            <div className="wf-panel wf-world" ref={worldEl} style={{ "--wf-w": w.color }}>
+          <div className="wf-worldbar" ref={barEl} style={{ "--wf-w": w.color }}>
+            <div className="wf-panel wf-wb-side wf-wb-law">
               <div className="wf-world-head">
                 <span className="wf-world-name">{w.name}</span>
                 <span className="wf-world-dir" title={shown.dir > 0 ? "im Uhrzeigersinn" : "gegen den Uhrzeigersinn"}>
                   {shown.dark && <Moon size={14} />}
                   {shown.dir > 0 ? <RotateCw size={14} /> : <RotateCcw size={14} />}
-                  {shown.dir > 0 ? "rechtsherum" : "linksherum"}
+                  <span className="wf-world-dir-text">{shown.dir > 0 ? "rechtsherum" : "linksherum"}</span>
                 </span>
               </div>
-              <div className="wf-world-row"><i>Immer</i><span><b>{w.law}</b> {w.lawText}</span></div>
-              <div className="wf-world-row wf-world-next">
-                <i>Bei {RULES.CHARGE_MAX} Ladung</i>
-                <span><b>{EVENTS[shown.next[shown.world]].name}</b> {EVENTS[shown.next[shown.world]].text}</span>
-              </div>
-              {timeLeft !== null && <div className="wf-timer"><i style={{ width: `${timeLeft * 100}%` }} /></div>}
+              <i className="wf-wb-label">Passiv · gilt immer</i>
+              <p><b>{w.law}</b> {w.lawText}</p>
             </div>
-          </>
+            <div className="wf-panel wf-wb-towers" title="Ladung der vier Welten — die aktuelle ist hell, darunter die Marke">
+              <ChargeTowers world={shown.world} charges={shown.charges} />
+            </div>
+            <div className="wf-panel wf-wb-side wf-wb-event">
+              <div className="wf-world-head">
+                <i className="wf-wb-label">Aktiv · bei {RULES.CHARGE_MAX} Ladung</i>
+                <span className="wf-wb-count wf-num">{shown.charges[shown.world]}/{RULES.CHARGE_MAX}</span>
+              </div>
+              <p><b>{EVENTS[shown.next[shown.world]].name}</b> {EVENTS[shown.next[shown.world]].text}</p>
+            </div>
+            {timeLeft !== null && <div className="wf-timer wf-wb-timer"><i style={{ width: `${timeLeft * 100}%` }} /></div>}
+          </div>
         )}
 
         {mate && (
@@ -655,7 +680,12 @@ const GameTable = forwardRef(function GameTable({ onAct, onIdle, deadline = null
           </div>
         )}
 
-        {tipInfo && <div className="wf-panel wf-tip"><b>{tipInfo.name}</b>{tipInfo.text}</div>}
+        {tipInfo && (
+          <div className="wf-panel wf-tip">
+            <b>{tipInfo.name}</b>{tipInfo.text}
+            {tipInfo.burst && <span className="wf-tip-burst">{tipInfo.burst}</span>}
+          </div>
+        )}
 
         {view && view.winner === null && !choice && (
           <div className="wf-panel wf-turnbar" data-mine={(myTurn || myReact) && !busy}>
@@ -684,7 +714,7 @@ const GameTable = forwardRef(function GameTable({ onAct, onIdle, deadline = null
             {myTurn && !busy && !passing && (
               <>
                 <span>{blindMe ? "Du bist dran und spielst blind" : "Du bist dran"}</span>
-                <button type="button" className="wf-btn wf-btn-sm" disabled={!canAct} onClick={() => send({ t: "draw" })}>{view.world === 0 ? "2 ziehen" : "Ziehen"}</button>
+                <button type="button" className="wf-btn wf-btn-sm" disabled={!canAct} onClick={() => send({ t: "draw" })}>{view.drawUntil ? "Ziehen, bis es passt" : view.world === 0 ? "2 ziehen" : "Ziehen"}</button>
               </>
             )}
             {passing && (
@@ -710,7 +740,7 @@ const GameTable = forwardRef(function GameTable({ onAct, onIdle, deadline = null
           <div className="wf-center">
             <div className="wf-card p-5 w-full max-w-md">
               <div className="wf-label mb-1">{tipOf(choice.card)?.name}</div>
-              <p className="wf-dim text-sm mb-3">{tipOf(choice.card)?.text}</p>
+              <p className="wf-dim text-sm mb-3">{tipOf(choice.card)?.text}{tipOf(choice.card)?.burst ? ` ${tipOf(choice.card).burst}` : ""}</p>
               {choice.world === null ? (
                 <>
                   <h2 className="wf-display text-2xl mb-3">{choice.card.k === "zuender" ? "Welche Welt bricht aus?" : "Welche Welt?"}</h2>

@@ -36,17 +36,39 @@ function normalizeTag(raw) {
   return TAG_CHARS.test(tag) ? tag : null;
 }
 
-/**
- * GET auf die API.
- * @param {string} path
- * @param {{timeoutMs?: number, token?: string}} [opts] `token` überschreibt den geteilten
- *   CR_API_TOKEN für diesen einen Aufruf.
- * @returns Daten, `{ notFound: true }` bei 404, `null` ohne Token
- * @throws bei jedem anderen HTTP-Fehler und bei Zeitüberschreitung
- */
-async function crApiGet(path, { timeoutMs = DEFAULT_TIMEOUT_MS, token } = {}) {
-  const useToken = token || CR_API_TOKEN;
-  if (!useToken) return null;
+// ── Gemeinsamer Abruf-Speicher ───────────────────────────────────────────────
+// Win-Tracker und Stats-Seiten fragen oft dasselbe ab (Profil und Battlelog desselben Spielers, die Weltrangliste,
+// die Event-Liste) — jeder mit eigenem Schlüssel, aber die Antwort ist dieselbe. Wer beim Abruf `maxAgeMs` mitgibt,
+// teilt sich die Antwort mit allen anderen: liegt sie höchstens so alt vor, kommt sie von hier; läuft derselbe Abruf
+// gerade, hängt sich der Aufrufer an ihn an, statt ein zweites Mal zu fragen.
+// Zusätzlich gilt die Haltbarkeit, die Supercell selbst mitschickt (Cache-Control max-age): bis dahin käme ohnehin
+// dieselbe Antwort zurück. Supercell schickt KEINEN Age-Kopf, sondern zählt max-age selbst herunter (am 17.11.2026
+// auf dem Server gemessen: Profil 21 → 18 → 5 s bei 3 und 16 s Abstand, Battlelog 56 → 52 → 40 s) — max-age ist
+// also schon die Restzeit. Ein Age-Kopf (falls je einer dazukommt, etwa durch einen Zwischenspeicher) wird abgezogen.
+// Die Daten gehören allen Aufrufern gemeinsam: nur lesen, nie verändern.
+const SHARED_MAX_ENTRIES = 400;
+const SHARED_UPSTREAM_CAP_MS = 60 * 1000;
+const sharedCache = new Map(); // path → { at, freshUntil, keepUntil, data }
+const sharedInFlight = new Map(); // path → Promise
+const sharedStats = { fetched: 0, reused: 0, joined: 0 };
+
+function upstreamFreshMs(res) {
+  const maxAge = /max-age=(\d+)/i.exec(res.headers?.get?.('cache-control') || '');
+  if (!maxAge) return 0;
+  const age = Number(res.headers?.get?.('age') || 0);
+  const left = (Number(maxAge[1]) - age) * 1000;
+  return Number.isFinite(left) && left > 0 ? Math.min(left, SHARED_UPSTREAM_CAP_MS) : 0;
+}
+
+function sharedSweep(now = Date.now()) {
+  for (const [k, v] of sharedCache) if (now >= v.keepUntil) sharedCache.delete(k);
+  // Immer noch zu voll: die ältesten Einträge (Einfügereihenfolge) gehen zuerst
+  for (const k of sharedCache.keys()) { if (sharedCache.size <= SHARED_MAX_ENTRIES) break; sharedCache.delete(k); }
+}
+const sharedSweeper = setInterval(sharedSweep, 60 * 1000);
+sharedSweeper.unref?.();
+
+async function crApiFetch(path, useToken, timeoutMs) {
   const ctrl = new AbortController();
   const timeout = setTimeout(() => ctrl.abort(), timeoutMs);
   try {
@@ -54,12 +76,65 @@ async function crApiGet(path, { timeoutMs = DEFAULT_TIMEOUT_MS, token } = {}) {
       headers: { Authorization: `Bearer ${useToken}` },
       signal: ctrl.signal,
     });
-    if (res.status === 404) return { notFound: true };
+    if (res.status === 404) return { data: { notFound: true }, freshMs: 0 };
     if (!res.ok) throw new Error(`Royale API HTTP ${res.status}`);
-    return await res.json();
+    return { data: await res.json(), freshMs: upstreamFreshMs(res) };
   } finally {
     clearTimeout(timeout);
   }
+}
+
+/**
+ * GET auf die API.
+ * @param {string} path
+ * @param {{timeoutMs?: number, token?: string, maxAgeMs?: number}} [opts] `token` überschreibt den geteilten
+ *   CR_API_TOKEN für diesen einen Aufruf. `maxAgeMs` > 0: eine höchstens so alte Antwort aus dem gemeinsamen
+ *   Abruf-Speicher reicht (siehe oben) — die Daten dann nur lesen.
+ * @returns Daten, `{ notFound: true }` bei 404, `null` ohne Token
+ * @throws bei jedem anderen HTTP-Fehler und bei Zeitüberschreitung
+ */
+async function crApiGet(path, { timeoutMs = DEFAULT_TIMEOUT_MS, token, maxAgeMs = 0 } = {}) {
+  const useToken = token || CR_API_TOKEN;
+  if (!useToken) return null;
+  if (!(maxAgeMs > 0)) return (await crApiFetch(path, useToken, timeoutMs)).data;
+
+  const now = Date.now();
+  const hit = sharedCache.get(path);
+  if (hit && (now - hit.at < maxAgeMs || now < hit.freshUntil)) {
+    sharedStats.reused += 1;
+    // Wer länger damit auskommt, hält den Eintrag auch so lange vor
+    if (hit.at + maxAgeMs > hit.keepUntil) hit.keepUntil = hit.at + maxAgeMs;
+    return hit.data;
+  }
+  const running = sharedInFlight.get(path);
+  if (running) {
+    sharedStats.joined += 1;
+    return running;
+  }
+  const p = (async () => {
+    try {
+      const { data, freshMs } = await crApiFetch(path, useToken, timeoutMs);
+      const at = Date.now();
+      sharedStats.fetched += 1;
+      sharedCache.delete(path); // neu einfügen = ans Ende der Reihenfolge
+      sharedCache.set(path, { at, freshUntil: at + freshMs, keepUntil: at + Math.max(maxAgeMs, freshMs), data });
+      if (sharedCache.size > SHARED_MAX_ENTRIES) sharedSweep(at);
+      return data;
+    } finally {
+      sharedInFlight.delete(path);
+    }
+  })();
+  sharedInFlight.set(path, p);
+  return p;
+}
+
+/** Zähler des gemeinsamen Abruf-Speichers: { fetched, reused, joined, entries } — für Admin-Ansicht und Tests. */
+const sharedCacheStats = () => ({ ...sharedStats, entries: sharedCache.size });
+/** Gemeinsamen Abruf-Speicher leeren (Tests). */
+function clearSharedCache() {
+  sharedCache.clear();
+  sharedInFlight.clear();
+  sharedStats.fetched = 0; sharedStats.reused = 0; sharedStats.joined = 0;
 }
 
 /**
@@ -113,9 +188,9 @@ function roundsResult(team, opponent) {
 }
 
 /** Battlelog eines Spielers, vereinheitlicht. Liefert immer ein Array (ggf. leer). */
-async function fetchBattlelog(tag, { safe = false, token } = {}) {
+async function fetchBattlelog(tag, { safe = false, token, maxAgeMs = 0 } = {}) {
   const get = safe ? crApiGetSafe : crApiGet;
-  const data = await get(`/players/%23${tag}/battlelog`, { token });
+  const data = await get(`/players/%23${tag}/battlelog`, { token, maxAgeMs });
   if (!Array.isArray(data)) return [];
   const selfTag = normalizeTag(tag);
   return data.map((b) => {
@@ -201,7 +276,9 @@ async function fetchBattlelog(tag, { safe = false, token } = {}) {
 const POL_RANK_MAX = 1000;
 // Eine Liste für alle Accounts — 60 s reichen, damit die Platzierung kurz nach einem Match mitzieht.
 const POL_TOP_TTL_MS = 60 * 1000;
-let polTopCache = { at: 0, ranks: null };
+// Dieselbe Adresse wie die Ranglisten-Seite der Stats (scout/scoutRoutes.js) — so teilen sich beide einen Abruf.
+const POL_TOP_PATH = '/locations/global/pathoflegend/players?limit=1000';
+let polTopCache = { source: null, ranks: null };
 
 // Medaillen eines Ranglisten-Eintrags. Das Feld heißt je nach API-Stand eloRating oder trophies;
 // fehlt beides, bleibt es null und die Platzierung wird nicht geschätzt (siehe resolvePolRank).
@@ -209,15 +286,16 @@ const entryMedals = (it) => (typeof it?.eloRating === 'number' ? it.eloRating : 
 
 /** Tag → { rank, medals } der globalen Top 1000, kurz zwischengespeichert. null, wenn nicht abrufbar. */
 async function fetchPolTopRanks(token) {
-  if (polTopCache.ranks && Date.now() - polTopCache.at < POL_TOP_TTL_MS) return polTopCache.ranks;
-  const data = await crApiGetSafe('/locations/global/pathoflegend/players', { token });
+  const data = await crApiGetSafe(POL_TOP_PATH, { token, maxAgeMs: POL_TOP_TTL_MS });
   if (!Array.isArray(data?.items)) return null;
+  // Dieselbe Antwort wie beim letzten Mal: die Tabelle Tag → Platz nicht neu aufbauen
+  if (polTopCache.source === data) return polTopCache.ranks;
   const ranks = new Map();
   for (const it of data.items) {
     const t = normalizeTag(it?.tag);
     if (t && typeof it.rank === 'number') ranks.set(t, { rank: it.rank, medals: entryMedals(it) });
   }
-  polTopCache = { at: Date.now(), ranks };
+  polTopCache = { source: data, ranks };
   return ranks;
 }
 
@@ -250,10 +328,14 @@ async function resolvePolRank(tag, pol, token, medals = null) {
  * Spielerprofil in der Form, die Win-Tracker und Lobby-Tracking brauchen.
  * @param {string} tag
  * @param {string} [token] überschreibt den geteilten CR_API_TOKEN für diesen Aufruf.
+ * @param {{maxAgeMs?: number}} [opts] eine höchstens so alte Antwort aus dem gemeinsamen Abruf-Speicher reicht
  * @returns Profil, `{ notFound: true }`, oder null ohne Token
  */
-async function fetchPlayerSummary(tag, token) {
-  const data = await crApiGet(`/players/%23${tag}`, { token });
+async function fetchPlayerSummary(tag, token, { maxAgeMs = 0 } = {}) {
+  // Die Rangliste für die Platzierung (resolvePolRank unten) gleich mit anstoßen statt erst nach dem Profil —
+  // sie ist ohnehin kurz zwischengespeichert, so wartet der Aufrufer nur auf den längeren der beiden Abrufe.
+  if (isConfigured(token)) fetchPolTopRanks(token).catch(() => null);
+  const data = await crApiGet(`/players/%23${tag}`, { token, maxAgeMs });
   if (!data || data.notFound) return data;
   const pol = data.currentPathOfLegendSeasonResult || null;
   return {
@@ -346,7 +428,8 @@ async function fetchPlayerCards(tag, token) {
  * Liefert immer ein Array (leer bei Fehler) — die Titel sind nur Beschriftung.
  */
 async function fetchEvents(token) {
-  const data = await crApiGetSafe('/events', { token });
+  // Win-Tracker und Stats fragen beide alle 15 Minuten — über den gemeinsamen Speicher wird daraus ein Abruf
+  const data = await crApiGetSafe('/events', { token, maxAgeMs: 10 * 60 * 1000 });
   const list = Array.isArray(data) ? data : Array.isArray(data?.items) ? data.items : [];
   return list.filter((e) => e && e.title).map((e) => ({ eventTag: e.eventTag || '', title: String(e.title) }));
 }
@@ -381,4 +464,8 @@ module.exports = {
   fetchBattlelog,
   fetchPlayerSummary,
   resolvePolRank,
+  fetchPolTopRanks,
+  POL_TOP_PATH,
+  sharedCacheStats,
+  clearSharedCache,
 };

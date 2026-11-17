@@ -34,23 +34,26 @@ export default function RulesDialog({ open, onClose }) {
             <h3 className="wf-section-title mb-1">Dein Zug</h3>
             <p className="wf-dim">
               Leg eine Karte, die zur aktuellen Welt gehört (gleiche Farbe) oder dieselbe Zahl bzw. dasselbe Symbol zeigt wie die
-              oberste Karte. Passt nichts, zieh vom Stapel — passt die gezogene Karte, darfst du sie gleich legen.
+              oberste Karte. Passt nichts, zieh vom Stapel — passt die gezogene Karte, darfst du sie gleich legen. Mit der
+              Einstellung „Ziehen: Bis es passt“ ziehst du so lange weiter, bis eine passende Karte dabei ist.
             </p>
           </section>
           <section className="py-3">
             <h3 className="wf-section-title mb-1">Die Welt wechselt</h3>
             <p className="wf-dim">
-              Der Tisch schwebt immer über der Welt, die gerade gilt. Legt jemand eine andere Farbe, wird es kurz dunkel und der
-              Tisch steht in der neuen Welt — und mit ihr wechselt das Gesetz. Bei der Wirbel-Karte dreht sich der Tisch einmal herum, danach wird
+              Der Tisch schwebt immer mitten in der Welt, die gerade gilt. Legt jemand eine andere Farbe, steht der Tisch sofort
+              in der neuen Welt — und mit ihr wechselt das Gesetz. Bei der Wirbel-Karte dreht sich der Tisch einmal herum, danach wird
               andersherum gespielt (die Pfeile am Tischrand zeigen die Richtung).
             </p>
           </section>
           <section className="py-3">
             <h3 className="wf-section-title mb-2">Vier Welten, vier Gesetze</h3>
             <p className="wf-dim mb-3">
-              Jede Karte lädt ihre Welt auf. Die Ladung bleibt, auch wenn die Welt wechselt. Bei {RULES.CHARGE_MAX} bricht die Welt
-              aus und löst ihr angekündigtes Ereignis aus. Die Ladung siehst du am Weltenrad oben in der Mitte und an den leuchtenden
-              Steinen am Tischrand; oben links steht, welches Ereignis der aktuellen Welt als Nächstes kommt.
+              Jede Karte lädt ihre Welt auf — außer den Karten, die immer passen (Portal, Finsternis, Zünder, Spiegel). Die Ladung
+              bleibt, auch wenn die Welt wechselt. Bei {RULES.CHARGE_MAX} bricht die Welt aus und löst ihr angekündigtes Ereignis aus.
+              Die Ladung siehst du an den vier Türmen oben in der Mitte und an den leuchtenden Steinen am Tischrand. Links daneben
+              steht das Gesetz der aktuellen Welt (passiv, gilt immer), rechts das Ereignis, das bei voller Ladung kommt (aktiv).
+              Lässt eine Karte auf deiner Hand eine Welt ausbrechen, trägt sie oben ein Zeichen in der Farbe dieser Welt.
             </p>
             <ul className="grid gap-4 sm:grid-cols-2">
               {WORLDS.map((w, i) => (

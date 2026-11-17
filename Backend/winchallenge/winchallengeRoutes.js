@@ -676,6 +676,8 @@ function createWinchallengeRouter({ requireAuth } = {}) {
     }
 
     touchActivity(userId);
+    // Streamer-Zentrale: die OBS-Quelle ist da (nur Speicher, höchstens einmal pro Minute in die Datenbank)
+    try { require("../streamerZentrale/presence").seen("wc", userId); } catch { /* Zentrale ist Zugabe */ }
     // Der OBS-Link ist halböffentlich (Stream, weitergegebene Szenen). Der Control-Key gibt
     // Schreibzugriff und darf hier NIE mitkommen; Rechte und Chat-Befehle braucht die
     // Anzeige ebenso wenig.

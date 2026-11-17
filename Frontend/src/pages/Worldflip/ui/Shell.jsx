@@ -11,6 +11,7 @@ import { loadPrefs, savePrefs } from "../prefs.js";
 import "./theme.css";
 import { useFontLink } from "../../../components/shell/useFontLink";
 import BackToSite from "../../../components/shell/BackToSite";
+import { worldflipKonto } from "../konto.js";
 
 const FONT_HREF = "https://fonts.googleapis.com/css2?family=Rubik:wght@400..900&display=swap";
 
@@ -22,6 +23,9 @@ export default function WfShell() {
 
   // Schrift einmal laden (ein @import landet im Build mitten in der CSS-Datei, wo Browser ihn ignorieren)
   useFontLink(FONT_HREF);
+
+  // Runden und Siege am Konto (kontoStand.js)
+  worldflipKonto.useAnbindung();
 
   const updatePrefs = useCallback((patch) => {
     setPrefs((p) => {

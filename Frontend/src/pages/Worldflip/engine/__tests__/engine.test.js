@@ -2,8 +2,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  ANIM, EVENTS, EVENTS_BY_WORLD, KINDS, RULES, actorOf, answersOf, apply, botAction, buildDeck, createGame, durationOf,
-  eventsFor, isLegal, needsTarget, normalizeSettings, topCard, viewFor,
+  ANIM, BOT_THINK, DRAW_EACH, EVENTS, EVENTS_BY_WORLD, KINDS, RULES, actorOf, answersOf, apply, botAction, botThinkMs, buildDeck,
+  createGame, durationOf, eruptsWith, eventsFor, isLegal, needsTarget, normalizeSettings, topCard, viewFor,
 } from '../index.js';
 
 const DECK = buildDeck().length;
@@ -228,7 +228,8 @@ test('Kettenreaktion: Konjunktion (+2) und Supernova (+1) lassen volle Welten so
   x.s.next[3] = 'konjunktion';
   x.s.next[0] = 'glutwind';
   x.s.next[2] = 'fruchtregen';
-  x.s.charges = [2, 1, 3, 0];
+  const M = RULES.CHARGE_MAX;
+  x.s.charges = [M - 2, 1, M - 1, 0];
   let r = play(x.s, 0, x.card, { world: 3 });
   assert.deepEqual(r.events.filter((e) => e.t === 'erupt').map((e) => e.world), [3, 0, 2]);
   assert.deepEqual(r.state.charges, [0, 3, 0, 0]);
@@ -236,11 +237,79 @@ test('Kettenreaktion: Konjunktion (+2) und Supernova (+1) lassen volle Welten so
 
   x = rigged({ world: 3, want: (c) => c.k === 'supernova' });
   x.s.next[1] = 'ebbe';
-  x.s.charges = [0, 3, 1, 0];
+  x.s.charges = [0, M - 1, 1, 0];
+  assert.deepEqual(eruptsWith(x.s, x.card), [1], 'Hinweis: die Supernova lässt den Ozean ausbrechen');
   r = play(x.s, 0, x.card);
   assert.ok(r.events.some((e) => e.t === 'nova'));
   assert.deepEqual(r.events.filter((e) => e.t === 'erupt').map((e) => e.world), [1]);
   assert.deepEqual(r.state.charges, [1, 0, 2, 1]);
+});
+
+test('Karten, die immer passen, laden keine Welt auf; Hinweis, welche Karte eine Welt ausbrechen lässt', () => {
+  const M = RULES.CHARGE_MAX;
+  assert.equal(M, 5);
+  for (const k of ['portal', 'finsternis', 'spiegel']) {
+    const x = rigged({ world: 1, want: (c) => c.k === k });
+    x.s.charges = [M - 1, M - 1, M - 1, M - 1];
+    const r = play(x.s, 0, x.card, { world: 0 });
+    assert.equal(r.events.some((e) => e.t === 'erupt'), false, `${k} löst nichts aus`);
+    assert.deepEqual(r.state.charges, [M - 1, M - 1, M - 1, M - 1], `${k} lädt nicht`);
+    assert.deepEqual(eruptsWith(x.s, x.card), []);
+  }
+  // der Zünder lädt auch nicht: Nur die gewählte Welt bricht aus, die übrigen bleiben, wie sie sind
+  let x = rigged({ world: 1, want: (c) => c.k === 'zuender' });
+  x.s.charges = [M - 1, 1, 0, 0];
+  let r = play(x.s, 0, x.card, { world: 2 });
+  assert.deepEqual(r.events.filter((e) => e.t === 'erupt').map((e) => e.world), [2]);
+  assert.equal(r.state.charges[0], M - 1);
+
+  // gewöhnliche Karten: Hinweis genau dann, wenn die Ladung voll wird (Dschungel lädt doppelt)
+  x = rigged({ world: 0, want: (c) => c.w === 0 && c.k === 'n' });
+  x.s.charges = [M - 2, 0, 0, 0];
+  assert.deepEqual(eruptsWith(x.s, x.card), []);
+  x.s.charges = [M - 1, 0, 0, 0];
+  assert.deepEqual(eruptsWith(x.s, x.card), [0]);
+  r = play(x.s, 0, x.card);
+  assert.ok(r.events.some((e) => e.t === 'erupt' && e.world === 0));
+  x = rigged({ world: 2, want: (c) => c.w === 2 && c.k === 'n' });
+  x.s.charges = [0, 0, M - 2, 0];
+  assert.deepEqual(eruptsWith(viewFor(x.s, 0), x.card), [2], 'geht auch mit der Sicht');
+});
+
+test('Option „Ziehen, bis es passt“: weiterziehen, bis eine passende Karte dabei ist', () => {
+  assert.equal(normalizeSettings({}).drawUntil, false);
+  assert.equal(normalizeSettings({ drawUntil: true }).drawUntil, true);
+  for (let seed = 1; seed <= 40; seed += 1) {
+    const s = createGame({ players: 3, seed, drawUntil: true });
+    s.world = 1;
+    s.drawn = [];
+    // Stapel so legen, dass erst nach ein paar Karten etwas passt
+    const fits = (c) => isLegal(s, c);
+    const misses = s.deck.filter((c) => !fits(c)).slice(0, 4);
+    const hit = s.deck.find(fits);
+    s.deck = [...s.deck.filter((c) => !misses.includes(c) && c !== hit), hit, ...misses.reverse()];
+    const seat = s.turn;
+    const r = act(s, seat, { t: 'draw' });
+    const d = r.events.find((e) => e.t === 'draw');
+    assert.equal(d.n, 5, 'vier passen nicht, die fünfte passt');
+    assert.ok(d.cards.some((c) => isLegal({ ...r.state, drawn: [] }, c)));
+    assert.equal(r.state.turn, seat, 'man darf die passende Karte noch legen');
+    assert.equal(r.state.drawn.length, 5);
+    assert.equal(viewFor(r.state, seat).drawUntil, true);
+    assert.ok(durationOf(r.events) >= ANIM.draw + 3 * DRAW_EACH, 'viele Karten fliegen länger');
+    assert.equal(total(r.state), DECK);
+  }
+  // ohne Option: genau eine Karte
+  const o = createGame({ players: 3, seed: 3 });
+  o.world = 1;
+  assert.equal(act(o, o.turn, { t: 'draw' }).events.find((e) => e.t === 'draw').n, 1);
+});
+
+test('Bots überlegen nach einem Effekt kürzer', () => {
+  assert.equal(botThinkMs([{ t: 'play', card: { k: 'n' } }, { t: 'turn', seat: 1 }]), BOT_THINK.calm);
+  assert.equal(botThinkMs([{ t: 'play', card: { k: 'sturm' } }, { t: 'skip' }, { t: 'turn', seat: 2 }]), BOT_THINK.afterFx);
+  assert.equal(botThinkMs([{ t: 'erupt' }]), BOT_THINK.afterFx);
+  assert.ok(BOT_THINK.afterFx < BOT_THINK.calm);
 });
 
 test('Effektkarten: Hagel, Meteor, Feuerwalze, Brandopfer, Frost, Welle, Flaschenpost, Saat, Strahl', () => {
@@ -252,7 +321,7 @@ test('Effektkarten: Hagel, Meteor, Feuerwalze, Brandopfer, Frost, Welle, Flasche
   x = rigged({ world: 0, want: (c) => c.k === 'meteor' });
   r = play(x.s, 0, x.card);
   assert.equal(r.state.hands[1].length, x.s.hands[1].length + 3);
-  assert.equal(r.state.turn, 2);
+  assert.equal(r.state.turn, 1, 'Meteor lässt nur ziehen, nicht aussetzen');
 
   x = rigged({ world: 0, want: (c) => c.k === 'walze' });
   r = play(x.s, 0, x.card);
@@ -294,13 +363,13 @@ test('Effektkarten: Hagel, Meteor, Feuerwalze, Brandopfer, Frost, Welle, Flasche
 });
 
 test('Echo wiederholt die zuletzt gelegte Effektkarte', () => {
-  // nach einem Meteor: Der Nächste zieht 3 und setzt aus
+  // nach einem Meteor: Der Nächste zieht 3 (und ist danach normal dran)
   let x = rigged({ world: 2, want: (c) => c.k === 'echo' });
   x.s.lastFx = 'meteor';
   let r = play(x.s, 0, x.card);
   assert.equal(r.events.find((e) => e.t === 'play').echo, 'meteor');
   assert.equal(r.state.hands[1].length, x.s.hands[1].length + 3);
-  assert.equal(r.state.turn, 2);
+  assert.equal(r.state.turn, 1);
   assert.equal(r.state.lastFx, 'meteor', 'das Echo selbst merkt sich nichts Neues');
 
   // nach einer Zielkarte braucht auch das Echo ein Ziel

@@ -1,0 +1,229 @@
+/*
+ * Spieleabend — eigener Look, getrennt von der übrigen Website.
+ *
+ * Abendstimmung im Spielzimmer: warmes Dunkelbraun, cremeweiße Schrift, deckende Tafeln mit Haarlinien. Farbe kommt
+ * aus dem Zimmer (Messing der Lampe, Rot und Gelb der Spielsteine) — flach, ohne Verlauf oder Leuchten. Die Bühne
+ * gehört der 3D-Szene; Beschriftungen und Knöpfe hängen als kleine Schilder an Figuren, Stühlen und Brett.
+ *
+ * Schrift: Rubik (wie Worldflip — dieselben Blobs), geladen von der Hülle per <link>. Präfix sa- für alle Klassen.
+ */
+
+.sa-game {
+  --sa-bg: #161113;
+  --sa-surface: #211a1c;
+  --sa-surface-2: #2c2326;
+  --sa-surface-3: #3a2f32;
+  --sa-line: rgb(255 240 220 / 0.1);
+  --sa-line-2: rgb(255 240 220 / 0.2);
+  --sa-text: #f6ecdf;
+  --sa-dim: rgb(246 236 223 / 0.72);
+  --sa-faint: rgb(246 236 223 / 0.46);
+  --sa-cream: #f6ecdf;
+  --sa-cream-dark: #e2d4bf;
+  --sa-ink: #1a1315;
+  --sa-messing: #e0a84a;
+  --sa-font: "Rubik", "Inter", ui-sans-serif, system-ui, sans-serif;
+
+  color-scheme: dark;
+  height: 100vh;
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background: var(--sa-bg);
+  color: var(--sa-text);
+  font-family: var(--sa-font);
+  font-size: 15px;
+  line-height: 1.45;
+}
+.sa-game ::selection { background: var(--sa-cream); color: var(--sa-ink); }
+.sa-game :focus-visible { outline: 2px solid var(--sa-cream); outline-offset: 2px; }
+
+/* ── Kopfleiste ──────────────────────────────────────────────────────────── */
+.sa-topbar { border-bottom: 1px solid var(--sa-line); background: var(--sa-bg); position: relative; z-index: 5; flex: none; }
+.sa-logo { display: inline-flex; align-items: center; gap: 10px; font-weight: 800; font-size: 19px; line-height: 1; letter-spacing: -0.01em; }
+/* Logo-Zeichen: zwei Spielsteine übereinander */
+.sa-logo-mark { position: relative; width: 22px; height: 22px; flex: none; }
+.sa-logo-mark i { position: absolute; width: 15px; height: 15px; border-radius: 50%; border: 2px solid var(--sa-bg); }
+.sa-logo-mark i:nth-child(1) { left: 0; top: 0; background: #e23a3a; }
+.sa-logo-mark i:nth-child(2) { right: 0; bottom: 0; background: #f4c20d; }
+@media (max-width: 440px) { .sa-logo { font-size: 16px; gap: 8px; } }
+
+/* ── Knöpfe ──────────────────────────────────────────────────────────────── */
+.sa-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+  padding: 9px 16px; border-radius: 6px; border: 1px solid transparent;
+  font-weight: 700; font-size: 14.5px; line-height: 1.1;
+  background: var(--sa-cream); color: var(--sa-ink);
+  transition: background-color 120ms, color 120ms, border-color 120ms;
+  cursor: pointer; white-space: nowrap; user-select: none;
+}
+.sa-btn:hover:not(:disabled) { background: var(--sa-cream-dark); }
+.sa-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.sa-btn-lg { padding: 12px 22px; font-size: 16.5px; }
+.sa-btn-sm { padding: 6px 10px; font-size: 13px; gap: 6px; }
+.sa-btn-ghost { background: transparent; color: var(--sa-text); border-color: var(--sa-line-2); }
+.sa-btn-ghost:hover:not(:disabled) { background: var(--sa-surface-2); }
+.sa-btn-quiet { background: var(--sa-surface-3); color: var(--sa-text); }
+.sa-btn-quiet:hover:not(:disabled) { background: #4a3d41; }
+.sa-icon-btn {
+  display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; border-radius: 6px;
+  color: var(--sa-dim); border: 1px solid var(--sa-line-2); background: transparent; transition: background-color 120ms, color 120ms;
+}
+.sa-icon-btn:hover { background: var(--sa-surface-2); color: var(--sa-text); }
+
+.sa-input {
+  width: 100%; background: var(--sa-bg); color: var(--sa-text);
+  border: 1px solid var(--sa-line-2); border-radius: 6px; padding: 9px 12px; font-size: 15px;
+}
+.sa-input:focus { outline: none; border-color: var(--sa-cream); }
+.sa-label { font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--sa-faint); }
+
+/* ── Bühne ───────────────────────────────────────────────────────────────── */
+.sa-stage { position: relative; flex: 1; min-height: 0; overflow: hidden; background: var(--sa-bg); }
+.sa-stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+.sa-hud { position: absolute; inset: 0; pointer-events: none; }
+.sa-hud > * { pointer-events: auto; }
+.sa-panel { background: rgb(22 17 19 / 0.9); border: 1px solid var(--sa-line-2); border-radius: 8px; }
+
+/* Leiste oben links: Zimmer-Code, Einladen, eigener Blob */
+.sa-roombar { position: absolute; top: 10px; left: 10px; display: flex; align-items: center; gap: 6px; padding: 6px; flex-wrap: wrap; max-width: calc(100% - 20px); }
+.sa-code { font-weight: 800; font-size: 15px; letter-spacing: 0.12em; padding: 0 6px 0 4px; font-variant-numeric: tabular-nums; }
+.sa-roombar .sa-sep { width: 1px; align-self: stretch; background: var(--sa-line-2); margin: 2px 2px; }
+@media (max-width: 560px) {
+  .sa-roombar { top: 6px; left: 6px; padding: 4px; gap: 4px; }
+  .sa-roombar .sa-btn-sm span { display: none; }
+  .sa-code { font-size: 13px; }
+}
+
+/* Statuszeile unten in der Mitte */
+.sa-status {
+  position: absolute; left: 0; right: 0; margin-inline: auto; bottom: 14px; width: max-content; max-width: calc(100% - 20px);
+  display: flex; align-items: center; gap: 10px; padding: 9px 14px; font-weight: 600; font-size: 15px;
+}
+.sa-status > span:not(.sa-chip) { min-width: 0; }
+.sa-status .sa-chip { width: 12px; height: 12px; border-radius: 50%; flex: none; }
+@media (max-width: 560px) { .sa-status { bottom: 8px; font-size: 13.5px; padding: 7px 10px; } }
+
+/* Schilder an Figuren, Stühlen und Brett: die Seite setzt translate per Zeiger auf die Bildschirmposition */
+.sa-tags { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.sa-tag { position: absolute; left: 0; top: 0; will-change: transform; pointer-events: none; }
+.sa-tag > * { pointer-events: auto; }
+.sa-name {
+  display: inline-flex; align-items: center; gap: 6px; padding: 3px 9px; border-radius: 5px;
+  background: rgb(22 17 19 / 0.82); border: 1px solid var(--sa-line); font-weight: 700; font-size: 13px; white-space: nowrap;
+}
+.sa-name .sa-chip { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+.sa-name small { font-weight: 600; font-size: 11px; color: var(--sa-faint); text-transform: uppercase; letter-spacing: 0.08em; }
+.sa-name.sa-off { opacity: 0.55; }
+.sa-name.sa-hint { font-weight: 600; font-size: 12px; color: var(--sa-dim); }
+/* Namen und Hinweise lassen Klicks durch (darunter liegt der Boden, die Chips, ein Blob) */
+.sa-tag > .sa-name { pointer-events: none; }
+/* freier Spielstuhl: Farbe, Zustand, „Platz nehmen“ */
+.sa-stuhl { display: inline-flex; align-items: center; gap: 8px; padding: 4px 5px 4px 10px; font-weight: 700; font-size: 13px; white-space: nowrap; }
+.sa-stuhl .sa-chip { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+.sa-icon-btn.sa-icon-sm { width: 28px; height: 28px; }
+/* Handy, im Stehen: das Brettschild nur mit Start (Spielwahl gibt es am Regal, Bot-Stärke am Tisch) */
+@media (max-width: 560px) { .sa-steht .sa-card .sa-seg { display: none; } }
+.sa-card { padding: 10px 12px; min-width: 180px; display: grid; gap: 8px; justify-items: center; text-align: center; }
+.sa-card-title { display: inline-flex; align-items: center; gap: 7px; font-weight: 800; font-size: 14px; }
+.sa-card .sa-chip { width: 10px; height: 10px; border-radius: 50%; flex: none; display: inline-block; }
+.sa-card-sub { font-size: 12.5px; color: var(--sa-dim); margin-top: -4px; }
+.sa-card .sa-row { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
+/* Spielwahl am Brett */
+.sa-seg { display: inline-flex; padding: 3px; gap: 3px; border-radius: 7px; background: var(--sa-bg); border: 1px solid var(--sa-line); max-width: 100%; flex-wrap: wrap; justify-content: center; }
+.sa-seg > button { padding: 5px 11px; border-radius: 4px; font-weight: 600; font-size: 13px; color: var(--sa-dim); transition: background-color 120ms, color 120ms; }
+.sa-seg > button:hover { color: var(--sa-text); background: var(--sa-surface-2); }
+.sa-seg > button[aria-pressed="true"] { background: var(--sa-cream); color: var(--sa-ink); }
+.sa-result { font-weight: 900; font-size: 22px; letter-spacing: -0.01em; line-height: 1.1; }
+@media (max-width: 560px) {
+  .sa-card { min-width: 0; padding: 8px 9px; gap: 6px; }
+  .sa-name { font-size: 11.5px; padding: 2px 7px; }
+  .sa-result { font-size: 18px; }
+}
+
+/* Zeichen-Hochstapler: eigene Rolle oben in der Mitte, Abstimm-Schilder */
+.sa-rolle { position: absolute; top: 10px; left: 0; right: 0; margin-inline: auto; width: max-content; max-width: calc(100% - 20px); display: grid; justify-items: center; gap: 1px; padding: 8px 18px 10px; text-align: center; }
+.sa-rolle b { font-size: 22px; font-weight: 900; line-height: 1.15; }
+.sa-rolle > span:not(.sa-label) { font-size: 13px; color: var(--sa-dim); }
+@media (max-width: 760px) { .sa-rolle { top: 58px; padding: 6px 12px 8px; } .sa-rolle b { font-size: 18px; } }
+.sa-stimme.sa-an { border-color: var(--sa-cream); }
+
+/* Hinweise (jemand kommt, jemand geht) */
+.sa-toasts { position: absolute; top: 10px; right: 10px; display: grid; gap: 6px; justify-items: end; pointer-events: none; max-width: calc(100% - 20px); }
+@media (max-width: 560px) { .sa-toasts { top: 58px; right: 6px; } }
+.sa-toast { padding: 7px 12px; font-size: 13.5px; font-weight: 600; }
+
+/* Fadenkreuz (Ich-Sicht mit gefangener Maus); über einem Ziel größer, darunter steht, was ein Klick tut */
+.sa-faden { position: absolute; left: 50%; top: 50%; pointer-events: none; }
+.sa-faden > i { position: absolute; left: -4px; top: -4px; width: 8px; height: 8px; border-radius: 50%; background: var(--sa-cream); box-shadow: 0 0 0 2px rgb(22 17 19 / 0.7); transition: transform 90ms; }
+.sa-faden.sa-faden-ziel > i { transform: scale(1.6); background: transparent; border: 2px solid var(--sa-cream); }
+.sa-faden > span { position: absolute; top: 16px; left: 0; translate: -50% 0; white-space: nowrap; padding: 3px 9px; border-radius: 5px; background: rgb(22 17 19 / 0.82); border: 1px solid var(--sa-line); font-weight: 700; font-size: 13px; }
+
+/* Gesten-Rad: sieben Felder im Kreis um die Bildmitte, das gewählte cremefarben */
+.sa-rad { position: absolute; inset: 0; display: grid; place-items: center; z-index: 15; background: rgb(12 9 10 / 0.18); }
+.sa-rad-kreis { position: relative; width: 0; height: 0; }
+.sa-rad-mitte {
+  position: absolute; left: 0; top: 0; translate: -50% -50%; width: 116px; height: 116px; border-radius: 50%;
+  display: grid; place-content: center; text-align: center; gap: 3px; font-weight: 800; font-size: 15px;
+  background: rgb(22 17 19 / 0.92); border: 1px solid var(--sa-line-2); pointer-events: none;
+}
+.sa-rad-mitte small { font-weight: 600; font-size: 10.5px; color: var(--sa-faint); }
+.sa-rad-feld {
+  position: absolute; left: 0; top: 0; width: 88px; height: 70px; display: grid; justify-items: center; align-content: center; gap: 4px;
+  border-radius: 10px; background: rgb(22 17 19 / 0.92); border: 1px solid var(--sa-line-2); color: var(--sa-text);
+  font-weight: 700; font-size: 12.5px; transition: background-color 90ms, border-color 90ms, color 90ms; cursor: pointer;
+}
+.sa-rad-feld kbd { position: absolute; top: 4px; right: 7px; font: 600 10px var(--sa-font); color: var(--sa-faint); }
+.sa-rad-feld.sa-an, .sa-rad-feld:hover { background: var(--sa-cream); color: var(--sa-ink); border-color: var(--sa-cream); }
+.sa-rad-feld.sa-an kbd, .sa-rad-feld:hover kbd { color: rgb(26 19 21 / 0.55); }
+@media (max-width: 560px) {
+  .sa-rad-mitte { width: 96px; height: 96px; font-size: 13.5px; }
+  .sa-rad-feld { width: 76px; height: 62px; font-size: 11.5px; }
+}
+/* Menü (Esc): mittig über dem Zimmer, das dahinter weiterläuft */
+.sa-menue-hintergrund { position: absolute; inset: 0; z-index: 30; display: grid; place-items: center; padding: 16px; background: rgb(12 9 10 / 0.55); }
+.sa-menue { width: 100%; max-width: 400px; max-height: calc(100% - 16px); overflow-y: auto; display: grid; gap: 14px; padding: 14px 16px 16px; }
+.sa-menue-kopf { display: flex; align-items: center; justify-content: space-between; }
+.sa-menue-teil { display: grid; gap: 8px; padding-top: 12px; border-top: 1px solid var(--sa-line); }
+.sa-menue-zeile { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-weight: 600; }
+.sa-menue-regler { display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; align-items: center; font-weight: 600; font-size: 14px; }
+.sa-menue-regler input { grid-column: 1 / -1; width: 100%; accent-color: var(--sa-cream); }
+.sa-menue-regler output { grid-column: 2; grid-row: 1; font-variant-numeric: tabular-nums; color: var(--sa-dim); font-size: 13px; }
+.sa-menue-regler input:disabled { opacity: 0.4; }
+.sa-menue-leute { display: grid; gap: 6px; }
+.sa-menue-leute li { display: flex; align-items: center; gap: 8px; min-height: 32px; font-weight: 600; }
+.sa-menue-leute .sa-chip { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+.sa-menue-leute small { font-weight: 600; font-size: 11px; color: var(--sa-faint); text-transform: uppercase; letter-spacing: 0.08em; }
+.sa-menue-leute .sa-btn { margin-left: auto; }
+.sa-menue-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sa-menue-hinweis { font-size: 13px; color: var(--sa-dim); }
+.sa-menue-link { display: flex; gap: 6px; }
+.sa-menue-link .sa-input { font-size: 13px; padding: 6px 9px; min-width: 0; }
+/* Hinweis am Fadenkreuz: Taste und was sie tut */
+.sa-faden kbd { display: inline-grid; place-items: center; min-width: 18px; height: 18px; margin-right: 6px; padding: 0 4px; border-radius: 4px; background: var(--sa-cream); color: var(--sa-ink); font: 800 11px var(--sa-font); }
+.sa-faden small { margin-left: 8px; font-weight: 600; font-size: 11.5px; color: var(--sa-dim); }
+
+/* Schneebälle in der Hand (Leiste oben) */
+.sa-schnee { display: inline-flex; align-items: center; gap: 4px; padding: 0 6px; font-weight: 700; font-size: 13px; color: var(--sa-dim); font-variant-numeric: tabular-nums; }
+
+/* Umkleide: Leiste rechts (am Handy unten), der Blob im Zimmer ist die Vorschau */
+.sa-umkleide { position: absolute; right: 12px; top: 64px; width: 300px; max-width: calc(100% - 24px); max-height: calc(100% - 140px); overflow-y: auto; display: grid; gap: 12px; padding: 14px 16px 16px; z-index: 20; }
+@media (max-width: 640px) {
+  .sa-umkleide { right: 8px; left: 8px; width: auto; top: auto; bottom: 8px; max-height: 46%; gap: 8px; padding: 10px 12px 12px; }
+  .sa-umkleide .sa-farben { grid-template-columns: repeat(10, 1fr); gap: 4px; }
+}
+.sa-farben { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+.sa-farben > button { aspect-ratio: 1; border-radius: 6px; border: 2px solid transparent; }
+.sa-farben > button[aria-pressed="true"] { border-color: var(--sa-cream); box-shadow: inset 0 0 0 2px var(--sa-bg); }
+.sa-wahl { display: grid; gap: 4px; }
+.sa-wahl-zeile { display: flex; align-items: center; gap: 8px; }
+.sa-wahl-name { flex: 1; text-align: center; font-weight: 700; }
+
+/* Fenster */
+.sa-dialog-backdrop {
+  position: fixed; inset: 0; z-index: 60; display: flex; align-items: center; justify-content: center; padding: 16px;
+  background: rgb(12 9 10 / 0.78);
+}
+.sa-dialog { width: 100%; max-width: 640px; max-height: calc(100dvh - 32px); overflow-y: auto; background: var(--sa-surface); border: 1px solid var(--sa-line-2); border-radius: 8px; }
+/* Der Blob-Editor stammt aus Worldflip und bringt dessen Klassen mit; hier ohne dessen Seitenhöhe */
+.sa-wf-bruecke { min-height: 0 !important; background: transparent !important; font-size: 15px; }

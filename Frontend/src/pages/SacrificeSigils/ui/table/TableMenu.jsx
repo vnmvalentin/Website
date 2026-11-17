@@ -184,7 +184,7 @@ export default function TableMenu({ onFallback }) {
 
   return (
     <>
-      <TableHost zirkel="moor" seated={false} quiet onFallback={onFallback}>
+      <TableHost zirkel="moor" seated={false} quiet mirror={false} onFallback={onFallback}>
         {(room) => <MenuTable room={room} cards={cards} onInspect={setDetail} />}
       </TableHost>
       <div className="sm-root">

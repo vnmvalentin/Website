@@ -12,7 +12,8 @@ const SPIELE = [
   { id: "flick-soccer", name: "Flick Soccer", praefixe: ["/flick-soccer"] },
   { id: "worldflip", name: "Worldflip", praefixe: ["/worldflip"] },
   { id: "lights-out", name: "Lights Out", praefixe: ["/lights-out"] },
-  { id: "connect4", name: "Connect 4", praefixe: ["/connect4"] },
+  // Spieleabend ersetzt Connect 4 (17.11.2026); alte /connect4-Links leiten dorthin weiter und zählen mit
+  { id: "spieleabend", name: "Spieleabend", praefixe: ["/spieleabend", "/connect4"] },
   // Der Minigame-Hub selbst; Turniere und Win Tracker unter /clash-royale/… sind keine Spiele
   { id: "cr-minigames", name: "CR-Minigames", exakt: ["/clash-royale"] },
   { id: "cr-wer-bin-ich", name: "Wer bin ich?", praefixe: ["/clash/wer-bin-ich"] },

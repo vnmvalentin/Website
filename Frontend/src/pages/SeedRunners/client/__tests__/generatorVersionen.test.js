@@ -41,6 +41,13 @@ const REFERENZ = {
     { seed: 'golden-2', biome: 'ice', hash: 'a42f8f44' },
     { seed: 'archiv-probe', biome: 'random', hash: '38aac024' },
   ],
+  // v5 am 16.11.2026: Lauflinie statt Pfad (gen/index.js weltParams, LAUF_AB_GV) — die drei Seeds treffen die drei Großformen
+  // Strom, Aufstieg und Abstieg
+  5: [
+    { seed: 'golden-1', biome: 'random', hash: '6a3c0f92' },
+    { seed: 'golden-2', biome: 'ice', hash: 'c82baa4b' },
+    { seed: 'archiv-probe', biome: 'random', hash: '429faed3' },
+  ],
 };
 const REFERENZ_V1 = REFERENZ[1];
 

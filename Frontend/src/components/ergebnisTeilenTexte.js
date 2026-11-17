@@ -1,0 +1,41 @@
+// ergebnisTeilenTexte.js — Texte des Fensters „Ergebnis teilen“ (components/ErgebnisTeilen.jsx), DE/EN.
+import { defineMessages } from "../i18n/core.js";
+
+export const ERGEBNIS_TEXTE = defineMessages({
+  de: {
+    knopf: "Ergebnis teilen",
+    titel: "Ergebnis teilen",
+    kicker: "Bild für Story, Status und Discord",
+    laedt: "Bild wird gezeichnet …",
+    fehler: "Das Bild ließ sich nicht erzeugen. Den Text mit Link kannst du trotzdem kopieren.",
+    vorschau: "Vorschau des Ergebnisbilds",
+    teilen: "Teilen",
+    speichern: "Bild speichern",
+    bildKopieren: "Bild kopieren",
+    textKopieren: "Text kopieren",
+    gespeichert: "Gespeichert",
+    bildKopiert: "Bild kopiert — in Discord oder WhatsApp einfügen",
+    textKopiert: "Text mit Link kopiert",
+    kopierFehler: "Kopieren ging nicht",
+    hinweis: "Der Link im Text führt direkt ins Spiel.",
+    aufruf: "Spielst du mit?",
+  },
+  en: {
+    knopf: "Share result",
+    titel: "Share result",
+    kicker: "Image for stories, status and Discord",
+    laedt: "Drawing the image …",
+    fehler: "The image could not be created. You can still copy the text with the link.",
+    vorschau: "Preview of the result image",
+    teilen: "Share",
+    speichern: "Save image",
+    bildKopieren: "Copy image",
+    textKopieren: "Copy text",
+    gespeichert: "Saved",
+    bildKopiert: "Image copied — paste it into Discord or WhatsApp",
+    textKopiert: "Text with link copied",
+    kopierFehler: "Copying failed",
+    hinweis: "The link in the text leads straight into the game.",
+    aufruf: "Want to play?",
+  },
+});

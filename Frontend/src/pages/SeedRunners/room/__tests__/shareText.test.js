@@ -1,7 +1,7 @@
 // Teilbares Ergebnis des Tagesrennens
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { abschnittQuadrate, tagesrennenText } from '../shareText.js';
+import { abschnittQuadrate, abschnittWertung, tagesrennenErgebnis, tagesrennenText } from '../shareText.js';
 import { TICK_HZ } from '../../sim/config.js';
 
 const entries = [
@@ -27,4 +27,29 @@ test('Text mit Platz, ohne Platz im Archiv', () => {
   assert.equal(t, 'Seed Runners · Tagesrennen 15.10.2026\n1:42.30 · Platz 12 von 80 · 1 Tod\n🟩\nhttps://x.de/seed-runners/daily');
   const a = tagesrennenText({ dateKey: '2026-10-01', lauf: { ...lauf, deaths: 3, splits: [] }, rank: 4, total: 9, entries, url: 'u', archiv: true });
   assert.equal(a, 'Seed Runners · Archiv 01.10.2026\n1:42.30 · 3 Tode\nu');
+});
+
+test('Ergebnisbild: Zeit groß, Platz, Tode, ein Feld je Abschnitt in der Farbe der Quadrate', () => {
+  const lauf = { ticks: 102 * TICK_HZ + 36, deaths: 1, splits: [[1, 900], [2, 1900], [3, 3100]] };
+  assert.deepEqual(abschnittWertung(lauf.splits, entries), ['gruen', 'gruen', 'rot']);
+  const e = tagesrennenErgebnis({ dateKey: '2026-10-15', lauf, rank: 1, total: 80, entries });
+  assert.equal(e.spiel, 'seed-runners');
+  assert.equal(e.pfad, '/seed-runners/daily');
+  assert.equal(e.gross, '1:42.30');
+  assert.equal(e.marke, 'Platz 1');
+  assert.equal(e.kicker, 'Tagesrennen · 15.10.2026');
+  assert.equal(e.raster.length, 3);
+  assert.equal(e.raster[0], e.raster[1]);
+  assert.notEqual(e.raster[1], e.raster[2]);
+  assert.deepEqual(e.werte.map((w) => w.wert), ['1 von 80', '1', '2 / 3 Abschnitte']);
+  assert.equal(e.text, 'Seed Runners · Tagesrennen 15.10.2026: 1:42.30 · Platz 1 von 80 · 1 Tod');
+});
+
+test('Ergebnisbild im Archiv: ohne Platz, Link auf den Archiv-Tag', () => {
+  const lauf = { ticks: 102 * TICK_HZ + 36, deaths: 3, splits: [] };
+  const e = tagesrennenErgebnis({ dateKey: '2026-10-01', lauf, rank: 4, total: 9, entries, archiv: true });
+  assert.equal(e.pfad, '/seed-runners/daily/2026-10-01');
+  assert.equal(e.marke, null);
+  assert.deepEqual(e.raster, []);
+  assert.deepEqual(e.werte, [{ name: 'Tode', wert: '3' }]);
 });

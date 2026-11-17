@@ -6,6 +6,7 @@
 //   konto_links  welche Twitch- bzw. Discord-ID zu welchem Konto gehört (je Konto höchstens eine von jeder Art)
 //   fortschritt  ein Spielstand je Konto und Spiel (JSON, höchstens 64 KB) mit Erfahrungspunkten und Versionszähler
 //   erfolge      freigeschaltete Abzeichen (Katalog in erfolge.js)
+//   bestwerte    der beste Wert je Konto, Spiel und Bestwert (Katalog in bestwerte.js), für die Visitenkarte /u/
 //   aktiv_tage   an welchen Tagen ein Konto aktiv war — nur für die Wiederkehr-Zahl im Admin, nach 120 Tagen gelöscht
 //
 // Die Twitch-Bereiche (Farm, adVentures, Win Tracker, Streamer-Werkzeuge …) speichern weiter unter der Twitch-ID;
@@ -21,6 +22,7 @@ const { dataPath } = require("../lib/dataDir");
 const { SPIELE } = require("../analytics/spiele");
 const { stufeAusXp } = require("./stufe");
 const { erfolgErlaubt: katalogErlaubt } = require("./erfolge");
+const { KATALOG: BESTWERT_KATALOG, bestwertInfo, sichererWert, istBesser } = require("./bestwerte");
 
 const ARTEN = ["twitch", "discord"];
 const SPIEL_IDS = new Set(SPIELE.map((s) => s.id));
@@ -28,6 +30,7 @@ const SPRACHEN = new Set(["de", "en", "es"]);
 const MAX_STAND_BYTES = 64 * 1024;
 const MAX_XP = 1_000_000_000;
 const MAX_ERFOLGE_JE_MELDUNG = 200;
+const MAX_BESTWERTE_JE_MELDUNG = 50;
 const AKTIV_BEHALTEN_TAGE = 120;
 const KONTO_ID_FORM = /^k[A-Za-z0-9_-]{16}$/;
 const CODE_ALPHABET = "0123456789ABCDEFGHJKMNPQRSTVWXYZ"; // Crockford: ohne I, L, O, U
@@ -88,6 +91,7 @@ function createKontoStore({
   datei = process.env.KONTEN_DB || dataPath("konten.db"),
   now = Date.now,
   erfolgErlaubt = katalogErlaubt,
+  bestwertKatalog = BESTWERT_KATALOG,
 } = {}) {
   const db = new Database(datei);
   db.pragma("journal_mode = WAL");
@@ -128,6 +132,14 @@ function createKontoStore({
       erfolg TEXT NOT NULL,
       erreicht INTEGER NOT NULL,
       PRIMARY KEY (konto_id, spiel, erfolg)
+    ) WITHOUT ROWID;
+    CREATE TABLE IF NOT EXISTS bestwerte (
+      konto_id TEXT NOT NULL,
+      spiel TEXT NOT NULL,
+      wert_id TEXT NOT NULL,
+      wert INTEGER NOT NULL,
+      erreicht INTEGER NOT NULL,
+      PRIMARY KEY (konto_id, spiel, wert_id)
     ) WITHOUT ROWID;
     CREATE TABLE IF NOT EXISTS aktiv_tage (
       konto_id TEXT NOT NULL,
@@ -176,6 +188,13 @@ function createKontoStore({
       SELECT ?, spiel, erfolg, erreicht FROM erfolge WHERE konto_id = ?
       ON CONFLICT(konto_id, spiel, erfolg) DO UPDATE SET erreicht = MIN(erreicht, excluded.erreicht)`),
     erfolgeWeg: db.prepare("DELETE FROM erfolge WHERE konto_id = ?"),
+    erfolgEinzelnWeg: db.prepare("DELETE FROM erfolge WHERE konto_id = ? AND spiel = ? AND erfolg = ?"),
+
+    bestwert: db.prepare("SELECT wert FROM bestwerte WHERE konto_id = ? AND spiel = ? AND wert_id = ?"),
+    bestwertSchreib: db.prepare(`INSERT INTO bestwerte (konto_id, spiel, wert_id, wert, erreicht) VALUES (?, ?, ?, ?, ?)
+      ON CONFLICT(konto_id, spiel, wert_id) DO UPDATE SET wert = excluded.wert, erreicht = excluded.erreicht`),
+    bestwerteVon: db.prepare("SELECT spiel, wert_id, wert, erreicht FROM bestwerte WHERE konto_id = ? ORDER BY spiel, wert_id"),
+    bestwerteWeg: db.prepare("DELETE FROM bestwerte WHERE konto_id = ?"),
 
     aktivNeu: db.prepare("INSERT OR IGNORE INTO aktiv_tage (konto_id, tag) VALUES (?, ?)"),
     aktivZuletzt: db.prepare("UPDATE konten SET zuletzt = MAX(zuletzt, ?) WHERE id = ?"),
@@ -289,6 +308,8 @@ function createKontoStore({
     st.staendeWeg.run(quelle);
     st.erfolgeUebernimm.run(ziel, quelle);
     st.erfolgeWeg.run(quelle);
+    for (const b of st.bestwerteVon.all(quelle)) schreibeBestwert(ziel, b.spiel, b.wert_id, b.wert, b.erreicht);
+    st.bestwerteWeg.run(quelle);
     st.aktivUebernimm.run(ziel, quelle);
     st.aktivWeg.run(quelle);
 
@@ -389,9 +410,12 @@ function createKontoStore({
       twitch: weg("twitch"),
       discord: weg("discord"),
       erstellt: k.erstellt,
+      // Konto für eine Sitzung von vor dem Konto-Update (zählt nicht als neu — z. B. für Einladungen)
+      bestand: Boolean(k.bestand),
       stufe: stufeAusXp(xp),
       spiele: staende.map((s) => ({ spiel: s.spiel, xp: s.xp, geaendert: s.geaendert })),
       erfolge: st.erfolgeVon.all(kontoId),
+      bestwerte: st.bestwerteVon.all(kontoId).map((b) => ({ spiel: b.spiel, wert: b.wert_id, zahl: b.wert, erreicht: b.erreicht })),
     };
   }
 
@@ -415,6 +439,7 @@ function createKontoStore({
   const loesche = db.transaction((kontoId) => {
     st.staendeWeg.run(kontoId);
     st.erfolgeWeg.run(kontoId);
+    st.bestwerteWeg.run(kontoId);
     st.aktivWeg.run(kontoId);
     st.linksWeg.run(kontoId);
     return st.kontoWeg.run(kontoId).changes > 0;
@@ -467,9 +492,13 @@ function createKontoStore({
 
   // ── Abzeichen ────────────────────────────────────────────────────────────────────────────────────────────────
 
-  /** @returns {{ ok: true, neu: string[], abgelehnt: string[] } | { ok: false, fehler: string }} */
+  /**
+   * Abzeichen eines Spiels — oder der Website selbst (Bereich "website", z. B. Einladungen, einladung/). Die Route
+   * POST /api/konto/erfolge/:spiel nimmt nur Spiele an (kontoRoutes.js); "website" vergibt allein der Server.
+   * @returns {{ ok: true, neu: string[], abgelehnt: string[] } | { ok: false, fehler: string }}
+   */
   const meldeErfolge = db.transaction((kontoId, spiel, ids) => {
-    if (!istSpiel(spiel)) return { ok: false, fehler: "spiel" };
+    if (!istSpiel(spiel) && spiel !== "website") return { ok: false, fehler: "spiel" };
     if (!Array.isArray(ids) || ids.length > MAX_ERFOLGE_JE_MELDUNG) return { ok: false, fehler: "liste" };
     if (!st.konto.get(kontoId)) return { ok: false, fehler: "konto-fehlt" };
     const t = now();
@@ -481,6 +510,50 @@ function createKontoStore({
         continue;
       }
       if (st.erfolgNeu.run(kontoId, spiel, id, t).changes) neu.push(id);
+    }
+    return { ok: true, neu, abgelehnt };
+  });
+
+  /**
+   * Ein Abzeichen wieder entziehen — nur der Server, z. B. wenn der Kauf dahinter erstattet wurde (laden/).
+   * Die Vitrine der Visitenkarte zeigt nur vorhandene Abzeichen, ein entzogenes fällt dort von selbst heraus.
+   * @returns {boolean} true, wenn es das Abzeichen gab
+   */
+  const entziehErfolg = (kontoId, spiel, id) => st.erfolgEinzelnWeg.run(kontoId, spiel, id).changes > 0;
+
+  // ── Bestwerte ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  /** Schreibt einen Wert nur, wenn er besser ist als der gespeicherte. @returns {boolean} geschrieben */
+  function schreibeBestwert(kontoId, spiel, id, wert, erreicht) {
+    const info = bestwertInfo(spiel, id, bestwertKatalog);
+    const w = sichererWert(info, wert);
+    if (w === null) return false;
+    const alt = st.bestwert.get(kontoId, spiel, id);
+    if (!istBesser(info, w, alt ? alt.wert : null)) return false;
+    st.bestwertSchreib.run(kontoId, spiel, id, w, erreicht);
+    return true;
+  }
+
+  /**
+   * Meldet Bestwerte eines Spiels als { id: wert }. Gespeichert wird je Wert nur eine Verbesserung.
+   * @returns {{ ok: true, neu: string[], abgelehnt: string[] } | { ok: false, fehler: string }}
+   */
+  const meldeBestwerte = db.transaction((kontoId, spiel, werte) => {
+    if (!istSpiel(spiel)) return { ok: false, fehler: "spiel" };
+    if (!werte || typeof werte !== "object" || Array.isArray(werte)) return { ok: false, fehler: "liste" };
+    const eintraege = Object.entries(werte);
+    if (eintraege.length > MAX_BESTWERTE_JE_MELDUNG) return { ok: false, fehler: "liste" };
+    if (!st.konto.get(kontoId)) return { ok: false, fehler: "konto-fehlt" };
+    const t = now();
+    const neu = [];
+    const abgelehnt = [];
+    for (const [id, wert] of eintraege) {
+      const info = bestwertInfo(spiel, id, bestwertKatalog);
+      if (!info || sichererWert(info, wert) === null) {
+        abgelehnt.push(String(id).slice(0, 48));
+        continue;
+      }
+      if (schreibeBestwert(kontoId, spiel, id, wert, t)) neu.push(id);
     }
     return { ok: true, neu, abgelehnt };
   });
@@ -557,11 +630,58 @@ function createKontoStore({
     };
   }
 
+  // ── Beobachter ───────────────────────────────────────────────────────────────────────────────────────────────
+  // Andere Speicher mit Daten je Konto (z. B. die Visitenkarte in profile/) erfahren so, wenn zwei Konten
+  // zusammengeführt oder eines gelöscht wird. Gemeldet wird nach dem Schreiben; ein Fehler dort ändert hier nichts.
+  const beobachter = [];
+  function melde(art, ...args) {
+    for (const b of beobachter) {
+      try {
+        if (typeof b[art] === "function") b[art](...args);
+      } catch (e) {
+        console.error(`[konto] Beobachter (${art}):`, e.message);
+      }
+    }
+  }
+  /**
+   * @param {{ zusammengefuehrt?: (ziel: string, quelle: string) => void, geloescht?: (kontoId: string) => void,
+   *           aktiv?: (kontoId: string, tag: string) => void }} b   aktiv: erster Gebrauch des Kontos an einem Tag
+   */
+  function beobachte(b) {
+    beobachter.push(b);
+    return () => {
+      const i = beobachter.indexOf(b);
+      if (i >= 0) beobachter.splice(i, 1);
+    };
+  }
+
   return {
-    kontoVonLink, anmelden, erstelleGast, kontoVonCode, erneuereCode, verknuepfe, trenne, fasseZusammen,
-    ansicht, setzeName, setzeSprache, loesche,
-    staende, stand, speichereStand, meldeErfolge,
-    merkeAktiv, raeumeAuf, wiederkehr, zahlen,
+    kontoVonLink, anmelden, erstelleGast, kontoVonCode, erneuereCode,
+    verknuepfe(...args) {
+      const r = verknuepfe(...args);
+      if (r.ok && r.entfernt) melde("zusammengefuehrt", r.kontoId, r.entfernt);
+      return r;
+    },
+    trenne,
+    fasseZusammen(ziel, quelle) {
+      const r = fasseZusammen(ziel, quelle);
+      if (ziel !== quelle) melde("zusammengefuehrt", ziel, quelle);
+      return r;
+    },
+    ansicht, setzeName, setzeSprache,
+    loesche(kontoId) {
+      const weg = loesche(kontoId);
+      if (weg) melde("geloescht", kontoId);
+      return weg;
+    },
+    beobachte,
+    staende, stand, speichereStand, meldeErfolge, entziehErfolg, meldeBestwerte,
+    merkeAktiv(kontoId, ts = now()) {
+      const neu = merkeAktiv(kontoId, ts);
+      if (neu) melde("aktiv", kontoId, tagVon(ts));
+      return neu;
+    },
+    raeumeAuf, wiederkehr, zahlen,
     gueltigeId,
     close: () => db.close(),
   };

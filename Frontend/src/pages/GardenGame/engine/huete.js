@@ -58,6 +58,31 @@ const HUETE = {
         p("#e8508a", 4, 9, 7, 6); p("#e8508a", 13, 9, 7, 6); p("#ff8fb8", 5, 10, 3, 2); p("#ff8fb8", 14, 10, 3, 2);
         p("#c83a6a", 10, 10, 4, 4); p("#c83a6a", 8, 14, 3, 3); p("#c83a6a", 13, 14, 3, 3);
     },
+    // ── Aus dem Laden der Website (core/reskins.js: laden). Immer hinten anhängen: HUT_IDS-Reihenfolge schmückt das Haus.
+    erdbeermuetze(p) {
+        // Strickmütze als Erdbeere: rote Kuppel mit Kernen, Strickbund, Blattkranz und Stiel
+        p("#e8403a", 8, 5, 8, 1); p("#e8403a", 6, 6, 12, 1); p("#e8403a", 5, 7, 14, 2); p("#e8403a", 4, 9, 16, 6);
+        p("#ff6a5a", 7, 7, 4, 2); p("#ff6a5a", 6, 9, 2, 3);
+        for (const [x, y] of [[8, 10], [12, 9], [16, 10], [10, 12], [14, 12], [18, 12], [6, 13], [12, 14], [16, 14]]) p("#ffe066", x, y, 1, 1);
+        p("#b8302a", 4, 15, 16, 2); for (let x = 5; x < 20; x += 2) p("#8a2420", x, 15, 1, 2);
+        p("#3f7a35", 6, 5, 4, 1); p("#5faa45", 7, 4, 3, 1); p("#3f7a35", 14, 5, 4, 1); p("#5faa45", 14, 4, 3, 1);
+        p("#5faa45", 10, 3, 4, 3); p("#3f7a35", 10, 5, 4, 1);
+        p("#3f7a35", 12, 0, 1, 1); p("#3f7a35", 11, 1, 1, 2);
+    },
+    imkerhut(p) {
+        // Imkerhut: helle Kuppel mit Band, breite Krempe, Schleier an den Seiten — und eine Biene fliegt mit
+        p("#e9dfc4", 9, 4, 6, 1); p("#e9dfc4", 8, 5, 8, 1); p("#e9dfc4", 7, 6, 10, 6);
+        p("#f6efdc", 9, 5, 3, 2); p("#cfc3a2", 14, 6, 3, 4);
+        p("#b88a3a", 7, 10, 10, 1);
+        p("#e9dfc4", 2, 12, 20, 1); p("#cfc3a2", 1, 13, 22, 1); p("#cfc3a2", 1, 14, 1, 1); p("#cfc3a2", 22, 14, 1, 1);
+        // Schleier: feines Netz, das seitlich von der Krempe fällt (Schachbrett = durchsichtig)
+        for (let y = 14; y < 18; y++) for (let x = 2; x < 22; x++) {
+            if (x > 6 && x < 17) continue;
+            if ((x + y) % 2 === 0) p("#d6d6d0", x, y, 1, 1);
+        }
+        p("#ffffff", 18, 1, 2, 2); p("#ffffff", 20, 0, 2, 2);
+        p("#f2c14e", 18, 3, 5, 3); p("#2b2b33", 19, 3, 1, 3); p("#2b2b33", 21, 3, 1, 3); p("#2b2b33", 23, 4, 1, 1);
+    },
 };
 export const HUT_IDS = Object.keys(HUETE);
 

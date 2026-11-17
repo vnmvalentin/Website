@@ -6,25 +6,27 @@ import { ChevronDown } from 'lucide-react';
 import { ALL_CARDS } from '../data/cards';
 import { CrCards, CrCrown, CrCrownBlue, CrCrownRed, CrSkull, CrStar, CrTrophy } from '../ui/CrIcons';
 import { MEDAL_ICON_URL, LEAGUE_MEDAL_ICON_URL, ULTIMATE_CHAMPION_LEAGUE } from '../data/leagueIcons';
-import spookyChessImg from '../../../assets/clashRoyale/ui/spooky-chess.webp';
-import league2v2Img from '../../../assets/clashRoyale/badges/league2v2.png';
-import tripleDraftImg from '../../../assets/clashRoyale/ui/icon_triple_draft.png';
-import suddenDeathImg from '../../../assets/clashRoyale/ui/sudden_death.webp';
+import spookyChessImg from '../../../assets/clashRoyale/modes/spooky-chess.webp';
+import league2v2Img from '../../../assets/clashRoyale/modes/league2v2.webp';
+import tripleDraftImg from '../../../assets/clashRoyale/modes/icon_triple_draft.webp';
+import suddenDeathImg from '../../../assets/clashRoyale/modes/sudden_death.webp';
 import crlImg from '../../../assets/clashRoyale/badges/crl.webp';
-import tourneyImg from '../../../assets/clashRoyale/ui/tourney_trophy.webp';
+import { chaosImg } from '../data/modeArt';
+import tourneyImg from '../../../assets/clashRoyale/modes/tourney_trophy.webp';
 import starImg from '../../../assets/clashRoyale/ui/star.webp';
-import trophyImg from '../../../assets/clashRoyale/ui/trophy.png';
+import trophyImg from '../../../assets/clashRoyale/ui/trophy.webp';
 import {
   BannerIcon, Bar, CardArt, CollectionIcon, ClanLink, DeckGrid, DeckLine, EvoShard, Fig, GoldCoin, HeroShard, LoadState, ModeBadge, Panel, PlayerLink, Row, ScoutCard,
   Seg, SortControl, StarLevelIcon, TowerIcon, UpgradeArrow,
 } from './parts';
 import FormInsights from './FormInsights';
 import { typeCard } from './matchupUtil';
-import { cardKey, deckFit, deckKey, rankedChange } from './analysis';
+import { cardKey, deckFit, deckKey, rankedChange, WIN_COUNT_GROUPS, winsBefore } from './analysis';
 import { collectionPlan, planFor, supported } from './upgradePlan';
 import { scoutGet, useScout } from './scoutApi';
-import { fmtDate, fmtDec, fmtNum, fmtPct, prettyMode, timeAgo, useScoutText } from './scoutI18n';
-import { gameForms, localCard, rankedBadge, rankedName, sortBy } from './scoutUtil';
+import { fmtDate, fmtDec, fmtMonth, fmtNum, fmtPct, prettyMode, timeAgo, useScoutText } from './scoutI18n';
+import { badgeKind, badgeName, groupBadges } from './badgeOrder';
+import { battleModeName, gameForms, localCard, rankedBadge, rankedName, sortBy } from './scoutUtil';
 
 const GOOD = '#7ee79a';
 const BAD = '#ff8f91';
@@ -34,21 +36,13 @@ const BAD = '#ff8f91';
  * Eine Seite eines Kampfes: je Spieler Name, darunter sein Clan mit Wappen (beides klickbar), und das Deck wie im Spiel (4 × 2, Turmtruppe daneben). Im Duell
  * (Crown Series, Clankriegs-Duell) steht jede Runde mit ihrem eigenen Deck untereinander.
  */
-// Modi, in denen die API als „Stand vor dem Kampf“ (startingTrophies) die bisherigen Siege zählt statt Trophäen
-const WIN_COUNT_GROUPS = new Set(['crown', 'party', 'challenge', 'tournament']);
-
 /**
- * Stand eines Spielers VOR dem Kampf: Ranked = Medaillen (bei Top-Spielern dazu der Weltrang), Crown Series/Events/
- * Challenge/Turnier = Siege bisher, sonst Trophäen. In Challenges nennt die API die Siege nur für den eigenen Spieler
- * (challengeWinCountBefore) — die kommen über `wins` herein.
+ * Stand eines Spielers VOR dem Kampf unter Name und Clan: Ranked = Medaillen (bei Top-Spielern dazu der Weltrang),
+ * sonst Trophäen. Siege bisher (Crown Series/Events/Challenge/Turnier) stehen als Bubble neben dem Namen (Who).
  */
-function Stand({ p, group, wins = null }) {
+function Stand({ p, group }) {
   const { t, lang } = useScoutText();
-  if (WIN_COUNT_GROUPS.has(group)) {
-    const n = typeof p.start === 'number' ? p.start : wins;
-    return typeof n === 'number' ? <span className="crs-battle-stand" title={t.standBefore}>{t.winsBefore(n)}</span> : null;
-  }
-  if (typeof p.start !== 'number') return null;
+  if (WIN_COUNT_GROUPS.has(group) || typeof p.start !== 'number') return null;
   const ranked = group === 'ranked';
   return (
     <span className="crs-battle-stand" title={t.standBefore}>
@@ -58,17 +52,33 @@ function Stand({ p, group, wins = null }) {
   );
 }
 
-function Side({ players, cap, rounds, group, challengeWins = null, theirs = false }) {
+/**
+ * Name (mit den Siegen des Laufs als Bubble daneben, auch 0), Clan darunter, dann Trophäen bzw. Medaillen.
+ * `mine` = abgefragter Spieler (team[0]), `className` z. B. „is-theirs“ für die rechte Seite im Duell.
+ */
+function Who({ b, p, mine = false, className = '' }) {
   const { t } = useScoutText();
+  const wins = winsBefore(b, p, mine);
+  return (
+    <div className={`crs-battle-who ${className}`}>
+      <div className="crs-battle-name">
+        <PlayerLink tag={p.tag} name={p.name} />
+        {wins !== null && <span className="crs-wins" title={t.standBefore}>{t.winsBefore(wins)}</span>}
+      </div>
+      {p.clan && <ClanLink clan={p.clan} size={16} className="crs-battle-clan" />}
+      <Stand p={p} group={b.group} />
+    </div>
+  );
+}
+
+function Side({ b, players, cap, theirs = false }) {
+  const { t } = useScoutText();
+  const rounds = b.rounds;
   return (
     <div className={`crs-battle-side${theirs ? ' is-theirs' : ''}`}>
       {players.map((p, i) => (
         <div key={p.tag || p.name} className="min-w-0">
-          <div className="crs-battle-who">
-            <PlayerLink tag={p.tag} name={p.name} />
-            {p.clan && <ClanLink clan={p.clan} size={16} className="crs-battle-clan" />}
-            <Stand p={p} group={group} wins={!theirs && i === 0 ? challengeWins : null} />
-          </div>
+          <Who b={b} p={p} mine={!theirs && i === 0} />
           {p.decks?.length > 1 ? (
             <div className="flex flex-col gap-3">
               {p.decks.map((cards, i) => {
@@ -119,7 +129,7 @@ function BattleMore({ b }) {
       <VsRow label={t.kingTower} mine={num(me.kingHp)} theirs={num(opp.kingHp)} better={cmp(me.kingHp, opp.kingHp)} />
       <VsRow label={t.princessTowers} mine={towers(me)} theirs={towers(opp)} />
       {(typeof me.rank === 'number' || typeof opp.rank === 'number') && <VsRow label={t.rankAtBattle} mine={num(me.rank)} theirs={num(opp.rank)} better={cmp(me.rank, opp.rank, true)} />}
-      {b.arena && <p className="text-xs crs-muted text-center mt-2">{b.arena}{b.mode ? ` · ${prettyMode(b.mode)}` : ''}</p>}
+      {b.arena && <p className="text-xs crs-muted text-center mt-2">{b.arena}{battleModeName(b, lang) ? ` · ${battleModeName(b, lang)}` : ''}</p>}
     </div>
   );
 }
@@ -134,23 +144,16 @@ function DuelBody({ b, cap }) {
   const opp = b.opponent[0];
   const won = b.rounds.filter((r) => r.f > r.a).length;
   const lost = b.rounds.filter((r) => r.f < r.a).length;
-  const who = (p, theirs) => (
-    <div className={`crs-battle-who${theirs ? ' is-theirs' : ''}`}>
-      <PlayerLink tag={p.tag} name={p.name} />
-      {p.clan && <ClanLink clan={p.clan} size={16} className="crs-battle-clan" />}
-      <Stand p={p} group={b.group} wins={theirs ? null : b.challengeWins} />
-    </div>
-  );
   return (
     <div className="crs-duel">
       <div className="crs-duel-top">
-        {who(me, false)}
+        <Who b={b} p={me} mine />
         <div className="crs-battle-mid">
-          <ModeBadge group={b.group} size={46} />
+          <ModeBadge group={b.group} battle={b} size={46} />
           <div className="crs-battle-score crs-num"><CrCrownBlue size={26} /> {won} : {lost} <CrCrownRed size={26} /></div>
           <span className="text-xs crs-muted">{t.roundsLabel}</span>
         </div>
-        {who(opp, true)}
+        <Who b={b} p={opp} className="is-theirs" />
       </div>
       {b.rounds.map((r, i) => {
         const res = r.f > r.a ? 'win' : r.f < r.a ? 'loss' : 'draw';
@@ -176,7 +179,8 @@ function BattleRow({ b, cap }) {
   const me = b.team[0];
   const opp = b.opponent[0];
   if (!me || !opp) return null;
-  const detail = b.challengeTitle || (b.group === 'party' || b.group === 'challenge' ? prettyMode(b.mode) : '');
+  // Event-Titel bzw. Name aus dem Modus-Index; Antworten ohne Index (älterer Server) wie bisher aus dem Rohnamen
+  const detail = battleModeName(b, lang) || (!b.modeName && (b.group === 'party' || b.group === 'challenge') ? prettyMode(b.mode) : '');
   // Im Duell zählen gewonnene Runden, nicht die Summe der Kronen
   const won = b.rounds ? b.rounds.filter((r) => r.f > r.a).length : null;
   const lost = b.rounds ? b.rounds.filter((r) => r.f < r.a).length : null;
@@ -201,12 +205,12 @@ function BattleRow({ b, cap }) {
       </div>
       {isDuel ? <DuelBody b={b} cap={cap} /> : (
       <div className="crs-battle-main">
-        <Side players={b.team} cap={cap} rounds={b.rounds} group={b.group} challengeWins={b.challengeWins} />
+        <Side b={b} players={b.team} cap={cap} />
         <div className="crs-battle-mid">
           {league ? (
             <img src={rankedBadge(league)} alt={rankedName(league, lang)} title={t.battleLeague(rankedName(league, lang))}
               draggable={false} className="inline-block shrink-0 object-contain" style={{ width: 46, height: 46 }} />
-          ) : <ModeBadge group={b.group} size={46} />}
+          ) : <ModeBadge group={b.group} battle={b} size={46} />}
           <div className="crs-battle-score crs-num">
             <CrCrownBlue size={26} /> {won !== null ? won : me.crowns} : {lost !== null ? lost : opp.crowns} <CrCrownRed size={26} />
           </div>
@@ -224,7 +228,7 @@ function BattleRow({ b, cap }) {
             </span>
           )}
         </div>
-        <Side players={b.opponent} cap={cap} rounds={b.rounds} group={b.group} theirs />
+        <Side b={b} players={b.opponent} cap={cap} theirs />
       </div>
       )}
       {open && <BattleMore b={b} />}
@@ -663,20 +667,16 @@ export function CollectionTab({ profile }) {
 }
 
 // ── Abzeichen ────────────────────────────────────────────────────────────────
-// Die API nennt Abzeichen mit internen Namen (Classic12Wins, Crl20Wins2021 …). Bekannte bekommen einen lesbaren
-// Namen; Meisterschafts-Abzeichen zeigen die Karte im Bild und brauchen keinen.
-function badgeLabel(name, t) {
-  const crl = /^Crl20Wins(\d{4})?$/.exec(name);
-  if (crl) return `CRL 20 Wins${crl[1] ? ` ${crl[1]}` : ''}`;
-  return t.badgeNames[name] || prettyMode(name);
-}
+// Die API nennt Abzeichen mit internen Namen (Classic12Wins, Crl20Wins2021 …) — lesbare Namen, Gruppen und Reihenfolge
+// kommen aus badgeOrder.js. Meisterschafts-Abzeichen zeigen die Karte im Bild und brauchen keinen Namen.
+const badgeLabel = (name, t, lang) => badgeName(name, t, (y, m) => fmtMonth(y, m, lang));
 
 // Für neuere Abzeichen nennt die API eine Bild-Adresse, unter der (noch) nichts liegt (14.11.2026: 17 von 177 bei einem
 // echten Profil, u. a. Crl20Wins2026, 2v2LeagueRank, MasteryRonin). Dann springt ein passendes eigenes Bild ein:
 // bei Meisterschaften die Karte selbst, sonst ein Symbol nach Stichwort im Namen.
 const NORMALIZED_CARD_ID = new Map(ALL_CARDS.map((c) => [c.name.toLowerCase().replace(/[^a-z0-9]/g, ''), c.id]));
 const BADGE_FALLBACKS = [
-  [/SpookyChess/i, spookyChessImg], [/2v2/i, league2v2Img], [/TripleDraft/i, tripleDraftImg], [/SuddenDeath/i, suddenDeathImg],
+  [/Chaos/i, chaosImg], [/SpookyChess/i, spookyChessImg], [/2v2/i, league2v2Img], [/TripleDraft/i, tripleDraftImg], [/SuddenDeath/i, suddenDeathImg],
   [/Crl/i, crlImg], [/Tournament/i, tourneyImg], [/League|Trail|Rank/i, LEAGUE_MEDAL_ICON_URL],
 ];
 function badgeFallback(name) {
@@ -723,30 +723,47 @@ function BadgeImage({ badge }) {
   const near = nearestLocalLevel(badge);
   if (near) return <img src={near} alt="" loading="lazy" draggable={false} />;
   const fb = badgeFallback(badge.name);
+  // Ersatzbilder (Modus-Symbole) sind randlos — kleiner, damit sie so groß wirken wie Abzeichen mit Supercell-Rand
   return fb.card
     ? <span className="w-[52px] h-16 flex items-center crs-card"><span className="crs-card-art block w-full"><CardArt card={fb.card} /></span></span>
-    : <img src={fb.img} alt="" draggable={false} />;
+    : <img src={fb.img} alt="" draggable={false} className="is-fallback" />;
+}
+
+/** Zahl unter Ranglisten-, Event- und CRL-Abzeichen. Die Stufe („1 / 10") zählt dort nur mit und bleibt weg. */
+function badgeCountText(b, kind, t, lang) {
+  const n = b.progress || b.level || 1;
+  if (kind === 'crl') return t.crlWins(Math.min(n, 20));
+  return kind === 'done' ? t.badgeDone(fmtNum(n, lang)) : t.badgePlaced(fmtNum(n, lang));
 }
 
 function BadgeGrid({ list, named = true }) {
   const { t, lang } = useScoutText();
   return (
     <div className="grid grid-cols-3 sm:grid-cols-5 lg:grid-cols-8 gap-2">
-      {list.map((b) => (
-        <div key={b.name} className="crs-well crs-badge" title={named ? undefined : prettyMode(b.name.replace(/^Mastery/, ''))}>
-          <BadgeImage badge={b} />
-          {named && <span className="crs-badge-name">{badgeLabel(b.name, t)}</span>}
-          {b.maxLevel > 1 && <span className="font-cr text-xs text-[#ffd65c]">{b.level} / {b.maxLevel}</span>}
-          {/* Zähler-Abzeichen (Emotes, Banner, Tage dabei): die Zahl selbst ist das Interessante, der Balken zeigt nur
-              den Weg zur nächsten Stufe */}
-          {named && t.badgeCount[b.name] && typeof b.progress === 'number' && b.progress > 0 && (
-            <span className="text-[12px] font-semibold text-white crs-num">{t.badgeCount[b.name](fmtNum(b.progress, lang))}</span>
-          )}
-          {typeof b.progress === 'number' && typeof b.target === 'number' && b.target > 0 && b.level < b.maxLevel
-            ? <Bar value={b.progress / b.target} className="w-full" />
-            : named && !t.badgeCount[b.name] && typeof b.progress === 'number' && b.progress > 0 && <span className="text-[11px] crs-muted crs-num">{fmtNum(b.progress, lang)}</span>}
-        </div>
-      ))}
+      {list.map((b) => {
+        const kind = named ? badgeKind(b.name) : null;
+        return (
+          <div key={b.name} className="crs-well crs-badge" title={named ? undefined : prettyMode(b.name.replace(/^Mastery/, ''))}>
+            <BadgeImage badge={b} />
+            {named && <span className="crs-badge-name">{badgeLabel(b.name, t, lang)}</span>}
+            {kind ? <span className="text-[12px] font-semibold text-white crs-num">{badgeCountText(b, kind, t, lang)}</span> : (
+              <>
+                {b.maxLevel > 1 && <span className="font-cr text-xs text-[#ffd65c]">{b.level} / {b.maxLevel}</span>}
+                {/* Zähler-Abzeichen (Emotes, Banner, Tage dabei): die Zahl selbst ist das Interessante, der Balken zeigt nur
+                    den Weg zur nächsten Stufe */}
+                {named && t.badgeCount[b.name] && typeof b.progress === 'number' && b.progress > 0 && (
+                  <span className="text-[12px] font-semibold text-white crs-num">{t.badgeCount[b.name](fmtNum(b.progress, lang))}</span>
+                )}
+                {/* Einzel-Abzeichen haben progress 1, Stufen-Abzeichen oft progress = Stufe — beides sagt nichts Neues */}
+                {typeof b.progress === 'number' && typeof b.target === 'number' && b.target > 0 && b.level < b.maxLevel
+                  ? <Bar value={b.progress / b.target} className="w-full" />
+                  : named && !t.badgeCount[b.name] && typeof b.progress === 'number' && b.progress > 1 && b.progress !== b.level
+                    && <span className="text-[11px] crs-muted crs-num">{fmtNum(b.progress, lang)}</span>}
+              </>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -755,11 +772,24 @@ export function BadgesTab({ profile }) {
   const { t, lang } = useScoutText();
   const mastery = profile.badges.filter((b) => /^Mastery/.test(b.name)).sort((a, b) => (b.level ?? 0) - (a.level ?? 0) || (b.progress ?? 0) - (a.progress ?? 0));
   const other = profile.badges.filter((b) => !/^Mastery/.test(b.name));
+  const groups = groupBadges(other, (n) => badgeLabel(n, t, lang));
   if (!profile.badges.length && !profile.achievements.length) return <Panel><p className="crs-empty">{t.noBadges}</p></Panel>;
   const masteryMax = mastery.filter((b) => b.maxLevel && b.level >= b.maxLevel).length;
   return (
     <div className="flex flex-col gap-4">
-      {other.length > 0 && <Panel title={t.badges} icon={<BannerIcon size={30} />}><BadgeGrid list={other} /></Panel>}
+      {groups.length > 0 && (
+        <Panel title={t.badges} icon={<BannerIcon size={30} />}>
+          <div className="flex flex-col gap-5">
+            {groups.map((g) => (
+              <section key={g.group}>
+                <h3 className="crs-badge-group">{t.badgeGroups[g.group]}</h3>
+                {g.group === 'ranks' && <p className="crs-panel-sub -mt-1 mb-2">{t.ranksNote}</p>}
+                <BadgeGrid list={g.list} />
+              </section>
+            ))}
+          </div>
+        </Panel>
+      )}
       {mastery.length > 0 && (
         <Panel title={t.mastery} sub={t.masterySub(mastery.length, masteryMax)} icon={<CrCards size={30} />}><BadgeGrid list={mastery} named={false} /></Panel>
       )}

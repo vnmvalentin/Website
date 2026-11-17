@@ -8,7 +8,7 @@
 const express = require("express");
 const store = require("./billingStore");
 const { premiumStatus } = require("./entitlements");
-const { createBillingService, missingConfig } = require("./billingService");
+const { createBillingService, missingConfig, missingStripeConfig } = require("./billingService");
 
 // Wohin Stripe zurückschicken darf — nur eigene Seiten, nie eine frei mitgegebene Adresse
 const RETURN_PATHS = new Set(["/twitch-tools", "/abo", "/profile"]);
@@ -62,7 +62,8 @@ function createBillingRouter({ requireAuth, service = createBillingService() } =
  */
 function createBillingWebhook({ service = createBillingService() } = {}) {
   const handler = async (req, res) => {
-    if (missingConfig().length) return res.status(503).send("not configured");
+    // Ohne Abo-Preis kommen trotzdem Käufe des Ladens an (laden/) — der Webhook braucht nur Schlüssel und Geheimnis
+    if (missingStripeConfig().length) return res.status(503).send("not configured");
     let event;
     try {
       event = service.parseWebhook(req.body, req.headers["stripe-signature"]);

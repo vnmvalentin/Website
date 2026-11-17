@@ -57,6 +57,14 @@ function open() {
       PRIMARY KEY (tag, t)
     ) WITHOUT ROWID;
     CREATE INDEX IF NOT EXISTS idx_battles_t ON battles(t);
+    -- Crown-Series-Duelle je Spieler, eigens gemerkt (der Verlauf oben behält nur die neuesten Kämpfe)
+    CREATE TABLE IF NOT EXISTS crown_battles (
+      tag TEXT NOT NULL,
+      t INTEGER NOT NULL,
+      data BLOB NOT NULL,
+      PRIMARY KEY (tag, t)
+    ) WITHOUT ROWID;
+    CREATE INDEX IF NOT EXISTS idx_crown_battles_t ON crown_battles(t);
     CREATE TABLE IF NOT EXISTS player_names (
       tag TEXT NOT NULL,
       name TEXT NOT NULL,
@@ -103,6 +111,9 @@ function open() {
   `);
   // Turmtruppe zum Ranglisten-Deck (seit Nov. 2026); ältere Zeilen haben keine
   try { db.exec('ALTER TABLE decks ADD COLUMN tower TEXT'); } catch { /* Spalte existiert bereits */ }
+  // Medaillenstand des Spielers, als sein Deck zuletzt geprüft wurde (seit Nov. 2026) — steht in der Rangliste ein
+  // anderer, hat er seither gespielt und das Deck wird früher neu geholt (scoutRoutes.knownDeck). NULL = unbekannt.
+  try { db.exec('ALTER TABLE decks ADD COLUMN score INTEGER'); } catch { /* Spalte existiert bereits */ }
   // Zeitpunkt, zu dem der gemerkte Name galt (seit Nov. 2026); ältere Zeilen übernehmen einmalig seen_at
   try {
     db.exec('ALTER TABLE players ADD COLUMN name_at INTEGER NOT NULL DEFAULT 0');
@@ -140,13 +151,14 @@ function open() {
     prune: db.prepare('DELETE FROM players WHERE tag IN (SELECT tag FROM players ORDER BY seen_at ASC LIMIT ?)'),
     // Ein älterer Kampf überschreibt kein neueres Deck; geprüft-Zeit wandert immer mit
     deckSet: db.prepare(`
-      INSERT INTO decks (tag, cards, tower, battle_at, checked_at) VALUES (@tag, @cards, @tower, @t, @now)
+      INSERT INTO decks (tag, cards, tower, battle_at, checked_at, score) VALUES (@tag, @cards, @tower, @t, @now, @score)
       ON CONFLICT(tag) DO UPDATE SET
         cards = CASE WHEN excluded.battle_at >= decks.battle_at THEN excluded.cards ELSE decks.cards END,
         tower = CASE WHEN excluded.battle_at >= decks.battle_at THEN excluded.tower ELSE COALESCE(decks.tower, '-') END,
         battle_at = MAX(excluded.battle_at, decks.battle_at),
-        checked_at = excluded.checked_at`),
-    deckGet: db.prepare('SELECT cards, tower, battle_at AS t, checked_at AS checkedAt FROM decks WHERE tag = ?'),
+        checked_at = excluded.checked_at,
+        score = COALESCE(excluded.score, decks.score)`),
+    deckGet: db.prepare('SELECT cards, tower, battle_at AS t, checked_at AS checkedAt, score FROM decks WHERE tag = ?'),
     deckPrune: db.prepare('DELETE FROM decks WHERE checked_at < ?'),
     battleSet: db.prepare('INSERT OR IGNORE INTO battles (tag, t, data) VALUES (?, ?, ?)'),
     // Nur das Neueste je Spieler behalten (MAX_BATTLES); OFFSET liefert den ältesten noch erlaubten Zeitpunkt
@@ -154,6 +166,11 @@ function open() {
     battleAgePrune: db.prepare('DELETE FROM battles WHERE t < ?'),
     battlePage: db.prepare('SELECT data FROM battles WHERE tag = @tag AND t < @before ORDER BY t DESC LIMIT @limit'),
     battleCount: db.prepare('SELECT COUNT(*) AS n, MIN(t) AS oldest FROM battles WHERE tag = ?'),
+    battleScan: db.prepare('SELECT tag, t, data FROM battles WHERE (tag, t) > (@tag, @t) ORDER BY tag, t LIMIT @limit'),
+    crownAdd: db.prepare('INSERT OR IGNORE INTO crown_battles (tag, t, data) VALUES (?, ?, ?)'),
+    crownTrim: db.prepare('DELETE FROM crown_battles WHERE tag = @tag AND t < (SELECT t FROM crown_battles WHERE tag = @tag ORDER BY t DESC LIMIT 1 OFFSET @keep)'),
+    crownAgePrune: db.prepare('DELETE FROM crown_battles WHERE t < ?'),
+    crownOf: db.prepare('SELECT data FROM crown_battles WHERE tag = ? ORDER BY t DESC LIMIT ?'),
     watchView: db.prepare(`INSERT INTO watch (tag, viewed_at) VALUES (?, ?) ON CONFLICT(tag) DO UPDATE SET viewed_at = excluded.viewed_at`),
     watchPolled: db.prepare('UPDATE watch SET polled_at = ? WHERE tag = ?'),
     watchDue: db.prepare('SELECT tag FROM watch WHERE viewed_at > @since AND polled_at < @due ORDER BY polled_at ASC LIMIT @limit'),
@@ -309,7 +326,8 @@ const unpackCard = (c) => (c.id ? { id: c.id, ...(c.v ? { variant: c.v } : null)
 
 /**
  * Decks merken.
- * @param {Array<{ tag: string, t: number, cards: Array }>} list  cards leer = „geprüft, kein Ranked-Deck im Log"
+ * @param {Array<{ tag: string, t: number, cards: Array, score?: number }>} list  cards leer = „geprüft, kein Ranked-Deck
+ *   im Log"; score = Medaillenstand des Spielers zum Zeitpunkt der Prüfung, falls bekannt (sonst bleibt der gemerkte)
  */
 function rememberDecks(list) {
   if (!Array.isArray(list) || !list.length) return;
@@ -320,7 +338,7 @@ function rememberDecks(list) {
       if (!d?.tag || !Array.isArray(d.cards)) continue;
       // '-' = geprüft, aber ohne Turmtruppe; NULL steht nur in Zeilen aus der Zeit vor der Turmtruppe
       const tower = d.tower?.name ? JSON.stringify({ n: d.tower.name, c: d.tower.icon || null }) : '-';
-      stmts.deckSet.run({ tag: d.tag, cards: JSON.stringify(d.cards.map(packCard)), tower, t: Number(d.t) || 0, now });
+      stmts.deckSet.run({ tag: d.tag, cards: JSON.stringify(d.cards.map(packCard)), tower, t: Number(d.t) || 0, now, score: Number.isFinite(d.score) ? d.score : null });
     }
   })(list);
   writesSincePrune += list.length;
@@ -328,7 +346,7 @@ function rememberDecks(list) {
 }
 
 /**
- * Gemerktes Deck: { cards, tower, towerChecked, t, checkedAt } — cards leer, wenn beim letzten Blick kein Ranked-Deck
+ * Gemerktes Deck: { cards, tower, towerChecked, t, checkedAt, score } — cards leer, wenn beim letzten Blick kein Ranked-Deck
  * im Log stand; tower null, wenn unbekannt; towerChecked false bei Zeilen aus der Zeit, bevor der Speicher die
  * Turmtruppe kannte (die holt die Rangliste einmal neu). null = nie geprüft.
  */
@@ -340,7 +358,7 @@ function getDeck(tag) {
     const tw = row.tower && row.tower !== '-' ? JSON.parse(row.tower) : null;
     return {
       cards: JSON.parse(row.cards).map(unpackCard), tower: tw ? { id: null, name: tw.n, icon: tw.c } : null,
-      towerChecked: row.tower !== null, t: row.t, checkedAt: row.checkedAt,
+      towerChecked: row.tower !== null, t: row.t, checkedAt: row.checkedAt, score: row.score ?? null,
     };
   } catch {
     return null;
@@ -356,6 +374,16 @@ const MAX_BATTLES = 200;
 const BATTLE_KEEP_MS = 120 * 24 * 60 * 60 * 1000;
 let battleWrites = 0;
 
+// Crown Series: das Duell-Set im Profil entsteht aus den letzten Duellen (Frontend analysis.crownSet). Wer viel Ranked
+// spielt, schiebt sie in wenigen Tagen aus Battlelog und Verlauf — deshalb bleiben die letzten MAX_CROWN Duelle eigens
+// gemerkt, verkleinert auf das, was das Set braucht (Runden-Decks und Rundenergebnis), gepackt rund 1 KB je Duell.
+const MAX_CROWN = 10;
+const CROWN_KEEP_MS = 180 * 24 * 60 * 60 * 1000;
+const isCrownDuel = (b) => b?.group === 'crown' && Number.isFinite(b.t) && Array.isArray(b.team?.[0]?.decks) && b.team[0].decks.length > 0;
+const packCrownDuel = (b) => zlib.deflateRawSync(JSON.stringify({
+  t: b.t, group: 'crown', result: b.result, rounds: b.rounds || null, team: [{ tag: b.team[0].tag, decks: b.team[0].decks }],
+}));
+
 /**
  * Kämpfe eines Spielers merken. Bekannte (gleicher Zeitpunkt) werden übersprungen.
  * @param {string} tag
@@ -366,19 +394,59 @@ function rememberBattles(tag, battles) {
   if (!tag || !Array.isArray(battles) || !battles.length) return 0;
   open();
   let added = 0;
+  let crown = 0;
   db.transaction((list) => {
     for (const b of list) {
       if (!b || !Number.isFinite(b.t) || b.t <= 0) continue;
       added += stmts.battleSet.run(tag, b.t, zlib.deflateRawSync(JSON.stringify(b))).changes;
+      if (isCrownDuel(b)) crown += stmts.crownAdd.run(tag, b.t, packCrownDuel(b)).changes;
     }
     if (added) stmts.battleTrim.run({ tag, keep: MAX_BATTLES - 1 });
+    if (crown) stmts.crownTrim.run({ tag, keep: MAX_CROWN - 1 });
   })(battles);
   battleWrites += added;
   if (battleWrites >= 20000) {
     battleWrites = 0;
     stmts.battleAgePrune.run(Date.now() - BATTLE_KEEP_MS);
+    stmts.crownAgePrune.run(Date.now() - CROWN_KEEP_MS);
   }
   return added;
+}
+
+/** Gemerkte Crown-Series-Duelle eines Spielers, neueste zuerst (verkleinert, siehe packCrownDuel). */
+function getCrownBattles(tag) {
+  open();
+  const out = [];
+  for (const row of stmts.crownOf.all(tag, MAX_CROWN)) {
+    try { out.push(JSON.parse(zlib.inflateRawSync(row.data).toString('utf8'))); } catch { /* beschädigte Zeile überspringen */ }
+  }
+  return out;
+}
+
+/**
+ * Einmaliges Nachtragen (seit Nov. 2026): Crown-Series-Duelle, die schon im Kampf-Verlauf liegen, in den eigenen
+ * Speicher übernehmen. Ein Schritt liest höchstens `limit` Zeilen des Verlaufs, damit der Server zwischendurch atmen kann.
+ * @param {{ tag: string, t: number } | null} [after]  Fortsetzungspunkt des vorigen Schritts
+ * @returns {{ tag: string, t: number } | null}  Fortsetzungspunkt, null = fertig
+ */
+function crownBackfillStep(after = null, limit = 1000) {
+  open();
+  const rows = stmts.battleScan.all({ tag: after?.tag ?? '', t: after?.t ?? 0, limit });
+  const touched = new Set();
+  db.transaction(() => {
+    for (const row of rows) {
+      let text;
+      try { text = zlib.inflateRawSync(row.data).toString('utf8'); } catch { continue; }
+      if (!text.includes('"group":"crown"')) continue; // schneller Vorfilter, die meisten Kämpfe sind keine Duelle
+      let b;
+      try { b = JSON.parse(text); } catch { continue; }
+      if (isCrownDuel(b) && stmts.crownAdd.run(row.tag, row.t, packCrownDuel(b)).changes) touched.add(row.tag);
+    }
+    for (const tag of touched) stmts.crownTrim.run({ tag, keep: MAX_CROWN - 1 });
+  })();
+  if (rows.length < limit) return null;
+  const last = rows[rows.length - 1];
+  return { tag: last.tag, t: last.t };
 }
 
 /** Gemerkte Kämpfe vor einem Zeitpunkt, neueste zuerst. */
@@ -630,7 +698,7 @@ function close() {
 
 module.exports = {
   rememberPlayers, searchPlayers, getPlayer, formerNames, setVote, voteSummary, rememberDecks, getDeck, getValue, setValue, normalizeName, close,
-  rememberBattles, getBattles, battleStats, markViewed, dueWatched, markPolled,
+  rememberBattles, getBattles, battleStats, getCrownBattles, crownBackfillStep, markViewed, dueWatched, markPolled,
   rememberMatchups, getMatchups, forEachMatchupPage, matchupStats,
   markClanViewed, dueClans, markClanPolled, rememberClanSnapshot, thinClanSnapshots, getClanSnapshots, clanSnapshotStats,
 };

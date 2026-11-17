@@ -569,11 +569,13 @@ export default function BeachGame({ socket, game, mySlot, onHud, practice = fals
           const shown = slotsRef.current;
           const names = {};
           for (const s of shown) names[s] = g?.players?.[s]?.name || (solo ? "Bot" : "");
+          const ziers = {};
+          for (const s of shown) ziers[s] = g?.players?.[s]?.zier || 0;
           const ego = !!my && activeRef.current;
           const punch = punchRef.current;
           punchRef.current = false;
           const ballView = instance.render(st, {
-            slots: shown, names, mySlot: ego ? my : null,
+            slots: shown, names, ziers, mySlot: ego ? my : null,
             look: ego ? lookRef.current : null, punch, third: thirdRef.current, dt,
           });
 

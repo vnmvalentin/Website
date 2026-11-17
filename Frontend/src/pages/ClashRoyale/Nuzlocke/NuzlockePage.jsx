@@ -14,7 +14,7 @@ import { TwitchGlyph } from '../../../components/BrandGlyphs';
 import SEO from '../../../components/SEO';
 import { TwitchAuthContext } from '../../../components/TwitchAuthContext';
 import { ALL_CARDS, RARITY_COLOR, cardImageUrl } from '../data/cards';
-import trophyIcon from '../../../assets/clashRoyale/ui/trophy.png';
+import trophyIcon from '../../../assets/clashRoyale/ui/trophy.webp';
 import Modal from '../ui/Modal';
 import ChunkyButton from '../ui/ChunkyButton';
 import ArcadeTitle from '../ui/ArcadeTitle';

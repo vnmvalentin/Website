@@ -648,6 +648,94 @@ const MOTIFS = {
     ctx.closePath();
     ctx.fill();
   },
+
+  // ── Aus dem Laden (engine/skins.js: laden) ──
+
+  // Pizza: Teller in Teamfarbe, Rand, Käse, Salami, Basilikum und drei Schnitte
+  pizza(ctx, x, y, r, col) {
+    disc(ctx, x, y, r, col.main);
+    disc(ctx, x, y, r * 0.84, '#d38f45');
+    ring(ctx, x, y, r * 0.8, 1.6, '#b9742f');
+    disc(ctx, x, y, r * 0.7, '#c7442e');
+    disc(ctx, x, y, r * 0.66, '#f4c95a');
+    // Käseflecken
+    ctx.fillStyle = '#fbe08e';
+    for (const [sx, sy, sr] of [[-0.3, -0.12, 0.12], [0.22, 0.3, 0.1], [0.34, -0.26, 0.08], [-0.12, 0.38, 0.07]]) {
+      ctx.beginPath();
+      ctx.arc(x + sx * r, y + sy * r, sr * r, 0, TAU);
+      ctx.fill();
+    }
+    // Salami
+    for (const [sx, sy] of [[-0.32, -0.3], [0.3, -0.06], [-0.04, 0.34], [-0.36, 0.18], [0.12, -0.4]]) {
+      disc(ctx, x + sx * r, y + sy * r, r * 0.13, '#a92f25');
+      ctx.fillStyle = '#7f1f19';
+      for (const [dx, dy] of [[-0.04, -0.03], [0.04, 0.02], [-0.01, 0.05]]) {
+        ctx.beginPath();
+        ctx.arc(x + (sx + dx) * r, y + (sy + dy) * r, r * 0.022, 0, TAU);
+        ctx.fill();
+      }
+    }
+    // Basilikum
+    ctx.fillStyle = '#3f8f3a';
+    for (const [sx, sy, rot] of [[0.06, 0.02, 0.6], [0.34, 0.26, -0.4]]) {
+      ctx.beginPath();
+      ctx.ellipse(x + sx * r, y + sy * r, r * 0.1, r * 0.05, rot, 0, TAU);
+      ctx.fill();
+    }
+    // Schnitte
+    ctx.strokeStyle = 'rgb(120 60 20 / 0.45)';
+    ctx.lineWidth = 1.3;
+    for (let i = 0; i < 3; i++) {
+      const a = (i / 3) * Math.PI + 0.35;
+      ctx.beginPath();
+      ctx.moveTo(x - Math.cos(a) * r * 0.7, y - Math.sin(a) * r * 0.7);
+      ctx.lineTo(x + Math.cos(a) * r * 0.7, y + Math.sin(a) * r * 0.7);
+      ctx.stroke();
+    }
+  },
+
+  // Sushi: Maki von oben — Nori, Reis, Füllung in Teamfarbe mit hellen Streifen und etwas Gurke
+  sushi(ctx, x, y, r, col) {
+    disc(ctx, x, y, r, col.main);
+    disc(ctx, x, y, r * 0.86, '#1d2a23');
+    ring(ctx, x, y, r * 0.8, 1.2, 'rgb(120 160 120 / 0.35)');
+    disc(ctx, x, y, r * 0.72, '#f5f2e9');
+    // Reiskörner
+    ctx.fillStyle = '#e2dccb';
+    for (let i = 0; i < 16; i++) {
+      const a = (i / 16) * TAU + (i % 2) * 0.2;
+      const rr = r * (i % 2 ? 0.6 : 0.5);
+      ctx.beginPath();
+      ctx.ellipse(x + Math.cos(a) * rr, y + Math.sin(a) * rr, r * 0.055, r * 0.028, a + 0.8, 0, TAU);
+      ctx.fill();
+    }
+    // Füllung: Fisch in Teamfarbe, helle Fettstreifen, ein Stück Gurke
+    disc(ctx, x - r * 0.04, y + r * 0.02, r * 0.36, col.main);
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(x - r * 0.04, y + r * 0.02, r * 0.36, 0, TAU);
+    ctx.clip();
+    ctx.strokeStyle = col.light;
+    ctx.lineWidth = 2.2;
+    for (const k of [-0.2, 0, 0.2]) {
+      ctx.beginPath();
+      ctx.moveTo(x + (k - 0.4) * r, y + (k + 0.4) * r);
+      ctx.quadraticCurveTo(x + k * r, y + (k + 0.1) * r, x + (k + 0.4) * r, y + (k - 0.4) * r);
+      ctx.stroke();
+    }
+    ctx.restore();
+    ctx.fillStyle = '#7cc46a';
+    ctx.beginPath();
+    ctx.moveTo(x + r * 0.2, y - r * 0.32);
+    ctx.lineTo(x + r * 0.42, y - r * 0.12);
+    ctx.lineTo(x + r * 0.22, y - r * 0.02);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = '#d6f0b8';
+    ctx.beginPath();
+    ctx.arc(x + r * 0.28, y - r * 0.15, r * 0.045, 0, TAU);
+    ctx.fill();
+  },
 };
 
 /**

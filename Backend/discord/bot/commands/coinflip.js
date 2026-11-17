@@ -1,11 +1,12 @@
 // discord/bot/commands/coinflip.js
+const { botText } = require('../botText');
 
 async function handleCoinflip(interaction) {
-    const result = Math.random() < 0.5 ? 'Kopf' : 'Zahl';
-    const emoji = result === 'Kopf' ? '👑' : '🔢';
+    const t = botText(interaction).fun;
+    const heads = Math.random() < 0.5;
 
     await interaction.reply({
-        content: `🪙 Die Münze landet auf... **${result}** ${emoji}`,
+        content: t.coin(heads ? t.heads : t.tails, heads ? '👑' : '🔢'),
     });
 }
 

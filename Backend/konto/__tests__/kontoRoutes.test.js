@@ -136,6 +136,17 @@ test("Spielstand: speichern, Konflikt eines zweiten Geräts, lesen; Abzeichen nu
     const ich = await (await fetch(`${s.basis}/api/konto/ich`, mitCookie(sid))).json();
     assert.equal(ich.konto.stufe.xp, 10);
     assert.equal(ich.konto.spiele[0].name, "Worldflip");
+    assert.deepEqual(ich.konto.bestwerte, []);
+
+    // Bestwerte: nur aus dem Katalog (konto/bestwerte.js, noch leer) — Unbekanntes wird abgelehnt, nichts gespeichert
+    const bw = await fetch(`${s.basis}/api/konto/bestwerte/worldflip`, json({ werte: { erfunden: 5 } }, sid));
+    assert.deepEqual(await bw.json(), { neu: [], abgelehnt: ["erfunden"] });
+    assert.equal((await fetch(`${s.basis}/api/konto/bestwerte/worldflip`, json({ werte: [1] }, sid))).status, 400);
+    assert.equal((await fetch(`${s.basis}/api/konto/bestwerte/worldflip`, json({ werte: { a: 1 } }))).status, 401);
+
+    // Abzeichen der Website (Einladungen) vergibt nur der Server — von außen abgelehnt
+    const selbst = await fetch(`${s.basis}/api/konto/erfolge/website`, json({ ids: ["botschafter"] }, sid));
+    assert.equal(selbst.status, 400);
   } finally {
     s.stop();
   }

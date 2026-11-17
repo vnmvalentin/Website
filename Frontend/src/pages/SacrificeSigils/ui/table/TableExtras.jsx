@@ -16,6 +16,7 @@ import { extrasTurn, PICKS_PER_PLAYER } from "../../engine/draft.js";
 import { de, errorText } from "../../i18n/de.js";
 import { sound } from "../../audio/sound.js";
 import { useShell } from "../shellContext.js";
+import { helpFor } from "./touch.js";
 import { totemText, baseDesc, baseName, headKind, headName, headTarget } from "../common/totemText.js";
 import { rowX, stageModel, timeLeft } from "./stageModel.js";
 
@@ -194,11 +195,15 @@ export default function TableExtras({ room, view, you, send, names, timers, cloc
           onClose={() => setPaused(false)}
           onSurrender={you !== null ? () => send({ type: "surrender" }) : null}
           onFallback={onFallback}
-          help={<>
+          help={helpFor(<>
             Figur oder Karte anklicken: wählen · Siegelstempel oder Leertaste: bestätigen · Mauszeiger auf eine Figur:
             was sie bewirkt · Rechtsklick auf eine Karte: ansehen. Beide ziehen aus demselben unendlichen Nebendeck
             ({de.sides[sideKey].name}); dein Nebendeck-Totem gibt jeder dieser Karten ein Sigil.
-          </>}
+          </>, <>
+            Figur oder Karte antippen: wählen und lesen, was sie bewirkt · Siegelstempel antippen: bestätigen · Karte
+            lange drücken: ansehen. Beide ziehen aus demselben unendlichen Nebendeck ({de.sides[sideKey].name}); dein
+            Nebendeck-Totem gibt jeder dieser Karten ein Sigil.
+          </>)}
         />
       )}
     </>

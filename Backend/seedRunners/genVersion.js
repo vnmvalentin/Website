@@ -7,7 +7,8 @@
 // 2 seit 27.09.2026 (Spike-Trefferfläche an offenen Blockkanten, Frontend gen/generator.js)
 // 3 seit 01.10.2026 (Kanonen, Luftportale, Schlüsselsprung, Kristall-Tunnel, Luftkristall, Schlot)
 // 4 seit 03.10.2026 (Höhenbudget, Schlüssel ohne Tür, umgehbare Kanonen, Kristalle ohne Nutzen)
-const PFAD_GEN_VERSION = 4;
+// 5 seit 16.11.2026 (Lauflinie statt Pfad: gleiche Parameter gen 'pfad', der Welttyp hängt an der Version — gen/index.js)
+const PFAD_GEN_VERSION = 5;
 
 /** Eine gv aus fremden Daten (Playlist, Bewertung): ganze Zahl von 1 bis zur laufenden Version, sonst null */
 function cleanGv(raw) {

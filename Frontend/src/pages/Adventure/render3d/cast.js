@@ -50,6 +50,41 @@ export const CAST = {
   kobold: F("kobold", 1.0, "#6fae4a", 40),
   minotaur: F("daemon", 1.0, "#d9473a", 30),
   firespewer: F("drache", 0.9, "#ff8a3a", 20, { lift: 0.15 }),
+  // Rudel (alle Zyklen): Wolf entfärbt und getönt, Husky, Fuchs (Quaternius-Tiere, CC0)
+  gruftwolf: F("wolf~grau", 0.78, "#5a5468", 160, { tint: [0.55, 0.5, 0.62] }),
+  schneewolf: F("husky", 0.78, "#dfe8ef", 160),
+  wuestenfuchs: F("fuchs", 0.85, "#e0883a", 200),
+  glutwolf: F("wolf~grau", 0.78, "#c4502f", 160, { tint: [1.6, 0.6, 0.3] }),
+  waldwolf: F("wolf", 0.78, "#8a8396", 160),
+  geschuetzwerk: F("robo_geschuetz", 1.0, "#c9c3d1", 30),
+  // Friedhof (ab Zyklus 2): bleiche Skelette, ein Grabwächter aus Stein, Irrlichter
+  ghul: F("skelett_schleicher", 1.2, "#a8a3b8", 300, { tint: [0.7, 0.68, 0.85] }),
+  irrlicht: F("geist", 0.85, "#4fd6a8", 60, { tint: [0.9, 2.6, 1.8], lift: 0.7 }),
+  grabwaechter: F("skelett_krieger", 1.45, "#8a8d99", 30, { tint: [0.55, 0.58, 0.66] }),
+  // Pilzwald, Sumpf, Uhrwerkturm (ab Zyklus 2). Eigene Figuren seit 17.11.2026 (Quaternius, poly.pizza, CC0 — Liste in
+  // public/media/av3d/README.md); Sporling, Sporenmotte, Bovist und Waldschrat sind weiter umgefärbte aus dem Bestand.
+  // Pilzwald: rote Pilze, violette Sporenwesen, Stachelpilze, Moosaffen, ein grüner Waldschrat
+  sporling: F("pilzling~grau", 0.95, "#d9473a", 400, { tint: [1.7, 0.6, 0.5] }),
+  sporenmotte: F("fledermaus~grau", 0.9, "#c49aff", 300, { tint: [1.4, 0.95, 1.8], lift: 0.9 }),
+  bovist: F("schleim~grau", 1.0, "#d8cce8", 200, { tint: [1.6, 1.45, 1.9] }),
+  stachelpilz: F("stachelpilz", 1.05, "#2f7fa0", 200),
+  moosaffe: F("affenwicht", 1.05, "#6fa84a", 40),
+  waldschrat: F("barbar_wild", 1.05, "#6f8a4a", 30, { tint: [0.8, 1.0, 0.55] }),
+  // Sumpf: Giftkröten, Glubs, Sumpfwichte, Kraken und ein Riesenfrosch (flach — daher klein im Verhältnis)
+  giftkroete: F("kroete", 1.0, "#d8a830", 400),
+  moorglub: F("glub", 1.0, "#4a3a7e", 300, { lift: 0.5 }),
+  sumpfwicht: F("sumpfwicht", 1.1, "#3f5a2a", 160),
+  tintenkrake: F("krake", 1.05, "#c84a7a", 40, { lift: 0.4 }),
+  riesenfrosch: F("riesenfrosch", 0.5, "#8fd86a", 30),
+  glubaeltester: F("glub_gross", 1.1, "#4a3a7e", 20, { lift: 0.35 }),
+  // Uhrwerkturm: Roboter-Drohnen, Mechs, Öl
+  blechknecht: F("robo_laeufer", 1.0, "#e8d070", 400),
+  oelschleim: F("hornschleim~grau", 0.95, "#3a3640", 400, { tint: [0.32, 0.3, 0.3] }),
+  surrdrohne: F("robo_drohne", 1.0, "#e8d070", 200, { lift: 0.6 }),
+  bolzenwerfer: F("robo_kanone", 1.1, "#e8d070", 40),
+  schildwerk: F("robo_kugel", 1.05, "#c9c3d1", 30),
+  dampfmech: F("mech_orange", 0.95, "#c4602f", 30),
+  messingmech: F("mech_gelb", 0.95, "#c99a30", 30),
 };
 export const BOSS_CAST = {
   necromancer: { ...MAGIER, tint: [1.0, 0.6, 1.6], k: 1.05, cap: 4 },
@@ -62,6 +97,12 @@ export const BOSS_CAST = {
   minotaurLord: F("daemon", 0.8, "#a03a3a", 4, { tint: [0.85, 0.55, 0.55] }),
   lavaWurm: F("drache", 0.7, "#ff8a3a", 4, { tint: [1.3, 0.7, 0.4], lift: 0.1 }),
   thunderwing: F("drache", 0.75, "#5a9ad6", 4, { tint: [0.3, 0.85, 3.6], lift: 0.35 }),
+  // (der Drache entfärbt und eisig getönt, kleiner als Thunderwing; figures3d.js „~grau“)
+  frostwyrm: F("drache~grau", 0.62, "#8fd8ff", 4, { tint: [1.7, 2.3, 3.1], lift: 0.25 }),
+  witwe: F("geist", 0.75, "#c9b8ff", 4, { tint: [1.5, 1.35, 2.3], lift: 0.35 }),
+  myzelkoenig: F("pilzkoenig", 0.75, "#d9473a", 4, { tint: [1.3, 0.85, 1.25] }),
+  moorhexe: F("hexer~grau", 0.85, "#8be04e", 4, { tint: [0.85, 1.3, 0.75] }),
+  uhrwerkkoloss: F("automat", 1.05, "#e8d070", 4),
 };
 export const DEFAULT_BOSS = { ...BROCKEN, tint: [1.25, 0.55, 0.5], k: 1.0, chunk: "#a04a3a", cap: 4 };
 // Gegner, die nicht im Vorrat einer Welt stehen, aber dort auftauchen können (beschworen, geschlüpft)
@@ -69,7 +110,20 @@ export const EXTRAS = ["skeletonwarrior", "slime", "spider"];
 export const HEROES = {
   default: { fig: "held_schurke" }, knight: { fig: "held_ritter" }, ninja: { fig: "held_kapuze" }, wizard: { fig: "held_magier" },
   bestmod: { fig: "held_magier", tint: [0.7, 1.2, 0.7] }, cyber: { fig: "held_kapuze", tint: [0.45, 0.9, 2.3] }, gh0stqq: { fig: "held_barbar" },
+  // Kits seit November 2026: Quaternius „RPG Characters“ (Mönch, Waldläuferin, Klerikerin lila getönt, Gelehrter)
+  moench: { fig: "held_moench" }, jaegerin: { fig: "held_jaegerin" }, nekromantin: { fig: "held_klerikerin", tint: [0.6, 0.45, 0.9] },
+  alchemist: { fig: "held_gelehrter" },
 };
+// Requisiten: starre Figuren (CC0, public/media/av3d/README.md). h = Höhe in Metern (die Figuren sind auf Höhe 1 genormt)
+export const PROPS = {
+  chest: { fig: "kiste", h: 0.62 }, bigChest: { fig: "kiste_gross", h: 0.85 }, equipChest: { fig: "kiste_rot", h: 0.62 },
+  opened: { fig: "kiste_offen", h: 0.62 }, shrine: { fig: "schrein", h: 1.75 }, altar: { fig: "altar", h: 1.2 },
+  trap: { fig: "fangeisen", h: 0.16 }, crystal: { fig: "kristall", h: 1 }, crystal2: { fig: "kristall2", h: 1 },
+};
+
+// Begleiter mit eigener Figur (engine/allies.js), geladen nur für das Kit, das sie ruft
+export const PET_FIG = { wolf: "wolf" };
+export const KIT_PETS = { jaegerin: ["wolf"] };
 export const castOf = (e) => (e.isBoss ? BOSS_CAST[e.bossId] || DEFAULT_BOSS : CAST[e.type] || KNECHT);
 
 // Farbvarianten der Helden (data/skins.js): in 3D ein Farbfaktor über die ganze Figur

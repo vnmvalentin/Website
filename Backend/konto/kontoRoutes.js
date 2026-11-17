@@ -16,6 +16,7 @@ const express = require("express");
 const { bremseMiddleware } = require("../lib/bremse");
 const { SPIELE } = require("../analytics/spiele");
 const { KATALOG, erfolgInfo } = require("./erfolge");
+const { KATALOG: BESTWERT_KATALOG, bestwertInfo } = require("./bestwerte");
 
 const STATE_TTL_MS = 10 * 60 * 1000;
 const STATE_COOKIE = "konto_oauth";
@@ -28,7 +29,7 @@ function sichererPfad(wert, ersatz = "/profile") {
   return wert;
 }
 
-/** Ansicht fürs eigene Konto: wie kontoStore.ansicht, Abzeichen mit Namen und Spiele mit Anzeigenamen */
+/** Ansicht fürs eigene Konto: wie kontoStore.ansicht, Abzeichen und Bestwerte mit Namen, Spiele mit Anzeigenamen */
 function kontoFuerBrowser(ansicht) {
   if (!ansicht) return null;
   return {
@@ -37,6 +38,11 @@ function kontoFuerBrowser(ansicht) {
     erfolge: ansicht.erfolge.map((e) => {
       const info = erfolgInfo(e.spiel, e.erfolg);
       return { ...e, name: info?.name || null, text: info?.text || null };
+    }),
+    // Nur Werte, die noch im Katalog stehen (art und besser braucht die Anzeige)
+    bestwerte: (ansicht.bestwerte || []).flatMap((b) => {
+      const info = bestwertInfo(b.spiel, b.wert);
+      return info ? [{ ...b, name: info.name, art: info.art, spielName: SPIEL_NAMEN[b.spiel] || b.spiel }] : [];
     }),
   };
 }
@@ -84,7 +90,7 @@ function createKontoRouter({
 
   router.get("/katalog", (req, res) => {
     res.set("Cache-Control", "public, max-age=300");
-    res.json({ spiele: SPIELE.map((s) => ({ id: s.id, name: s.name })), erfolge: KATALOG });
+    res.json({ spiele: SPIELE.map((s) => ({ id: s.id, name: s.name })), erfolge: KATALOG, bestwerte: BESTWERT_KATALOG });
   });
 
   // ── Gast und Wiederherstellungscode ──────────────────────────────────────────────────────────────────────────
@@ -274,8 +280,17 @@ function createKontoRouter({
   });
 
   router.post("/erfolge/:spiel", requireKonto, standBremse, (req, res) => {
+    // Nur Spiele: Abzeichen der Website selbst (Bereich „website“, z. B. Einladungen) vergibt allein der Server
+    if (!SPIEL_NAMEN[req.params.spiel]) return res.status(400).json({ error: "Ungültige Meldung.", fehler: "spiel" });
     const r = kontoStore.meldeErfolge(req.kontoId, req.params.spiel, req.body?.ids);
     if (!r.ok) return res.status(400).json({ error: "Ungültige Meldung.", fehler: r.fehler });
+    res.json({ neu: r.neu, abgelehnt: r.abgelehnt });
+  });
+
+  // Bestwerte als { werte: { id: zahl } } — gespeichert wird je Wert nur eine Verbesserung (Katalog: bestwerte.js)
+  router.post("/bestwerte/:spiel", requireKonto, standBremse, (req, res) => {
+    const r = kontoStore.meldeBestwerte(req.kontoId, req.params.spiel, req.body?.werte);
+    if (!r.ok) return res.status(r.fehler === "konto-fehlt" ? 401 : 400).json({ error: "Ungültige Meldung.", fehler: r.fehler });
     res.json({ neu: r.neu, abgelehnt: r.abgelehnt });
   });
 

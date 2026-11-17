@@ -35,7 +35,7 @@ const STANDARD = Object.freeze({
   FEHLER_PAUSE_MS: 10 * 60 * 1000,
 });
 
-/** Güte-Schwelle. Gemessen an 40 Leveln (gv 4): besteht rund jedes dritte. */
+/** Güte-Schwelle der Pfad-Level (bis gv 4). Gemessen an 40 Leveln (gv 4): besteht rund jedes dritte. */
 const GUETE = Object.freeze({
   /** Anteil schlichter Sprünge an allen Zügen */
   schlichtMax: 0.58,
@@ -47,21 +47,47 @@ const GUETE = Object.freeze({
   zuegeMin: 80,
 });
 
+/**
+ * Güte-Schwelle der Lauf-Level (ab gv 5). Die Lauflinie plant Abwechslung von sich aus (nie zwei schlichte Sprünge am Stück
+ * geplant): Gemessen an 16 langen Leveln 6–20 % schlichte Schritte, Folge höchstens 2, 11–14 Zug-Arten, 10–13 Strecken,
+ * Kettenlauf 16 von 16. Die Schwelle fängt also nur Ausreißer: einen gescheiterten Kettenlauf oder ein Level, das vorzeitig
+ * auf einer Rastplattform endete.
+ */
+const GUETE_LAUF = Object.freeze({
+  schlichtMax: 0.25,
+  folgeMax: 3,
+  artenMin: 10,
+  /** gebaute Strecken mindestens: geplant minus so viele */
+  streckenFehlMax: 2,
+});
+
 const SEED_RE = /^[A-Za-z0-9_.:-]{1,64}$/;
 const BIOME_RE = /^[a-z]{1,16}$/;
 const TAG_RE = /^daily-(\d{4}-\d{2}-\d{2})$/;
 
 /**
  * Besteht ein Level die Güte-Schwelle?
- * @param {{ zuege: number, schlicht: number, folge: number, arten: number, extrem?: boolean }} k  Kennzahlen (vorratWorker.js)
+ * @param {{ zuege: number, schlicht: number, folge: number, arten: number, extrem?: boolean, welt?: string }} k  Kennzahlen
+ *   (vorratWorker.js; welt 'lauf' = Lauf-Level, dann gilt GUETE_LAUF)
  * @returns {{ ok: boolean, grund?: string }}
  */
 function bewerte(k, guete = GUETE) {
   if (!k || !Number.isFinite(k.zuege) || k.zuege <= 0) return { ok: false, grund: 'keine Kennzahlen' };
+  if (k.welt === 'lauf') return bewerteLauf(k);
   if (k.zuege < guete.zuegeMin) return { ok: false, grund: 'zu kurz' };
   if (k.schlicht / k.zuege > guete.schlichtMax) return { ok: false, grund: 'zu viele schlichte Sprünge' };
   if (k.folge > guete.folgeMax) return { ok: false, grund: 'lange Folge schlichter Sprünge' };
   if (!k.extrem && k.arten < guete.artenMin) return { ok: false, grund: 'zu wenige verschiedene Aufgaben' };
+  return { ok: true };
+}
+
+/** Güte eines Lauf-Levels (Kennzahlen aus vorratWorker.js kennzahlenLauf). */
+function bewerteLauf(k, guete = GUETE_LAUF) {
+  if (!k.kettenlauf) return { ok: false, grund: 'Kettenlauf gescheitert' };
+  if (k.strecken < k.geplant - guete.streckenFehlMax) return { ok: false, grund: 'zu kurz' };
+  if (k.schlicht / k.zuege > guete.schlichtMax) return { ok: false, grund: 'zu viele schlichte Sprünge' };
+  if (k.folge > guete.folgeMax) return { ok: false, grund: 'lange Folge schlichter Sprünge' };
+  if (k.arten < guete.artenMin) return { ok: false, grund: 'zu wenige verschiedene Aufgaben' };
   return { ok: true };
 }
 
@@ -252,4 +278,4 @@ function createLevelVorrat(deps) {
   };
 }
 
-module.exports = { createLevelVorrat, bewerte, GUETE, STANDARD };
+module.exports = { createLevelVorrat, bewerte, GUETE, GUETE_LAUF, STANDARD };

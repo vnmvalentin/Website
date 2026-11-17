@@ -9,6 +9,7 @@ import { spawnEnemy, findSpawnPoint, pickElite } from "./enemies.js";
 import { spawnItem, rollItem } from "./loot.js";
 import { ring, shake } from "./fx.js";
 import { ascChampionEvery } from "./ascension.js";
+import { twChampionEvery } from "./twists.js";
 
 export const BLOOD_MOON_LEN = 30;
 const EVERY = { blood: 200, ring: 230, champ: 250 };
@@ -38,7 +39,7 @@ export function updateHorde(g, dt) {
   }
   if (h.next.champ <= 0) {
     if (g.boss || g.enemies.some((e) => e.champion && !e.dead)) h.next.champ = 25;
-    else { h.next.champ = EVERY.champ * ascChampionEvery(g); spawnChampion(g); }
+    else { h.next.champ = EVERY.champ * ascChampionEvery(g) * twChampionEvery(g); spawnChampion(g); }
   }
 }
 

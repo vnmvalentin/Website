@@ -10,12 +10,12 @@ import GameFrame from './GameFrame';
 import { useClashLang } from './clashI18n';
 import { DAILY_GAMES, MAX_TOTAL, doneCount, shareText, streakOf, syncDaily, totalOf } from './dailyRound';
 import { CrCheck } from '../ui/CrIcons';
-import crownImg from '../../../assets/clashRoyale/ui/crown.png';
-import scrollImg from '../../../assets/clashRoyale/ui/icon_daily_task_scroll_opened.png';
+import crownImg from '../../../assets/clashRoyale/ui/crown.webp';
+import scrollImg from '../../../assets/clashRoyale/ui/icon_daily_task_scroll_opened.webp';
 import questionImg from '../../../assets/clashRoyale/ui/question.webp';
 import searchImg from '../../../assets/clashRoyale/ui/search.webp';
 import eyeImg from '../../../assets/clashRoyale/ui/eye.webp';
-import potionImg from '../../../assets/clashRoyale/ui/card_boost_potion.png';
+import potionImg from '../../../assets/clashRoyale/ui/card_boost_potion.webp';
 
 const IMG = { wordle: scrollImg, kartenraten: questionImg, zoom: searchImg, pixel: eyeImg, farbe: potionImg };
 const TONE = (s) => (s >= 67 ? '#4fd36d' : s >= 34 ? '#ffc93c' : '#ff6b6d');

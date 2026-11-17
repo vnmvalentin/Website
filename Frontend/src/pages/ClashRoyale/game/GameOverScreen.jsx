@@ -13,7 +13,7 @@ import DeckQrModal, { DeckQrButton } from './DeckQrModal';
 import Leaderboard from './Leaderboard';
 import { BackToTournamentButton } from '../tournament/TournamentLobbyBits';
 import { SIZE_COLS } from '../constants';
-import trophyIcon from '../../../assets/clashRoyale/ui/trophy.png';
+import trophyIcon from '../../../assets/clashRoyale/ui/trophy.webp';
 import { TEAM_IDS, teamStyle, teamChipClass } from '../lobby/teamStyle';
 import ViewTabs from '../lobby/ViewTabs';
 import LobbyTournamentPanel from '../lobby/LobbyTournamentPanel';

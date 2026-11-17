@@ -2,20 +2,23 @@
 
 export {
   generateLevel, generateSingle, normalizeParams, dailyParams, hashLevel, LENGTHS, CHECKPOINT_EVERY, SAFETY, LEVEL_VERSION,
-  GEN_PFAD, PFAD_TAGESRENNEN_AB, GEN_VERSION,
+  GEN_PFAD, PFAD_TAGESRENNEN_AB, GEN_VERSION, LAUF_AB_GV,
 } from './generator.js';
-import { generateLevel, normalizeParams, GEN_PFAD, GEN_VERSION } from './generator.js';
+import { generateLevel, normalizeParams, GEN_PFAD, GEN_VERSION, LAUF_AB_GV } from './generator.js';
 import { generateWorld } from './world/generate.js';
 
 /**
- * Parameter für generateWorld() zu Runden-Parametern mit `gen: 'pfad'` (sonst null): lang, „super“, Stufe 3, nur Pfad.
- * Browser (Worker) und Server-Prüfung erzeugen damit dasselbe Level. `gv` sagt, WELCHE Generator-Version bauen muss
- * (client/generatorArchiv.js, Backend replay.js) — generateWorld selbst bekommt es nicht (ohneGv).
+ * Parameter für generateWorld() zu Runden-Parametern mit `gen: 'pfad'` (sonst null): lang, „super“, Stufe 3. Der Welttyp
+ * hängt an der Generator-Version: bis Version 4 der Pfad, ab LAUF_AB_GV (5) die Lauflinie — `gen: 'pfad'` heißt seitdem nur
+ * noch „Zufallslevel aus Seed + Biom + gv“. Browser (Worker) und Server-Prüfung erzeugen damit dasselbe Level. `gv` sagt,
+ * WELCHE Generator-Version bauen muss (client/generatorArchiv.js, Backend replay.js) — generateWorld selbst bekommt es nicht
+ * (ohneGv). Eingefrorene Versionen bekommen ihre Parameter von HIER: Für gv 1–4 muss es also immer 'pfad' bleiben.
  */
 export function weltParams(raw) {
   const p = normalizeParams(raw);
   if (p.gen !== GEN_PFAD) return null;
-  return { seed: p.seed, length: 'long', speedClass: 'super', biome: p.biome, difficulty: 3, worldType: 'pfad', gv: p.gv };
+  const worldType = p.gv >= LAUF_AB_GV ? 'lauf' : 'pfad';
+  return { seed: p.seed, length: 'long', speedClass: 'super', biome: p.biome, difficulty: 3, worldType, gv: p.gv };
 }
 
 /** weltParams ohne die Versionsangabe — so, wie generateWorld sie bekommt */

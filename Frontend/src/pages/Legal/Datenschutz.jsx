@@ -100,7 +100,7 @@ export default function Datenschutz() {
         </p>
       </Section>
 
-      <Section title="7. Premium-Abo und Zahlung über Stripe">
+      <Section title="7. Premium-Abo, Laden und Zahlung über Stripe">
         <p>
           Zahlungen wickelt Stripe Payments Europe, Ltd., 1 Grand Canal Street Lower, Grand Canal Dock, Dublin, Irland, ab.
           Auf der Bezahlseite geben Sie Ihre Zahlungsdaten, E-Mail-Adresse und Rechnungsadresse direkt bei Stripe ein; wir
@@ -108,10 +108,16 @@ export default function Datenschutz() {
         </p>
         <p>Bei uns gespeichert werden:</p>
         <List items={[
-          "Ihre Twitch-ID zusammen mit der Kundennummer bei Stripe",
-          "der Stand des Abos (aktiv, gekündigt, Ende des bezahlten Zeitraums)",
+          "beim Abo: Ihre Twitch-ID zusammen mit der Kundennummer bei Stripe und der Stand des Abos (aktiv, gekündigt, Ende des bezahlten Zeitraums)",
+          "bei Käufen im Laden: die Kennung Ihres Kontos, Art und Betrag des Kaufs, die gekauften Designs und die Kennung der Bezahlsitzung bei Stripe",
           "der Zeitpunkt, zu dem Sie vor dem Kauf dem sofortigen Beginn zugestimmt haben",
         ]} />
+        <p>
+          Auf der Dankesliste im Laden steht Ihr Kontoname nur, wenn Sie das beim Unterstützen oder später ausdrücklich wählen
+          (Art. 6 Abs. 1 lit. a DSGVO). Sie können den Eintrag dort jederzeit wieder entfernen. Löschen Sie Ihr Konto,
+          entfallen Abzeichen, Designs und der Eintrag; die Buchung selbst bewahren wir ohne Bezug zum Konto auf, solange es
+          steuer- und handelsrechtliche Fristen verlangen.
+        </p>
         <p>
           Stripe verarbeitet Daten auch in eigener Verantwortung, unter anderem zur Betrugsvermeidung, und kann sie dafür in die
           USA übermitteln. Näheres steht in der Datenschutzerklärung von Stripe (stripe.com/de/privacy). Abrechnungsdaten
@@ -124,7 +130,7 @@ export default function Datenschutz() {
         <List items={[
           "Schriften: Die Website lädt Schriftarten von Google Fonts (Google Ireland Limited, Dublin; Übermittlung in die USA möglich).",
           "Twitch: Auf einzelnen Seiten sind Streams oder Clips von Twitch eingebettet (Twitch Interactive, Inc., USA); Profilbilder kommen von Twitch-Servern.",
-          "Clash Royale: Kartenbilder und Symbole werden von RoyaleAPI und GitHub geladen.",
+          "Clash Royale: Kartenbilder werden von Supercell (api-assets.clashroyale.com) geladen; alle übrigen Symbole liegen auf unserem Server.",
         ]} />
         <p>Rechtsgrundlage ist unser Interesse an einer einheitlichen Darstellung und an der Einbindung dieser Inhalte (Art. 6 Abs. 1 lit. f DSGVO).</p>
       </Section>

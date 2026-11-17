@@ -114,6 +114,37 @@ function saveSessions(sessions) {
   writeJsonAtomic(BINGO_SESSIONS_PATH, sessions);
 }
 
+/** Bingo-Karten, an denen jemand teilnimmt, neueste zuerst — für GET /my und die Streamer-Zentrale. */
+function listSessionsOf(userId) {
+  const sessions = loadSessions();
+  const myId = String(userId);
+  const list = [];
+  for (const sess of Object.values(sessions)) {
+    if (!sess || !sess.participants) continue;
+    if (!sess.participants[myId]) continue;
+    const me = sess.participants[myId];
+    const overlayKey = sess.mode === "single" ? sess.overlayKey : me?.overlayKey;
+    list.push({
+      sessionId: sess.id,
+      mode: sess.mode,
+      themeName: sess.theme?.name || "Bingo",
+      locked: !!sess.locked,
+      role: me?.role || "player",
+      overlayKey: overlayKey || "",
+      updatedAt: sess.updatedAt || 0,
+    });
+  }
+  list.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+  return list;
+}
+
+/** OBS-Quelle meldet sich (Streamer-Zentrale: „zuletzt da“). Darf das Overlay nie stören. */
+function notePresence(userId) {
+  try {
+    if (userId) require("../streamerZentrale/presence").seen("bingo", String(userId));
+  } catch { /* Zentrale ist Zugabe */ }
+}
+
 function bump(session) {
   session.refreshNonce = (session.refreshNonce || 0) + 1;
   session.updatedAt = Date.now();
@@ -168,24 +199,28 @@ module.exports = function createBingoRouter({ requireAuth }) {
       
       let targetCard = null;
       let targetName = "";
+      let ownerId = "";
 
       // Single Mode
       if (sess.mode === "single" && sess.overlayKey === overlayKey) {
         targetCard = sess.card;
         targetName = sess.host?.twitchLogin || "Host";
-      } 
+        ownerId = sess.host?.twitchId || "";
+      }
       // Group Mode
       else if (sess.participants) {
-        for (const p of Object.values(sess.participants)) {
+        for (const [pid, p] of Object.entries(sess.participants)) {
           if (p?.overlayKey === overlayKey) {
             targetCard = p.card;
             targetName = p.twitchLogin;
+            ownerId = p.twitchId || pid;
             break;
           }
         }
       }
 
       if (targetCard) {
+        notePresence(ownerId);
         const nonce = sess.refreshNonce || 0;
         if (since && since === nonce) {
           return res.json({ unchanged: true, refreshNonce: nonce });
@@ -277,25 +312,7 @@ module.exports = function createBingoRouter({ requireAuth }) {
 
   // Auth: list my bingo sessions
   router.get("/my", requireAuth, (req, res) => {
-    const sessions = loadSessions();
-    const myId = String(req.twitchId);
-    const list = [];
-    for (const sess of Object.values(sessions)) {
-      if (!sess || !sess.participants) continue;
-      if (!sess.participants[myId]) continue;
-      const me = sess.participants[myId];
-      const overlayKey = sess.mode === "single" ? sess.overlayKey : me?.overlayKey;
-      list.push({
-        sessionId: sess.id,
-        mode: sess.mode,
-        themeName: sess.theme?.name || "Bingo",
-        locked: !!sess.locked,
-        role: me?.role || "player",
-        overlayKey: overlayKey || "",
-        updatedAt: sess.updatedAt || 0,
-      });
-    }
-    list.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+    const list = listSessionsOf(req.twitchId);
     res.json({ sessions: list });
   });
 
@@ -662,3 +679,6 @@ module.exports = function createBingoRouter({ requireAuth }) {
 
   return router;
 };
+
+// Für die Streamer-Zentrale (streamerZentrale/routes.js): Karten eines Nutzers, ohne Anfrage
+module.exports.listSessionsOf = listSessionsOf;

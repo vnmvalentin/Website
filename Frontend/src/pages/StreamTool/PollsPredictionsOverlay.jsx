@@ -20,8 +20,10 @@ import {
   HypeTrainScene, RaidStormScene, PlaneBannerScene, MarbleRunWidget,
 } from './OverlayScenes';
 import { AlertWidget, useAlertPlayer, playAlertSound, speakAlert, alertSpeech } from './OverlayAlerts';
-import { demoAlert } from './streamToolConfig';
+import { demoAlert, toSubathonView, demoSubathon, alertMediaOf, fontHref } from './streamToolConfig';
 import { OVERLAY_TEXTS } from './overlayI18n';
+import { SubathonWidget } from './OverlaySubathon';
+import { useFontLink } from '../../components/shell/useFontLink';
 
 const POLL_MS = 2000;
 
@@ -89,6 +91,8 @@ export default function PollsPredictionsOverlay() {
 
   const config = mergeConfig(payload?.config);
   const m = effectiveModules(config);
+  // Eigene Schrift der Karten (Abo-Extra — ohne Abo schickt der Server keine)
+  useFontLink(fontHref(config.theme.font));
   // Sprache der Texte im Stream: aus der Einstellung des Streamers (OBS hat keinen eigenen Sprachspeicher)
   const lang = config.language;
   const sim = useDemoSim(demo, demoOutcomes, lang);
@@ -125,11 +129,13 @@ export default function PollsPredictionsOverlay() {
   // Alerts: neue Einträge nacheinander abspielen, mit Ton und auf Wunsch vorgelesen
   const alert = useAlertPlayer(payload?.alerts?.events, m.alerts, (ev) => {
     const mod = m.alerts;
-    if (mod.sound !== false) playAlertSound(ev.kind, mod.volume ?? 60);
+    if (mod.sound !== false) playAlertSound(ev.kind, mod.volume ?? 60, alertMediaOf(mod, ev.kind).sound);
     if (mod.tts) setTimeout(() => speakAlert(alertSpeech(ev, mod, lang), lang, mod.volume ?? 60), 700);
   });
   // ?demo=1: ein stehender Beispiel-Alert zum Ausrichten in OBS
   const alertShown = demo ? demoAlert('sub', OVERLAY_TEXTS.dict(lang)) : alert.current;
+  // Subathon-Timer: die Sekunden zählt die Karte selbst (eigener Takt, siehe OverlaySubathon.jsx)
+  const subathonView = toSubathonView(demo ? demoSubathon() : payload?.subathon, m.subathon);
 
   return (
     <OverlayLangContext.Provider value={lang}>
@@ -167,6 +173,10 @@ export default function PollsPredictionsOverlay() {
 
         <WidgetFrame id="alerts" module={m.alerts} visible={(demo || alert.visible) && !!alertShown && m.alerts.enabled}>
           {alertShown && <AlertWidget event={alertShown} module={m.alerts} still={demo} />}
+        </WidgetFrame>
+
+        <WidgetFrame id="subathon" module={m.subathon} visible={!!subathonView && m.subathon.enabled}>
+          {subathonView && <SubathonWidget data={subathonView} module={m.subathon} offsetRef={clockOffset} />}
         </WidgetFrame>
 
         <WidgetFrame id="marbleRun" module={m.marbleRun} visible={!!marbles && m.marbleRun.enabled}>

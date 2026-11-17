@@ -1,7 +1,7 @@
 // engine/stage.js — Ablauf einer Welt: laden, Teleporter finden und aktivieren, Boss besiegen + aufladen, weiterreisen.
 // Im Finale (Gewitterhort) erscheint Thunderwing sofort; wer ihn besiegt, gewinnt den Lauf und darf in Zyklus 2 weiter.
 
-import { BIOMES } from "../data/biomes.js";
+import { biomeFor } from "../data/biomes.js";
 import { BOSSES } from "../data/bosses.js";
 import { generateWorld } from "./worldgen.js";
 import { spawnEnemy, findSpawnPoint, pickElite } from "./enemies.js";
@@ -11,6 +11,7 @@ import { floatText, ring, shake, burst } from "./fx.js";
 import { enemyPoolFor } from "../data/biomes.js";
 import { coefficient } from "./difficulty.js";
 import { ascEliteChance } from "./ascension.js";
+import { twEliteChance, activeTwist, TWISTS, depthOf } from "./twists.js";
 import { initDirector } from "./director.js";
 import { noteStage } from "./timeline.js";
 import { hashSeed, makeRng, dist2 } from "./util.js";
@@ -21,11 +22,12 @@ export const CHARGE_TIME = 60;
 export const TELEPORTER_HINT = 90;
 
 export function loadStage(g) {
-  const biome = BIOMES[g.stageIndex];
+  const biome = biomeFor(g.stageIndex, g.loop); // ab Zyklus 2 im Wechsel die neuen Welten (data/biomes.js)
   g.biome = biome;
   const w = generateWorld(g.seed, g.stageIndex, g.loop, biome);
   g.world = { w: w.w, h: w.h };
   g.obstacles = w.obstacles;
+  g.pools = w.pools || []; // Giftpfützen im Sumpf (engine/worldMechanics.js)
   g.interactables = w.interactables;
   g.enemies = []; g.pBullets = []; g.eBullets = []; g.hazards = []; g.zones = [];
   g.pickups = []; g.allies = []; g.walls = []; g.shrineGroups = [];
@@ -50,14 +52,17 @@ export function loadStage(g) {
   const campRng = makeRng(hashSeed(g.seed, "lager", g.stageIndex, g.loop));
   w.camps.forEach((c, ci) => {
     const id = campRng.weighted(pool);
-    const elite = g.coeff > 1.6 && campRng.chance(0.15 * ascEliteChance(g)) ? pickElite(g) : null;
+    const elite = g.coeff > 1.6 && campRng.chance(0.15 * ascEliteChance(g) * twEliteChance(g)) ? pickElite(g) : null;
     for (let i = 0; i < (elite ? 1 : c.size); i++) {
       const q = findSpawnPoint(g, c.x, c.y, 0, 110, 30) || c;
       spawnEnemy(g, id, q.x, q.y, { aggro: false, campId: ci, elite });
     }
   });
 
-  g.events.push({ type: "stageStart", name: biome.name, index: g.stageIndex, loop: g.loop, final: !!biome.final });
+  g.events.push({ type: "stageStart", name: biome.name, index: g.stageIndex, loop: g.loop, final: !!biome.final, depth: depthOf(g) });
+  // Erste Welt eines neuen Zyklus: seine Wendung ansagen (engine/twists.js)
+  const twist = activeTwist(g);
+  if (twist && g.stageIndex === 0) g.events.push({ type: "twist", id: twist, name: TWISTS[twist].name, desc: TWISTS[twist].desc, loop: g.loop });
 }
 
 function pickBossId(g) {

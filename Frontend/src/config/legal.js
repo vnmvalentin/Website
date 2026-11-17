@@ -9,26 +9,30 @@
 
 export const LEGAL = {
   // Inhaber des Gewerbes: Vor- und Nachname (kein Künstlername allein)
-  name: "",
+  name: "Valentin Heiner",
   // Geschäftsbezeichnung, falls das Gewerbe eine führt (sonst leer lassen)
-  businessName: "",
+  businessName: "vnmvalentin",
+  // Zusatzzeile über der Straße, z. B. die c/o-Angabe eines Impressum-Service (sonst leer lassen)
+  co: "c/o Online-Impressum 13157",
   // Ladungsfähige Anschrift — kein Postfach
-  street: "",
-  zipCity: "",
+  street: "Europaring 90",
+  zipCity: "53757 Sankt Augustin",
   country: "Deutschland",
-  // Kontakt. Neben der E-Mail braucht das Impressum einen zweiten schnellen Weg (Telefon oder Kontaktformular).
-  email: "",
-  phone: "",
+  // Kontakt
+  email: "vnmvalbusiness@gmail.com",
+  // Telefon — optional; leer = erscheint nirgends
+  phone: "015679 841408",
   // Umsatzsteuer-Identifikationsnummer, falls vorhanden
-  vatId: "",
+  vatId: "DE365303057",
   // Kleinunternehmer nach § 19 UStG? true = es wird keine Umsatzsteuer ausgewiesen. null = noch nicht angegeben.
-  kleinunternehmer: null,
+  kleinunternehmer: false,
   // Hosting: Name und Sitz des Anbieters, bei dem der Server steht (für die Datenschutzerklärung)
-  hoster: "",
+  hoster: "Contabo GmbH, München (Deutschland)",
   // Wie viele Tage der Webserver Zugriffsprotokolle (mit IP-Adresse) aufbewahrt. null = noch nicht angegeben.
-  logRetentionDays: null,
+  // 14 = nginx-logrotate auf dem Server: daily, rotate 13, maxage 14, ifempty (eingestellt 16.11.2026)
+  logRetentionDays: 14,
   // Stand der Texte
-  stand: "13. Oktober 2026",
+  stand: "16. November 2026",
 };
 
 // Die Rechtsseiten — für den Fuß der Website und die Querverweise zwischen den Seiten
@@ -47,7 +51,6 @@ export function legalMissing() {
     !LEGAL.street && "Straße und Hausnummer",
     !LEGAL.zipCity && "PLZ und Ort",
     !LEGAL.email && "E-Mail-Adresse",
-    !LEGAL.phone && "Telefonnummer (oder anderer schneller Kontaktweg)",
     LEGAL.kleinunternehmer === null && "Angabe, ob die Kleinunternehmerregelung gilt",
     !LEGAL.hoster && "Hosting-Anbieter",
     LEGAL.logRetentionDays === null && "Aufbewahrungsdauer der Server-Protokolle",

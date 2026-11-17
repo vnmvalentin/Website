@@ -142,3 +142,19 @@ test('Clash-Royale-Stats: Spieler mit Namen aus dem Index, ohne Eintrag nur der 
   assert.equal(resolveMeta('/clash/spieler/XYZ', src), null); // kein gültiger Tag
   assert.equal(resolveMeta('/clash/decks', src).title, 'Clash Royale Decks der Besten');
 });
+
+test('Visitenkarte: Stufe, Lieblingsspiel, Abzeichen und gewähltes CR-Konto in der Vorschau', () => {
+  const src = {
+    profile: (adresse) => (adresse === 'maxchen'
+      ? { login: 'maxchen', displayName: 'Mäxchen', stufe: { stufe: 4 }, sections: {
+        lieblingsspiel: { id: 'worldflip', name: 'Worldflip' },
+        abzeichen: { vitrine: [{}], weitere: [{}, {}] },
+        clash: { leagueNumber: 0, trophies: 7400 },
+      } }
+      : null),
+  };
+  const p = resolveMeta('/u/maxchen', src);
+  assert.equal(p.description, 'Stufe 4 · spielt am liebsten Worldflip · 3 Abzeichen · 7400 Trophäen. Das ganze Profil auf vnmvalentin.de.');
+  assert.equal(p.section, 'cr');
+  assert.equal(p.image.key, 'maxchen');
+});

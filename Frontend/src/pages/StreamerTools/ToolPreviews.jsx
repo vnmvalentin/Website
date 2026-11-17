@@ -2,7 +2,8 @@
 // Beispieldaten (demoData.js). Win Challenge zählt die Zeit weiter, die Twitch-Overlays wechseln durch ihre Module
 // und füllen sich mit Stimmen, beim Bingo werden Felder abgehakt. Eigener Chunk (lazy in StreamerToolsPage.jsx):
 // bis er geladen ist, zeigt die Karte ihr Vorschaubild, danach liegt diese Fläche darüber.
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
+import FitBox from "./FitBox";
 import OverlayView from "../WinChallenge/OverlayView";
 import { STYLE_PRESETS } from "../WinChallenge/stylePresets";
 import { PollWidget, PredictionWidget, GoalWidget, StatsWidget } from "../StreamTool/OverlayWidgets";
@@ -14,39 +15,6 @@ const TWITCH_SWITCH_MS = 5000;
 const BINGO_STEP_MS = 1400;
 const BINGO_HOLD_STEPS = 3; // so viele Takte bleibt die fertige Karte stehen, bevor sie von vorn beginnt
 const BINGO_BOX = 520;      // Kantenlänge der Karte in Pixeln, bevor sie in die Kachel verkleinert wird
-
-/** Verkleinert ein Overlay mit fester Pixelgröße, bis es in Breite UND Höhe der Fläche passt (nie größer als 100 %). */
-function FitBox({ children }) {
-  const outer = useRef(null);
-  const inner = useRef(null);
-  const [box, setBox] = useState({ s: 1, w: 0, h: 0 });
-  useEffect(() => {
-    const o = outer.current;
-    const i = inner.current;
-    if (!o || !i || typeof ResizeObserver === "undefined") return undefined;
-    const measure = () => {
-      const w = i.offsetWidth;
-      const h = i.offsetHeight;
-      const s = Math.min(1, o.clientWidth / Math.max(1, w), o.clientHeight / Math.max(1, h));
-      setBox((b) => (Math.abs(b.s - s) < 0.001 && b.w === w && b.h === h ? b : { s, w, h }));
-    };
-    const ro = new ResizeObserver(measure);
-    ro.observe(o);
-    ro.observe(i);
-    measure();
-    return () => ro.disconnect();
-  }, []);
-  // transform verkleinert nur die Darstellung, nicht den Platz im Layout: die Hülle bekommt die verkleinerte Größe
-  return (
-    <div ref={outer} className="absolute inset-[7%] flex items-center justify-center">
-      <div style={{ position: "relative", width: box.w * box.s, height: box.h * box.s }}>
-        <div ref={inner} style={{ position: "absolute", top: 0, left: 0, width: "max-content", transform: `scale(${box.s})`, transformOrigin: "top left" }}>
-          {children}
-        </div>
-      </div>
-    </div>
-  );
-}
 
 /** Zählt alle `ms` Millisekunden einen Takt weiter — steht still, solange der Tab im Hintergrund ist */
 function useBeat(ms) {

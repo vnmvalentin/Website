@@ -27,7 +27,7 @@ function Weg({ icon: Icon, farbe, titel, hinweis, onClick, disabled }) {
       </span>
       <span className="min-w-0">
         <span className="block text-sm font-semibold text-white">{titel}</span>
-        <span className="block text-xs text-white/45 mt-0.5">{hinweis}</span>
+        <span className="block text-xs text-white/55 mt-0.5">{hinweis}</span>
       </span>
     </button>
   );
@@ -51,7 +51,7 @@ function CodeAnzeige({ code, t, onFertig }) {
           <Button variant="secondary" size="sm" icon={kopiert ? Check : Copy} onClick={kopieren}>{kopiert ? t.kopiert : t.kopieren}</Button>
         </div>
       </div>
-      <p className="text-xs text-white/45">{t.gastSpaeter}</p>
+      <p className="text-xs text-white/55">{t.gastSpaeter}</p>
       <Button block onClick={onFertig}>{t.notiert}</Button>
     </div>
   );
@@ -139,7 +139,7 @@ function AnmeldeDialog() {
             </button>
             {/* Rechtsseiten sind live ausgeblendet, solange die Betreiber-Angaben fehlen (config/legal.js) — sonst 404 */}
             {salesVisible() && (
-              <Link to="/datenschutz" onClick={schliesseAnmeldung} className="text-[11px] text-white/35 hover:text-white/60">
+              <Link to="/datenschutz" onClick={schliesseAnmeldung} className="text-[11px] text-white/50 hover:text-white/60">
                 {t.rechtliches}
               </Link>
             )}
@@ -174,7 +174,7 @@ function KontoHinweisLeiste() {
         }`}>
         <span className="flex-1">{hinweisText(t, hinweis)}</span>
         <button type="button" onClick={() => zeigeKontoHinweis(null)} aria-label={t.hinweise.schliessen}
-          className="text-white/40 hover:text-white shrink-0"><X size={15} /></button>
+          className="text-white/55 hover:text-white shrink-0"><X size={15} /></button>
       </div>
     </div>
   );

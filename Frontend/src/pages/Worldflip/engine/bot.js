@@ -2,7 +2,7 @@
 // anderen, Welt, Ladungen, die angekündigten Ereignisse und die Richtung. Läuft im Browser (Spiel gegen Bots) und auf
 // dem Server (aufgefüllte Plätze, abgelaufene Zugzeit).
 import { RULES } from './constants.js';
-import { autoChoice, effectOf, foesOf, isBlind, isCosmic, isFoe, isLegal, needsTarget, nextSeat, worldAfter } from './game.js';
+import { autoChoice, chargeOf, effectOf, foesOf, isBlind, isCosmic, isFoe, isLegal, needsTarget, nextSeat, worldAfter } from './game.js';
 
 function withChoice(s, seat, card, world, target) {
   const auto = autoChoice(s, seat, card);
@@ -96,7 +96,7 @@ export function botAction(s, seat, random = Math.random) {
     switch (k) {
       case 'sturm': return nextFoe ? (nextCount <= 2 ? 26 : 12) : 2;
       case 'hagel': return nextFoe ? (nextCount <= 2 ? 23 : 11.5) : -8; // nur ziehen, kein Aussetzen
-      case 'meteor': return nextFoe ? (nextCount <= 2 ? 28 : 13) : -8;
+      case 'meteor': return nextFoe ? (nextCount <= 2 ? 25 : 12.5) : -8; // 3 ziehen, kein Aussetzen
       case 'kipp': return nextFoe && nextCount <= 2 && s.n > 2 ? 20 : 10;
       case 'walze': return danger ? 24 : 13;
       case 'brandopfer': return mine > 2 ? 18 : 6;
@@ -168,9 +168,8 @@ export function botAction(s, seat, random = Math.random) {
     // Strömung: gleiche Zahl auf der Hand = Kette
     if (k === 'n' && world === 1 && hand.some((x) => x !== c && x.k === 'n' && x.n === c.n)) score += 6;
 
-    // löst die Karte ein Weltereignis aus?
-    const charge = s.charges[world] + (world === 2 ? 2 : 1);
-    if (effectOf(s, c) !== 'zuender' && charge >= RULES.CHARGE_MAX && mine > 1) score += eventValue(s, seat, world, mine - 1, count);
+    // löst die Karte ein Weltereignis aus? (Karten, die immer passen, laden nicht — den Zünder bewertet kindValue)
+    if (c.w >= 0 && s.charges[c.w] + chargeOf(c) >= RULES.CHARGE_MAX && mine > 1) score += eventValue(s, seat, c.w, mine - 1, count);
 
     if (score > bestScore) {
       bestScore = score;

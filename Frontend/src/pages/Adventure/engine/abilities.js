@@ -4,7 +4,7 @@
 import { spawnPlayerBullet } from "./projectiles.js";
 import { addHazard, addZone, damageEnemy, enemiesNear, healPlayer } from "./combat.js";
 import { spawnAlly } from "./allies.js";
-import { burst, ring, lightning, floatText, shake } from "./fx.js";
+import { burst, ring, lightning, floatText, shake, slash } from "./fx.js";
 import { dist, dist2, clamp } from "./util.js";
 
 // Punkt in Zielrichtung, höchstens maxD entfernt, innerhalb der Welt
@@ -38,6 +38,54 @@ function startDash(g, angle, distance, duration, extra = {}) {
   }
 }
 
+// Alchemist: die drei Elemente seiner Flaschen, reihum (Wirkung in combat.js updateHazards)
+export const ELEMENTS = [{ effect: "burn", color: "#ff7a2e" }, { effect: "chill", color: "#9ad9ff" }, { effect: "poison", color: "#8be04e" }];
+
+const angleTo = (p, e) => {
+  let d = Math.atan2(e.y - p.y, e.x - p.x) - p.aim;
+  while (d > Math.PI) d -= Math.PI * 2;
+  while (d < -Math.PI) d += Math.PI * 2;
+  return Math.abs(d);
+};
+
+// Mönch: Schlag im Bogen vor dir; jeder dritte ist eine Druckwelle rundum. Mehr Geschosse (Talente/Items) machen den
+// Bogen breiter, Reichweite macht ihn länger.
+function palmStrike(g, ab) {
+  const p = g.player, s = p.stats;
+  const R = ab.range * s.range;
+  p.combo = ((p.combo || 0) + 1) % 3;
+  if (p.combo === 0) {
+    for (const e of enemiesNear(g, p.x, p.y, R * 1.3)) damageEnemy(g, e, s.damage * ab.comboMult, { primary: true, knockback: 420 });
+    ring(g, p.x, p.y, R * 1.3, "#ffe9a0", 0.3);
+    shake(g, 2);
+    return;
+  }
+  const arc = ab.arc + 0.12 * s.projectiles;
+  for (const e of enemiesNear(g, p.x, p.y, R + 20)) if (angleTo(p, e) < arc) damageEnemy(g, e, s.damage * ab.mult, { primary: true, knockback: 260 });
+  slash(g, p.x, p.y, p.aim, R, arc);
+}
+
+// Alchemist: Flaschen fliegen zum Zeiger und platzen dort; weitere Geschosse landen versetzt daneben
+function throwFlasks(g, ab) {
+  const p = g.player, s = p.stats;
+  p.alchemyStep = ((p.alchemyStep ?? -1) + 1) % ELEMENTS.length;
+  const element = ELEMENTS[p.alchemyStep];
+  const q = aimPoint(g, ab.range * s.range);
+  const n = 1 + s.projectiles;
+  for (let i = 0; i < n; i++) {
+    const a = i * 2.4, off = i === 0 ? 0 : 60 + 20 * i;
+    const tx = clamp(q.x + Math.cos(a) * off, 30, g.world.w - 30), ty = clamp(q.y + Math.sin(a) * off, 30, g.world.h - 30);
+    spawnPlayerBullet(g, { x: p.x, y: p.y, angle: Math.atan2(ty - p.y, tx - p.x), speed: ab.speed, dmg: s.damage * ab.mult, kind: "grenade", sprite: "proj_flask",
+      explodeR: ab.radius, tx, ty, range: 1400, r: 8, spin: 10, primary: true, proc: 1, element });
+  }
+}
+
+// Jägerin: Fangeisen hinlegen (Wirkung in allies.js)
+function placeTrap(g, x, y) {
+  const ab = g.kit.abilities.secondary;
+  spawnAlly(g, "trap", x, y, { dmg: g.player.stats.damage * (ab.mult ?? 3.5), r: ab.radius ?? 120 });
+}
+
 // ── Hauptangriff ────────────────────────────────────────────────────────────
 export function firePrimary(g) {
   const p = g.player;
@@ -45,20 +93,25 @@ export function firePrimary(g) {
   const ab = kit.abilities.primary;
   const s = p.stats;
   const n = 1 + s.projectiles;
-  const spread = ab.id === "arrow" ? 0.08 : 0.13;
+  const spread = ab.id === "arrow" || ab.id === "huntArrow" ? 0.08 : 0.13;
   const base = {
-    speed: ab.speed * s.range, range: ab.range * s.range, dmg: s.damage * ab.mult, sprite: kit.projectile, primary: true,
-    pierce: (ab.pierce || 0) + s.pierce, r: 7,
+    speed: (ab.speed || 700) * s.range, range: (ab.range || 600) * s.range, dmg: s.damage * ab.mult, sprite: kit.projectile, primary: true,
+    pierce: (ab.pierce || 0) + s.pierce, r: 7, raise: ab.raise || 0,
   };
   if (ab.id === "fireball") Object.assign(base, { kind: "fireball", explodeR: ab.radius, r: 10 });
   if (ab.id === "toxin") Object.assign(base, { kind: "toxin", r: 9 });
   if (ab.id === "block") Object.assign(base, { kind: "block", bounces: 1, r: 9 });
   if (ab.id === "shuriken") base.spin = 18;
-  const sx = p.x + Math.cos(p.aim) * 16;
-  const sy = p.y + Math.sin(p.aim) * 16 - 6;
-  for (let i = 0; i < n; i++) {
-    const a = p.aim + (i - (n - 1) / 2) * spread;
-    spawnPlayerBullet(g, { ...base, x: sx, y: sy, angle: a });
+  if (ab.id === "soulBolt") base.r = 9;
+  if (ab.melee) palmStrike(g, ab);
+  else if (ab.lob) throwFlasks(g, ab);
+  else {
+    const sx = p.x + Math.cos(p.aim) * 16;
+    const sy = p.y + Math.sin(p.aim) * 16 - 6;
+    for (let i = 0; i < n; i++) {
+      const a = p.aim + (i - (n - 1) / 2) * spread;
+      spawnPlayerBullet(g, { ...base, x: sx, y: sy, angle: a });
+    }
   }
   p.attackAnimT = 0;
 
@@ -237,6 +290,86 @@ export function castAbility(g, slot) {
         g.walls.push({ x1: p.x + Math.cos(a1) * R, y1: p.y + Math.sin(a1) * R, x2: p.x + Math.cos(a2) * R, y2: p.y + Math.sin(a2) * R, w: 26, t: 5 });
       }
       p.buffs.fortress = 5;
+      break;
+    }
+    // Mönch
+    case "chiWave":
+      spawnPlayerBullet(g, { x: p.x, y: p.y, angle: p.aim, speed: 720, range: 760 * p.stats.range, dmg: dmg * ab.mult, sprite: "proj_chi", r: 22, pierce: 999, proc: 1 });
+      break;
+    case "windStep": {
+      const a = p.moving ? p.moveAngle : p.aim;
+      burst(g, p.x, p.y, "#ffe9a0", 10, 200);
+      startDash(g, a, ab.dist, 0.22, { dmg: dmg * ab.mult, knockback: 320 });
+      break;
+    }
+    case "hundredFists":
+      p.spin = { t: 2, tickT: 0, tick: 0.1, dmg: dmg * ab.mult, r: ab.radius };
+      p.buffs.spin = 2;
+      break;
+
+    // Jägerin
+    case "bearTrap": {
+      const q = aimPoint(g, 380);
+      placeTrap(g, q.x, q.y);
+      break;
+    }
+    case "backflip":
+      placeTrap(g, p.x, p.y);
+      startDash(g, p.aim + Math.PI, ab.dist, 0.3);
+      break;
+    case "wolfPack":
+      for (const side of [-1, 1]) spawnAlly(g, "wolf", p.x + side * 40, p.y + 20, { mult: ab.mult });
+      ring(g, p.x, p.y, 90, "#c9b8a0", 0.35);
+      break;
+
+    // Nekromantin
+    case "boneSpikes": {
+      const q = aimPoint(g, 520);
+      addHazard(g, { shape: "circle", x: q.x, y: q.y, r: ab.radius, delay: 0.35, dmg: dmg * ab.mult, friendly: true, proc: 1, effect: "chill", knockback: 120, color: "#e6dfc8" });
+      break;
+    }
+    case "soulSwap": {
+      const ox = p.x, oy = p.y;
+      const q = freeLanding(g, ab.dist);
+      burst(g, p.x, p.y, "#9fe8c8", 12, 200);
+      p.x = q.x; p.y = q.y;
+      p.buffs.invuln = Math.max(p.buffs.invuln, 0.3);
+      burst(g, p.x, p.y, "#9fe8c8", 12, 200);
+      spawnAlly(g, "skeleton", ox, oy, { life: 10, mult: 1.0 });
+      if (p.items.hornbrecher) for (const e of enemiesNear(g, p.x, p.y, 90)) damageEnemy(g, e, dmg * 4 * p.items.hornbrecher, { knockback: 420 });
+      break;
+    }
+    case "deadArmy":
+      for (let i = 0; i < ab.shots; i++) {
+        const a = (Math.PI * 2 * i) / ab.shots;
+        spawnAlly(g, "skeleton", clamp(p.x + Math.cos(a) * 90, 30, g.world.w - 30), clamp(p.y + Math.sin(a) * 90, 30, g.world.h - 30), { life: 12, mult: 1.0 });
+      }
+      p.buffs.necroRage = 6;
+      ring(g, p.x, p.y, 120, "#9fe8c8", 0.4);
+      break;
+
+    // Alchemist
+    case "elixir":
+      healPlayer(g, p.stats.maxHp * 0.15);
+      p.buffs.elixir = 5;
+      ring(g, p.x, p.y, 60, "#c49aff", 0.35);
+      break;
+    case "smokeBomb": {
+      addZone(g, { x: p.x, y: p.y, r: ab.radius, t: 3, tick: 0.5, dmg: dmg * 0.3, friendly: true, effect: "slow", kind: "smoke", textColor: "#cfcfd8" });
+      burst(g, p.x, p.y, "#cfcfd8", 16, 220);
+      startDash(g, p.moving ? p.moveAngle : p.aim + Math.PI, ab.dist, 0.24);
+      break;
+    }
+    case "chainReaction": {
+      const q = aimPoint(g, 600);
+      addHazard(g, { shape: "circle", x: q.x, y: q.y, r: 110, delay: 0.6, dmg: dmg * ab.mult, friendly: true, proc: 1, color: "#c49aff", shake: 5,
+        onResolve: (gg, h) => {
+          for (let i = 0; i < 6; i++) {
+            const a = (Math.PI * 2 * i) / 6, el = ELEMENTS[i % ELEMENTS.length];
+            addHazard(gg, { shape: "circle", x: clamp(h.x + Math.cos(a) * 170, 30, gg.world.w - 30), y: clamp(h.y + Math.sin(a) * 170, 30, gg.world.h - 30), r: 95,
+              delay: 0.12 + i * 0.1, dmg: h.dmg, friendly: true, proc: 0.5, effect: el.effect, color: el.color, shake: 2 });
+          }
+        } });
       break;
     }
     default:

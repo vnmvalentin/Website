@@ -126,3 +126,122 @@ Jägerin (Fallen + Begleittier). Jedes braucht 3–4 Sprites (Stand, Lauf, Portr
   (`art:generate`)? Davon hängt Teil B ab.
 - **Balance-Ziel**: Soll ein normaler Spieler Thunderwing beim 5.–10. Lauf schaffen oder deutlich später?
   Gemessen wird mit `engine/__tests__/balance.mjs`.
+
+## C. Nach dem Sieg: Tiefe und Wendungen (16.11.2026, Ausbauplan „av-meta“)
+
+Tageslauf, Albtraum+ 1–5, Erfolge mit Farbvarianten und der Verlauf standen schon (Teil A). Rückmeldung aus der Abnahme:
+„Man fühlt sich sehr stark am Ende … durch mehr Stages im Endgame könnte man sehen, wie weit man kommt.“ Gewählt:
+**Tiefe + Rangliste** und **Zyklen mit Wendungen**. Zyklus 1 bleibt unverändert (abgenommen).
+
+- **Tiefe** = die Welt, in der ein Lauf endet, über alle Zyklen gezählt (1–6 erster Zyklus, 7 = Zyklus 2 Welt 1).
+  Server: `depthBest` je Konto, Bestenliste `?scope=tiefe` („Am weitesten“: Tiefe, dann Punkte; Entspannt zählt nicht),
+  Erfolge zyklus3/tiefe15/zyklus4/tiefe20 an den geprüften Welten. Spiel: Tiefe + Bestmarke im HUD (ab Zyklus 2),
+  Banner bei neuer Bestmarke, Siegfenster stellt „Weiter“ vor „Beenden“ und nennt die Wendung des nächsten Zyklus,
+  Endbildschirm und Verlauf zeigen die Tiefe.
+- **Wendungen** (`engine/twists.js` TWISTS): ab Zyklus 2 je Zyklus eine aus dem Seed (Tageslauf: für alle gleich), nie zweimal
+  hintereinander — Hast, Glaskanone, Menschenflut, Dürre, Zeit der Riesen, Elitenzug, Zähe Brut, Tyrannen, Nebel. Angesagt
+  beim Betreten des Zyklus, im HUD und im Pausenmenü.
+- **Warum die Zyklen vorher nie endeten** (gemessen mit dem Bot, Zyklen weitergespielt): Erfahrung und Gold je Kill wachsen
+  mit der Gefahrenstufe, die in den Zyklen exponentiell steigt — Stufe 243 in Tiefe 19, Schaden ×160, Feuerrate ×75.
+  Der Schaden lief im Takt mit dem Gegnerleben (×3 Mio.) mit, ab Tiefe 9 nahm der Bot gar keinen Schaden mehr.
+- **Zyklus-Druck** (nur ab Zyklus 2, `LOOP` und `rewardCoeff` in twists.js): Beute oberhalb von Gefahr 20 wächst nur mit der
+  Wurzel (der entscheidende Hebel), Gegner je Welt +8 % Tempo, Horde bis 1.100, Ausweichen je Welt −10 % (min. 20 %),
+  jeder Treffer kostet mindestens 2,5 % des Lebens je Welt (max. 30 %, Flächen halb).
+- **Gemessen** (7 Kits × 3 Seeds, bis 90 min): vorher endeten Sieger bei Tiefe 15–24 oder lebten nach 90 min noch; jetzt
+  8, 10, 12, 12, 12, 16, 17, 18, 18, 19 — meist Zyklus 2–3, Tiefe 12 nach ~35–50 min. Die frühen Tode im ersten Zyklus sind
+  identisch zu vorher. Der Bot weicht fast perfekt aus; ein Mensch endet eher früher.
+- Messwerkzeug: der Bot reist jetzt nach dem Sieg weiter (engine/bot.js); Tiefe messen mit einem Skript nach Art von
+  balance.mjs, das bis zum Tod läuft und `g.stagesCleared + 1` ausgibt.
+
+## D. Neue Welten im Endgame (17.11.2026, Ausbauplan „av-welten“)
+
+Entscheidung des Nutzers: Die neuen Welten kommen **ab Zyklus 2** — Zyklus 1 bleibt wie abgenommen. Kits folgen später als
+eigener Schritt (dann mit Entscheidung zu den Figuren).
+
+- **Welt-Sätze** (`data/biomes.js`): `BIOMES` (klassisch) und `BIOMES_NEU` (je Platz die neue Welt, sonst die klassische);
+  `biomeFor(stageIndex, loop)` nimmt in Zyklus 2, 4, … die neuen, in Zyklus 3, 5, … die klassischen. Sechs Welten je Zyklus
+  bleiben (Tiefe, Schwierigkeits-Tabelle, Erfolge). Neue Welten mischen keine Gegner anderer Welten bei (die kommen in
+  Paketen — schon 6 % brachten ganze Schneemann-Trupps auf den Friedhof).
+- **Friedhof** (Platz 1, statt Verlies): Boden mit Gras und Knöchelchen, Grabsteine, Gruften, kahle Bäume (2D in
+  `render/flat/world.js`, 3D in `scene3d.js buildObstacles`). Mechanik `graeber` (`engine/worldMechanics.js`): ein Grab, an
+  dem man vorbeigeht, kündigt sich 0,75 s an und weckt 3–8 Tote, dann ruht es 32 s. Gegner Ghul (Masse), Irrlicht (fliegt
+  heran, zerplatzt), Grabwächter (Brocken, Werte wie der Barbar — mit 17 Schaden starben Bot-Läufe sofort), dazu Skelette.
+  Boss **Klagende Witwe** (`engine/bosses/witwe.js`): Klageschrei als Fächer, Gräberruf, Schleier, Totentanz in Phase 2.
+- **Frostgipfel** (Platz 4) bekommt in den neuen Zyklen den **Frostwyrm** (`engine/bosses/frostwyrm.js`): Eisatem,
+  Eiszapfenregen, Sturzflug, Blizzard. Im ersten Zyklus bleibt es beim Yeti-Urahn (ein zweiter Boss hätte dort die
+  Boss-Wahl je Seed verschoben).
+- 3D-Figuren aus dem Bestand; neu ist die Variante `~grau` im Figuren-Lader (Farben entfärbt, dann getönt — die Färbung
+  multipliziert nur, ein oranger Drache wird sonst nie eisblau). Kodex-Bilder der neuen Figuren nur ergänzt (die übrigen
+  unverändert).
+- Gemessen (Bot, 7 Kits × 3 Seeds): Zyklus 1 identisch; Sieger enden bei Tiefe 8–16 (ein Ausreißer 24), wie vorher.
+- **Pilzwald, Sumpf, Uhrwerkturm (17.11.2026)** — Entscheidung des Nutzers: erst aus dem Bestand bauen, eigene
+  Figuren später nachziehen. Damit hat Zyklus 2 nur noch neue Welten (außer Frostgipfel mit neuem Boss und Finale).
+  - **Pilzwald** (Platz 2, statt Kristallhöhle), Mechanik `sporen`: Sporenpilze (Hindernis `sporeshroom`) kündigen sich
+    an und stoßen eine Sporenwolke aus (Fläche `kind: "spores"`, nur Verlangsamung — Flächen mit `dmg: 0` wirken in
+    `updateZones` nur ihren Zustand, sonst träfe der Mindestschaden ab Zyklus 2). Gegner Sporling, Sporenmotte,
+    Stachelpilz, Bovist (Exploder, platzt zu einer kleinen Wolke — `effect`/`blastColor`/`cloud` am Gegner), Moosaffe
+    (wirft Sporen), Waldschrat. Boss **Myzelkönig**: Sporenregen, Pilzsprossen, Brut, in Phase 2 Sprung mit Sporenwolke.
+  - **Sumpf** (Platz 3, statt Glutwüste), Mechanik `pfuetzen`: 26 Giftpfützen aus eigenem Zufall in `worldgen.js`
+    (`g.pools`, die übrigen Welten bauen sich Stein für Stein gleich), darin Gift (60 %, tötet nie) und Morast (−30 %).
+    Nebel nur in 3D (`fog`, Nebelfarbe = `FLOORS.sumpf.outside`). Gegner Giftkröte, Moorglub (fliegt), Sumpfwicht,
+    Tintenkrake (Mörser mit Gift), Riesenfrosch (Ansturm), Glubältester (Heiler). Boss **Moorhexe**: Giftkessel, Fluch, Ruf, in Phase 2
+    Sumpfwelle (Ring-Gefahren — 3D zeichnet Ringe jetzt als Kette von Scheiben).
+  - **Uhrwerkturm** (Platz 5, statt Schlackefeld), Mechanik `zahnraeder`: jede Zahnradfalle dreht eine Klinge
+    (150 px, Winkel aus Lage + Weltzeit, `gearAngle`), trifft dich höchstens einmal je Durchgang und mahlt Gegner am
+    Boden (Futter sofort, sonst 25 %, Elite 10 %, Champion/Koloss 6 %, Bosse nie). Der Mess-Bot umgeht die ganze
+    Klinge. Gegner Blechknecht, Ölschleim, Surrdrohne, Bolzenwerfer, Schildwerk, Dampfmech, Messingmech.
+    Boss **Uhrwerkkoloss**: Hieb, Zahnradwurf, Aufziehen (in Phase 2 doppelt), in Phase 2 Uhrzeiger.
+  - Werte der Gegner wie die der klassischen Welt auf demselben Platz; Bosse teilen die Beute mit deren Bossen.
+  - Gemessen (Bot, 7 Kits × 3 Seeds, bis 90 min): wer Zyklus 2 erreicht, endet bei Tiefe 8, 12 (5×), 15, 17, 19 und
+    einmal lebend bei 23 — vorher 8–19. Keine Tode an Zahnradfallen; Sumpf und Uhrwerkturm drücken das Leben am
+    stärksten (Uhrwerkturm wie das Schlackefeld im Zyklus 3).
+  - Kodex zeigt die neuen Welten (Gegner und Bosse mit Welt), Probe-Seite `/adventures/probe3d` kann sie laden.
+- **Eigene Figuren (17.11.2026, Nutzer: „ja bitte weitermachen“):** 16 neue Quaternius-Figuren (CC0, poly.pizza;
+  Liste mit Seiten in `public/media/av3d/README.md`) — Roboter-Drohnen, zwei Mechs und der „Animated Robot“ als Boss
+  im Uhrwerkturm, Frösche, Glubs, Krake und Sumpfwicht im Sumpf, Stachelpilz und Moosaffe im Pilzwald. Gegner und Boss
+  wurden nach ihrer Figur umbenannt (Namen = Aussehen). Weiter aus dem Bestand: Sporling, Sporenmotte, Bovist,
+  Waldschrat, Myzelkönig (Pilzkönig, passt), Moorhexe (Hexer, entfärbt).
+  - `bakeFigures.mjs` backt mit Namensliste nur einzelne Figuren (die alten Quellen braucht es dann nicht) und misst bei
+    den neuen die ganze Figur (`measureAll`): starre Teile wie der Automatenkopf zählten sonst nicht zur Höhe, die Figur
+    wurde dreimal zu groß. Die Biene („Bee Enemy“) fällt beim Backen auf null Dreiecke zusammen — nicht benutzt.
+- **Vier neue Kits (17.11.2026, Nutzer: CC0-Figuren suchen „ja bitte“):** Figuren aus Quaternius' „RPG Characters“
+  (OpenGameArt, CC0, nur FBX — `bakeFigures.mjs` liest FBX jetzt selbst), Wolf von poly.pizza. Freischaltung auf Stufen,
+  die bisher nur Items brachten (Backend/adventure/progression.js): Mönch 8, Jägerin 11, Alchemist 14, Nekromantin 16.
+  - **Mönch**: `palm` ist ein Nahkampfschlag (`melee` in kits.js, Bogen `arc`, jeder 3. Schlag Druckwelle rundum — mehr
+    Geschosse machen den Bogen breiter), Chi-Welle (durchschlägt alles), Windschritt (Ansturm mit Schaden), Hundert
+    Fäuste (`p.spin` mit 0,1 s Takt).
+  - **Jägerin**: Jagdpfeile, Fangeisen (Begleiter `trap` in allies.js: liegt, bis ein Gegner am Boden hineintritt, dann
+    Fläche mit Einfrieren; höchstens 8), Rückwärtssalto (legt ein Fangeisen), Wolfsrudel (Begleiter `wolf`, eigene
+    3D-Figur über `PET_FIG`/`KIT_PETS` in cast.js, nur für dieses Kit geladen).
+  - **Nekromantin**: Seelenblitz mit `raise` (8 %, `raiseSkeleton`, höchstens `RAISE_CAP` 8), Knochendornen (Wirkung
+    `chill`), Seelentausch (Teleport + Skelett), Heer der Toten (6 Skelette, `necroRage` verdoppelt ihren Schaden).
+  - **Alchemist**: Wurfflasche (`lob`, fliegt zum Zeiger; Elemente reihum `ELEMENTS` = Brand, Kälte `chill`, Gift — neue
+    Wirkungen eigener Flächen in combat.js), Elixier (Heilung + `elixir` +60 % Angriffstempo), Rauchbombe (Sprung +
+    bremsender Rauch `kind: "smoke"`), Kettenreaktion (sechs Explosionen aller Elemente im Ring).
+  - Gemessen (Bot, 5 Seeds, 1500 s): Siege Abenteurer 1, Ritter 1, Alchemist 1, Magier 2, Mönch 2, Jägerin 2, Ninja 3,
+    Nekromantin 4. Vor dem Nachziehen waren Nekromantin und Jägerin klar vorn (unverwundbare Helfer skalieren mit dem
+    Schaden) und der Alchemist hinten. Nekromantin beobachten.
+- **av-welten damit fertig** (wartet auf Deploy, Frontend + Backend wegen der Freischaltungen).
+
+## E. Rückmeldung nach den neuen Kits (17.11.2026)
+
+Nutzer: bessere Darstellung für Kisten, Schreine, Fallen, Geschosse, Waffen · „Jägerin platziert alle Fallen auf einmal“
+· „Wölfe targetten immer das gleiche Ziel — warum keine Wölfe als Gegner, mehr verschiedene Gegner?“ Entscheidung: neue
+Gegner **auch in Zyklus 1** (hebt die frühere Vorgabe „Zyklus 1 unverändert“ für diesen Punkt auf).
+
+- **Ladungen**: gehaltene Taste feuerte alle Ladungen in aufeinanderfolgenden Schritten (Fangeisen ×3, Türme ×2,
+  Doppel-Schattenschritt). `CHARGE_GAP` 0,4 s in engine/player.js.
+- **Helfer-Ziele**: Skelette und Wölfe behalten ihr Ziel und nehmen sonst eines, das noch kein anderer Helfer jagt
+  (`pickTarget` in engine/allies.js).
+- **Darstellung 3D**: Requisiten als starre Figuren (`static` in bakeFigures.mjs, `PROPS` in cast.js): Truhen
+  (offen nach Benutzung), Steinschrein mit schwebendem Edelstein in Schreinfarbe, Kerzenaltar, Bärenfalle,
+  Kristalle der Höhle. Geschosse nach Form (`SHOT_LOOK` in scene3d.js: Stab/Scheibe/Würfel/Kugel/Kristall), Orbitalklingen
+  als Klingen, Kriegsrad als Rad. Fallback: solange ein Modell lädt, bleiben die alten Kästen.
+- **Rudel** (neue KI `pack`): kreisen um den Helden (Platz je Wolf über die laufende Nummer), Ansage 0,45 s mit Bahn
+  in Sprunglänge (`aimLen`), Sprung, Rückzug. Gruftwolf (Verlies, Friedhof), Schneewolf/Husky (Frostgipfel),
+  Wüstenfuchs (Glutwüste), Glutwolf (Schlackefeld, Brand), Waldwolf (Pilzwald); Geschützwerk (Uhrwerkturm, Turm).
+- **Gemessen** (Bot, 8 Kits × 5 Seeds, 1500 s): vor den Rudeln 16/40 Siege; erste Fassung 11/40 und doppelt so viele
+  frühe Tode im Verlies → Rudel entschärft (Gruftwolf 28 Leben/7 Schaden, Biss ×1,1, Sprung alle ~3,2–3,4 s, seltener)
+  → 22/40 Siege, 2 frühe Tode. Streuung groß (Nekromantin 4 → 1); Zyklus 1 ist nicht schwerer als vorher.
+- Nebenbei: kompaktes HUD (Handy) kannte `depthBest` nicht und wäre ab Zyklus 2 abgestürzt — behoben.
+- Krabbe und Biene (Quaternius „MonsterArmature“) fallen beim Backen auf null Dreiecke zusammen — nicht benutzt.

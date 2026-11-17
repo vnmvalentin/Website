@@ -44,6 +44,10 @@ const RESKIN_KATALOG = {
         { id: "zylinder", name: "Zylinder", price: 10_000_000 },
         { id: "zauberhut", name: "Zauberhut", price: 25_000_000 },
         { id: "krone", name: "Krone", price: 100_000_000 },
+        // Aus dem Laden der Website (Backend/laden/katalog.js, Spur D 18.11.2026): kein Goldpreis — frei, solange das
+        // Konto den Artikel `laden` besitzt (gleicheLadenAb). IDs nie umbenennen: Käufe hängen am Artikel.
+        { id: "erdbeermuetze", name: "Erdbeermütze", price: null, laden: "gf-hut-erdbeere" },
+        { id: "imkerhut", name: "Imkerhut", price: null, laden: "gf-hut-imker" },
     ],
     tierhut: [
         { id: "schleife", name: "Schleife", price: 200_000 },
@@ -110,6 +114,7 @@ function reskinKaufen(state, kategorie, id) {
     if (!eintrag) return { ok: false, status: 400, error: "Diesen Reskin gibt es nicht." };
     const r = bringeReskinsAufStand(state);
     if (r.gekauft[kategorie].includes(eintrag.id)) return { ok: false, status: 400, error: "Schon gekauft." };
+    if (eintrag.laden) return { ok: false, status: 400, error: "Gibt es im Laden der Website." };
     if (eintrag.saison || !(Number(eintrag.price) > 0)) return { ok: false, status: 400, error: "Gibt es nur über die Saisonziele." };
     const kontostand = Number(state.gold) || 0;
     if (kontostand < eintrag.price) return { ok: false, status: 400, error: "Nicht genug Gold." };
@@ -132,6 +137,35 @@ function schalteFrei(state, kategorie, id) {
     if (r.gekauft[kategorie].includes(eintrag.id)) return false;
     r.gekauft[kategorie].push(eintrag.id);
     return true;
+}
+
+/**
+ * Designs aus dem Laden der Website mit dem Besitz des Kontos abgleichen: gekaufte freischalten, erstattete wieder
+ * wegnehmen (und ablegen, falls getragen). besitzt(artikelId) → true | false | null (null = unbekannt, z. B. Laden
+ * nicht erreichbar: dann bleibt alles, wie es ist).
+ * @returns {boolean} true, wenn sich etwas geändert hat (dann speichern)
+ */
+function gleicheLadenAb(state, besitzt) {
+    if (typeof besitzt !== "function") return false;
+    const r = bringeReskinsAufStand(state);
+    let geaendert = false;
+    for (const kat of KATEGORIEN) {
+        for (const eintrag of RESKIN_KATALOG[kat]) {
+            if (!eintrag.laden) continue;
+            const hat = besitzt(eintrag.laden);
+            if (hat !== true && hat !== false) continue;
+            const drin = r.gekauft[kat].includes(eintrag.id);
+            if (hat && !drin) {
+                r.gekauft[kat].push(eintrag.id);
+                geaendert = true;
+            } else if (!hat && drin) {
+                r.gekauft[kat] = r.gekauft[kat].filter((x) => x !== eintrag.id);
+                if (r.ausgeruestet[kat] === eintrag.id) r.ausgeruestet[kat] = null;
+                geaendert = true;
+            }
+        }
+    }
+    return geaendert;
 }
 
 function reskinAusruesten(state, kategorie, id) {
@@ -169,7 +203,7 @@ function ausgeruesteteReskins(state) {
 }
 
 module.exports = {
-    schalteFrei,
+    schalteFrei, gleicheLadenAb,
     RESKIN_KATALOG, KATEGORIEN, katalogFuer, eintragFuer,
     reskinKaufen, reskinAusruesten, reskinUebersicht, ausgeruesteteReskins, bringeReskinsAufStand,
 };

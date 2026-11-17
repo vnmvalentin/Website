@@ -96,10 +96,14 @@ const SOUNDS = {
   shrine: (ac) => arp(ac, [440, 554, 659], "sine", 0.12, 0.08, 0.3),
   death: (ac) => { tone(ac, { freq: [392, 98], type: "sawtooth", dur: 1.2, gain: 0.1, atk: 0.01, lp: 1200 }); noise(ac, { dur: 0.5, gain: 0.1, freq: 400 }); },
   victory: (ac) => arp(ac, [523, 659, 784, 1047, 784, 1047, 1319], "triangle", 0.14, 0.11, 0.35),
+  // Welt-Besonderheiten ab Zyklus 2 (engine/worldMechanics.js): Grab erwacht, Sporenwolke, Zahnradklinge trifft
+  grave: (ac) => { tone(ac, { freq: [82, 62], type: "sawtooth", dur: 0.6, gain: 0.07, atk: 0.05, lp: 400 }); noise(ac, { dur: 0.35, gain: 0.06, freq: 250 }); },
+  spores: (ac) => noise(ac, { dur: 0.3, gain: 0.05, freq: 900, q: 0.6 }),
+  gear: (ac) => { tone(ac, { freq: [900, 600], type: "square", dur: 0.06, gain: 0.05, lp: 2500 }); noise(ac, { dur: 0.08, gain: 0.07, freq: 3000 }); },
 };
 
 // Mindestabstand in Sekunden je Klang (alles andere spielt sofort)
-const THROTTLE = { hit: 0.06, crit: 0.08, kill: 0.07, gold: 0.09, hurt: 0.12, xp: 0.045 };
+const THROTTLE = { grave: 0.3, spores: 0.25, gear: 0.15, hit: 0.06, crit: 0.08, kill: 0.07, gold: 0.09, hurt: 0.12, xp: 0.045 };
 
 // step: Halbtonschritte nach oben (nur Klänge, die es auswerten — Kill und Kristall)
 export function playSound(name, step = 0) {

@@ -27,9 +27,9 @@ import ChallengeValue, { ChallengeBadge, ChallengeTrack } from "./ChallengeValue
 import { challengeStats } from "./challengeStats";
 import { overlayLook, CR_FONT_HREF } from "./overlayTheme";
 import { useMeasuredSize, hasCustomFormat, hasFixedBox, pickLayout, last5Emphasis } from "./overlayFit";
-import trophyIcon from "../../../assets/clashRoyale/ui/trophy.png";
+import trophyIcon from "../../../assets/clashRoyale/ui/trophy.webp";
 import trophy2v2Icon from "../../../assets/clashRoyale/ui/trophy2v2.webp";
-import league2v2Badge from "../../../assets/clashRoyale/badges/league2v2.png";
+import league2v2Badge from "../../../assets/clashRoyale/modes/league2v2.webp";
 import { useFontLink } from "../../../components/shell/useFontLink";
 
 // Der Server fragt Supercell höchstens alle 15 s neu (MIN_SYNC_INTERVAL_MS) — 8 s hier zeigt ein

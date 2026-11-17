@@ -5,39 +5,17 @@
 // später", „Konzentriere dich und frag nochmal", „Besser nicht zu wissen") sind
 // bewusst raus: wer fragt, hat sich schon konzentriert und will keine Vertröstung.
 //
-// Ja und Nein stehen mit je zehn Antworten gleich oft im Topf — eine Muschel, die
-// erkennbar öfter „Ja" sagt, ist als Orakel wertlos.
-const ANSWERS = [
-    // Ja
-    'Ja!',
-    'Definitiv ja!',
-    'Die Zeichen deuten auf Ja.',
-    'Ganz sicher!',
-    'Zweifellos!',
-    'Sehr wahrscheinlich.',
-    'Ja, vertrau mir!',
-    'Ohne Frage — ja!',
-    'Darauf kannst du wetten.',
-    'Meine Quellen sagen Ja.',
-    // Nein
-    'Nein!',
-    'Eher nicht.',
-    'Auf keinen Fall!',
-    'Die Zeichen deuten auf Nein.',
-    'Meine Quellen sagen Nein.',
-    'Sehr unwahrscheinlich.',
-    'Ich bezweifle es stark.',
-    'Ganz sicher nicht.',
-    'Vergiss es.',
-    'Das wird nichts.',
-];
+// Die Antworten stehen je Sprache in botTexts.js (fun.conchAnswers): Ja und Nein mit je zehn Antworten gleich oft
+// im Topf — eine Muschel, die erkennbar öfter „Ja" sagt, ist als Orakel wertlos.
+const { botText } = require('../botText');
 
 async function handleMiesmuschel(interaction) {
+    const t = botText(interaction).fun;
     const frage = interaction.options.getString('frage');
-    const answer = ANSWERS[Math.floor(Math.random() * ANSWERS.length)];
+    const answer = t.conchAnswers[Math.floor(Math.random() * t.conchAnswers.length)];
 
     await interaction.reply({
-        content: `🐚 **Magische Miesmuschel**\n❓ *${frage}*\n\n🔮 **${answer}**`,
+        content: `🐚 **${t.conchTitle}**\n❓ *${frage}*\n\n🔮 **${answer}**`,
     });
 }
 

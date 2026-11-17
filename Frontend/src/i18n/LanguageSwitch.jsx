@@ -4,6 +4,8 @@ import React from "react";
 import { FlagDE, FlagES, FlagGB } from "../components/Flags";
 
 const FLAGS = { de: FlagDE, en: FlagGB, es: FlagES };
+// Name je Sprache in der Sprache selbst — auf dem Handy steht nur die Flagge, Screenreader brauchen trotzdem einen Namen
+const NAMEN = { de: "Deutsch", en: "English", es: "Español" };
 
 /**
  * @param {object} props
@@ -23,8 +25,10 @@ export default function LanguageSwitch({ lang, langs, onChange, label = "Sprache
             type="button"
             onClick={() => onChange(l)}
             aria-pressed={lang === l}
+            aria-label={NAMEN[l] || l}
+            lang={l}
             className={`flex items-center gap-2 px-2 sm:px-2.5 h-8 rounded-[5px] text-xs font-bold uppercase transition-colors ${
-              lang === l ? "bg-white/15 text-white" : "text-white/45 hover:text-white"
+              lang === l ? "bg-white/15 text-white" : "text-white/60 hover:text-white"
             }`}
           >
             {Flag && <Flag size={18} />}

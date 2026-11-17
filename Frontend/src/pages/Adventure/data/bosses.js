@@ -20,6 +20,19 @@ export const BOSSES = {
     hp: 3400, dmg: 21, speed: 115, r: 95, item: "hornbrecher" },
   lavaWurm: { name: "Lavadrache", title: "Das Feuer unter dem Fels",
     hp: 3300, dmg: 21, speed: 150, r: 64, item: "magmaherz" },
+  // Friedhof (ab Zyklus 2): teilt sich die Beute mit dem Nekromantenfürsten, dessen Platz der Friedhof einnimmt
+  witwe: { name: "Klagende Witwe", title: "Die keine Ruhe findet",
+    hp: 2000, dmg: 14, speed: 105, r: 62, item: "knochenkrone" },
+  // Frostgipfel (ab Zyklus 2): teilt sich die Beute mit dem Yeti-Urahn
+  frostwyrm: { name: "Frostwyrm", title: "Atem des Gletschers",
+    hp: 3300, dmg: 19, speed: 150, r: 70, item: "frostfell" },
+  // Pilzwald, Sumpf, Uhrwerkturm (ab Zyklus 2): Beute wie der Boss der Welt, deren Platz sie einnehmen
+  myzelkoenig: { name: "Myzelkönig", title: "Herr der Sporen",
+    hp: 2500, dmg: 15, speed: 95, r: 88, item: "schleimkern" },
+  moorhexe: { name: "Moorhexe", title: "Die im Nebel singt",
+    hp: 3300, dmg: 19, speed: 110, r: 64, item: "skarabaeus" },
+  uhrwerkkoloss: { name: "Uhrwerkkoloss", title: "Der Aufgezogene",
+    hp: 3400, dmg: 21, speed: 120, r: 66, item: "hornbrecher" },
   thunderwing: { name: "Thunderwing", title: "Herr des Gewitters",
     hp: 5200, dmg: 22, speed: 200, r: 100, item: "sturmschwinge", final: true },
 };

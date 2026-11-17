@@ -103,18 +103,16 @@ const SIZES = [[1920, 1080], [2560, 1440], [1366, 768], [1280, 1000]];
       }
       await page.close();
     }
-    // ── Vom Tisch ins Kartenbuch: der Tisch verschwindet, die Leiste kommt zurück, die Szene wird abgebaut ──
+    // ── Vom Tisch ins Kartenbuch: seit Phase 5 liegt das Buch auf demselben Tisch (TableBook) — die Szene bleibt ──
     {
       const page = await open(1920, 1080);
       await page.waitForSelector('[data-table="bereit"]', { timeout: 60000 });
       await wait(800);
       await page.click('[data-menu="codex"]');
       await wait(600);
-      const hidden = await page.evaluate(() => document.querySelector(".st-root")?.hidden === true);
-      const topbar = await page.evaluate(() => getComputedStyle(document.querySelector(".ss-topbar")).display);
       await wait(4800);
-      const gone = await page.evaluate(() => !window.__ssRoom && document.querySelector(".st-root")?.dataset.table === "aus");
-      check("Ins Kartenbuch: Tisch weg, Leiste da, Szene nach kurzer Frist abgebaut", hidden && topbar !== "none" && gone, JSON.stringify({ hidden, topbar, gone }));
+      const book = await page.evaluate(() => ({ shown: document.querySelector(".st-root")?.hidden === false, book: !!document.querySelector(".sb-book"), room: !!window.__ssRoom }));
+      check("Ins Kartenbuch: Buch auf demselben Tisch, Szene bleibt", book.shown && book.book && book.room, JSON.stringify(book));
       // zurück ins Menü: der Tisch wird neu gedeckt
       await page.goBack();
       const again = await page.waitForFunction(() => window.__ssRoom?.stats().stage === "menu", { timeout: 30000 }).then(() => true, () => false);

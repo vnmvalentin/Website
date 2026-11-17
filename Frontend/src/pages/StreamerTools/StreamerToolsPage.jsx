@@ -4,12 +4,15 @@
 // eigene Seite (/tools/vorlagen) und „In 2 Minuten in OBS". Gleiche Karten wie Startseite und /fun, /clash, /community.
 // Ersetzt die generische Kategorieseite an derselben Adresse (vorgerendert, siehe prerender.js).
 import React, { Suspense, lazy, useState } from "react";
-import { Copy, LayoutTemplate, MonitorPlay, MousePointerClick } from "lucide-react";
+import { Copy, LayoutDashboard, LayoutTemplate, MonitorPlay, MousePointerClick } from "lucide-react";
 import SEO from "../../components/SEO";
 import TileCard from "../../components/TileCard";
-import { Page, PageHeader, SectionHeading } from "../../components/ui";
+import { Page, PageHeader, SectionHeading, Button } from "../../components/ui";
 import { getCategory } from "../../config/navigation";
 import { isLowGfx } from "../../utils/lowGfx";
+import { PRODUCT_IDS, PRODUCT_META, PRODUCT_TEXTS, productPath } from "./productTexts";
+import { LANDING_PATH, LANDING_IMAGE } from "../Discord/landingTexts";
+import { Link } from "react-router-dom";
 
 // Die laufenden Overlays in den Karten (Win Challenge, Twitch-Overlays, Bingo) — eigener Chunk, bis dahin steht das Bild
 const ToolPreview = lazy(() => import("./ToolPreviews"));
@@ -58,6 +61,8 @@ export default function StreamerToolsPage() {
         kicker="Für Streamer"
         title="Overlays & Tools für deinen Stream"
         description="Kostenlos und ohne Download: einstellen, Link kopieren, in OBS einfügen."
+        // Gemeinsamer Startpunkt: was läuft, was fehlt, Assistent fürs erste Overlay
+        actions={<Button to="/streamer-zentrale" icon={LayoutDashboard}>Streamer-Zentrale</Button>}
       />
 
       <section aria-label="Tools" className="mb-14 md:mb-16">
@@ -75,6 +80,35 @@ export default function StreamerToolsPage() {
             images={galleryImages}
             icon={LayoutTemplate}
           />
+        </div>
+      </section>
+
+      {/* Produktseiten: Vorschau, drei Schritte, Fragen — der Link zum Weitergeben (auch der Win Tracker) */}
+      <section aria-labelledby="st-products" className="mb-14 md:mb-16">
+        <SectionHeading id="st-products" title="Die Werkzeuge im Detail" />
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+          {PRODUCT_IDS.map((id) => {
+            const p = PRODUCT_TEXTS.dict("de").products[id];
+            return (
+              <Link key={id} to={productPath(id)}
+                className="group flex items-center gap-4 rounded-lg border border-line bg-surface/80 hover:border-accent/45 transition-colors p-4">
+                <img src={PRODUCT_META[id].image} alt="" loading="lazy" className="w-20 h-14 shrink-0 rounded-md object-contain bg-[#08080b]" />
+                <span className="min-w-0 flex-1">
+                  <span className="block font-semibold text-white">{p.name}</span>
+                  <span className="block text-sm text-white/50">{p.teaser}</span>
+                </span>
+              </Link>
+            );
+          })}
+          {/* Der Discord-Bot hat seine eigene Einstiegsseite (Discord/DiscordBotLandingPage.jsx) */}
+          <Link to={LANDING_PATH}
+            className="group flex items-center gap-4 rounded-lg border border-line bg-surface/80 hover:border-accent/45 transition-colors p-4">
+            <img src={LANDING_IMAGE} alt="" loading="lazy" className="w-20 h-14 shrink-0 rounded-md object-cover object-left-top bg-[#08080b]" />
+            <span className="min-w-0 flex-1">
+              <span className="block font-semibold text-white">Discord-Bot</span>
+              <span className="block text-sm text-white/50">Begrüßung, Rollen-Buttons, Tickets und Twitch-Meldungen.</span>
+            </span>
+          </Link>
         </div>
       </section>
 

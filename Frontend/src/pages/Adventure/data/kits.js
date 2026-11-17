@@ -105,10 +105,74 @@ export const KITS = {
       special: { id: "fortress", name: "Festung", cd: 20, desc: "Mauerring um dich für 5 s, darin +50 % Angriffstempo." },
     },
   },
+
+  // ── Kits seit November 2026 (Ausbauplan „av-welten“) — Figuren: Quaternius „RPG Characters“ (render3d/cast.js) ──
+  moench: {
+    id: "moench",
+    name: "Mönch",
+    role: "Nahkampf und Kombos",
+    projectile: "proj_chi",
+    hp: 140, damage: 12, speed: 240, armor: 8, crit: 0.05,
+    blurb: "Kämpft mit bloßen Händen. Jeder dritte Schlag wird zur Druckwelle, der Windschritt trifft alles auf dem Weg.",
+    abilities: {
+      // melee: kein Geschoss, sondern ein Schlag im Bogen vor dir (range = Reichweite, arc = halber Öffnungswinkel)
+      primary: { id: "palm", name: "Handflächenschlag", melee: true, mult: 1.7, rate: 3.0, range: 150, arc: 1.0, comboMult: 2.5,
+        desc: "Schlag vor dir (170 %), stößt zurück. Jeder 3. Schlag ist eine Druckwelle rundum (250 %)." },
+      secondary: { id: "chiWave", name: "Chi-Welle", mult: 2.4, cd: 5, desc: "Eine Welle aus Chi rast geradeaus durch alle Gegner (240 %)." },
+      utility: { id: "windStep", name: "Windschritt", mult: 1.5, cd: 4, dist: 280, desc: "Prescht in Laufrichtung und trifft alles auf dem Weg (150 %)." },
+      special: { id: "hundredFists", name: "Hundert Fäuste", mult: 0.75, cd: 14, radius: 160, desc: "2 s lang ein Hagel aus Schlägen um dich (20 × 75 %)." },
+    },
+  },
+  jaegerin: {
+    id: "jaegerin",
+    name: "Jägerin",
+    role: "Fallen und Wolfsrudel",
+    projectile: "proj_arrow",
+    hp: 110, damage: 12, speed: 245, armor: 2, crit: 0.06,
+    blurb: "Legt Fangeisen und jagt mit ihren Wölfen. Der Salto bringt sie aus jeder Umklammerung.",
+    abilities: {
+      primary: { id: "huntArrow", name: "Jagdpfeil", mult: 1.15, rate: 3.2, speed: 1000, range: 740, desc: "Schnelle Pfeile, je 115 %. +6 % Krit." },
+      secondary: { id: "bearTrap", name: "Fangeisen", mult: 3.0, cd: 4.5, charges: 3, radius: 105,
+        desc: "Legt ein Fangeisen zum Zeiger. Wer hineintritt, löst es aus: 300 % rundum, 1,5 s festgefroren. 3 Ladungen." },
+      utility: { id: "backflip", name: "Rückwärtssalto", cd: 4, dist: 260, desc: "Springt vom Zeiger weg und lässt ein Fangeisen zurück." },
+      special: { id: "wolfPack", name: "Wolfsrudel", mult: 1.5, cd: 18, desc: "Zwei Wölfe jagen 15 s lang mit dir, jeder Biss 150 %." },
+    },
+  },
+  nekromantin: {
+    id: "nekromantin",
+    name: "Nekromantin",
+    role: "Heer der Toten",
+    projectile: "proj_soul",
+    hp: 100, damage: 12, speed: 225, armor: 0, crit: 0.02,
+    blurb: "Wer durch ihren Seelenblitz fällt, steht als Skelett für sie wieder auf. Das Heer der Toten überrennt alles.",
+    abilities: {
+      primary: { id: "soulBolt", name: "Seelenblitz", mult: 1.25, rate: 2.6, speed: 680, range: 640, raise: 0.08,
+        desc: "Seelenblitz, 125 %. Wer daran stirbt, steht zu 8 % als Skelett für dich auf (höchstens 8)." },
+      secondary: { id: "boneSpikes", name: "Knochendornen", mult: 2.2, cd: 5, radius: 130, desc: "Knochen brechen am Zeiger aus dem Boden: 220 %, verlangsamt." },
+      utility: { id: "soulSwap", name: "Seelentausch", cd: 6, dist: 340, desc: "Teleportiert zum Zeiger, an der alten Stelle steht ein Skelett auf." },
+      special: { id: "deadArmy", name: "Heer der Toten", cd: 20, shots: 6, desc: "Ruft 6 Skelette um dich. Alle Skelette schlagen 6 s lang doppelt so hart." },
+    },
+  },
+  alchemist: {
+    id: "alchemist",
+    name: "Alchemist",
+    role: "Tränke und Reaktionen",
+    projectile: "proj_flask",
+    hp: 120, damage: 12, speed: 230, armor: 5, crit: 0.02,
+    blurb: "Wirft Flaschen, die abwechselnd brennen, bremsen und vergiften. Die Kettenreaktion bringt alles auf einmal.",
+    abilities: {
+      // lob: fliegt zum Zeiger und platzt dort (radius); die Elemente wechseln reihum (engine/abilities.js ELEMENTS)
+      primary: { id: "flask", name: "Wurfflasche", lob: true, mult: 1.6, rate: 2.4, speed: 620, range: 560, radius: 80,
+        desc: "Flasche zum Zeiger, platzt rundum (160 %): im Wechsel Feuer, Frost und Säure." },
+      secondary: { id: "elixir", name: "Elixier", cd: 10, desc: "Trinkt ein Elixier: heilt 15 % und gibt 5 s +60 % Angriffstempo." },
+      utility: { id: "smokeBomb", name: "Rauchbombe", cd: 5, dist: 240, radius: 150, desc: "Springt in Laufrichtung, am Absprung bleibt Rauch, der Gegner bremst." },
+      special: { id: "chainReaction", name: "Kettenreaktion", mult: 3.0, cd: 15, desc: "Großer Kolben zum Zeiger, platzt in eine Kette aus Explosionen aller Elemente (je 300 %)." },
+    },
+  },
 };
 
 
-export const KIT_ORDER = ["default", "knight", "ninja", "wizard", "bestmod", "cyber", "gh0stqq"];
+export const KIT_ORDER = ["default", "knight", "ninja", "wizard", "bestmod", "cyber", "gh0stqq", "moench", "jaegerin", "nekromantin", "alchemist"];
 
 // Tasten für die Fähigkeitsleiste (Anzeige im HUD und im Kit-Menü)
 export const SLOT_KEYS = { primary: "LMB", secondary: "RMB", utility: "Leer", special: "R", equipment: "Q" };

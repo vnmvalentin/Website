@@ -12,6 +12,7 @@ import RateBox from "../ui/RateBox.jsx";
 import { refForRound, randomTitle, infoFromLevel } from "../ui/levelRef.js";
 import { pfadLevel } from "../client/generateWorldAsync.js";
 import { merkeRunde, eintragAusRunde } from "./rundenVerlauf.js";
+import { zaehleRennen } from "../kontoStand.js";
 
 /**
  * Wertung über mehrere Runden: die Serie (Zwischenstand bzw. Gesamtwertung) oder die ganze Sitzung seit der Lobby.
@@ -113,6 +114,8 @@ export default function Results({ state, meId, isHost, actions }) {
   useEffect(() => {
     const entry = eintragAusRunde({ round, results, meId, ref: levelRef, info: levelRef?.kind === "pfad" ? infoFromLevel(level) : null });
     if (entry) merkeRunde(entry);
+    // Statistik am Konto (je Runde einmal; Zuschauer stehen nicht in den Ergebnissen)
+    if (entry && (results || []).some((r) => r.id === meId)) zaehleRennen({ id: entry.id, platz: entry.place, teilnehmer: entry.total });
   }, [round?.startAt, round?.number, results, level, meId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const primary = (name, icon, label, fn) => (

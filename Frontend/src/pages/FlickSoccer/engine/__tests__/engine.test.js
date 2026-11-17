@@ -94,7 +94,7 @@ test('Tor ohne Sieg: neu aufgestellt, Gegner hat Anstoß', () => {
 });
 
 test('Designs: Klassik immer frei, Freischaltung über Zähler, Fortschritt gedeckelt', async () => {
-  const { SKIN_IDS, isUnlocked, skinProgress, unlockedSkins, isSkin } = await import('../index.js');
+  const { SKINS, SKIN_IDS, isUnlocked, skinProgress, unlockedSkins, isSkin } = await import('../index.js');
   assert.ok(isUnlocked('klassik', {}));
   assert.equal(isUnlocked('streifen', { played: 2 }), false);
   assert.ok(isUnlocked('streifen', { played: 3 }));
@@ -105,7 +105,8 @@ test('Designs: Klassik immer frei, Freischaltung über Zähler, Fortschritt gede
     played: 99, wins: 99, goals: 99, winsEasy: 1, winsMedium: 1, winsHard: 1, winsProfi: 1, onlineWins: 1, cleanSheets: 1,
     bankGoals: 9, fieldsWon: 99, chaosWins: 9, tourStars: 99, customWins: 1,
   };
-  assert.equal(unlockedSkins(all).length, SKIN_IDS.length);
+  // alle außer den Designs aus dem Laden — die gibt es nur mit Kauf (Website/__tests__/ladenDesigns.test.js)
+  assert.equal(unlockedSkins(all).length, SKIN_IDS.filter((id) => !SKINS[id].laden).length);
 });
 
 test('Wiederholung: Dauer wächst mit dem Schuss, ist aber gedeckelt', async () => {

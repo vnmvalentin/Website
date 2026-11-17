@@ -244,6 +244,17 @@ function getBotLanguage(guildId) {
     return lang;
 }
 
+/**
+ * Neuer Server (bot/onboarding.js): Sprache des Bots festlegen, wenn es noch keine Einstellungen gibt.
+ * Hatte der Server den Bot schon einmal, bleibt seine Wahl. Gibt die geltende Sprache zurück.
+ */
+function initGuildLanguage(guildId, lang) {
+    const key = String(guildId);
+    db.prepare('INSERT OR IGNORE INTO guild_settings (guild_id, bot_language) VALUES (?, ?)').run(key, botLanguage(lang));
+    languageCache.delete(key);
+    return getBotLanguage(key);
+}
+
 // ── REAKTIONSROLLEN ────────────────────────────────────────────────────────────
 function getReactionRoles(guildId) {
     return db.prepare('SELECT * FROM reaction_roles WHERE guild_id = ?').all(guildId).map(row => ({
@@ -514,7 +525,7 @@ setInterval(runDiscordBackup, 30 * 60 * 1000);
 runDiscordBackup({ silent: true });
 
 module.exports = {
-    getSettings, saveSettings, getBotLanguage,
+    getSettings, saveSettings, getBotLanguage, initGuildLanguage,
     getReactionRoles, saveReactionRole, updateReactionRole, deleteReactionRole,
     getApprovalConfigs, getApprovalConfig, getApprovalConfigById,
     saveApprovalConfig, updateApprovalConfigMessageId, updateApprovalConfig, deleteApprovalConfig,

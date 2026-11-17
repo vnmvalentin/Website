@@ -7,9 +7,9 @@
 // (onHover).
 //
 // Plätze: Die Kamera sitzt auf dem eigenen Platz (unten). Die anderen sitzen im Uhrzeigersinn links, gegenüber, rechts.
-// Der Tisch schwebt ein Stück über der Welt, die gerade gilt: Wechselt sie, dreht sich die Trommel die neue Welt
-// unter den Tisch.
-// Bei der Kipp-Karte überschlägt sich die Trommel einmal ganz; die Richtung zeigen die Pfeile am Tischrand.
+// Der Tisch schwebt ein Stück über der Welt, die gerade gilt — man sitzt mitten in ihr, die anderen Welten sind
+// unsichtbar. Wechselt sie, wird sofort umgeschaltet (seit 16.11.2026; vorher drehte bzw. blendete eine Trommel).
+// Bei der Wirbel-Karte dreht sich der Tisch einmal herum; die Richtung zeigen die Pfeile am Tischrand.
 //
 // Leuchten: Mit echter Grafikkarte läuft ein Leucht-Durchgang (Bloom). Er lässt nur Flächen glühen, deren Farbe über
 // Weiß hinausgeht (worlds.js glow mit boost > 1) — Karten und Figuren bleiben scharf. Im Sparmodus entfällt er.
@@ -20,16 +20,19 @@ import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPa
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 import { ANIM, KINDS, RULES, TEAMS, WORLDS } from '../engine/index.js';
 import { cardCanvas, cardKey, CARD_W, CARD_H } from './cardArt.js';
-import { buildDrum, dotTexture, glow, FLOOR, R } from './worlds.js';
+import { buildWorlds, dotTexture, glow, FLOOR } from './worlds.js';
 import { createAvatar } from './avatars.js';
 import { ambience, sfx } from '../sound.js';
 import { SKIN_COLORS, normalizeSkin } from '../skins.js';
 
 const CW = 0.62; // Kartenbreite in Welt-Einheiten
 const CH = CW * (CARD_H / CARD_W);
-const SEAT_RADIUS = 4.3;
-const PILE = new THREE.Vector3(0.5, 0.02, 0.1);
-const DECK = new THREE.Vector3(-0.72, 0.02, 0.1);
+// Tisch und Karten in der Mitte seit 16.11.2026 größer (Wunsch des Nutzers): Platte 3,2 → 3,75, Ablage und Stapel ×1,6
+const TABLE_R = 3.75;
+const MID = 1.6; // Größe der Karten auf dem Tisch (Ablage, Nachziehstapel)
+const SEAT_RADIUS = 4.95;
+const PILE = new THREE.Vector3(0.95, 0.02, 0.15);
+const DECK = new THREE.Vector3(-1.2, 0.02, 0.15);
 const CENTER = new THREE.Vector3(0, 1.4, 0);
 const HAND_DIST = 3.4; // Abstand der eigenen Hand vor der Kamera
 const FAN_SCALE = 0.74;
@@ -89,16 +92,6 @@ export function createTableScene(canvas, opts = {}) {
   camRig.add(camera);
   let baseFov = 50;
   let fovKick = 0;
-  // Schleier direkt vor der Kamera: Weltwechsel blenden ab und auf statt die Trommel zu drehen (swapWorld)
-  const veil = new THREE.Mesh(
-    new THREE.PlaneGeometry(1, 1),
-    new THREE.MeshBasicMaterial({ color: '#000000', transparent: true, opacity: 0, depthTest: false, depthWrite: false }),
-  );
-  veil.material.toneMapped = false;
-  veil.position.set(0, 0, -0.15);
-  veil.renderOrder = 1000;
-  veil.visible = false;
-  camera.add(veil);
 
   const hemi = new THREE.HemisphereLight('#ffffff', '#3a3550', 1.25);
   const sun = new THREE.DirectionalLight('#ffffff', 1.7);
@@ -127,35 +120,43 @@ export function createTableScene(canvas, opts = {}) {
     composer.addPass(new OutputPass());
   }
 
-  // ── Trommel ─────────────────────────────────────────────────────────────────────────────
-  const { drum, walls } = buildDrum(low);
-  scene.add(drum);
-  drum.position.y = R - FLOOR; // die untere Wand liegt als Boden unter dem schwebenden Tisch
+  // ── Welten ──────────────────────────────────────────────────────────────────────────────
+  // Alle vier liegen als Boden unter dem schwebenden Tisch, sichtbar ist nur die aktuelle (showWorld)
+  const { root: worldRoot, worlds } = buildWorlds(low);
+  worldRoot.position.y = -FLOOR;
+  scene.add(worldRoot);
   const levels = [0, 0, 0, 0]; // angezeigte Ladung je Welt (gleitet zum Ziel)
   const levelTarget = [0, 0, 0, 0];
-  const focus = [1, 0, 0, 0]; // 1 = aktuelle Welt; die anderen zeigen ihre Ladung nur gedämpft (sonst ragen sie in die Sitzplätze)
   let charges = [0, 0, 0, 0];
-  let drumAngle = 0;
+  let shownWorld = -1;
+  function showWorld(w) {
+    if (w === shownWorld) return;
+    shownWorld = w;
+    worlds.forEach((x, i) => {
+      x.group.visible = i === w;
+    });
+    levels[w] = levelTarget[w]; // keine Lava, die erst nach dem Umschalten hochkriecht
+  }
 
   // ── Tisch ───────────────────────────────────────────────────────────────────────────────
   const table = new THREE.Group();
   scene.add(table);
   const slate = new THREE.MeshStandardMaterial({ color: '#2d2937', roughness: 0.7 });
-  const top = new THREE.Mesh(new THREE.CylinderGeometry(3.2, 3.05, 0.24, 56), slate);
+  const top = new THREE.Mesh(new THREE.CylinderGeometry(TABLE_R, TABLE_R - 0.15, 0.24, 64), slate);
   top.position.y = -0.12;
   top.receiveShadow = true;
   top.castShadow = true;
   table.add(top);
-  const rim = new THREE.Mesh(new THREE.TorusGeometry(3.2, 0.07, 8, 64), new THREE.MeshStandardMaterial({ color: '#e7dcc4', roughness: 0.5 }));
+  const rim = new THREE.Mesh(new THREE.TorusGeometry(TABLE_R, 0.07, 8, 72), new THREE.MeshStandardMaterial({ color: '#e7dcc4', roughness: 0.5 }));
   rim.rotation.x = Math.PI / 2;
   table.add(rim);
   const inlayMat = glow(WORLDS[0].color, {}, 1.7);
-  const inlay = new THREE.Mesh(new THREE.RingGeometry(2.28, 2.36, 64), inlayMat);
+  const inlay = new THREE.Mesh(new THREE.RingGeometry(TABLE_R * 0.712, TABLE_R * 0.737, 72), inlayMat);
   inlay.rotation.x = -Math.PI / 2;
   inlay.position.y = 0.004;
   table.add(inlay);
   // Der Tisch schwebt auf einem Felsbrocken
-  const rock = new THREE.Mesh(new THREE.ConeGeometry(2.9, 2.5, 9), new THREE.MeshStandardMaterial({ color: '#4b4458', roughness: 1, flatShading: true }));
+  const rock = new THREE.Mesh(new THREE.ConeGeometry(TABLE_R * 0.9, 2.5, 9), new THREE.MeshStandardMaterial({ color: '#4b4458', roughness: 1, flatShading: true }));
   rock.rotation.x = Math.PI;
   rock.position.y = -1.48;
   rock.castShadow = true;
@@ -168,20 +169,20 @@ export function createTableScene(canvas, opts = {}) {
   for (let i = 0; i < 12; i += 1) {
     const a = (i / 12) * Math.PI * 2;
     const m = new THREE.Mesh(arrowGeo, inlayMat);
-    m.position.set(Math.sin(a) * 2.72, 0.012, Math.cos(a) * 2.72);
+    m.position.set(Math.sin(a) * TABLE_R * 0.85, 0.012, Math.cos(a) * TABLE_R * 0.85);
     m.rotation.y = a - Math.PI / 2; // Spitze zeigt im Uhrzeigersinn (von oben gesehen)
     arrows.add(m);
   }
   table.add(arrows);
-  // Ladungs-Steine am Tischrand: je Welt vier (zwischen den Plätzen), sie leuchten mit der Ladung auf
+  // Ladungs-Steine am Tischrand: je Welt RULES.CHARGE_MAX (zwischen den Plätzen), sie leuchten mit der Ladung auf
   const studs = [];
   const studGeo = new THREE.CylinderGeometry(0.12, 0.12, 0.06, 12);
   for (let w = 0; w < 4; w += 1) {
     for (let k = 0; k < RULES.CHARGE_MAX; k += 1) {
-      const a = Math.PI / 4 + (w * Math.PI) / 2 + (k - (RULES.CHARGE_MAX - 1) / 2) * 0.135;
+      const a = Math.PI / 4 + (w * Math.PI) / 2 + (k - (RULES.CHARGE_MAX - 1) / 2) * 0.115;
       const m = new THREE.Mesh(studGeo, new THREE.MeshBasicMaterial({ color: '#3a3644' }));
       m.material.toneMapped = false;
-      m.position.set(Math.sin(a) * 2.98, 0.03, Math.cos(a) * 2.98);
+      m.position.set(Math.sin(a) * TABLE_R * 0.93, 0.03, Math.cos(a) * TABLE_R * 0.93);
       table.add(m);
       studs.push(m);
     }
@@ -222,7 +223,7 @@ export function createTableScene(canvas, opts = {}) {
 
   // Nachziehstapel
   const deckMat = new THREE.MeshStandardMaterial({ color: '#f1ead9', roughness: 0.8 });
-  const deckGeo = new THREE.BoxGeometry(CW, 1, CH);
+  const deckGeo = new THREE.BoxGeometry(CW * MID, 1, CH * MID);
   deckGeo.translate(0, 0.5, 0);
   const deck = new THREE.Mesh(deckGeo, [deckMat, deckMat, backMat, deckMat, deckMat, deckMat]);
   deck.position.copy(DECK);
@@ -254,7 +255,62 @@ export function createTableScene(canvas, opts = {}) {
   const hand = []; // eigene Karten (Kinder von handRig)
   const handRig = new THREE.Group();
   camera.add(handRig);
-  const ui = { playable: new Set(), canDraw: false, hover: null, hoverDeck: false, down: null };
+  // erupts: Karte → Welt, die sie ausbrechen lässt (Hinweis an der Handkarte, kommt von GameTable über setInteractive)
+  const ui = { playable: new Set(), canDraw: false, erupts: new Map(), hover: null, hoverDeck: false, down: null };
+
+  // Hinweis „bricht aus“: Zackenstern in der Farbe der Welt mit Ausrufezeichen, steht oben aus der Handkarte heraus
+  const badgeMats = [];
+  const badgeGeo = new THREE.PlaneGeometry(0.3, 0.3);
+  function badgeMat(w) {
+    if (!badgeMats[w]) {
+      const cv = document.createElement('canvas');
+      cv.width = 128;
+      cv.height = 128;
+      const ctx = cv.getContext('2d');
+      ctx.translate(64, 64);
+      ctx.beginPath();
+      for (let i = 0; i < 20; i += 1) {
+        const r = i % 2 ? 40 : 58;
+        const a = (i / 20) * Math.PI * 2 - Math.PI / 2;
+        if (i) ctx.lineTo(Math.cos(a) * r, Math.sin(a) * r);
+        else ctx.moveTo(Math.cos(a) * r, Math.sin(a) * r);
+      }
+      ctx.closePath();
+      ctx.fillStyle = WORLDS[w].color;
+      ctx.fill();
+      ctx.lineJoin = 'round';
+      ctx.lineWidth = 7;
+      ctx.strokeStyle = '#17161d';
+      ctx.stroke();
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.roundRect(-7, -31, 14, 40, 5);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(0, 21, 8, 0, Math.PI * 2);
+      ctx.fill();
+      const tex = new THREE.CanvasTexture(cv);
+      tex.colorSpace = THREE.SRGBColorSpace;
+      badgeMats[w] = new THREE.MeshBasicMaterial({ map: tex, transparent: true, alphaTest: 0.05 });
+    }
+    return badgeMats[w];
+  }
+  // Zeichen an einer Handkarte zeigen, umfärben oder verstecken (w = Welt oder undefined)
+  function setBadge(c, w, pulse) {
+    const u = c.userData;
+    if (w === undefined || blind) {
+      if (u.badge) u.badge.visible = false;
+      return;
+    }
+    if (!u.badge) {
+      u.badge = new THREE.Mesh(badgeGeo, badgeMat(w));
+      u.badge.position.set(0, CH / 2 + 0.05, 0.02);
+      c.add(u.badge);
+    }
+    if (u.badge.material !== badgeMat(w)) u.badge.material = badgeMat(w);
+    u.badge.visible = true;
+    u.badge.scale.setScalar(1 + pulse * 0.1);
+  }
 
   const viewSeat = () => (mySeat === null ? 0 : mySeat);
   const rel = (seat) => (seat - viewSeat() + n) % n;
@@ -480,6 +536,7 @@ export function createTableScene(canvas, opts = {}) {
     if (i < 0) return null;
     const [obj] = hand.splice(i, 1);
     if (ui.hover === obj) setHover(null);
+    if (obj.userData.badge) obj.userData.badge.visible = false; // das Zeichen gehört nur in die Hand
     scene.attach(obj);
     obj.userData.front.material.color.setScalar(1);
     layoutHand();
@@ -488,12 +545,14 @@ export function createTableScene(canvas, opts = {}) {
   function updateHand(dt) {
     const k = 1 - Math.exp(-dt * 11);
     const myTurn = ui.playable.size > 0 || ui.canDraw;
+    const pulse = Math.sin(performance.now() / 160) * 0.5 + 0.5;
     for (const c of hand) {
       const u = c.userData;
       if (u.wait > 0) {
         u.wait -= dt;
         continue;
       }
+      setBadge(c, ui.erupts.get(u.card.id), pulse);
       const s = u.slot;
       if (!s) continue;
       const playable = ui.playable.has(u.card.id);
@@ -575,38 +634,15 @@ export function createTableScene(canvas, opts = {}) {
   canvas.addEventListener('pointerup', onUp);
   canvas.addEventListener('pointerleave', onLeave);
 
-  // ── Welt drehen ─────────────────────────────────────────────────────────────────────────
-  // Zielwinkel: die aktuelle Welt liegt unten
-  function targetAngle() {
-    const want = -(world * Math.PI) / 2;
-    const turns = Math.round((drumAngle - want) / (Math.PI * 2));
-    return want + turns * Math.PI * 2;
-  }
+  // ── Welt wechseln ───────────────────────────────────────────────────────────────────────
+  // Sofort umschalten: Welt, Himmel, Licht und Tischfarbe springen auf die neue Welt (16.11.2026: Wunsch des Nutzers,
+  // schneller und ohne Abblenden; davor wurde abgeblendet, noch davor drehte sich eine Trommel). Die Kamera bleibt.
   function applyWorldLook() {
+    showWorld(world);
     skyTarget.set(WORLDS[world].sky);
+    sky.copy(skyTarget);
     inlayMat.color.set(WORLDS[world].color).multiplyScalar(1.7);
     worldLight.color.set(WORLDS[world].color);
-  }
-  // Welt wechseln ohne Drehung (seit 16.11.2026; vorher drehte sich die Trommel mit Zoom-Stoß — Sorge des Nutzers:
-  // davon kann Spielern übel werden). Das Bild blendet in die dunkle Farbe der neuen Welt ab, die Trommel springt
-  // verdeckt um, onSwap setzt Licht und Effekte, dann blendet es wieder auf. Die Kamera bewegt sich dabei nicht.
-  function swapWorld(ms, onSwap) {
-    const down = ms * 0.38;
-    veil.material.color.set(WORLDS[world].dark);
-    veil.material.opacity = 0;
-    veil.visible = true;
-    return anim(down, (e) => {
-      veil.material.opacity = e * 0.94;
-    }).then(() => {
-      drumAngle = targetAngle();
-      onSwap?.();
-      return anim(ms - down, (e) => {
-        veil.material.opacity = 0.94 * (1 - e);
-      });
-    }).then(() => {
-      veil.visible = false;
-      veil.material.opacity = 0;
-    });
   }
   function setCharges(list) {
     charges = list.slice();
@@ -738,7 +774,7 @@ export function createTableScene(canvas, opts = {}) {
     for (let i = 0; i < 6; i += 1) {
       const a = (i / 6) * Math.PI * 2;
       const m = new THREE.Mesh(geo, mat);
-      m.position.set(Math.sin(a) * 4.05, 0, Math.cos(a) * 4.05);
+      m.position.set(Math.sin(a) * (TABLE_R + 0.85), 0, Math.cos(a) * (TABLE_R + 0.85));
       m.rotation.y = a - Math.PI / 2; // Spitze im Uhrzeigersinn
       orbit.add(m);
     }
@@ -867,9 +903,9 @@ export function createTableScene(canvas, opts = {}) {
       const target = PILE.clone();
       target.y += 0.012 * Math.min(pile.length, 12);
       const drop = fx ? 420 : total * 0.5;
-      await fly(obj, target, flatQuat((Math.random() - 0.5) * 0.9), drop, fx ? 0.3 : 1.1, 1);
+      await fly(obj, target, flatQuat((Math.random() - 0.5) * 0.9), drop, fx ? 0.3 : 1.1, MID);
       sfx.card();
-      ring(new THREE.Vector3(PILE.x, 0.03, PILE.z), WORLDS[e.world].color, 560, fx ? 2.6 : 1.2);
+      ring(new THREE.Vector3(PILE.x, 0.03, PILE.z), WORLDS[e.world].color, 560, fx ? 3 : 1.7);
       if (fx) lightKick = Math.max(lightKick, 0.6);
       pile.push(obj);
       while (pile.length > 12) dropCard(pile.shift());
@@ -906,16 +942,16 @@ export function createTableScene(canvas, opts = {}) {
       dropCard(obj);
     },
 
+    // Weltwechsel: sofort in der neuen Welt, dazu ein Funkenstoß und ein Ring in ihrer Farbe
     async world(e) {
       sfx.world();
       ambience(e.to);
       world = e.to;
-      await swapWorld(ANIM.world * 0.55, () => {
-        applyWorldLook();
-        lightKick = Math.max(lightKick, 1);
-        burst(WORLDS[e.to].color, new THREE.Vector3(0, 0.2, 0), 50, 1200, 9, 2);
-      });
-      await wait(ANIM.world * 0.45);
+      applyWorldLook();
+      lightKick = Math.max(lightKick, 1);
+      burst(WORLDS[e.to].color, new THREE.Vector3(0, 0.2, 0), 50, 1000, 9, 2);
+      ring(new THREE.Vector3(0, 0.05, 0), WORLDS[e.to].color, 650, TABLE_R * 1.7);
+      await wait(ANIM.world);
     },
 
     async flip(e) {
@@ -1331,17 +1367,18 @@ export function createTableScene(canvas, opts = {}) {
       levelTarget[w] = 1.22;
       shake = Math.max(shake, 0.6);
       lightKick = 2;
-      const rumble = anim(ANIM.erupt * 0.5, (k) => {
+      const rumble = anim(1700, (k) => {
         shake = Math.max(shake, 0.3 * (1 - k));
       }, linear);
       burst(color, new THREE.Vector3(0, -0.5, 0), 140, 1700, 11);
       ring(new THREE.Vector3(0, 0.2, 0), color, 900, 8, true);
       wait(200).then(() => ring(new THREE.Vector3(0, 0.2, 0), '#ffffff', 800, 6.5, true));
-      // Erst wenn das große Band (GameTable SPLASH_MS, 1,8 s) weg ist, kommt die Wirkung — vorher flog die Lavabombe
-      // unsichtbar dahinter (16.11.2026). Bombe + drei Karten enden so nach ~3,5 s, innerhalb von ANIM.erupt.
-      await wait(ANIM.erupt * 0.42);
+      // Erst wenn das große Band (GameTable SPLASH_MS, 1,8 s) fast weg ist, kommt die Wirkung — vorher flog die
+      // Lavabombe unsichtbar dahinter (16.11.2026). Danach nur ein kurzer Ausklang (ANIM.erupt − 3200 ms).
+      const lead = 1600;
+      const part = 1600;
+      await wait(lead);
 
-      const part = ANIM.erupt * 0.42;
       const jobs = [rumble];
       if (e.draws) {
         if (w === 0 && e.ev === 'lavabombe') {
@@ -1367,7 +1404,7 @@ export function createTableScene(canvas, opts = {}) {
       }
       if (e.losses) {
         // Karten verschwinden: im Kosmos ins Schwarze Loch, sonst nach oben in den Funkenregen
-        const hole = walls[3].hole.getWorldPosition(new THREE.Vector3());
+        const hole = worlds[3].hole.getWorldPosition(new THREE.Vector3());
         for (const l of e.losses) {
           const to = w === 3 ? hole : anchor(l.seat).add(new THREE.Vector3(0, 5, 0));
           jobs.push(lose(l, to, part).then(() => (w === 3 ? null : burst(color, to, 20, 600, 3))));
@@ -1403,7 +1440,7 @@ export function createTableScene(canvas, opts = {}) {
         }
       }
       await Promise.all(jobs);
-      await wait(ANIM.erupt * 0.2);
+      await wait(Math.max(0, ANIM.erupt - lead - part));
       charges[w] = 0;
       setCharges(e.charges || charges);
     },
@@ -1487,11 +1524,9 @@ export function createTableScene(canvas, opts = {}) {
     if (disposed || !view || view.n !== n) return;
     world = view.world;
     dir = view.dir;
+    setCharges(view.charges);
     applyWorldLook();
     ambience(world);
-    // Steht die Trommel nach den Ereignissen noch falsch, springt sie (nie drehen, siehe swapWorld)
-    drumAngle = targetAngle();
-    setCharges(view.charges);
     darkTarget = view.dark > 0 ? 1 : 0;
     blind = view.dark > 0 && mySeat !== null && view.darkBy !== null && isFoe(view.darkBy, mySeat);
     counts = view.counts.slice();
@@ -1535,6 +1570,7 @@ export function createTableScene(canvas, opts = {}) {
       obj.position.copy(PILE);
       obj.position.y += 0.012 * Math.min(pile.length, 12);
       obj.quaternion.copy(flatQuat(0.15));
+      obj.scale.setScalar(MID);
       scene.add(obj);
       pile.push(obj);
     }
@@ -1553,9 +1589,11 @@ export function createTableScene(canvas, opts = {}) {
     }
   }
 
-  function setInteractive({ playable = [], canDraw = false } = {}) {
+  /** erupts: [{ id, world }] — Handkarten, die beim Legen eine Welt ausbrechen lassen (bekommen ein Zeichen). */
+  function setInteractive({ playable = [], canDraw = false, erupts = [] } = {}) {
     ui.playable = new Set(playable);
     ui.canDraw = canDraw;
+    ui.erupts = new Map(erupts.map((x) => [x.id, x.world]));
     if (!canDraw) ui.hoverDeck = false;
   }
 
@@ -1606,17 +1644,13 @@ export function createTableScene(canvas, opts = {}) {
       }
     }
 
-    drum.rotation.z = drumAngle;
     if (Math.abs(camera.fov - (baseFov + fovKick)) > 0.01) {
       camera.fov = baseFov + fovKick;
       camera.updateProjectionMatrix();
     }
     const lk = 1 - Math.exp(-dt * 3.2);
-    for (let i = 0; i < 4; i += 1) {
-      levels[i] += (levelTarget[i] - levels[i]) * lk;
-      focus[i] += ((i === world ? 1 : 0) - focus[i]) * lk;
-      walls[i].update(time, dt, levels[i] * (0.45 + 0.55 * focus[i]), focus[i]);
-    }
+    for (let i = 0; i < 4; i += 1) levels[i] += (levelTarget[i] - levels[i]) * lk;
+    if (shownWorld >= 0) worlds[shownWorld].update(time, dt, levels[shownWorld]); // nur die sichtbare Welt bewegt sich
 
     darkness += (darkTarget - darkness) * (1 - Math.exp(-dt * 4));
     lightKick = Math.max(0, lightKick - dt * 3.5);
@@ -1666,6 +1700,10 @@ export function createTableScene(canvas, opts = {}) {
       mats.forEach((m) => m.dispose?.());
     });
     textures.forEach((t) => t.dispose());
+    badgeMats.forEach((m) => {
+      m?.map?.dispose();
+      m?.dispose();
+    });
     composer?.dispose();
     renderer.dispose();
   }
